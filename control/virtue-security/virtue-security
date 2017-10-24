@@ -1,0 +1,315 @@
+#!/usr/local/bin/python
+__VERSION__ = "1"
+
+import argparse
+import json
+import random
+import requests
+import sys
+
+
+def test_parameter_cidr():
+    """
+    Build a test parameter value for a CIDR block.
+
+    This will, for now, return a random IP in the range 2.0.0.0-240.0.0.0
+
+    :return: IPv4 IP as a String
+    """
+    return "%s.%s.%s.%s" % (
+        random.randint(2, 240),
+        random.randint(1, 255),
+        random.randint(1, 255),
+        random.randint(2, 250)
+    )
+
+
+def test_parameter_level():
+    """
+    Build a test parameter value for the LEVEL at which a sensor
+    or group of sensors can observe. Will be one of:
+
+        off, default, low, high, adversarial
+
+    :return:
+    """
+    return random.choice("off default low high adversarial".split(" "))
+
+
+def test_uri_has_parameters(uri):
+    """
+    Determine if the test URI has parameters we know how to parse and
+    interpolate. This will throw an exception if we find a parameter
+    we don't know how to deal with.
+
+    Parameters in URIs look like:
+
+        /path/to/:id/and/:another
+
+    Where :id and :another are named parameters.
+
+    :param uri:
+    :return: True or False
+    """
+    bits = uri.split("/")
+    while len(bits[0]) == 0:
+        bits = bits[1:]
+
+    params = [bit for bit in bits if bit[0] == ":"]
+
+    if len(params) == 0:
+        return False
+    else:
+
+        # make sure all of the params have known functions
+        for param in params:
+            try:
+                param_func = "test_parameter_%s" % (param[1:],)
+                eval(param_func)
+            except NameError as ne:
+                # it doesn't exist, let's throw an error here
+                print("uri [%s] contains a named parameter we can't interpolate [%s]" % (uri, param))
+                raise ne
+        return True
+
+
+def test_interpolate_uri_parameters(uri_path):
+    """
+    Build the test URI given possible parameters.
+
+    :param uri: String path for the URI
+    :return:
+    """
+
+
+    if test_uri_has_parameters(uri_path):
+        selected_params = {}
+        bits = uri_path.split("/")
+        new_bits = []
+
+        # clean off leading slashes
+        while len(bits[0]) == 0:
+            bits = bits[1:]
+
+        # do interpolations
+        for bit in bits:
+            if bit[0] == ":":
+                # we got a param!
+                new_bits.append(test_interpolate_parameter(bit))
+                selected_params[bit] = new_bits[-1]
+            else:
+                # not a param
+                new_bits.append(bit)
+
+        # rebuild the path
+        return "/%s" % ("/".join(new_bits),), selected_params
+    else:
+        return uri_path, {}
+
+
+def test_interpolate_parameter(bit):
+    """
+    Given a named parameter, built a real value for it. This uses
+    the `test_parameter_*` functions to get a random value.
+
+    :param bit: Named parameter starting with a ':'
+    :return: Real value
+    """
+    func = eval("test_parameter_%s" % (bit[1:],))
+    return func()
+
+
+def test_case(opts, test, repeat=5):
+    """
+    Run an individual test one or more times. A list of status dictionaries
+    is returned with an entry for each iteration of the test. The dictionary
+    looks like:
+
+        {
+            "pass": <True | False>,
+            "parameters": {
+                ":variable": "selected value"
+            },
+            "returns": {
+                "expected": "JSON",
+                "got": "cannot parse...."
+            },
+            "code": {
+                "expected": 501,
+                "got": 200
+            }
+        }
+
+    :param opts: Command configuration options
+    :param test: Test case as defined in the *test_api* method
+    :param repeat: Number of variations of the test to run, if interpolated parameters exist
+    :return: Test results list
+    """
+    results = []
+
+    # force repeat to one if we don't have variable params
+    if not test_uri_has_parameters(test["path"]):
+        repeat = 1
+
+    # let's rock this joint
+    for rep in range(repeat):
+
+        # start building our result object
+        rep_result = {
+            "returns": {
+                "expected": test["returns"],
+                "got": ""
+            },
+            "code": {
+                "expected": test["code"],
+                "got": 0
+            },
+            "pass": False,
+            "parameters": {}
+        }
+
+        # build a URI
+        uri_path, selected_params = test_interpolate_uri_parameters(test["path"])
+        full_uri = construct_api_uri(opts, uri_path)
+
+        # record the randomized parameters
+        rep_result["parameters"] = selected_params
+
+        # construct request
+        res = getattr(requests, test["method"].lower())(full_uri)
+
+        # check results
+        did_pass = True
+
+        # make sure we got the status code we expected
+        rep_result["code"]["got"] = res.status_code
+        if res.status_code != test["code"]:
+            did_pass = False
+
+        # make sure we got JSON if that's what we expected
+        rep_result["returns"]["got"] = res.text
+        if test["returns"].lower() == "json":
+            try:
+                res.json()
+                rep_result["returns"]["got"] = "JSON"
+            except Exception as e:
+                rep_result["returns"]["got"] = str(e)
+                rep_result["returns"]["raw"] = res.text
+                did_pass = False
+
+        rep_result["pass"] = did_pass
+
+        # build test case evaluation
+        results.append(rep_result)
+
+    return results
+
+
+def construct_api_uri(opts, uri_path):
+    """
+    Build a full URI for a request to the API.
+
+    :param opts: Command configuration options
+    :param uri_path: Full path for the API
+    :return: String URI
+    """
+
+    # setup the host
+    host = opts.api_host
+
+    if not host.startswith("http"):
+        host = "http://%s" % (host,)
+
+    # setup the full uri
+    return "%s:%d/api/%s%s" % (host, opts.api_port, opts.api_version, uri_path)
+
+
+def test_api(opts):
+    """
+    Test the virtue-security backend API.
+
+    Each test is defined as a dictionary that looks like:
+
+        {
+            "path": "/path/to/command/:variable/",
+            "method": "PUT",
+            "returns": "JSON",
+            "code": 501
+        }
+
+    Where:
+
+        - *path* can define one or more variable parameters that will
+          be interpreted at run time and filled in over the series
+          of tests.
+        - *method* is one of GET, PUT, POST, or DELETE
+        - *expect* is one of JSON, NONE
+        - *code* is a valid HTTP status code
+
+    :param opts: Command configuration options
+    :return:
+    """
+
+    tests = [
+
+        {
+            "method": "PUT",
+            "path": "/network/:cidr/observe/:level",
+            "returns": "JSON",
+            "code": 501
+        }
+    ]
+
+    print("virtue-security/test - running API endpoint response tests")
+    print("  :: %d tests available" % (len(tests),))
+
+    # now run the individual tests
+    for test in tests:
+        print("\t%(method)s %(path)s" % test)
+        results = test_case(opts, test)
+        fails = len([t for t in results if t["pass"]])
+        passes = len(results)
+        print("\t\t%d/%d passed" % (fails, passes))
+
+        if fails != passes:
+            print(json.dumps(results, indent=4))
+
+
+
+def options():
+    """
+    Parse out the command line options.
+
+    :return:
+    """
+    parser = argparse.ArgumentParser(description="Interact with the SAVIOR VirtUE security API")
+
+    # top level control
+    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test"])
+
+    # communications
+    parser.add_argument("-a", "--api-host", dest="api_host", default="localhost", help="API host URI")
+    parser.add_argument("-p", "--api-port", dest="api_port", default=4000, type=int, help="API host port")
+    parser.add_argument("--api-version", dest="api_version", default="v1", help="API version being called")
+
+    # for API testing
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    print("virtue-security(version=%s)" % (__VERSION__,))
+
+    opts = options()
+
+    # dispatch our command based upon the primary mode
+    dispatch = {
+        "test": test_api
+    }
+
+    if opts.mode not in dispatch:
+        print("There is no [%s] mode, please try again, or use the --help flag" % (opts.mode,))
+        sys.exit(1)
+
+    dispatch[opts.mode](opts)
+
