@@ -427,6 +427,22 @@ def test_api(opts):
             "parameters": ["since", "filter_level", "follow"]
         },
 
+        # === Inspect
+        {
+            "method": "GET",
+            "path": "/network/:cidr/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/network/virtue/:virtue/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
         # ENUM API
         {
             "method": "GET",

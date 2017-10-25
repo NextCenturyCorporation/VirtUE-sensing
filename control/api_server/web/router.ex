@@ -44,5 +44,7 @@ defmodule ApiServer.Router do
      put "/network/virtue/:virtue/trust/:action", StubController, :not_implemented, name: "network-virtue-trust"
      get "/network/:cidr/stream", StubController, :not_implemented, name: "network-cidr-stream"
      get "/network/virtue/:virtue/stream", StubController, :not_implemented, name: "network-virtue-stream"
+     get "/network/:cidr/inspect", StubController, :not_implemented, name: "network-cidr-inspect"
+     get "/network/virtue/:virtue/inspect", StubController, :not_implemented, name: "network-virtue-inspect"
    end
 end
