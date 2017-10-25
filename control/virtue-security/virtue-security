@@ -284,7 +284,7 @@ def test_api(opts):
             "path": "/network/:cidr/observe/:level",
             "returns": "JSON",
             "code": 501,
-            "authenticate": False
+            "authenticate": True
         },
         {
             "method": "PUT",
@@ -330,6 +330,14 @@ def options():
 
     # top level control
     parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test"])
+    #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
+
+    # variables
+    parser.add_argument("--network", dest="var_network", default=None, help="Network or IP in CIDR format")
+    parser.add_argument("--virtue-id", dest="var_virtue", default=None, help="Virtue ID")
+
+    # observation control
+    parser.add_argument("--level", dest="observation_level", default="off", help="Observation level")
 
     # communications
     parser.add_argument("-a", "--api-host", dest="api_host", default="localhost", help="API host URI")
