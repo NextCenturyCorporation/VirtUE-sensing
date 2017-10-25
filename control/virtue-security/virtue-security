@@ -18,6 +18,15 @@ def test_generate_user_token():
     return str(uuid.uuid4())
 
 
+def test_parameter_action():
+    """
+    Our test parameters.
+
+    :return: String
+    """
+    return random.choice(["validate", "invalidate"])
+
+
 def test_parameter_cidr():
     """
     Build a test parameter value for a CIDR block.
@@ -278,7 +287,9 @@ def test_api(opts):
 
     tests = [
 
-        ## NETWORK API
+        # NETWORK API
+
+        # === Observe
         {
             "method": "PUT",
             "path": "/network/:cidr/observe/:level",
@@ -294,14 +305,60 @@ def test_api(opts):
             "authenticate": True
         },
 
-        ## ENUM API
+        # === Trust
+        {
+            "method": "PUT",
+            "path": "/network/:cidr/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/network/virtue/:virtue/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Stream
+        # todo: GET auth (python & elixir)
+        # todo: JSONL returns
+        # todo: GET param interpolation
+        {
+            "method": "GET",
+            "path": "/network/:cidr/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/network/virtue/:virtue/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+
+        # ENUM API
         {
             "method": "GET",
             "path": "/enum/observation/levels",
             "returns": "JSON",
             "code": 200,
             "authenticate": False
+        },
+        {
+            "method": "GET",
+            "path": "/enum/log/levels",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": False
         }
+
+
     ]
 
     print("virtue-security/test - running API endpoint response tests")
@@ -319,7 +376,6 @@ def test_api(opts):
             print(json.dumps(results, indent=4))
 
 
-
 def options():
     """
     Parse out the command line options.
@@ -332,12 +388,20 @@ def options():
     parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test"])
     #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
 
-    # variables
+    # identification variables
     parser.add_argument("--network", dest="var_network", default=None, help="Network or IP in CIDR format")
     parser.add_argument("--virtue-id", dest="var_virtue", default=None, help="Virtue ID")
 
-    # observation control
+    # sensor control states
     parser.add_argument("--level", dest="observation_level", default="off", help="Observation level")
+    parser.add_argument("--action", dest="trust_action", default="invalidate", help="Validate or invalidate trust",
+                        choices=["validate", "invalidate"])
+    parser.add_argument("--filter-log-level", dest="log_level", default="everything",
+                        help="Log level below which to filter out messages",
+                        choices=["everything", "debug", "info", "warning", "error", "event"])
+
+    parser.add_argument("--since", dest="time_since", default=None, help="Time or timestamp in log history")
+    parser.add_argument("--follow", dest="log_follow", default=False, action="store_true", help="Follow the log stream")
 
     # communications
     parser.add_argument("-a", "--api-host", dest="api_host", default="localhost", help="API host URI")

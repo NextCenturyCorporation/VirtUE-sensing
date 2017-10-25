@@ -30,7 +30,7 @@ defmodule ApiServer.Router do
 
      # Static data routes
      get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
-
+     get "/enum/log/levels", EnumController, :log_levels, name: "enum-log-levels"
 
      get "/virtues", StubController, :not_implemented
      get "/virtue/:id", StubController, :not_implemented
@@ -40,5 +40,8 @@ defmodule ApiServer.Router do
      ###############
      put "/network/:cidr/observe/:level", StubController, :not_implemented, name: "network-cidr-observe"
      put "/network/virtue/:virtue/observe/:level", StubController, :not_implemented, name: "network-virtue-observe"
+     put "/network/:cidr/trust/:action", StubController, :not_implemented, name: "network-cidr-trust"
+     put "/network/virtue/:virtue/trust/:action", StubController, :not_implemented, name: "network-virtue-trust"
+
    end
 end
