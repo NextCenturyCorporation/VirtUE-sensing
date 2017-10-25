@@ -27,6 +27,10 @@ defmodule ApiServer.Router do
      get "/qotds", StatsController, :qotds
      get "/qotd/:id", StatsController, :qotd
 
+     # Static data routes
+     get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
+
+
      get "/virtues", StubController, :not_implemented
      get "/virtue/:id", StubController, :not_implemented
 
