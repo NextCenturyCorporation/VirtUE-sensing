@@ -46,5 +46,10 @@ defmodule ApiServer.Router do
      get "/network/virtue/:virtue/stream", StubController, :not_implemented, name: "network-virtue-stream"
      get "/network/:cidr/inspect", StubController, :not_implemented, name: "network-cidr-inspect"
      get "/network/virtue/:virtue/inspect", StubController, :not_implemented, name: "network-virtue-inspect"
-   end
+     get "/network/:cidr/validate/check", StubController, :not_implemented, name: "network-cidr-validate-check"
+     get "/network/virtue/:virtue/validate/check", StubController, :not_implemented, name: "network-virtue-validate-check"
+     put "/network/:cidr/validate/:action", StubController, :not_implemented, name: "network-cidr-validate-trigger"
+     put "/network/virtue/:virtue/validate/:action", StubController, :not_implemented, name: "network-virtue-validate-trigger"
+
+  end
 end
