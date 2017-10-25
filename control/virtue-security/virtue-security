@@ -2,6 +2,7 @@
 __VERSION__ = "1"
 
 import argparse
+import datetime
 import json
 import random
 import requests
@@ -16,6 +17,38 @@ def test_generate_user_token():
     :return: String
     """
     return str(uuid.uuid4())
+
+
+def test_parameter_since():
+    """
+    A time stamp as a filter value for the **since** parameter
+    in a time based or time series query. Defaults to NOW
+
+    :return:
+    """
+    return datetime.datetime.now().isoformat()
+
+
+def test_parameter_filter_level():
+    """
+    Filter level is used to control filtering of log messages. This
+    value is from a set of default terms:
+
+        ["everything", "debug", "info", "warning", "error", "event"]
+
+    :return:
+    """
+    return random.choice(["everything", "debug", "info", "warning", "error", "event"])
+
+
+def test_parameter_follow():
+    """
+    Parameter for following (or not) a JSONL series from the log
+    streamer.
+
+    :return: True or False
+    """
+    return random.choice([True, False])
 
 
 def test_parameter_action():
@@ -147,6 +180,37 @@ def test_interpolate_parameter(bit):
     return func()
 
 
+def test_interpolate_parameters(test):
+    """
+    Interpolate possible parameters for a GET based request. This uses
+    any values in the *parameters* section of a test case, as well as
+    testing for authentication. The return value is a dictionary of
+    request parameters
+
+    :param test: Test Case definition
+    :return: Dictionary of parameters
+    """
+    tups = []
+
+    if "authenticate" in test and test["authenticate"]:
+        tups.append(("userToken", test_generate_user_token()))
+
+    if "parameters" in test:
+        for parameter in test["parameters"]:
+
+            # try and find a test_parameter function for this value
+            try:
+                func = eval("test_parameter_%s" % (parameter,))
+            except NameError as ne:
+                print("TestCase has a parameter that we can't interpolate [%s]" % (parameter,))
+                raise ne
+
+            # add a value
+            tups.append((parameter, func()))
+
+    return {tup[0]: tup[1] for tup in tups}
+
+
 def test_case(opts, test, repeat=5):
     """
     Run an individual test one or more times. A list of status dictionaries
@@ -207,11 +271,23 @@ def test_case(opts, test, repeat=5):
         #  but first, are we authenticating?
         if "authenticate" in test and test["authenticate"]:
             if test["method"].lower() == "get":
-                raise NotImplementedError("We don't do authentication over GET requests yet")
+                # determine any parameters for our get request
+                get_params = test_interpolate_parameters(test)
+
+                # fire away
+                res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
             else:
                 res = getattr(requests, test["method"].lower())(full_uri, data={"userToken": test_generate_user_token()})
         else:
-            res = getattr(requests, test["method"].lower())(full_uri)
+            if test["method"].lower() == "get":
+
+                # determine any parameters for our get request
+                get_params = test_interpolate_parameters(test)
+
+                # fire away
+                res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
+            else:
+                res = getattr(requests, test["method"].lower())(full_uri)
 
         # check results
         did_pass = True
@@ -221,9 +297,19 @@ def test_case(opts, test, repeat=5):
         if res.status_code != test["code"]:
             did_pass = False
 
-        # make sure we got JSON if that's what we expected
+        # make sure we got JSON or JSONL if that's what we expected
         rep_result["returns"]["got"] = res.text
         if test["returns"].lower() == "json":
+            try:
+                res.json()
+                rep_result["returns"]["got"] = "JSON"
+            except Exception as e:
+                rep_result["returns"]["got"] = str(e)
+                rep_result["returns"]["raw"] = res.text
+                did_pass = False
+        elif test["returns"].lower() == "jsonl":
+            # the best we can do for now is to try parsing out
+            # the JSON
             try:
                 res.json()
                 rep_result["returns"]["got"] = "JSON"
@@ -322,9 +408,8 @@ def test_api(opts):
         },
 
         # === Stream
-        # todo: GET auth (python & elixir)
         # todo: JSONL returns
-        # todo: GET param interpolation
+
         {
             "method": "GET",
             "path": "/network/:cidr/stream",
@@ -348,14 +433,14 @@ def test_api(opts):
             "path": "/enum/observation/levels",
             "returns": "JSON",
             "code": 200,
-            "authenticate": False
+            "authenticate": True
         },
         {
             "method": "GET",
             "path": "/enum/log/levels",
             "returns": "JSON",
             "code": 200,
-            "authenticate": False
+            "authenticate": True
         }
 
 
