@@ -6,6 +6,16 @@ import json
 import random
 import requests
 import sys
+import uuid
+
+
+def test_generate_user_token():
+    """
+    Just generate a junk authentication token for test purposes.
+
+    :return: String
+    """
+    return str(uuid.uuid4())
 
 
 def test_parameter_cidr():
@@ -22,6 +32,15 @@ def test_parameter_cidr():
         random.randint(1, 255),
         random.randint(2, 250)
     )
+
+
+def test_parameter_virtue():
+    """
+    Generate a VirtueID, which is a UUID.
+
+    :return: Random UUID as String
+    """
+    return str(uuid.uuid4())
 
 
 def test_parameter_level():
@@ -176,7 +195,14 @@ def test_case(opts, test, repeat=5):
         rep_result["parameters"] = selected_params
 
         # construct request
-        res = getattr(requests, test["method"].lower())(full_uri)
+        #  but first, are we authenticating?
+        if "authenticate" in test and test["authenticate"]:
+            if test["method"].lower() == "get":
+                raise NotImplementedError("We don't do authentication over GET requests yet")
+            else:
+                res = getattr(requests, test["method"].lower())(full_uri, data={"userToken": test_generate_user_token()})
+        else:
+            res = getattr(requests, test["method"].lower())(full_uri)
 
         # check results
         did_pass = True
@@ -252,17 +278,29 @@ def test_api(opts):
 
     tests = [
 
+        ## NETWORK API
         {
             "method": "PUT",
             "path": "/network/:cidr/observe/:level",
             "returns": "JSON",
-            "code": 501
+            "code": 501,
+            "authenticate": False
         },
+        {
+            "method": "PUT",
+            "path": "/network/virtue/:virtue/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        ## ENUM API
         {
             "method": "GET",
             "path": "/enum/observation/levels",
             "returns": "JSON",
-            "code": 200
+            "code": 200,
+            "authenticate": False
         }
     ]
 

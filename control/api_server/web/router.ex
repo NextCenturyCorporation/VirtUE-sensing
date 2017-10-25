@@ -11,6 +11,7 @@ defmodule ApiServer.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug ApiServer.Plugs.Authenticate
   end
 
 #  scope "/", ApiServer do
@@ -34,7 +35,10 @@ defmodule ApiServer.Router do
      get "/virtues", StubController, :not_implemented
      get "/virtue/:id", StubController, :not_implemented
 
-     # Actual API
+     ###############
+     # NETWORK API #
+     ###############
      put "/network/:cidr/observe/:level", StubController, :not_implemented, name: "network-cidr-observe"
+     put "/network/virtue/:virtue/observe/:level", StubController, :not_implemented, name: "network-virtue-observe"
    end
 end
