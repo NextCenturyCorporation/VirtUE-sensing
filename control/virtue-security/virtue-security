@@ -19,6 +19,15 @@ def test_generate_user_token():
     return str(uuid.uuid4())
 
 
+def test_parameter_username():
+    """
+    Generate a basic username.
+
+    :return: String
+    """
+    return ".".join(random.sample("Aaden Alaysia Alfred Amia Annabell Anson Apollo Araceli Astrid Audrianna Augustine Avalyn Ayana Bayleigh Belinda Branden Brendon Brenton Broderick Brysen Camilo Camryn Castiel Charity Clyde Collins Corban Cristina Dalilah Darien Dario Davon Deegan Denzel Devyn Emmaline Ephraim Estelle Giovanna Graeme Grey Houston Immanuel India Ireland Jakobe Jaycob Jayde Jayse Jordy Judith Kaidence Kailani Kaiya Kalel Kannon Karissa Karly Karma Kaylyn Kenna Kohen Kylah Lachlan Langston Leroy Lillyana Magnolia Magnus Makena Marleigh Meadow Nahla Natalya Neriah Osvaldo Penny Pierre Princess Reagan Rihanna Rivka Rocky Rowen Roxanne Ryann Santana Sarahi Sidney Tamia Tess Thatcher Tinley Todd Truman Tyree Tyrell Yadiel Yair Zainab".split(" "), 2))
+
+
 def test_parameter_since():
     """
     A time stamp as a filter value for the **since** parameter
@@ -45,9 +54,14 @@ def test_parameter_filter_level():
 
         ["everything", "debug", "info", "warning", "error", "event"]
 
+    or from either of the terms:
+
+        INC
+        DEC
+
     :return:
     """
-    return random.choice(["everything", "debug", "info", "warning", "error", "event"])
+    return random.choice(["everything", "debug", "info", "warning", "error", "event", "inc", "dec"])
 
 
 def test_parameter_follow():
@@ -480,6 +494,105 @@ def test_api(opts):
             "returns": "JSON",
             "code": 501,
             "authenticate": True,
+        },
+
+
+        # VIRTUE API
+
+        # === Observe
+        {
+            "method": "PUT",
+            "path": "/virtue/:virtue/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/virtue/user/:username/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+
+        # === Trust
+        {
+            "method": "PUT",
+            "path": "/virtue/:virtue/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/virtue/user/:username/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+
+        # === Stream
+        {
+            "method": "GET",
+            "path": "/virtue/:virtue/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/virtue/user/:username/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+
+        # === Inspect
+        {
+            "method": "GET",
+            "path": "/virtue/:virtue/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/virtue/user/:username/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Validate
+        {
+            "method": "GET",
+            "path": "/virtue/:virtue/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/virtue/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/virtue/:virtue/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/virtue/user/:username/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
         },
 
         # ENUM API
