@@ -257,6 +257,12 @@ def test_api(opts):
             "path": "/network/:cidr/observe/:level",
             "returns": "JSON",
             "code": 501
+        },
+        {
+            "method": "GET",
+            "path": "/enum/observation/levels",
+            "returns": "JSON",
+            "code": 200
         }
     ]
 
