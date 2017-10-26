@@ -19,6 +19,33 @@ def test_generate_user_token():
     return str(uuid.uuid4())
 
 
+def test_parameter_application():
+    """
+    For identifying applications we'll use a UUID for now.
+
+    :return: String
+    """
+    return str(uuid.uuid4())
+
+
+def test_parameter_resource():
+    """
+    For identifying resources, we'll use a UUID for now.
+
+    :return: String
+    """
+    return str(uuid.uuid4())
+
+
+def test_parameter_sensor():
+    """
+    For identifying a specific sensor, we'll use a UUID for now.
+
+    :return: String
+    """
+    return str(uuid.uuid4())
+
+
 def test_parameter_username():
     """
     Generate a basic username.
@@ -33,7 +60,7 @@ def test_parameter_since():
     A time stamp as a filter value for the **since** parameter
     in a time based or time series query. Defaults to NOW
 
-    :return:
+    :return: String
     """
     return datetime.datetime.now().isoformat()
 
@@ -85,18 +112,48 @@ def test_parameter_action():
 
 def test_parameter_cidr():
     """
-    Build a test parameter value for a CIDR block.
+    Build a test parameter value for a CIDR block. This needs to be an
+    IP plus a suffix filter, like 8.0.0.0/27. We'll auto-escape the slash
+    as %2F
 
     This will, for now, return a random IP in the range 2.0.0.0-240.0.0.0
 
     :return: IPv4 IP as a String
     """
-    return "%s.%s.%s.%s" % (
+    return "%d.%d.%d.%d%%2F%d" % (
         random.randint(2, 240),
         random.randint(1, 255),
         random.randint(1, 255),
-        random.randint(2, 250)
+        random.randint(2, 250),
+        random.randint(8, 32)
     )
+
+
+def test_parameter_address():
+    """
+    An address is a hostname or IPv4 address that describes a
+    single host. We randomly select among these.
+
+    :return: String address
+    """
+    if random.choice([1, 2]) == 1:
+        # IPv4 it is
+        return "%d.%d.%d.%d" % (
+            random.randint(2, 240),
+            random.randint(1, 255),
+            random.randint(1, 255),
+            random.randint(2, 250)
+        )
+    else:
+        # Hostname. Let's make something AWS like
+        return "ip-%d-%d-%d-%d.us-%s-%d.compute.internal" % (
+            random.randint(2, 240),
+            random.randint(1, 255),
+            random.randint(1, 255),
+            random.randint(2, 250),
+            random.choice(["east", "west"]),
+            random.randint(1,3)
+        )
 
 
 def test_parameter_virtue():
@@ -595,6 +652,914 @@ def test_api(opts):
             "authenticate": True
         },
 
+        # VIRTUAL MACHINE API
+
+        # === Observe
+        {
+            "method": "PUT",
+            "path": "/vm/virtue/:virtue/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/user/:username/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/address/:address/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Trust
+        {
+            "method": "PUT",
+            "path": "/vm/virtue/:virtue/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/user/:username/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/address/:address/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Stream
+        {
+            "method": "GET",
+            "path": "/vm/virtue/:virtue/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/vm/user/:username/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/vm/address/:address/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+
+        # === Inspect
+        {
+            "method": "GET",
+            "path": "/vm/virtue/:virtue/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/vm/user/:username/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/vm/address/:address/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Validate
+        {
+            "method": "GET",
+            "path": "/vm/virtue/:virtue/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/vm/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/vm/address/:address/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/virtue/:virtue/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/user/:username/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/address/:address/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # APPLICATION API
+        #   Note for application targeting, we use a combinator of filters, which can be used
+        #   singularly, or in ordered combinations to allow fine grained target selection.
+        #   See the Sensing API documentation for more details. This is why we see more variations
+        #   of possible call paths for Application vs any other selectors.
+
+
+        # === Observe
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+
+        # === Trust
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+
+        # === Stream
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/application/user/:username/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/user/:username/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/application/user/:username/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+
+        # === Inspect
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/user/:username/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/user/:username/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/user/:username/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Validate
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/virtue/:virtue/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/application/user/:username/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # RESOURCE API
+        #   Like the Application API, some of the interactions with the Resource API use a combinator
+        #   approach for targeting. See the Sensing API document for more information.
+
+        # === Observe
+        {
+            "method": "PUT",
+            "path": "/resource/:resource/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/application/:application/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+
+        # === Trust
+        {
+            "method": "PUT",
+            "path": "/resource/:resource/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/application/:application/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True,
+        },
+
+        # === Stream
+        {
+            "method": "GET",
+            "path": "/resource/:resource/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/resource/user/:username/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/resource/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/user/:username/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+        {
+            "method": "GET",
+            "path": "/resource/user/:username/application/:application/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+
+        # == Inspect
+        {
+            "method": "GET",
+            "path": "/resource/:resource/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/user/:username/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/user/:username/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/user/:username/application/:application/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Validate
+        {
+            "method": "GET",
+            "path": "/resource/:resource/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "GET",
+            "path": "/resource/user/:username/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        {
+            "method": "PUT",
+            "path": "/resource/:resource/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/application/:application/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # USER API
+
+        # === Observe
+        {
+            "method": "PUT",
+            "path": "/user/:username/observe/:level",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Trust
+        {
+            "method": "PUT",
+            "path": "/user/:username/trust/:action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Stream
+        {
+            "method": "GET",
+            "path": "/user/:username/stream",
+            "returns": "JSONL",
+            "code": 501,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"]
+        },
+
+        # === Inspect
+        {
+            "method": "GET",
+            "path": "/user/:username/inspect",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Validate
+        {
+            "method": "GET",
+            "path": "/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/user/:username/inspect/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # SENSOR API
+
+        # === Configure
+        {
+            "method": "GET",
+            "path": "/sensor/:sensor/configure",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/sensor/:sensor/configure",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
+        # === Validate
+        {
+            "method": "GET",
+            "path": "/sensor/:sensor/validate/check",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+        {
+            "method": "PUT",
+            "path": "/sensor/:sensor/validate/:validate_action",
+            "returns": "JSON",
+            "code": 501,
+            "authenticate": True
+        },
+
         # ENUM API
         {
             "method": "GET",
@@ -617,16 +1582,60 @@ def test_api(opts):
     print("virtue-security/test - running API endpoint response tests")
     print("  :: %d tests available" % (len(tests),))
 
+    # track pass/fail totals
+    total_pass = 0
+    total_fail = 0
+    fail_codes = {}
+
     # now run the individual tests
     for test in tests:
+
         print("\t%(method)s %(path)s" % test)
+
+        # run the test and record the results
         results = test_case(opts, test)
-        fails = len([t for t in results if t["pass"]])
-        passes = len(results)
+
+        passes = len([t for t in results if t["pass"]])
+        fails = len(results) - passes
+
+        total_fail += fails
+        total_pass += passes
+
+        # with what status codes did we fail?
+        for test_result in results:
+            if not test_result["pass"]:
+
+                fail_code = test_result["code"]["got"]
+                if fail_code not in fail_codes:
+                    fail_codes[fail_code] = 0
+
+                fail_codes[fail_code] += 1
+
+        # report on what passed/failed
         print("\t\t%d/%d passed" % (fails, passes))
 
+        # if we had failures, we dump the results
         if fails != passes:
             print(json.dumps(results, indent=4))
+
+    # summary report
+    print("  :: TEST SUMMARY")
+    print(
+        "  :: %(passed)d passed, %(failed)d failed out of %(total)d total tests\n\t%(percent_pass)0.2f%% pass rate\n\t%(test_cases)d test cases" %
+        {
+            "passed": total_pass,
+            "failed": total_fail,
+            "total": total_pass + total_fail,
+            "percent_pass": (total_pass * 1.0) / ( (total_pass + total_fail) * 1.0) * 100.0,
+            "test_cases": len(tests)
+        }
+    )
+
+    # report on failure codes if we had any
+    if len(fail_codes) > 0:
+        print("    HTTP status_code for failures")
+        for fail_code in sorted(fail_codes.keys()):
+            print("      %d == %d" % (fail_code, fail_codes[fail_code]))
 
 
 def options():
