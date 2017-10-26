@@ -67,5 +67,36 @@ defmodule ApiServer.Router do
      put "/virtue/:virtue/validate/:action", StubController, :not_implemented, name: "virtue-validate-trigger"
      put "/virtue/user/:user/validate/:action", StubController, :not_implemented, name: "virtue-user-validate-trigger"
 
+     ##########
+     # VM API #
+     ##########
+     put "/vm/:virtue/observe/:level", StubController, :not_implemented, name: "vm-virtue-observe"
+     put "/vm/user/:user/observe/:level", StubController, :not_implemented, name: "vm-user-observe"
+     put "/vm/address/:address/observe/:level", StubController, :not_implemented, name: "vm-address-observe"
+
+     put "/vm/:virtue/trust/:action", StubController, :not_implemented, name: "vm-virtue-trust"
+     put "/vm/user/:user/trust/:action", StubController, :not_implemented, name: "vm-user-trust"
+     put "/vm/address/:address/trust/:action", StubController, :not_implemented, name: "vm-address-trust"
+
+     get "/vm/:virtue/stream", StubController, :not_implemented, name: "vm-virtue-stream"
+     get "/vm/user/:user/stream", StubController, :not_implemented, name: "vm-user-stream"
+     get "/vm/address/:address/stream", StubController, :not_implemented, name: "vm-address-stream"
+
+     get "/vm/:virtue/inspect", StubController, :not_implemented, name: "vm-virtue-inspect"
+     get "/vm/user/:user/inspect", StubController, :not_implemented, name: "vm-user-inspect"
+     get "/vm/address/:address/inspect", StubController, :not_implemented, name: "vm-address-inspect"
+
+     get "/vm/:virtue/validate/check", StubController, :not_implemented, name: "vm-virtue-validate-check"
+     get "/vm/user/:user/validate/check", StubController, :not_implemented, name: "vm-user-validate-check"
+     get "/vm/address/:address/validate/check", StubController, :not_implemented, name: "vm-address-validate-check"
+
+     put "/vm/:virtue/trust/validate/:action", StubController, :not_implemented, name: "vm-virtue-validate-trigger"
+     put "/vm/user/:user/validate/:action", StubController, :not_implemented, name: "vm-user-validate-trigger"
+     put "/vm/address/:address/validate/:action", StubController, :not_implemented, name: "vm-address-validate-trigger"
+
+    ###################
+     # APPLICATION API #
+     ###################
+
   end
 end
