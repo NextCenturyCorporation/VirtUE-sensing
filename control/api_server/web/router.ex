@@ -35,8 +35,8 @@ defmodule ApiServer.Router do
      ###############
      # NETWORK API #
      ###############
-     put "/network/:cidr/observe/:level", StubController, :not_implemented, name: "network-cidr-observe"
-     put "/network/virtue/:virtue/observe/:level", StubController, :not_implemented, name: "network-virtue-observe"
+     put "/network/:cidr/observe/:level", ObserveController, :observe, name: "network-cidr-observe"
+     put "/network/virtue/:virtue/observe/:level", ObserveController, :observe, name: "network-virtue-observe"
      put "/network/:cidr/trust/:action", StubController, :not_implemented, name: "network-cidr-trust"
      put "/network/virtue/:virtue/trust/:action", StubController, :not_implemented, name: "network-virtue-trust"
      get "/network/:cidr/stream", StubController, :not_implemented, name: "network-cidr-stream"
