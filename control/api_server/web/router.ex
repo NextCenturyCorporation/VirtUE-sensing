@@ -32,9 +32,6 @@ defmodule ApiServer.Router do
      get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
      get "/enum/log/levels", EnumController, :log_levels, name: "enum-log-levels"
 
-     get "/virtues", StubController, :not_implemented
-     get "/virtue/:id", StubController, :not_implemented
-
      ###############
      # NETWORK API #
      ###############
@@ -85,7 +82,7 @@ defmodule ApiServer.Router do
      get "/vm/virtue/:virtue/validate/check", StubController, :not_implemented, name: "vm-virtue-validate-check"
      get "/vm/user/:user/validate/check", StubController, :not_implemented, name: "vm-user-validate-check"
      get "/vm/address/:address/validate/check", StubController, :not_implemented, name: "vm-address-validate-check"
-     put "/vm/virtue/:virtue/trust/validate/:action", StubController, :not_implemented, name: "vm-virtue-validate-trigger"
+     put "/vm/virtue/:virtue/validate/:action", StubController, :not_implemented, name: "vm-virtue-validate-trigger"
      put "/vm/user/:user/validate/:action", StubController, :not_implemented, name: "vm-user-validate-trigger"
      put "/vm/address/:address/validate/:action", StubController, :not_implemented, name: "vm-address-validate-trigger"
 
@@ -96,7 +93,7 @@ defmodule ApiServer.Router do
      put "/application/user/:user/observe/:level", StubController, :not_implemented, name: "application-user-observe"
      put "/application/:application/observe/:level", StubController, :not_implemented, name: "application-application-observe"
      put "/application/virtue/:virtue/user/:user/observe/:level", StubController, :not_implemented, name: "application-virtue-user-observe"
-     put "/application/virtue/:virtue/applicaiton/:application/observe/:level", StubController, :not_implemented, name: "application-virtue-application-observe"
+     put "/application/virtue/:virtue/application/:application/observe/:level", StubController, :not_implemented, name: "application-virtue-application-observe"
      put "/application/user/:user/application/:application/observe/:level", StubController, :not_implemented, name: "application-user-application-observe"
      put "/application/virtue/:virtue/user/:user/application/:application/observe/:level", StubController, :not_implemented, name: "application-virtue-user-application-observe"
 
@@ -104,7 +101,7 @@ defmodule ApiServer.Router do
      put "/application/user/:user/trust/:action", StubController, :not_implemented, name: "application-user-trust"
      put "/application/:application/trust/:action", StubController, :not_implemented, name: "application-application-trust"
      put "/application/virtue/:virtue/user/:user/trust/:action", StubController, :not_implemented, name: "application-virtue-user-trust"
-     put "/application/virtue/:virtue/applicaiton/:application/trust/:action", StubController, :not_implemented, name: "application-virtue-application-trust"
+     put "/application/virtue/:virtue/application/:application/trust/:action", StubController, :not_implemented, name: "application-virtue-application-trust"
      put "/application/user/:user/application/:application/trust/:action", StubController, :not_implemented, name: "application-user-application-trust"
      put "/application/virtue/:virtue/user/:user/application/:application/trust/:action", StubController, :not_implemented, name: "application-virtue-user-application-trust"
 
@@ -112,7 +109,7 @@ defmodule ApiServer.Router do
      get "/application/user/:user/stream", StubController, :not_implemented, name: "application-user-stream"
      get "/application/:application/stream", StubController, :not_implemented, name: "application-application-stream"
      get "/application/virtue/:virtue/user/:user/stream", StubController, :not_implemented, name: "application-virtue-user-stream"
-     get "/application/virtue/:virtue/applicaiton/:application/stream", StubController, :not_implemented, name: "application-virtue-application-stream"
+     get "/application/virtue/:virtue/application/:application/stream", StubController, :not_implemented, name: "application-virtue-application-stream"
      get "/application/user/:user/application/:application/stream", StubController, :not_implemented, name: "application-user-application-stream"
      get "/application/virtue/:virtue/user/:user/application/:application/stream", StubController, :not_implemented, name: "application-virtue-user-application-stream"
 
@@ -120,7 +117,7 @@ defmodule ApiServer.Router do
      get "/application/user/:user/inspect", StubController, :not_implemented, name: "application-user-inspect"
      get "/application/:application/inspect", StubController, :not_implemented, name: "application-application-inspect"
      get "/application/virtue/:virtue/user/:user/inspect", StubController, :not_implemented, name: "application-virtue-user-inspect"
-     get "/application/virtue/:virtue/applicaiton/:application/inspect", StubController, :not_implemented, name: "application-virtue-application-inspect"
+     get "/application/virtue/:virtue/application/:application/inspect", StubController, :not_implemented, name: "application-virtue-application-inspect"
      get "/application/user/:user/application/:application/inspect", StubController, :not_implemented, name: "application-user-application-inspect"
      get "/application/virtue/:virtue/user/:user/application/:application/inspect", StubController, :not_implemented, name: "application-virtue-user-application-inspect"
 
@@ -128,7 +125,7 @@ defmodule ApiServer.Router do
      get "/application/user/:user/validate/check", StubController, :not_implemented, name: "application-user-validate-check"
      get "/application/:application/validate/check", StubController, :not_implemented, name: "application-application-validate-check"
      get "/application/virtue/:virtue/user/:user/validate/check", StubController, :not_implemented, name: "application-virtue-user-validate-check"
-     get "/application/virtue/:virtue/applicaiton/:application/validate/check", StubController, :not_implemented, name: "application-virtue-application-validate-check"
+     get "/application/virtue/:virtue/application/:application/validate/check", StubController, :not_implemented, name: "application-virtue-application-validate-check"
      get "/application/user/:user/application/:application/validate/check", StubController, :not_implemented, name: "application-user-application-validate-check"
      get "/application/virtue/:virtue/user/:user/application/:application/validate/check", StubController, :not_implemented, name: "application-virtue-user-application-validate-check"
 
@@ -136,9 +133,84 @@ defmodule ApiServer.Router do
      put "/application/user/:user/validate/:action", StubController, :not_implemented, name: "application-user-validate-trigger"
      put "/application/:application/validate/:action", StubController, :not_implemented, name: "application-application-validate-trigger"
      put "/application/virtue/:virtue/user/:user/validate/:action", StubController, :not_implemented, name: "application-virtue-user-validate-trigger"
-     put "/application/virtue/:virtue/applicaiton/:application/validate/:action", StubController, :not_implemented, name: "application-virtue-application-validate-trigger"
+     put "/application/virtue/:virtue/application/:application/validate/:action", StubController, :not_implemented, name: "application-virtue-application-validate-trigger"
      put "/application/user/:user/application/:application/validate/:action", StubController, :not_implemented, name: "application-user-application-validate-trigger"
      put "/application/virtue/:virtue/user/:user/application/:application/validate/:action", StubController, :not_implemented, name: "application-virtue-user-application-validate-trigger"
+
+     ################
+     # RESOURCE API #
+     ################
+     put "/resource/:resource/observe/:level", StubController, :not_implemented, name: "resource-observe"
+     put "/resource/virtue/:virtue/observe/:level", StubController, :not_implemented, name: "resource-virtue-observe"
+     put "/resource/user/:user/observe/:level", StubController, :not_implemented, name: "resource-user-observe"
+     put "/resource/application/:application/observe/:level", StubController, :not_implemented, name: "resource-application-observe"
+     put "/resource/virtue/:virtue/user/:user/observe/:level", StubController, :not_implemented, name: "resource-virtue-user-observe"
+     put "/resource/virtue/:virtue/application/:application/observe/:level", StubController, :not_implemented, name: "resource-virtue-application-observe"
+     put "/resource/user/:user/application/:application/observe/:level", StubController, :not_implemented, name: "resource-user-application-observe"
+     put "/resource/virtue/:virtue/user/:user/application/:application/observe/:level", StubController, :not_implemented, name: "resource-virtue-user-application-observe"
+
+     put "/resource/:resource/trust/:action", StubController, :not_implemented, name: "resource-trust"
+     put "/resource/virtue/:virtue/trust/:action", StubController, :not_implemented, name: "resource-virtue-trust"
+     put "/resource/user/:user/trust/:action", StubController, :not_implemented, name: "resource-user-trust"
+     put "/resource/application/:application/trust/:action", StubController, :not_implemented, name: "resource-application-trust"
+     put "/resource/virtue/:virtue/user/:user/trust/:action", StubController, :not_implemented, name: "resource-virtue-user-trust"
+     put "/resource/virtue/:virtue/application/:application/trust/:action", StubController, :not_implemented, name: "resource-virtue-application-trust"
+     put "/resource/user/:user/application/:application/trust/:action", StubController, :not_implemented, name: "resource-user-application-trust"
+     put "/resource/virtue/:virtue/user/:user/application/:application/trust/:action", StubController, :not_implemented, name: "resource-virtue-user-application-trust"
+
+     get "/resource/:resource/stream", StubController, :not_implemented, name: "resource-stream"
+     get "/resource/virtue/:virtue/stream", StubController, :not_implemented, name: "resource-virtue-stream"
+     get "/resource/user/:user/stream", StubController, :not_implemented, name: "resource-user-stream"
+     get "/resource/application/:application/stream", StubController, :not_implemented, name: "resource-application-stream"
+     get "/resource/virtue/:virtue/user/:user/stream", StubController, :not_implemented, name: "resource-virtue-user-stream"
+     get "/resource/virtue/:virtue/application/:application/stream", StubController, :not_implemented, name: "resource-virtue-application-stream"
+     get "/resource/user/:user/application/:application/stream", StubController, :not_implemented, name: "resource-user-application-stream"
+     get "/resource/virtue/:virtue/user/:user/application/:application/stream", StubController, :not_implemented, name: "resource-virtue-user-application-stream"
+
+     get "/resource/:resource/inspect", StubController, :not_implemented, name: "resource-inspect"
+     get "/resource/virtue/:virtue/inspect", StubController, :not_implemented, name: "resource-virtue-inspect"
+     get "/resource/user/:user/inspect", StubController, :not_implemented, name: "resource-user-inspect"
+     get "/resource/application/:application/inspect", StubController, :not_implemented, name: "resource-application-inspect"
+     get "/resource/virtue/:virtue/user/:user/inspect", StubController, :not_implemented, name: "resource-virtue-user-inspect"
+     get "/resource/virtue/:virtue/application/:application/inspect", StubController, :not_implemented, name: "resource-virtue-application-inspect"
+     get "/resource/user/:user/application/:application/inspect", StubController, :not_implemented, name: "resource-user-application-inspect"
+     get "/resource/virtue/:virtue/user/:user/application/:application/inspect", StubController, :not_implemented, name: "resource-virtue-user-application-inspect"
+
+     get "/resource/:resource/validate/check", StubController, :not_implemented, name: "resource-validate-check"
+     get "/resource/virtue/:virtue/validate/check", StubController, :not_implemented, name: "resource-virtue-validate-check"
+     get "/resource/user/:user/validate/check", StubController, :not_implemented, name: "resource-user-validate-check"
+     get "/resource/application/:application/validate/check", StubController, :not_implemented, name: "resource-application-validate-check"
+     get "/resource/virtue/:virtue/user/:user/validate/check", StubController, :not_implemented, name: "resource-virtue-user-validate-check"
+     get "/resource/virtue/:virtue/application/:application/validate/check", StubController, :not_implemented, name: "resource-virtue-application-validate-check"
+     get "/resource/user/:user/application/:application/validate/check", StubController, :not_implemented, name: "resource-user-application-validate-check"
+     get "/resource/virtue/:virtue/user/:user/application/:application/validate/check", StubController, :not_implemented, name: "resource-virtue-user-application-validate-check"
+
+     put "/resource/:resource/validate/:action", StubController, :not_implemented, name: "resource-validate-trigger"
+     put "/resource/virtue/:virtue/validate/:action", StubController, :not_implemented, name: "resource-virtue-validate-trigger"
+     put "/resource/user/:user/validate/:action", StubController, :not_implemented, name: "resource-user-validate-trigger"
+     put "/resource/application/:application/validate/:action", StubController, :not_implemented, name: "resource-application-validate-trigger"
+     put "/resource/virtue/:virtue/user/:user/validate/:action", StubController, :not_implemented, name: "resource-virtue-user-validate-trigger"
+     put "/resource/virtue/:virtue/application/:application/validate/:action", StubController, :not_implemented, name: "resource-virtue-application-validate-trigger"
+     put "/resource/user/:user/application/:application/validate/:action", StubController, :not_implemented, name: "resource-user-application-validate-trigger"
+     put "/resource/virtue/:virtue/user/:user/application/:application/validate/:action", StubController, :not_implemented, name: "resource-virtue-user-application-validate-trigger"
+
+     ############
+     # USER API #
+     ############
+     put "/user/:username/observe/:level", StubController, :not_implemented, name: "user-observe"
+     put "/user/:username/trust/:action", StubController, :not_implemented, name: "user-trust"
+     get "/user/:username/stream", StubController, :not_implemented, name: "user-stream"
+     get "/user/:username/inspect", StubController, :not_implemented, name: "user-inspect"
+     get "/user/:username/validate/check", StubController, :not_implemented, name: "user-validate-check"
+     put "/user/:username/validate/:action", StubController, :not_implemented, name: "user-validate-trigger"
+
+     ##############
+     # SENSOR API #
+     ##############
+     get "/sensor/:sensor/configure", StubController, :not_implemented, name: "sensor-configure-get"
+     put "/sensor/:sensor/configure", StubController, :not_implemented, name: "sensor-configure-set"
+     get "/sensor/:sensor/validate/check", StubController, :not_implemented, name: "sensor-validate-check"
+     put "/sensor/:sensor/validate/:action", StubController, :not_implemented, name: "sensor-validate-trigger"
 
   end
 end

@@ -1520,7 +1520,7 @@ def test_api(opts):
         },
         {
             "method": "PUT",
-            "path": "/user/:username/inspect/:validate_action",
+            "path": "/user/:username/validate/:validate_action",
             "returns": "JSON",
             "code": 501,
             "authenticate": True
@@ -1586,6 +1586,7 @@ def test_api(opts):
     total_pass = 0
     total_fail = 0
     fail_codes = {}
+    fail_paths = set()
 
     # now run the individual tests
     for test in tests:
@@ -1605,6 +1606,10 @@ def test_api(opts):
         for test_result in results:
             if not test_result["pass"]:
 
+                # store the path we failed
+                fail_paths.add("%(method)s %(path)s" % test)
+
+                # store the failure codes for later use
                 fail_code = test_result["code"]["got"]
                 if fail_code not in fail_codes:
                     fail_codes[fail_code] = 0
@@ -1612,10 +1617,10 @@ def test_api(opts):
                 fail_codes[fail_code] += 1
 
         # report on what passed/failed
-        print("\t\t%d/%d passed" % (fails, passes))
+        print("\t\t%d/%d passed" % (passes, len(results)))
 
         # if we had failures, we dump the results
-        if fails != passes:
+        if fails > 0:
             print(json.dumps(results, indent=4))
 
     # summary report
@@ -1636,6 +1641,12 @@ def test_api(opts):
         print("    HTTP status_code for failures")
         for fail_code in sorted(fail_codes.keys()):
             print("      %d == %d" % (fail_code, fail_codes[fail_code]))
+
+    # report on which unique paths failed
+    if len(fail_paths) > 0:
+        print("    Failed paths")
+        for fail_path in list(fail_paths):
+            print("      %s" % (fail_path,))
 
 
 def options():

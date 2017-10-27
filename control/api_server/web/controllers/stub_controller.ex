@@ -13,6 +13,10 @@ defmodule ApiServer.StubController do
     json conn_with_status(conn, 501), conn_json(conn, 501)
   end
 
+  def not_implemented(conn, _, _, _) do
+    json conn_with_status(conn, 501), conn_json(conn, 501)
+  end
+
   defp conn_with_status(conn, stat) do
     conn
     |> put_status(stat)
