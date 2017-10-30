@@ -1586,6 +1586,34 @@ def test_api(opts):
             "authenticate": True
         },
 
+        # --- Failure Cases
+
+        #     Invalid Sensor ID
+        {
+            "method": "GET",
+            "path": "/sensor/1324567654323456/configure",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": ""
+            }
+        },
+
+        #     Unauthenticated
+        {
+            "method": "GET",
+            "path": "/sensor/:sensor/configure",
+            "returns": "JSON",
+            "code": 401,
+            "authenticate": False,
+            "result_has_fields": {
+                "error": True,
+                "msg": ""
+            }
+        },
+
         # === Validate
         {
             "method": "GET",
