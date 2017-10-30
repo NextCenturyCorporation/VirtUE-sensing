@@ -5,7 +5,7 @@
  
 # API SERVER
 
- - [ ] Move all request handling out of StubController
+ - [x] Move all request handling out of StubController
  - [ ] Parallelize `virtue-security` test mode
  - [ ] Migrate non-JSON validating endpoints to return HTTP 200
  - [ ] Write basic JSON validation routines
