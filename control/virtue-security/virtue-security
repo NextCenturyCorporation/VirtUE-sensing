@@ -377,13 +377,49 @@ def test_case(opts, test, repeat=5):
         if res.status_code != test["code"]:
             did_pass = False
 
-        # make sure we got JSON or JSONL if that's what we expected
+        # make sure we got JSON or JSONL if that's what we expected, and then
+        # verify the data from the results
         rep_result["returns"]["got"] = res.text
         if test["returns"].lower() == "json":
             try:
-                res.json()
+
+                # did we get JSON?
+                res_json = res.json()
                 rep_result["returns"]["got"] = "JSON"
+
+                # validate from our result_has_fields, which looks like:
+                #
+                #       {
+                #           "key": value,
+                #           "key": value,
+                #           ...
+                #       }
+                #
+                # Which we use to validate in multiple ways:
+                #   - key must exist
+                #   - type of key in results must match type in result_has_fields
+                if "result_has_fields" in test:
+                    rep_result["result_has_fields"] = []
+                    for key in test["result_has_fields"].keys():
+
+                        # key exists
+                        if key not in res_json:
+                            rep_result["result_has_fields"].append("The [%s] key is missing from the results" % (key,))
+                            did_pass = False
+
+                        # types match
+                        if key in res_json:
+                            if type(test["result_has_fields"][key]) != type(res_json[key]):
+                                rep_result["result_has_fields"].append(
+                                    "The field [%s] in the results has the wrong type. Expected (%s) got (%s)" %
+                                    (
+                                        key,
+                                        type(test["result_has_fields"][key]),
+                                        type(res_json[key])
+                                    )
+                                )
             except Exception as e:
+                print(e)
                 rep_result["returns"]["got"] = str(e)
                 rep_result["returns"]["raw"] = res.text
                 did_pass = False
@@ -1533,8 +1569,14 @@ def test_api(opts):
             "method": "GET",
             "path": "/sensor/:sensor/configure",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": False,
+                "sensor": "",
+                "timestamp": "",
+                "configuration": {}
+            }
         },
         {
             "method": "PUT",
@@ -1581,6 +1623,10 @@ def test_api(opts):
 
     print("virtue-security/test - running API endpoint response tests")
     print("  :: %d tests available" % (len(tests),))
+
+    # apply our test filter
+    tests = [t for t in tests if t["path"].startswith(opts.test_path)]
+    print("  :: %d tests matching --test-path filter" % (len(tests),))
 
     # track pass/fail totals
     total_pass = 0
@@ -1682,6 +1728,7 @@ def options():
     parser.add_argument("--api-version", dest="api_version", default="v1", help="API version being called")
 
     # for API testing
+    parser.add_argument("--test-path", dest="test_path", default="/", help="Filter prefix for selecting tests. Defaults to selecting all tests")
 
     return parser.parse_args()
 
