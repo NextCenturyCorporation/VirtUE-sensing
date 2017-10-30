@@ -13,18 +13,22 @@
 defmodule ApiServer.StubController do
   use ApiServer.Web, :controller
 
+  # Plug.Conn handler /1 - simple JSON return
   def not_implemented(conn) do
     json conn_with_status(conn, 500), conn_json(conn, 500)
   end
 
+  # Plug.Conn handler /2 - simple JSON return
   def not_implemented(conn, _) do
     json conn_with_status(conn, 500), conn_json(conn, 500)
   end
 
+  # Plug.Conn handler /3 - simple JSON return
   def not_implemented(conn, _, _) do
     json conn_with_status(conn, 500), conn_json(conn, 500)
   end
 
+  # Plug.Conn handler /4 - simple JSON return
   def not_implemented(conn, _, _, _) do
     json conn_with_status(conn, 500), conn_json(conn, 500)
   end
