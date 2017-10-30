@@ -71,7 +71,7 @@ def test_parameter_validate_action():
 
     :return: String
     """
-    return random.choice(["cananry", "cross-validation"])
+    return random.choice(["canary", "cross-validation"])
 
 
 def test_parameter_filter_level():
