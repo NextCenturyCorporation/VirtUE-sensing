@@ -6,9 +6,12 @@
 # API SERVER
 
  - [x] Move all request handling out of StubController
- - [ ] Parallelize `virtue-security` test mode
  - [ ] Migrate non-JSON validating endpoints to return HTTP 200
  - [ ] Write basic JSON validation routines
+  - tackling the Migrate and validation controller by controller
+   - [ ] Configure Controller
+ - [ ] Add tests to check all endpoints without authenticating
+ - [ ] Add fuzzing tests with known bad inputs
  - [ ] Write targeting Plug
   - [ ] Determine target inline to request processing, stash in "target" on connection
   - [ ] break out some methods based on targeting as method guards
@@ -23,3 +26,5 @@
   - [ ] Streaming
   - [ ] Inspection
   - [ ] validation
+ - [ ] Parallelize `virtue-security` test mode
+  
