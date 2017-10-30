@@ -207,7 +207,7 @@ defmodule ApiServer.Router do
      ##############
      # SENSOR API #
      ##############
-     get "/sensor/:sensor/configure", ConfigureController, :configure, name: "sensor-configure-get"
+     get "/sensor/:sensor/configure", ConfigureController, :review, name: "sensor-configure-get"
      put "/sensor/:sensor/configure", ConfigureController, :configure, name: "sensor-configure-set"
      get "/sensor/:sensor/validate/check", ValidateController, :check, name: "sensor-validate-check"
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
