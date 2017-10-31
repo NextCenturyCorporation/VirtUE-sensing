@@ -28,13 +28,16 @@ defmodule ApiServer.ConfigureController do
   #
   def review(conn, _) do
     IO.puts("ConfigureController -> Operating on sensor[#{conn.assigns.sensor_id}]")
-    json conn_with_status(conn, 200), \
-      %{
-        error: :false,
-        sensor: conn.assigns.sensor_id,
-        timestamp: DateTime.to_string(DateTime.utc_now()),
-        configuration: %{}
-      }
+    conn
+      |> put_status(200)
+      |> json(
+        %{
+          error: :false,
+          sensor: conn.assigns.sensor_id,
+          timestamp: DateTime.to_string(DateTime.utc_now()),
+          configuration: %{}
+        }
+       )
   end
 
   # Plug.Conn handler /2
@@ -113,27 +116,4 @@ defmodule ApiServer.ConfigureController do
          )
   end
 
-  # Private Method
-  #
-  # Apply an HTTP Status to the connection and return
-  # the connection for chaining.
-  defp conn_with_status(conn, stat) do
-    conn
-    |> put_status(stat)
-  end
-
-  # Private Method / Temporary Method
-  #
-  # Return the JSON blob used during testing/development, which
-  # will be sent on to the connection.
-  defp conn_json(conn, code) do
-    handled_by = controller_module(conn)
-    %{
-      path: current_path(conn),
-      action: action_name(conn),
-      status_code: code,
-      msg: "Not Implemented - Handled by #{handled_by}",
-      error: :true
-    }
-  end
 end
