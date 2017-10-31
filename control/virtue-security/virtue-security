@@ -5,8 +5,10 @@ import argparse
 import datetime
 import json
 import random
+import re
 import requests
 import sys
+import types
 import uuid
 
 
@@ -291,6 +293,169 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_sensor_validation_list(results):
+    """
+    Validate the list of sensors as returned from a _validate/check_ call
+    into the Sensing API. The results will look something like:
+
+        {
+            "timestamp": "",
+            "error": False,
+            "targeting": {},
+            "sensors": [
+                {
+                    "virtue": uuid,
+                    "sensor": uuid,
+                    "name": "",
+                    "last-validated": "2017-10-31 20:40:28.190581Z",
+                    "compromised": False,
+                    "cross-validation": {},
+                    "canary-validation": {}
+                }
+            ]
+        }
+
+    We're interested in the individual sensors.
+
+    :param results: Parsed results from */validate/check REST JSON response
+    :return: List of errors, empty list for no errors
+    """
+    errors = []
+    if "sensors" in results:
+        for sensor in results["sensors"]:
+            errs = validate_sensor_validation(sensor)
+            errors += errs
+    else:
+        errors.append("[sensors] key missing")
+
+    return errors
+
+
+def validate_sensor_validation(sensor):
+    """
+    Validate a sensor data blob as received from a _validate/check_ call
+    into the Sensing API. An individual sensor will look something like:
+
+        {
+            "virtue": uuid,
+            "sensor": uuid,
+            "name": "",
+            "last-validated": "2017-10-31 20:40:28.190581Z",
+            "compromised": False,
+            "cross-validation": {},
+            "canary-validation": {}
+        }
+
+    :param sensor: Individual sensor blob as parsed from */validate/check REST JSON response
+    :return: List of errors, empty list for no errors
+    """
+    check_for = {
+        "virtue": is_uuid,
+        "sensor": is_uuid,
+        "name": has_value,
+        "last-validated": is_timestamp,
+        "compromised": is_boolean,
+        "cross-validation": is_dict,
+        "canary-validation": is_dict
+    }
+
+    return run_validation(sensor, check_for)
+
+
+def run_validation(object, validation):
+    """
+    Run a 'check_for' validation on an object, which will make sure that
+    keys exist in an object, and the values of those keys are the proper
+    values.
+
+    A 'check_for' dictionary looks like:
+
+        {
+            "key": <is_* function> | <lambda returning boolean>,
+            ...
+        }
+
+    :param object: A dictionary object
+    :param validation: A 'check_for' dictionary
+    :return: List of errors, empty list for no errors
+    """
+    errors = []
+
+    for k, v in validation.items():
+
+        if k in object:
+            if v(object[k]):
+                # we're good!
+                pass
+            else:
+                errors.append("Value for key [%s] failed validation function [%s]" % (k, v.__name__))
+        else:
+            errors.append("Missing key [%s]" % (k,))
+    return errors
+
+
+def is_timestamp(str):
+    """
+    Make sure the string contains a timestamp that conforms
+    to our expected time format of:
+
+        2017-10-31 20:40:28.190581Z
+
+    :param str: Possible time stamp
+    :return: boolean
+    """
+
+    if str is None:
+        return False
+    try:
+        datetime.datetime.strptime(str, "%Y-%m-%d %H:%M:%S.%fZ")
+        return True
+    except ValueError as ve:
+        return False
+
+
+def is_boolean(v):
+    """
+    Make sure the value V is a boolean.
+
+    :param v: candidate value
+    :return: boolean
+    """
+    return type(v) == type(False)
+
+
+def is_dict(d):
+    """
+    Make sure the given value is a dictionary object.
+
+    :param d:
+    :return:
+    """
+    return type(d) == type({})
+
+
+def has_value(str):
+    """
+    Basically a nop, make sure the str isn't None
+    :param str:
+    :return:
+    """
+    return str != None
+
+
+def is_uuid(str):
+    """
+    Is the given string a valid UUID?
+
+    :param str: String or None
+    :return: boolean
+    """
+    if str is None:
+        return False
+    else:
+        return re.match(r'^[a-zA-Z0-9]{8}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{12}$', str) is not None
+
+
 def test_case(opts, test, repeat=5):
     """
     Run an individual test one or more times. A list of status dictionaries
@@ -406,6 +571,7 @@ def test_case(opts, test, repeat=5):
                 # did we get JSON?
                 res_json = res.json()
                 rep_result["returns"]["got"] = "JSON"
+                rep_result["result"] = res_json
 
                 # validate from our result_has_fields, which looks like:
                 #
@@ -438,6 +604,22 @@ def test_case(opts, test, repeat=5):
                                         type(res_json[key])
                                     )
                                 )
+
+                # Run any results_validators we have, which do deep value inspection
+                if "results_validators" in test:
+                    rep_result["results_validators"] = {}
+
+                    # run the individual validators
+                    for res_validator in test["results_validators"]:
+
+                        # grab errors and keep them
+                        errors = res_validator(res_json)
+                        rep_result["results_validators"][res_validator.__name__] = errors
+
+                        # anything other than 0 errors is a fail case
+                        if len(errors) > 0:
+                            did_pass = False
+
             except Exception as e:
                 print(e)
                 rep_result["returns"]["got"] = str(e)
@@ -584,15 +766,17 @@ def test_api(opts):
             "method": "GET",
             "path": "/network/:cidr/validate/check",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/network/virtue/:virtue/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "PUT",
@@ -609,6 +793,21 @@ def test_api(opts):
             "authenticate": True,
         },
 
+        # --- Failure Cases
+        {
+            "method": "GET",
+            "path": "/network/not_a_cidr/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+        },
+        {
+            "method": "PUT",
+            "path": "/network/not_a_cidr/validate/:validate_action",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+        },
 
         # VIRTUE API
 
@@ -683,15 +882,17 @@ def test_api(opts):
             "method": "GET",
             "path": "/virtue/:virtue/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/virtue/user/:username/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "PUT",
@@ -810,22 +1011,25 @@ def test_api(opts):
             "method": "GET",
             "path": "/vm/virtue/:virtue/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/vm/user/:username/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/vm/address/:address/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "PUT",
@@ -847,6 +1051,30 @@ def test_api(opts):
             "returns": "JSON",
             "code": 501,
             "authenticate": True
+        },
+
+        # --- Failure Cases
+        {
+            "method": "GET",
+            "path": "/vm/address/300.300.300.300/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": ""
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/vm/address/not{real{hostname/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": ""
+            }
         },
 
         # APPLICATION API
@@ -1072,50 +1300,57 @@ def test_api(opts):
             "method": "GET",
             "path": "/application/virtue/:virtue/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/application/user/:username/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/user/:username/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/user/:username/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/application/user/:username/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
 
         {
@@ -1417,57 +1652,65 @@ def test_api(opts):
             "method": "GET",
             "path": "/resource/:resource/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/resource/user/:username/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/resource/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/user/:username/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/user/:username/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "GET",
             "path": "/resource/user/:username/application/:application/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
 
         {
@@ -1527,6 +1770,106 @@ def test_api(opts):
             "authenticate": True
         },
 
+        # --- Failure Cases
+
+        #       invalid resource id
+        {
+            "method": "GET",
+            "path": "/resource/123123123123/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
+        #       invalid virtue id
+        {
+            "method": "GET",
+            "path": "/resource/virtue/123456789/user/:username/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
+        #       invalid application id
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/user/:username/application/123456789/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
+        #       invalid virtue ID
+        {
+            "method": "GET",
+            "path": "/resource/virtue/12334346456/user/:username/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
+        #       invalid virtue ID
+        {
+            "method": "GET",
+            "path": "/resource/virtue/123456789/application/:application/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
+        #       invalid application ID
+        {
+            "method": "GET",
+            "path": "/resource/virtue/:virtue/application/123456789/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
+        #       invalid application ID
+        {
+            "method": "GET",
+            "path": "/resource/user/:username/application/123456798/validate/check",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
         # USER API
 
         # === Observe
@@ -1571,8 +1914,9 @@ def test_api(opts):
             "method": "GET",
             "path": "/user/:username/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "PUT",
@@ -1677,8 +2021,9 @@ def test_api(opts):
             "method": "GET",
             "path": "/sensor/:sensor/validate/check",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_sensor_validation_list]
         },
         {
             "method": "PUT",

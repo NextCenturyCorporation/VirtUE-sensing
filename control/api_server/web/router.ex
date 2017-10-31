@@ -197,12 +197,12 @@ defmodule ApiServer.Router do
      ############
      # USER API #
      ############
-     put "/user/:username/observe/:level", ObserveController, :observe, name: "user-observe"
-     put "/user/:username/trust/:action", TrustController, :trust, name: "user-trust"
-     get "/user/:username/stream", StreamController, :stream, name: "user-stream"
-     get "/user/:username/inspect", InspectController, :inspect, name: "user-inspect"
-     get "/user/:username/validate/check", ValidateController, :check, name: "user-validate-check"
-     put "/user/:username/validate/:action", ValidateController, :trigger, name: "user-validate-trigger"
+     put "/user/:user/observe/:level", ObserveController, :observe, name: "user-observe"
+     put "/user/:user/trust/:action", TrustController, :trust, name: "user-trust"
+     get "/user/:user/stream", StreamController, :stream, name: "user-stream"
+     get "/user/:user/inspect", InspectController, :inspect, name: "user-inspect"
+     get "/user/:user/validate/check", ValidateController, :check, name: "user-validate-check"
+     put "/user/:user/validate/:action", ValidateController, :trigger, name: "user-validate-trigger"
 
      ##############
      # SENSOR API #

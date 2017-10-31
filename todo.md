@@ -11,6 +11,7 @@
   - tackling the Migrate and validation controller by controller
    - [ ] Configure Controller
  - [ ] Add tests to check all endpoints without authenticating
+ - [ ] add failure cases to all endpoints with targeting
  - [ ] Add fuzzing tests with known bad inputs
  - [ ] Write targeting Plug
   - [ ] Determine target inline to request processing, stash in "target" on connection
@@ -27,4 +28,6 @@
   - [ ] Inspection
   - [ ] validation
  - [ ] Parallelize `virtue-security` test mode
-  
+ - [ ] client certificates for sensors in api
+ - [ ] CA/issuer API
+ - [ ] streaming JSONL in elixir

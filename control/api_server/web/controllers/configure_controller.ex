@@ -76,7 +76,7 @@ defmodule ApiServer.ConfigureController do
         # we've got base 64 as a config, which we need to try and decode to make
         # sense of
         case Base.decode64(configuration) do
-          {:ok, payload} ->
+          {:ok, _} ->
             conn
               |> put_status(200)
               |> json(
