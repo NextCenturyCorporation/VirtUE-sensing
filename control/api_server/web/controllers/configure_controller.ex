@@ -51,9 +51,66 @@ defmodule ApiServer.ConfigureController do
   #   - HTTP 400 / Missing configuration
   #   - HTTP 504 / Timeout querying and updating sensor
   #
+
+  # configuration exists in request body
+  def configure(%Plug.Conn{body_params: %{"configuration" => configuration}}=conn, _) do
+    IO.puts("ConfigureController -> Operation on sensor [#{conn.assigns.sensor_id}]")
+
+    # are we working with a URI to a config or a base64 encoding of a config
+    cond do
+      String.starts_with?(configuration, "http") ->
+        # we've got a URI as config
+        conn
+         |> put_status(200)
+         |> json (%{
+              error: :false,
+              sensor: conn.assigns.sensor_id,
+              timestamp: DateTime.to_string(DateTime.utc_now()),
+              config_source: "uri",
+              msg: "ok"
+            })
+      true ->
+        # we've got base 64 as a config, which we need to try and decode to make
+        # sense of
+        case Base.decode64(configuration) do
+          {:ok, payload} ->
+            conn
+              |> put_status(200)
+              |> json(
+                  %{
+                    error: :false,
+                    sensor: conn.assigns.sensor_id,
+                    timestamp: DateTime.to_string(DateTime.utc_now()),
+                    config_source: "base64",
+                    msg: "ok"
+                  }
+                 )
+            :error ->
+              conn
+                |> put_status(400)
+                |> json(
+                    %{
+                      error: :true,
+                      msg: "Could not decode Base64 encoded configuration blob",
+                      timestamp: DateTime.to_string(DateTime.utc_now())
+                    }
+                   )
+        end
+        conn
+    end
+  end
+
+  # configuration does not exist in request body
   def configure(conn, _) do
-    IO.puts("ConfigureController -> Operating on sensor[#{conn.assigns.sensor_id}]")
-    json conn_with_status(conn, 501), conn_json(conn, 501)
+    conn
+      |> put_status(400)
+      |> json(
+          %{
+            error: :true,
+            msg: "Missing configuration payload",
+            timestamp: DateTime.to_string(DateTime.utc_now())
+          }
+         )
   end
 
   # Private Method

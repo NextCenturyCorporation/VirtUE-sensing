@@ -309,6 +309,12 @@ def test_case(opts, test, repeat=5):
             "code": {
                 "expected": 501,
                 "got": 200
+            },
+            "result_has_fields": {
+                "field name": "representative type for result"
+            },
+            "request_body": {
+                "key to insert into request body": "value for key"
             }
         }
 
@@ -357,7 +363,14 @@ def test_case(opts, test, repeat=5):
                 # fire away
                 res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
             else:
-                res = getattr(requests, test["method"].lower())(full_uri, data={"userToken": test_generate_user_token()})
+
+                # generate the request body payload
+                request_body = {"userToken": test_generate_user_token()}
+                if "request_body" in test:
+                    for k, v in test["request_body"].items():
+                        request_body[k] = v
+
+                res = getattr(requests, test["method"].lower())(full_uri, data=request_body)
         else:
             if test["method"].lower() == "get":
 
@@ -367,6 +380,13 @@ def test_case(opts, test, repeat=5):
                 # fire away
                 res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
             else:
+
+                # generate the request body payload
+                request_body = {}
+                if "request_body" in test:
+                    for k, v in test["request_body"].items():
+                        request_body[k] = v
+
                 res = getattr(requests, test["method"].lower())(full_uri)
 
         # check results
@@ -1578,12 +1598,23 @@ def test_api(opts):
                 "configuration": {}
             }
         },
+
         {
             "method": "PUT",
             "path": "/sensor/:sensor/configure",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "request_body": {
+                "configuration": "http://resource.twosixlabs.com/path/to/something"
+            },
+            "result_has_fields": {
+                "error": False,
+                "sensor": "",
+                "timestamp": "",
+                "config_source": "",
+                "msg": ""
+            }
         },
 
         # --- Failure Cases
@@ -1604,6 +1635,33 @@ def test_api(opts):
         #     Unauthenticated
         {
             "method": "GET",
+            "path": "/sensor/:sensor/configure",
+            "returns": "JSON",
+            "code": 401,
+            "authenticate": False,
+            "result_has_fields": {
+                "error": True,
+                "msg": ""
+            }
+        },
+
+        #     Missing configuration payload
+        {
+            "method": "PUT",
+            "path": "/sensor/:sensor/configure",
+            "returns": "JSON",
+            "code": 400,
+            "authenticate": True,
+            "result_has_fields": {
+                "error": True,
+                "msg": "",
+                "timestamp": ""
+            }
+        },
+
+        #     Unauthenticated
+        {
+            "method": "PUT",
             "path": "/sensor/:sensor/configure",
             "returns": "JSON",
             "code": 401,
