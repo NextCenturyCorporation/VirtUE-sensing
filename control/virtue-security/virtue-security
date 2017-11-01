@@ -293,6 +293,56 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_inspect(results):
+    """
+    Validate the results from a sensor set inspection call. This
+    targets zero or more sensors, and has a response that looks
+    like:
+
+        {
+            "error": False,
+            "targeting": {},
+            "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+            "sensors": [
+                {
+                    "sensor": uuid,
+                    "virtue": uuid,
+                    "state": (active | inactive),
+                    "name": string
+                },
+                ...
+            ]
+        }
+
+    :param results: Parsed results from an /inspect REST JSON response
+    :return: List of errors, empty list for no errors
+    """
+
+    # check the top level object
+    check_for = {
+        "error": is_boolean,
+        "targeting": is_targeting,
+        "timestamp": is_timestamp
+    }
+
+    errors = run_validation(results, check_for)
+
+    # now get errors for any of the sensors
+    sensor_check_for = {
+        "sensor": is_uuid,
+        "virtue": is_uuid,
+        "state": is_in("active", "inactive"),
+        "name": is_string
+    }
+
+    if "sensors" in results:
+        for sensor in results["sensors"]:
+            errors += run_validation(sensor, sensor_check_for)
+    else:
+        errors.append("No [sensor] data in inspect results")
+    return errors
+
+
 def validate_configure_review(results):
     """
     Validate the results from a configuration review
@@ -370,7 +420,8 @@ def validate_trigger_validation(results):
         "timestamp": is_timestamp,
         "token": is_uuid,
         "validation": is_in("canary-validate", "cross-validate"),
-        "virtues": each_item(is_uuid)
+        "virtues": each_item(is_uuid),
+        "targeting": is_targeting
     }
 
     return run_validation(results, check_for)
@@ -403,6 +454,7 @@ def validate_sensor_validation_list(results):
     :param results: Parsed results from */validate/check REST JSON response
     :return: List of errors, empty list for no errors
     """
+    # validate the sensor list
     errors = []
     if "sensors" in results:
         for sensor in results["sensors"]:
@@ -410,6 +462,15 @@ def validate_sensor_validation_list(results):
             errors += errs
     else:
         errors.append("[sensors] key missing")
+
+    # validate the top level object
+    check_for = {
+        "timestamp": is_timestamp,
+        "error": is_boolean,
+        "targeting": is_targeting
+    }
+
+    errors += run_validation(results, check_for)
 
     return errors
 
@@ -499,6 +560,16 @@ def each_item(v_func):
     return each_item_inner
 
 
+def is_string(s):
+    """
+    Make sure the value is a string type.
+
+    :param s: value to test
+    :return:  boolean
+    """
+    return type(s) == type("hello")
+
+
 def is_in(*kargs, **kwargs):
     """
     Make sure a value is in a given list of values (contained
@@ -516,6 +587,32 @@ def is_in(*kargs, **kwargs):
         return val in kargs
 
     return is_in_inner
+
+
+def is_targeting(d):
+    """
+    Make sure the data in the provided dictionary is targeting
+    key value pairs, and doesn't have extraneous data.
+
+    Acceptable targeting keys:
+
+        - cidr
+        - virtue
+        - username
+        - address
+        - application
+        - resource
+        - sensor
+
+    :param d: candidate targeting dictionary
+    :return: boolean
+    """
+    acceptable = set("cidr virtue username address application resource sensor".split(" "))
+
+    for k in d.keys():
+        if k not in acceptable:
+            return False
+    return True
 
 
 def is_timestamp(str):
@@ -877,15 +974,17 @@ def test_api(opts):
             "method": "GET",
             "path": "/network/:cidr/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/network/virtue/:virtue/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
 
         # === Validate
@@ -995,15 +1094,17 @@ def test_api(opts):
             "method": "GET",
             "path": "/virtue/:virtue/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/virtue/user/:username/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
 
         # === Validate
@@ -1119,22 +1220,25 @@ def test_api(opts):
             "method": "GET",
             "path": "/vm/virtue/:virtue/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/vm/user/:username/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/vm/address/:address/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
 
         # === Validate
@@ -1383,50 +1487,57 @@ def test_api(opts):
             "method": "GET",
             "path": "/application/virtue/:virtue/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/application/user/:username/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/user/:username/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/user/:username/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/application/user/:username/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
 
         # === Validate
@@ -1735,57 +1846,65 @@ def test_api(opts):
             "method": "GET",
             "path": "/resource/:resource/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/resource/user/:username/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/resource/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/user/:username/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/user/:username/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
         {
             "method": "GET",
             "path": "/resource/user/:username/application/:application/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
 
         # === Validate
@@ -2054,8 +2173,9 @@ def test_api(opts):
             "method": "GET",
             "path": "/user/:username/inspect",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_inspect]
         },
 
         # === Validate

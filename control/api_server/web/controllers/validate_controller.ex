@@ -41,12 +41,14 @@ defmodule ApiServer.ValidateController do
     conn
       |> put_status(200)
       |> json(
-          %{
-            targeting: summarize_targeting(conn.assigns),
-            error: :false,
-            timestamp: DateTime.to_string(DateTime.utc_now()),
-            sensors: generate_random_sensor_list()
-          }
+            Map.merge(
+              %{
+                error: :false,
+                timestamp: DateTime.to_string(DateTime.utc_now()),
+                sensors: generate_random_sensor_list()
+              },
+              summarize_targeting(conn.assigns)
+            )
          )
   end
 
@@ -72,13 +74,16 @@ defmodule ApiServer.ValidateController do
     conn
       |> put_status(200)
       |> json(
-          %{
-            error: :false,
-            timestamp: DateTime.to_string(DateTime.utc_now()),
-            token: uuid4(),
-            validation: conn.assigns.validate_action,
-            virtues: Enum.map(1..:rand.uniform(10), fn(x) -> uuid4() end)
-          }
+          Map.merge(
+            %{
+              error: :false,
+              timestamp: DateTime.to_string(DateTime.utc_now()),
+              token: uuid4(),
+              validation: conn.assigns.validate_action,
+              virtues: Enum.map(1..:rand.uniform(10), fn(x) -> uuid4() end)
+            },
+            summarize_targeting(conn.assigns)
+          )
          )
   end
 

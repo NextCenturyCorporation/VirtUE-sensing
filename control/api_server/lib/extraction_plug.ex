@@ -282,7 +282,7 @@ defmodule ApiServer.ExtractionPlug do
     #   a8bfe405-5e0d-4acb-a3a5-c47e6fecd608
     cond do
       is_resource_id(resource) ->
-        assign(conn, :resource, %{:application => resource})
+        assign(conn, :targeting, %{:resource=> resource})
       true ->
         conn
         |> put_status(400)
@@ -304,7 +304,7 @@ defmodule ApiServer.ExtractionPlug do
     #   a8bfe405-5e0d-4acb-a3a5-c47e6fecd608
     cond do
       is_sensor_id(sensor) ->
-        assign(conn, :sensor, %{:sensor => sensor})
+        assign(conn, :targeting, %{:sensor => sensor})
       true ->
         conn
         |> put_status(400)
