@@ -4,11 +4,7 @@ defmodule ApiServer.InspectController do
   def inspect(conn, _) do
     json conn_with_status(conn, 501), conn_json(conn, 501)
   end
-
-  def inspect(conn, _, _) do
-    json conn_with_status(conn, 501), conn_json(conn, 501)
-  end
-
+  
   defp conn_with_status(conn, stat) do
     conn
     |> put_status(stat)
