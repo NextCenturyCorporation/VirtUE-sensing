@@ -293,6 +293,62 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_configure_review(results):
+    """
+    Validate the results from a configuration review
+    call. This targets a specific sensor, and has
+    a response that looks like:
+
+        {
+            "error": False,
+            "sensor": uuid,
+            "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+            "configuration": {}
+        }
+
+    :param results: Parsed results from a configure/review REST JSON response
+    :return: List of errors, empty list for no errors
+    """
+
+    check_for = {
+        "error": is_boolean,
+        "sensor": is_uuid,
+        "timestamp": is_timestamp,
+        "configuration": is_dict
+    }
+
+    return run_validation(results, check_for)
+
+
+def validate_configure_update(results):
+    """
+    Validate the results from a configuration update for
+    a sensor. This targets a specific sensor, and has
+    a response that looks like:
+
+        {
+            "error": False,
+            "sensor": uuid,
+            "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+            "config_source": ( uri | base64 ),
+            "msg": "ok"
+        }
+
+    :param results: Parse results from a configure/update REST JSON response
+    :return: List of errors, empty list for no errors
+    """
+
+    check_for = {
+        "error": is_boolean,
+        "sensor": is_uuid,
+        "timestamp": is_timestamp,
+        "config_source": is_in("uri", "base64"),
+        "msg": is_in("ok")
+    }
+
+    return run_validation(results, check_for)
+
+
 def validate_trigger_validation(results):
     """
     Validate the results from triggering a _validate/trigger_ call
@@ -2034,7 +2090,8 @@ def test_api(opts):
                 "sensor": "",
                 "timestamp": "",
                 "configuration": {}
-            }
+            },
+            "results_validators": [validate_configure_review]
         },
 
         {
@@ -2052,7 +2109,27 @@ def test_api(opts):
                 "timestamp": "",
                 "config_source": "",
                 "msg": ""
-            }
+            },
+            "results_validators": [validate_configure_update]
+        },
+
+        {
+            "method": "PUT",
+            "path": "/sensor/:sensor/configure",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "request_body": {
+                "configuration": "dHdvc2l4bGFicw=="
+            },
+            "result_has_fields": {
+                "error": False,
+                "sensor": "",
+                "timestamp": "",
+                "config_source": "",
+                "msg": ""
+            },
+            "results_validators": [validate_configure_update]
         },
 
         # --- Failure Cases
