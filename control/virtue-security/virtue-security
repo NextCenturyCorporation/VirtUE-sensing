@@ -293,6 +293,33 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_trigger_validation(results):
+    """
+    Validate the results from triggering a _validate/trigger_ call
+    into the Sensing API. The results will look something like:
+
+        {
+            "error": False,
+            "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+            "token": uuid,
+            "validation": <cross-validate || canary-validate>,
+            "virtues": [ ... uuid ...]
+        }
+
+    :param results: Parsed results from a */validate/:action REST JSON response
+    :return: List of errors, empty list for no errors
+    """
+    check_for = {
+        "error": is_boolean,
+        "timestamp": is_timestamp,
+        "token": is_uuid,
+        "validation": is_in("canary-validate", "cross-validate"),
+        "virtues": each_item(is_uuid)
+    }
+
+    return run_validation(results, check_for)
+
+
 def validate_sensor_validation_list(results):
     """
     Validate the list of sensors as returned from a _validate/check_ call
@@ -354,6 +381,7 @@ def validate_sensor_validation(sensor):
         "sensor": is_uuid,
         "name": has_value,
         "last-validated": is_timestamp,
+        "last-validation-token": is_uuid,
         "compromised": is_boolean,
         "cross-validation": is_dict,
         "canary-validation": is_dict
@@ -392,6 +420,46 @@ def run_validation(object, validation):
         else:
             errors.append("Missing key [%s]" % (k,))
     return errors
+
+
+def each_item(v_func):
+    """
+    Build a function that evaluates a list against a validation
+    function. Given a list of booleans to evaluate, this should
+    be called like:
+
+        each_item(is_boolean)
+
+    :param v_func: function for validation of items in list
+    :return: Validation function to verify a list
+    """
+
+    def each_item_inner(l):
+        for i in l:
+            if not v_func(i):
+                return False
+        return True
+
+    return each_item_inner
+
+
+def is_in(*kargs, **kwargs):
+    """
+    Make sure a value is in a given list of values (contained
+    in the kargs. This should be called like:
+
+        is_in(1, 2, 3)
+
+    And will return a validation function.
+
+    :param kargs: values in the set
+    :return: validation function to verify a value in a set
+    """
+
+    def is_in_inner(val):
+        return val in kargs
+
+    return is_in_inner
 
 
 def is_timestamp(str):
@@ -480,6 +548,9 @@ def test_case(opts, test, repeat=5):
             },
             "request_body": {
                 "key to insert into request body": "value for key"
+            },
+            "results_validators": {
+                "key": <validation function>
             }
         }
 
@@ -782,15 +853,17 @@ def test_api(opts):
             "method": "PUT",
             "path": "/network/:cidr/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/network/virtue/:virtue/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
 
         # --- Failure Cases
@@ -898,15 +971,17 @@ def test_api(opts):
             "method": "PUT",
             "path": "/virtue/:virtue/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/virtue/user/:username/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
 
         # VIRTUAL MACHINE API
@@ -1035,22 +1110,25 @@ def test_api(opts):
             "method": "PUT",
             "path": "/vm/virtue/:virtue/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/vm/user/:username/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/vm/address/:address/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
 
         # --- Failure Cases
@@ -1357,50 +1435,57 @@ def test_api(opts):
             "method": "PUT",
             "path": "/application/virtue/:virtue/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/application/user/:username/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/application/virtue/:virtue/user/:username/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/application/virtue/:virtue/user/:username/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/application/virtue/:virtue/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/application/user/:username/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
 
         # RESOURCE API
@@ -1717,57 +1802,65 @@ def test_api(opts):
             "method": "PUT",
             "path": "/resource/:resource/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/resource/user/:username/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/resource/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/user/:username/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/user/:username/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
         {
             "method": "PUT",
             "path": "/resource/user/:username/application/:application/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
 
         # --- Failure Cases
@@ -1922,8 +2015,9 @@ def test_api(opts):
             "method": "PUT",
             "path": "/user/:username/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
 
         # SENSOR API
@@ -2029,8 +2123,9 @@ def test_api(opts):
             "method": "PUT",
             "path": "/sensor/:sensor/validate/:validate_action",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trigger_validation]
         },
 
         # ENUM API
@@ -2065,6 +2160,9 @@ def test_api(opts):
     fail_codes = {}
     fail_paths = set()
 
+    # temporarily track NOT IMPLEMENTED code 501 returns
+    total_not_implemented = 0
+
     # now run the individual tests
     for test in tests:
 
@@ -2081,6 +2179,8 @@ def test_api(opts):
 
         # with what status codes did we fail?
         for test_result in results:
+
+            # track test failures by a few different means for reporting
             if not test_result["pass"]:
 
                 # store the path we failed
@@ -2092,6 +2192,10 @@ def test_api(opts):
                     fail_codes[fail_code] = 0
 
                 fail_codes[fail_code] += 1
+
+            # track 501s
+            if test_result["code"]["got"] == 501:
+                total_not_implemented += 1
 
         # report on what passed/failed
         print("\t\t%d/%d passed" % (passes, len(results)))
@@ -2112,6 +2216,10 @@ def test_api(opts):
             "test_cases": len(tests)
         }
     )
+
+    # report on NOT IMPLEMENTED returns
+    if total_not_implemented > 0:
+        print("\t501 (not implemented) results: %d" % (total_not_implemented,))
 
     # report on failure codes if we had any
     if len(fail_codes) > 0:

@@ -31,3 +31,9 @@
  - [ ] client certificates for sensors in api
  - [ ] CA/issuer API
  - [ ] streaming JSONL in elixir
+ 
+ 
+# Sensing API Documentation Updates
+
+ - [ ] validate/check now returns additional fields (see resource/validate )
+ - [ ] validate/trigger now returns additional fields (see resource/validate )

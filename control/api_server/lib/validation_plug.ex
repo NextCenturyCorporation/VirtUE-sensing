@@ -63,12 +63,20 @@ defmodule ApiServer.ValidationPlug do
   #   - :action
   #
   # Response:
-  #   - Continue if valid
+  #   - Continue if valid, putting action in conn::validate_action
   #   - Halt/HTTP 400 if invalid
   def valid_validate_action(%Plug.Conn{params: %{"action" => action}} = conn, _) do
     case action do
       action when action in ["canary", "cross-validation"] ->
-        conn
+        case action do
+          "canary" ->
+            conn
+              |> assign(:validate_action, "canary-validate")
+          "cross-validation" ->
+            conn
+              |> assign(:validate_action, "cross-validate")
+        end
+
       _ ->
         json conn_invalid_parameter(conn), %{error: :true, msg: "invalid validate action[#{action}]"}
         Plug.Conn.halt(conn)
