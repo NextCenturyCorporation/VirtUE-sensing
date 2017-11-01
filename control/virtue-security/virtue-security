@@ -293,6 +293,146 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_trust_invalidate(results):
+    """
+    Validate the results from a trust/invalidate Sensing API
+    call. The response object looks like:
+
+        {
+            "error": False,
+            "targeting": {},
+            "timestamp": timestamp,
+            "action": "invalidate",
+            "invalidations": [
+                {
+                    "sensor": uuid,
+                    "virtue": uuid,
+                    "certificate": {
+                        "cn": uuid,
+                        "fingerprint": "08:3F:... 32 times"
+                    }
+                },
+                ...
+            ]
+        }
+
+    :param results:
+    :return:
+    """
+    errors = []
+
+    check_for_outer = {
+        "error": is_boolean,
+        "targeting": is_targeting,
+        "timestamp": is_timestamp,
+        "action": is_in("invalidate")
+    }
+
+    check_for_inner = {
+        "sensor": is_uuid,
+        "virtue": is_uuid
+    }
+
+    check_for_cert = {
+        "cn": has_value,
+        "fingerprint": is_fingerprint,
+    }
+
+    # check the outer block of results
+    errors += run_validation(results, check_for_outer)
+
+    # now check all the validations
+    if "invalidations" in results:
+        for validation in results["invalidations"]:
+
+            # validation block
+            errors += run_validation(validation, check_for_inner)
+
+            # certificate block
+            if "certificate" in validation:
+                errors += run_validation(validation["certificate"], check_for_cert)
+            else:
+                errors.append("Invalidation is missing [certificate] data")
+    else:
+        errors.append("Missing [invalidations] in results")
+
+    return errors
+
+
+def validate_trust_validate(results):
+    """
+    Validate the results from a trust/validate Sensing API
+    call. The response object looks like:
+
+        {
+            "error": False,
+            "targeting": {},
+            "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+            "action": "validate",
+            "validations": [
+                {
+                    "sensor": uuid,
+                    "virtue": uuid,
+                    "certificate": {
+                        "not_valid_before": timestamp,
+                        "not_valid_after": timestamp,
+                        "CN": "sensor-name-and-id",
+                        "key_type": "RSA Public Key (4096 bit)",
+                        "fingerprint": "08:3F:.... 32 octets",
+                        "chain_of_trust": ["intermediate-cert-1", ... , "root-cert"]
+                    }
+                }
+            ]
+        }
+
+    :param results: Parsed results from a trust/validate REST JSON response
+    :return: List of errors, empty list for no errors
+    """
+
+    errors = []
+
+    check_for_outer = {
+        "error": is_boolean,
+        "targeting": is_targeting,
+        "timestamp": is_timestamp,
+        "action": is_in("validate")
+    }
+
+    check_for_inner = {
+        "sensor": is_uuid,
+        "virtue": is_uuid
+    }
+
+    check_for_cert = {
+        "not_valid_before": is_timestamp,
+        "not_valid_after": is_timestamp,
+        "cn": has_value,
+        "key_type": is_exactly("RSA Public Key (4096 bit)"),
+        "fingerprint": is_fingerprint,
+        "chain_of_trust": each_item(is_string)
+    }
+
+    # check the outer block of results
+    errors += run_validation(results, check_for_outer)
+
+    # now check all the validations
+    if "validations" in results:
+        for validation in results["validations"]:
+
+            # validation block
+            errors += run_validation(validation, check_for_inner)
+
+            # certificate block
+            if "certificate" in validation:
+                errors += run_validation(validation["certificate"], check_for_cert)
+            else:
+                errors.append("Validation is missing [certificate] data")
+    else:
+        errors.append("Missing [validations] in results")
+
+    return errors
+
+
 def validate_inspect(results):
     """
     Validate the results from a sensor set inspection call. This
@@ -560,6 +700,17 @@ def each_item(v_func):
     return each_item_inner
 
 
+def is_fingerprint(v):
+    """
+    Make sure the given value is a 32 block hex fingerprint.
+
+    :param v: candidate value
+    :return: boolean
+    """
+
+    return re.match(r'^([0-9a-fA-F]{2}\:){31}([0-9a-fA-F]{2})$', v) is not None
+
+
 def is_string(s):
     """
     Make sure the value is a string type.
@@ -653,6 +804,20 @@ def is_dict(d):
     :return:
     """
     return type(d) == type({})
+
+
+def is_exactly(v):
+    """
+    Create an exact comparator function.
+
+    :param v: Value to compare against
+    :return: boolean
+    """
+
+    def is_exactly_inner(c):
+        return c == v
+
+    return is_exactly_inner
 
 
 def has_value(str):
@@ -936,17 +1101,36 @@ def test_api(opts):
         # === Trust
         {
             "method": "PUT",
-            "path": "/network/:cidr/trust/:action",
+            "path": "/network/:cidr/trust/validate",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/network/virtue/:virtue/trust/:action",
+            "path": "/network/virtue/:virtue/trust/validate",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_validate]
+        },
+
+        {
+            "method": "PUT",
+            "path": "/network/:cidr/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/network/virtue/:virtue/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
         },
 
         # === Stream
@@ -1058,17 +1242,35 @@ def test_api(opts):
         # === Trust
         {
             "method": "PUT",
-            "path": "/virtue/:virtue/trust/:action",
+            "path": "/virtue/:virtue/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/virtue/user/:username/trust/:action",
+            "path": "/virtue/user/:username/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
+        },
+        {
+            "method": "PUT",
+            "path": "/virtue/:virtue/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/virtue/user/:username/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
         },
 
         # === Stream
@@ -1169,24 +1371,51 @@ def test_api(opts):
         # === Trust
         {
             "method": "PUT",
-            "path": "/vm/virtue/:virtue/trust/:action",
+            "path": "/vm/virtue/:virtue/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/vm/user/:username/trust/:action",
+            "path": "/vm/user/:username/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/vm/address/:address/trust/:action",
+            "path": "/vm/address/:address/trust/validate",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_validate]
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/virtue/:virtue/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/user/:username/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/vm/address/:address/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
         },
 
         # === Stream
@@ -1376,53 +1605,118 @@ def test_api(opts):
         # === Trust
         {
             "method": "PUT",
-            "path": "/application/virtue/:virtue/trust/:action",
+            "path": "/application/virtue/:virtue/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/application/user/:username/trust/:action",
+            "path": "/application/user/:username/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/application/:application/trust/:action",
+            "path": "/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/application/virtue/:virtue/user/:username/trust/:action",
+            "path": "/application/virtue/:virtue/user/:username/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/application/virtue/:virtue/user/:username/application/:application/trust/:action",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/application/virtue/:virtue/application/:application/trust/:action",
+            "path": "/application/virtue/:virtue/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/application/user/:username/application/:application/trust/:action",
+            "path": "/application/user/:username/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
+
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/user/:username/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/application/virtue/:virtue/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/application/user/:username/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+
 
         # === Stream
         {
@@ -1720,60 +2014,134 @@ def test_api(opts):
         # === Trust
         {
             "method": "PUT",
-            "path": "/resource/:resource/trust/:action",
+            "path": "/resource/:resource/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/resource/virtue/:virtue/trust/:action",
+            "path": "/resource/virtue/:virtue/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/resource/user/:username/trust/:action",
+            "path": "/resource/user/:username/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/resource/application/:application/trust/:action",
+            "path": "/resource/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/resource/virtue/:virtue/user/:username/trust/:action",
+            "path": "/resource/virtue/:virtue/user/:username/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/resource/virtue/:virtue/user/:username/application/:application/trust/:action",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/resource/virtue/:virtue/application/:application/trust/:action",
+            "path": "/resource/virtue/:virtue/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
         {
             "method": "PUT",
-            "path": "/resource/user/:username/application/:application/trust/:action",
+            "path": "/resource/user/:username/application/:application/trust/validate",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_trust_validate]
         },
+
+        {
+            "method": "PUT",
+            "path": "/resource/:resource/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/user/:username/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/virtue/:virtue/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+        {
+            "method": "PUT",
+            "path": "/resource/user/:username/application/:application/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
+        },
+
 
         # === Stream
         {
@@ -2152,10 +2520,20 @@ def test_api(opts):
         # === Trust
         {
             "method": "PUT",
-            "path": "/user/:username/trust/:action",
+            "path": "/user/:username/trust/validate",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_validate]
+        },
+
+        {
+            "method": "PUT",
+            "path": "/user/:username/trust/invalidate",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_trust_invalidate]
         },
 
         # === Stream
@@ -2416,7 +2794,7 @@ def test_api(opts):
 
     # report on NOT IMPLEMENTED returns
     if total_not_implemented > 0:
-        print("\t501 (not implemented) results: %d" % (total_not_implemented,))
+        print("\tHTTP(501) - not implemented results: %d" % (total_not_implemented,))
 
     # report on failure codes if we had any
     if len(fail_codes) > 0:

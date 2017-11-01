@@ -38,3 +38,4 @@
  - [ ] validate/check now returns additional fields (see resource/validate )
  - [ ] validate/trigger now returns additional fields (see resource/validate )
  - [ ] inspect now returns additional fields (see application/inspect )
+ - [ ] trust routes now return additional fields (see application/trust )
