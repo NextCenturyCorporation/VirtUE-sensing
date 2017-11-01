@@ -293,6 +293,54 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_observe(results):
+    """
+    Validate the results form an /observe Sensing API
+    call. The response object looks like:
+
+        {
+            "error": False,
+            "level": sensing level,
+            "timestamp": timestamp,
+            "targeting": {},
+            "actions": [
+                {
+                    "sensor": uuid,
+                    "virtue": uuid,
+                    "level": ( off | default | low | high | adversarial)
+                },
+                ...
+            ]
+        }
+
+    :param results: Parsed results of /observe API call
+    :return: List of errors, empty list if no errors
+    """
+
+    check_outer = {
+        "error": is_boolean,
+        "level": is_in("off", "default", "low", "high", "adversarial"),
+        "timestamp": is_timestamp,
+        "targeting": is_targeting
+    }
+
+    check_actions = {
+        "sensor": is_uuid,
+        "virtue": is_uuid,
+        "level": is_in("off", "default", "low", "high", "adversarial")
+    }
+
+    errors = run_validation(results, check_outer)
+
+    if "actions" in results:
+        for action in results["actions"]:
+            errors += run_validation(action, check_actions)
+    else:
+        errors.append("Missing [actions] in observe results")
+
+    return errors
+
+
 def validate_trust_invalidate(results):
     """
     Validate the results from a trust/invalidate Sensing API
@@ -316,8 +364,8 @@ def validate_trust_invalidate(results):
             ]
         }
 
-    :param results:
-    :return:
+    :param results: Parsed results of trust/invalidate API call
+    :return: List of errors, emtpy list for no errors
     """
     errors = []
 
@@ -1087,15 +1135,17 @@ def test_api(opts):
             "method": "PUT",
             "path": "/network/:cidr/observe/:level",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/network/virtue/:virtue/observe/:level",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_observe]
         },
 
         # === Trust
@@ -1228,15 +1278,17 @@ def test_api(opts):
             "method": "PUT",
             "path": "/virtue/:virtue/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/virtue/user/:username/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
 
         # === Trust
@@ -1350,22 +1402,25 @@ def test_api(opts):
             "method": "PUT",
             "path": "/vm/virtue/:virtue/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/vm/user/:username/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/vm/address/:address/observe/:level",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_observe]
         },
 
         # === Trust
@@ -1556,50 +1611,57 @@ def test_api(opts):
             "method": "PUT",
             "path": "/application/virtue/:virtue/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/application/user/:username/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/application/virtue/:virtue/user/:username/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/application/virtue/:virtue/user/:username/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/application/virtue/:virtue/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/application/user/:username/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
 
         # === Trust
@@ -1958,57 +2020,65 @@ def test_api(opts):
             "method": "PUT",
             "path": "/resource/:resource/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/resource/user/:username/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/resource/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/user/:username/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/user/:username/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/resource/virtue/:virtue/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
         {
             "method": "PUT",
             "path": "/resource/user/:username/application/:application/observe/:level",
             "returns": "JSON",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
+            "results_validators": [validate_observe]
         },
 
         # === Trust
@@ -2513,8 +2583,9 @@ def test_api(opts):
             "method": "PUT",
             "path": "/user/:username/observe/:level",
             "returns": "JSON",
-            "code": 501,
-            "authenticate": True
+            "code": 200,
+            "authenticate": True,
+            "results_validators": [validate_observe]
         },
 
         # === Trust
