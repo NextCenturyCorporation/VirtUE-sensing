@@ -81,23 +81,7 @@ defmodule ApiServer.ValidateController do
           }
          )
   end
-
-  defp conn_with_status(conn, stat) do
-    conn
-    |> put_status(stat)
-  end
-
-  defp conn_json(conn, code) do
-    handled_by = controller_module(conn)
-    %{
-      path: current_path(conn),
-      action: action_name(conn),
-      status_code: code,
-      msg: "Not Implemented - Handled by #{handled_by}",
-      error: :true
-    }
-  end
-
+  
   # Build a random list of between 1 to 10 sensors
   defp generate_random_sensor_list() do
     Enum.map(1..:rand.uniform(10), fn(x) -> generate_sensor() end)
