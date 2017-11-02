@@ -16,6 +16,9 @@
  - General API
   - [ ] validation plug methods need to catch missing param cases (write tests for this)
   - [ ] inline test cases with exercised routes
+  - [ ] catch all query params and path params for validation
+   - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing
+         API is in UTC common format.
  - Sensors
   - [ ] write/wire toy dummy monitoring sensor
    - [ ] longer term this will be the sensor that testing hits
@@ -39,11 +42,6 @@
   - [ ] Add fuzzing tests with known bad inputs
   - [ ] streaming JSONL in elixir
    - [ ] create an infinite streaming source for log messages in server, spawn and attach when doing stream/follow
- - Documentation
-  - [ ] up and running documentation
-  - [ ] versioning
-  - [ ] container vs local run
-  - [ ] development guide
  
 # Sensing API Documentation Updates
 
