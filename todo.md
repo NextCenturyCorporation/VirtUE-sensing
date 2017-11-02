@@ -4,7 +4,9 @@
  - [ ] Outline sensor/log/streaming architecture
  
 # API SERVER
-
+ - General API
+  - [ ] validation plug methods need to catch missing param cases (write tests for this)
+  - [ ] inline test cases with exercised routes
  - Sensors
   - [ ] write/wire toy dummy monitoring sensor
    - [ ] longer term this will be the sensor that testing hits
