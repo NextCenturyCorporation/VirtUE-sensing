@@ -12,9 +12,9 @@ defmodule ApiServer.Plugs.Authenticate do
 
   # put request without userToken auth
   def call(%Plug.Conn{:method => "PUT"} = conn, _default) do
-      json conn_not_authorized(conn), %{error: :true, msg: "user not authorized"}
-      Plug.Conn.halt(conn)
       conn
+        |> conn_not_authorized()
+        |> Plug.Conn.halt()
   end
 
   # Get request with userToken param
@@ -25,14 +25,21 @@ defmodule ApiServer.Plugs.Authenticate do
 
   # Get request without userToken param
   def call(%Plug.Conn{:method => "GET"} = conn, _params) do
-      json conn_not_authorized(conn), %{error: :true, msg: "user not authorized"}
-      Plug.Conn.halt(conn)
       conn
+        |> conn_not_authorized()
+        |> Plug.Conn.halt()
   end
 
 
   defp conn_not_authorized(conn) do
     conn
       |> put_status(401)
+      |> json(
+          %{
+            error: :true,
+            msg: "user not authorized",
+            timestamp: DateTime.to_string(DateTime.utc_now())
+          }
+         )
   end
 end
