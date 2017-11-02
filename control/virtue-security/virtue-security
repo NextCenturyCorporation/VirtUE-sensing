@@ -2954,7 +2954,8 @@ def test_api(opts):
             "code": 200,
             "authenticate": True,
             "results_validators": [validate_isnt_error]
-        }
+        },
+
     ]
 
     print("virtue-security/test - running API endpoint response tests")
@@ -3060,6 +3061,39 @@ def test_api(opts):
             print("      %s" % (fail_path,))
 
 
+def api_version(opts):
+    """
+    Report on the version of the CLI utility and the running
+    Sensing API if we can reach it.
+
+    :param opts:
+    :return:
+    """
+    print("virtue-security(version=%s)" % (__VERSION__,))
+
+    # we need to custom code the conversion of the API endpoint to a full
+    # URI because the version function sits outside of the semantic versioned
+    # endpoint heirarchy
+
+    # setup the host
+    host = opts.api_host
+
+    if not host.startswith("http"):
+        host = "http://%s" % (host,)
+
+    # setup the full uri
+    uri = "%s:%d/version" % (host, opts.api_port)
+
+    try:
+        res = requests.get(uri)
+        api_json = res.json()
+        print("sensing-api(version=%s)" % (api_json["version"],))
+    except requests.exceptions.Timeout as ret:
+        print("-- timeout error connected to Sensing API (%s)" % (uri,))
+    except ValueError as ve:
+        print(ve)
+
+
 def options():
     """
     Parse out the command line options.
@@ -3069,7 +3103,7 @@ def options():
     parser = argparse.ArgumentParser(description="Interact with the SAVIOR VirtUE security API")
 
     # top level control
-    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test"])
+    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version"])
     #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
 
     # identification variables
@@ -3099,13 +3133,14 @@ def options():
 
 
 if __name__ == "__main__":
-    print("virtue-security(version=%s)" % (__VERSION__,))
+    # print("virtue-security(version=%s)" % (__VERSION__,))
 
     opts = options()
 
     # dispatch our command based upon the primary mode
     dispatch = {
-        "test": test_api
+        "test": test_api,
+        "version": api_version
     }
 
     if opts.mode not in dispatch:
