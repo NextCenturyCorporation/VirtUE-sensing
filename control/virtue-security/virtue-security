@@ -293,6 +293,28 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_is_error(results):
+    """
+    Validate that the given results have the elements
+    required for an error condition:
+
+        error: True
+        msg: String
+        timestamp:
+
+    :param results:
+    :return:
+    """
+
+    check_for = {
+        "error": is_exactly(True),
+        "msg": is_string,
+        "timestamp": is_timestamp
+    }
+
+    return run_validation(results, check_for)
+
+
 def validate_observe(results):
     """
     Validate the results form an /observe Sensing API
@@ -1262,6 +1284,7 @@ def test_api(opts):
             "returns": "JSON",
             "code": 400,
             "authenticate": True,
+            "result_validators": [validate_is_error]
         },
         {
             "method": "PUT",
@@ -1269,6 +1292,7 @@ def test_api(opts):
             "returns": "JSON",
             "code": 400,
             "authenticate": True,
+            "result_validators": [validate_is_error]
         },
 
         # VIRTUE API
@@ -1585,7 +1609,8 @@ def test_api(opts):
             "result_has_fields": {
                 "error": True,
                 "msg": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
         {
             "method": "GET",
@@ -1596,7 +1621,8 @@ def test_api(opts):
             "result_has_fields": {
                 "error": True,
                 "msg": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         # APPLICATION API
@@ -2489,7 +2515,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #       invalid virtue id
@@ -2503,7 +2530,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #       invalid application id
@@ -2517,7 +2545,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #       invalid virtue ID
@@ -2531,7 +2560,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #       invalid virtue ID
@@ -2545,7 +2575,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #       invalid application ID
@@ -2559,7 +2590,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #       invalid application ID
@@ -2573,7 +2605,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         # USER API
@@ -2713,7 +2746,8 @@ def test_api(opts):
             "result_has_fields": {
                 "error": True,
                 "msg": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #     Unauthenticated
@@ -2726,7 +2760,8 @@ def test_api(opts):
             "result_has_fields": {
                 "error": True,
                 "msg": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #     Missing configuration payload
@@ -2740,7 +2775,8 @@ def test_api(opts):
                 "error": True,
                 "msg": "",
                 "timestamp": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         #     Unauthenticated
@@ -2753,7 +2789,8 @@ def test_api(opts):
             "result_has_fields": {
                 "error": True,
                 "msg": ""
-            }
+            },
+            "result_validators": [validate_is_error]
         },
 
         # === Validate
@@ -2806,6 +2843,9 @@ def test_api(opts):
     fail_codes = {}
     fail_paths = set()
 
+    # track how many of the tests included run_validators
+    total_with_results_validators = 0
+
     # temporarily track NOT IMPLEMENTED code 501 returns
     total_not_implemented = 0
 
@@ -2843,6 +2883,11 @@ def test_api(opts):
             if test_result["code"]["got"] == 501:
                 total_not_implemented += 1
 
+        # were there results_validators run for these tests?
+        if "results_validators" in test:
+            if len(test["results_validators"]) > 0:
+                total_with_results_validators += 1
+
         # report on what passed/failed
         print("\t\t%d/%d passed" % (passes, len(results)))
 
@@ -2853,13 +2898,21 @@ def test_api(opts):
     # summary report
     print("  :: TEST SUMMARY")
     print(
-        "  :: %(passed)d passed, %(failed)d failed out of %(total)d total tests\n\t%(percent_pass)0.2f%% pass rate\n\t%(test_cases)d test cases" %
+"""
+  :: %(passed)d passed, %(failed)d failed out of %(total)d total tests
+       %(percent_pass)0.2f%% pass rate
+       %(percent_with_validators)0.2f%% validator coverage
+       %(test_cases)d test cases
+       %(test_cases_with_validators)d test cases with results validators
+""" %
         {
             "passed": total_pass,
             "failed": total_fail,
             "total": total_pass + total_fail,
             "percent_pass": (total_pass * 1.0) / ( (total_pass + total_fail) * 1.0) * 100.0,
-            "test_cases": len(tests)
+            "test_cases": len(tests),
+            "test_cases_with_validators": total_with_results_validators,
+            "percent_with_validators": (total_with_results_validators * 1.0) / (len(tests) * 1.0) * 100.0
         }
     )
 
