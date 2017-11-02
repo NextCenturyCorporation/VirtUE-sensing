@@ -2,26 +2,26 @@ defmodule ApiServer.EnumController do
   use ApiServer.Web, :controller
 
   def observation_levels(conn, _) do
-    json conn_with_status(conn, 200), %{
-      error: :false,
-      levels: [
-        "off", "default", "low", "high", "adversarial"
-      ]
-    }
+    conn
+      |> put_status(200)
+      |> json(
+          %{
+            error: :false,
+            levels: ["off", "default", "low", "high", "adversarial"],
+            timestamp: DateTime.to_string(DateTime.utc_now())
+          }
+         )
   end
 
   def log_levels(conn, _) do
-    json conn_with_status(conn, 200), %{
-      error: :false,
-      log_levels: [
-        "everything", "debug", "info", "warning", "error", "event"
-      ]
-    }
-  end
-
-  defp conn_with_status(conn, stat) do
     conn
-    |> put_status(stat)
+      |> put_status(200)
+      |> json(
+            %{
+              error: false,
+              log_levels: ["everything", "debug", "info", "warning", "error", "event"],
+              timestamp: DateTime.to_string(DateTime.utc_now())
+            }
+         )
   end
-
 end

@@ -32,9 +32,16 @@ defmodule ApiServer.ExtractionPlug do
       String.match?(sensor, ~r/[a-zA-Z0-9]{8}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{12}/) ->
         assign(conn, :sensor_id, sensor)
       true ->
-        json conn_invalid_parameter(conn), %{error: :true, msg: "Invalid or missing Sensor ID"}
-        Plug.Conn.halt(conn)
         conn
+          |> put_status(400)
+          |> json(
+              %{
+                error: :true,
+                msg: "Invalid or missing sensor ID",
+                timestamp: DateTime.to_string(DateTime.utc_now())
+              }
+             )
+          |> Plug.Conn.halt()
     end
   end
 

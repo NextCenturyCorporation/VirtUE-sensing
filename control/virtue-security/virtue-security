@@ -90,7 +90,7 @@ def test_parameter_filter_level():
 
     :return:
     """
-    return random.choice(["everything", "debug", "info", "warning", "error", "event", "inc", "dec"])
+    return random.choice(["everything", "debug", "info", "warning", "error", "event"])
 
 
 def test_parameter_follow():
@@ -293,6 +293,21 @@ def test_interpolate_parameters(test):
     return {tup[0]: tup[1] for tup in tups}
 
 
+def validate_isnt_error(results):
+    """
+    Validate that the given results have no errors.
+
+    :param results: parsed JSON object
+    :return: List of errors, empty list for no errors
+    """
+    check_for = {
+        "error": is_exactly(False),
+        "timestamp": is_timestamp
+    }
+
+    return run_validation(results, check_for)
+
+
 def validate_is_error(results):
     """
     Validate that the given results have the elements
@@ -302,14 +317,41 @@ def validate_is_error(results):
         msg: String
         timestamp:
 
-    :param results:
-    :return:
+    :param results: parsed JSON object
+    :return: List of errors, empty list for no errors
     """
 
     check_for = {
         "error": is_exactly(True),
         "msg": is_string,
         "timestamp": is_timestamp
+    }
+
+    return run_validation(results, check_for)
+
+
+def validate_stream_message(results):
+    """
+    Validate that our result contains a streaming log
+    message, which has the fomr:
+
+        {
+            "error": False,
+            "timestamp": timestamp,
+            "log_level": one of ["everything", "debug", "info", "warning", "error", "event"],
+            "sensor": uuid(),
+            "message": log message
+        }
+
+    :param results: Parsed result of a single JSON line from a JSONL response from a /stream REST API call
+    :return: List of errors, empty list if no errors
+    """
+    check_for = {
+        "error": is_boolean,
+        "timestamp": is_timestamp,
+        "log_level": is_in("everything", "debug", "info", "warning", "error", "event"),
+        "sensor": is_uuid,
+        "message": is_string
     }
 
     return run_validation(results, check_for)
@@ -1085,15 +1127,77 @@ def test_case(opts, test, repeat=5):
                 rep_result["returns"]["raw"] = res.text
                 did_pass = False
         elif test["returns"].lower() == "jsonl":
-            # the best we can do for now is to try parsing out
-            # the JSON
-            try:
-                res.json()
-                rep_result["returns"]["got"] = "JSON"
-            except Exception as e:
-                rep_result["returns"]["got"] = str(e)
-                rep_result["returns"]["raw"] = res.text
-                did_pass = False
+
+            # we're going to start by splitting our response on newlines
+            responses = res.text.split("\n")
+
+            for res_line in responses:
+
+                # skip over the blank lines
+                if res_line.strip() == "":
+                    continue
+
+                try:
+
+                    # did we get JSON?
+                    res_json = json.loads(res_line)
+
+                    rep_result["returns"]["got"] = "JSON"
+                    rep_result["result"] = res_json
+
+                    # validate from our result_has_fields, which looks like:
+                    #
+                    #       {
+                    #           "key": value,
+                    #           "key": value,
+                    #           ...
+                    #       }
+                    #
+                    # Which we use to validate in multiple ways:
+                    #   - key must exist
+                    #   - type of key in results must match type in result_has_fields
+                    if "result_has_fields" in test:
+                        rep_result["result_has_fields"] = []
+                        for key in test["result_has_fields"].keys():
+
+                            # key exists
+                            if key not in res_json:
+                                rep_result["result_has_fields"].append(
+                                    "The [%s] key is missing from the results" % (key,))
+                                did_pass = False
+
+                            # types match
+                            if key in res_json:
+                                if type(test["result_has_fields"][key]) != type(res_json[key]):
+                                    rep_result["result_has_fields"].append(
+                                        "The field [%s] in the results has the wrong type. Expected (%s) got (%s)" %
+                                        (
+                                            key,
+                                            type(test["result_has_fields"][key]),
+                                            type(res_json[key])
+                                        )
+                                    )
+
+                    # Run any results_validators we have, which do deep value inspection
+                    if "results_validators" in test:
+                        rep_result["results_validators"] = {}
+
+                        # run the individual validators
+                        for res_validator in test["results_validators"]:
+
+                            # grab errors and keep them
+                            errors = res_validator(res_json)
+                            rep_result["results_validators"][res_validator.__name__] = errors
+
+                            # anything other than 0 errors is a fail case
+                            if len(errors) > 0:
+                                did_pass = False
+
+                except Exception as e:
+                    print(e)
+                    rep_result["returns"]["got"] = str(e)
+                    rep_result["returns"]["raw"] = res.text
+                    did_pass = False
 
         rep_result["pass"] = did_pass
 
@@ -1212,17 +1316,19 @@ def test_api(opts):
             "method": "GET",
             "path": "/network/:cidr/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/network/virtue/:virtue/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
 
         # === Inspect
@@ -1284,7 +1390,7 @@ def test_api(opts):
             "returns": "JSON",
             "code": 400,
             "authenticate": True,
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
         {
             "method": "PUT",
@@ -1292,7 +1398,7 @@ def test_api(opts):
             "returns": "JSON",
             "code": 400,
             "authenticate": True,
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         # VIRTUE API
@@ -1354,17 +1460,19 @@ def test_api(opts):
             "method": "GET",
             "path": "/virtue/:virtue/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/virtue/user/:username/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
 
         # === Inspect
@@ -1502,25 +1610,28 @@ def test_api(opts):
             "method": "GET",
             "path": "/vm/virtue/:virtue/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/vm/user/:username/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/vm/address/:address/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
 
         # === Inspect
@@ -1610,7 +1721,7 @@ def test_api(opts):
                 "error": True,
                 "msg": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
         {
             "method": "GET",
@@ -1622,7 +1733,7 @@ def test_api(opts):
                 "error": True,
                 "msg": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         # APPLICATION API
@@ -1811,57 +1922,64 @@ def test_api(opts):
             "method": "GET",
             "path": "/application/virtue/:virtue/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/application/user/:username/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/user/:username/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/user/:username/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/application/virtue/:virtue/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/application/user/:username/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
 
         # === Inspect
@@ -2244,65 +2362,73 @@ def test_api(opts):
             "method": "GET",
             "path": "/resource/:resource/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/resource/user/:username/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/resource/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/user/:username/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/user/:username/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/resource/virtue/:virtue/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
         {
             "method": "GET",
             "path": "/resource/user/:username/application/:application/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
 
         # == Inspect
@@ -2516,7 +2642,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #       invalid virtue id
@@ -2531,7 +2657,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #       invalid application id
@@ -2546,7 +2672,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #       invalid virtue ID
@@ -2561,7 +2687,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #       invalid virtue ID
@@ -2576,7 +2702,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #       invalid application ID
@@ -2591,7 +2717,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #       invalid application ID
@@ -2606,7 +2732,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         # USER API
@@ -2645,9 +2771,10 @@ def test_api(opts):
             "method": "GET",
             "path": "/user/:username/stream",
             "returns": "JSONL",
-            "code": 501,
+            "code": 200,
             "authenticate": True,
-            "parameters": ["since", "filter_level", "follow"]
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
         },
 
         # === Inspect
@@ -2747,7 +2874,7 @@ def test_api(opts):
                 "error": True,
                 "msg": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #     Unauthenticated
@@ -2761,7 +2888,7 @@ def test_api(opts):
                 "error": True,
                 "msg": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #     Missing configuration payload
@@ -2776,7 +2903,7 @@ def test_api(opts):
                 "msg": "",
                 "timestamp": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         #     Unauthenticated
@@ -2790,7 +2917,7 @@ def test_api(opts):
                 "error": True,
                 "msg": ""
             },
-            "result_validators": [validate_is_error]
+            "results_validators": [validate_is_error]
         },
 
         # === Validate
@@ -2817,17 +2944,17 @@ def test_api(opts):
             "path": "/enum/observation/levels",
             "returns": "JSON",
             "code": 200,
-            "authenticate": True
+            "authenticate": True,
+            "results_validators": [validate_isnt_error]
         },
         {
             "method": "GET",
             "path": "/enum/log/levels",
             "returns": "JSON",
             "code": 200,
-            "authenticate": True
+            "authenticate": True,
+            "results_validators": [validate_isnt_error]
         }
-
-
     ]
 
     print("virtue-security/test - running API endpoint response tests")
