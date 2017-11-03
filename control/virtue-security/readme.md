@@ -147,3 +147,20 @@ The following keyword replacements currently work:
  
 Each of the keyword replacements can be mapped to a function in `virtue-security` used to
 generate values for the keyword. Those functions are named in the pattern: `test_parameter_*`
+
+## Fuzzing
+
+Part of the test framework includes [fuzzing](https://en.wikipedia.org/wiki/Fuzzing) of all keyword parameters. When we're fuzzing we're
+specifically looking for unhandled error conditions within the server (HTTP/500).
+
+Of a whole universe of possible codes we might see, the follow are "ok" responses to fuzzing:
+            
+ - **HTTP/200** - Fuzzed value was parseable in context
+ - **HTTP/400** - Fuzzed value was an Invalid parameter
+ - **HTTP/404** - Fuzzed value altered path to a non-existent route
+ - **HTTP/414** - URI too long (we have some long values)
+
+What we DON'T want to see is 500s, that means something has gone wrong in the server, and we 
+aren't properly protecting against it.
+
+Our primary fuzzing data set comes from the [Big List of Naughty Strings](https://github.com/minimaxir/big-list-of-naughty-strings).

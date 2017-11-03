@@ -1,12 +1,27 @@
 defmodule ApiServer.ErrorView do
   use ApiServer.Web, :view
 
+#  defimpl Plug.Exception, for: FunctionClauseError do
+#    def status(_) do
+#      IO.puts("OH CRAP")
+#      404
+#    end
+#  end
+
   def render("404.html", _assigns) do
-    "Page not found"
+    %{
+      error: :true,
+      msg: "Not found",
+      timestamp: DateTime.to_string(DateTime.utc_now())
+    }
   end
 
   def render("500.html", _assigns) do
-    "Internal server error"
+    %{
+      error: :true,
+      msg: "No such route",
+      timestamp: DateTime.to_string(DateTime.utc_now())
+    }
   end
 
   # In case no render clause matches or no
