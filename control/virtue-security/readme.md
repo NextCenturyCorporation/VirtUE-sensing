@@ -111,6 +111,17 @@ a UUID at run time.
 > python virtue-security test --test-path "/user/:username/stream"
 ``` 
  
+ - `--skip-unauthenticated-tests` : Skip the generation and execution of unauthenticated tests
+
+```bash
+> python virtue-security test --skip-unauthenticated-tests
+```
+
+ - `--skip-fuzzing-tests` : Skip the generation and execution of parameter fuzzing tests
+ 
+```bash
+> python virtue-security test --skip-fuzzing-tests
+```
 
 # Testing
 
