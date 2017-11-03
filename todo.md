@@ -1,12 +1,24 @@
 
 # Sensing Architecture
 
- - [ ] Outline sensor/log/streaming architecture
+0- [ ] Outline sensor/log/streaming architecture
+
+# virtue-security
+
+
+6- virtue-security CLI
+  - [ ] add support for all commands and link to routes
  
 # API SERVER
+
+2. basic readme/getting started for API Server
+
  - General API
   - [ ] validation plug methods need to catch missing param cases (write tests for this)
   - [ ] inline test cases with exercised routes
+  - [ ] catch all query params and path params for validation
+   - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing
+         API is in UTC common format.
  - Sensors
   - [ ] write/wire toy dummy monitoring sensor
    - [ ] longer term this will be the sensor that testing hits
@@ -24,17 +36,12 @@
   - [ ] CA/issuer API
  - Testing
   - [ ] Parallelize `virtue-security` test mode
-  - [ ] inject unauthenticated tests for every test that is normally a 200 response, replace CODE and RESULTS_VALIDATORS
-  - [ ] create fuzzing tests
-  - [ ] add failure cases to all endpoints with targeting
+5 - [ ] inject unauthenticated tests for every test that is normally a 200 response, replace CODE and RESULTS_VALIDATORS
+3 - [ ] create fuzzing tests
+4 - [ ] add failure cases to all endpoints with targeting
   - [ ] Add fuzzing tests with known bad inputs
   - [ ] streaming JSONL in elixir
    - [ ] create an infinite streaming source for log messages in server, spawn and attach when doing stream/follow
- - Documentation
-  - [ ] up and running documentation
-  - [ ] versioning
-  - [ ] container vs local run
-  - [ ] development guide
  
 # Sensing API Documentation Updates
 

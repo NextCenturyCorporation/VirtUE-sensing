@@ -20,6 +20,10 @@ defmodule ApiServer.Router do
 #    get "/", PageController, :index
 #  end
 
+   scope "/version", ApiServer do
+     get "/", VersionController, :version
+   end
+
    # Other scopes may use custom stacks.
    scope "/api/v1", ApiServer do
      pipe_through :api
@@ -31,6 +35,7 @@ defmodule ApiServer.Router do
      # Static data routes
      get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
      get "/enum/log/levels", EnumController, :log_levels, name: "enum-log-levels"
+
 
      ###############
      # NETWORK API #
