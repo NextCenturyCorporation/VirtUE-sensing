@@ -1311,6 +1311,47 @@ def construct_api_uri(opts, uri_path):
     return "%s:%d/api/%s%s" % (host, opts.api_port, opts.api_version, uri_path)
 
 
+def test_generate_unauthenticated_tests(tests):
+    """
+    Given the existing body of tests, generate a set
+    of unauthenticated tests for any existing tests that
+    require authentication. Rewrite the conditions for this
+    test to expect HTTP 401, and a results_validator of validate_is_error.
+
+    :param tests: Existing body of tests
+    :return: List of test cases
+    """
+
+    new_tests = []
+
+    for test in tests:
+
+        # generate unauthenticated test cases
+        if test["authenticate"] == True:
+
+            new_test = {}
+
+            # copy the current test
+            for k,v in test.items():
+                new_test[k] = v
+
+            # no longer authenticate
+            new_test["authenticate"] = False
+
+            # HTTP 401
+            new_test["code"] = 401
+
+            # result validators
+            new_test["results_validators"] = [validate_is_error]
+
+            # remove any "result_has_fields" tests
+            new_test["result_has_fields"] = {}
+
+            new_tests.append(new_test)
+
+    return new_tests
+
+
 def test_api(opts):
     """
     Test the virtue-security backend API.
@@ -3043,6 +3084,10 @@ def test_api(opts):
 
     ]
 
+    # generate unauthenticated tests
+    if opts.test_unauthenticated:
+        tests += test_generate_unauthenticated_tests(tests)
+
     print("virtue-security/test - running API endpoint response tests")
     print("  :: %d tests available" % (len(tests),))
 
@@ -3213,6 +3258,7 @@ def options():
 
     # for API testing
     parser.add_argument("--test-path", dest="test_path", default="/", help="Filter prefix for selecting tests. Defaults to selecting all tests")
+    parser.add_argument("--skip-unauthenticated-tests", dest="test_unauthenticated", default=True, action="store_false", help="Skip the generation of un-authenticated tests")
 
     return parser.parse_args()
 
