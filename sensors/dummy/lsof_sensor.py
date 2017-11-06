@@ -22,7 +22,15 @@ import json
 log_messages = Queue()
 
 async def lsof():
-    print("starting lsof")
+    """
+    Continuously read lsof, at the default interval of 15 seconds between
+    repeats.
+
+    :return: -
+    """
+    print(" ::starting lsof")
+
+    # just read from the subprocess and append to the log_message queue
     p = subprocess.Popen(["lsof", "-r"], stdout=subprocess.PIPE)
     async for line in p.stdout:
         await log_messages.put(line.decode("utf-8"))
@@ -35,23 +43,31 @@ async def log_drain():
 
     :return:
     """
-    print("starting log_drain")
+    print(" ::starting log_drain")
+
+    # basic channel tracking
     msg_count = 0
     msg_bytes = 0
+
+    # just read messages as they become available in the message queue
     async for message in log_messages:
-        # print("got: ", message)
+
         msg_count += 1
         msg_bytes += len(message)
 
+        # progress reporting
         if msg_count % 5000 == 0:
             print("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
 
 
 async def send_json(stream, json_data):
     """
+    Serialize a data structure to JSON and send it as a response
+    to an HTTP request. This includes sending HTTP headers and
+    closing the connection (via `Connection: close` header).
 
-    :param stream:
-    :param json_data:
+    :param stream: AsyncIO writable stream
+    :param json_data: Serializable data structure
     :return:
     """
 
@@ -80,11 +96,21 @@ async def send_json(stream, json_data):
 
 
 async def http_handler(client, addr):
-    print("connection from ", addr)
+    """
+    Handle an HTTP request from a remote client.
+
+    :param client: tcp_server client object
+    :param addr: Client address
+    :return: -
+    """
+    print(" -> connection from ", addr)
     s = client.as_stream()
     try:
 
-        # read everything in
+        # read everything in. we're parsing HTTP, so
+        # we'll look for the trailing \r\n\r\n after
+        # which we'll jump into header parsing and then
+        # response
         buff = b''
 
         async for line in s:
@@ -97,28 +123,30 @@ async def http_handler(client, addr):
         message = email.message_from_file(StringIO(headers))
         headers = dict(message.items())
 
-
-        print("HTTP request for [%s]" % (path,))
+        # report on the request
+        print("    :: HTTP request for [%s]" % (path,))
         for k,v in headers.items():
-            print("\t%s => %s" % (k, v))
+            print("  \t%s => %s" % (k, v))
 
+        # send some dummy JSON as a response for now
         await send_json(s, {"error": False, "msg": "hola"})
 
     except CancelledError:
-        print("server goes boom")
-    print("connection closed")
 
+        # ruh-roh, connection broken
+        print("connection goes boom")
 
-# async def http_server(host, port):
-#     while True:
-#         print("starting http server")
-#         serv_task = await spawn(tcp_server, host, port, http_handler)
-#         serv_task.cancel()
-#         print("stopping http server")
-#
+    # request cycle done
+    print(" <- connection closed")
+
 
 async def main():
+    """
+    Primary task spin-up. we're going to coordinate and launch all of
+    our asyncio co-routines from here.
 
+    :return: -
+    """
     async with TaskGroup() as g:
         await g.spawn(log_drain)
         await g.spawn(lsof)
@@ -126,6 +154,9 @@ async def main():
 
 
 if __name__ == "__main__":
+
+    # good morning.
     print("Starting lsof-sensor(version=%s)" % (__VERSION__,))
 
+    # let's jump right into async land
     run(main)
