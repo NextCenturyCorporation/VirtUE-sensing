@@ -1,12 +1,9 @@
 defmodule ApiServer.ErrorView do
   use ApiServer.Web, :view
 
-#  defimpl Plug.Exception, for: FunctionClauseError do
-#    def status(_) do
-#      IO.puts("OH CRAP")
-#      404
-#    end
-#  end
+  defimpl Plug.Exception, for: FunctionClauseError do
+    def status(_), do: IO.puts("OH CRAP")
+  end
 
   def render("404.html", _assigns) do
     %{
