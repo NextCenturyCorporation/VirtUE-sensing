@@ -1386,8 +1386,24 @@ def test_case(opts, test):
         # let's make sure that if we threw an exception in the connection/request process, we
         # bail early
         if threw_exception:
+
+            # ok, so we got an exception error, but did it pass
+            # the test case?
+            #
+            # TODO: After the migration to Cowboy 2.x this can probably be removed,
+            #       as it is only here to catch a special case of a remote connection
+            #       drop related to fuzzing crashing (without exploit) the connection.
+            if type(test["code"]) == type([]):
+                # it's possible our code is a list, in which case we need to be in that list
+                if exception_payload["code"] in test["code"]:
+                    rep_result["pass"] = True
+            else:
+                if exception_payload["code"] == test["code"]:
+                    rep_result["pass"] = True
+
             rep_result["code"]["got"] = exception_payload["code"]
             rep_result["result"] = exception_payload["msg"]
+            results.append(rep_result)
             continue
 
         # make sure we got the status code we expected
@@ -1641,18 +1657,24 @@ def test_generate_fuzzing_tests(tests):
             #       400 - Fuzzed value was an Invalid parameter
             #       404 - Fuzzed value altered path to a non-existent route
             #       414 - URI too long (we have some long values)
+            #       ConnectionError - server is crashing the connection, and we get nothing back
             #
             # What we DON'T want to see is 500s, that means something has gone wrong
             # in the server, and we aren't properly protecting against it.
+            #
+            # TODO: After upgrade to Cowboy 2.x remove the Connection Error case, which
+            #       is caused by an underlying bug in the :cow_lib.(unhex | urldecode)
+            #       library used by Phoenix.
+            #
             if new_test["code"] == 200:
 
                 # invalid parameter or page not found (some of our fuzzing is path manipulation)
-                new_test["code"] = [200, 400, 404, 414]
+                new_test["code"] = [200, 400, 404, 414, "ConnectionError"]
 
             if new_test["code"] == 401:
 
                 # unauthorized OR not found
-                new_test["code"] = [401, 404, 414]
+                new_test["code"] = [401, 404, 414, "ConnectionError"]
 
             # parameter rewriting
             new_test["path"] = rewrite_fuzzing_path(new_test["path"])
@@ -3454,6 +3476,9 @@ def test_api(opts):
     # temporarily track NOT IMPLEMENTED code 501 returns
     total_not_implemented = 0
 
+    # let's track the test time
+    test_start = datetime.datetime.now()
+
     # now run the individual tests
     for test in tests:
 
@@ -3500,11 +3525,15 @@ def test_api(opts):
         if fails > 0:
             print(json.dumps(results, indent=4))
 
+    # time tracking
+    test_end = datetime.datetime.now()
+    test_elapsed = test_end - test_start
+
     # summary report
     print("  :: TEST SUMMARY")
     print(
 """
-  :: %(passed)d passed, %(failed)d failed out of %(total)d total tests
+  :: %(passed)d passed, %(failed)d failed out of %(total)d total tests in %(elapsed_time)s
        %(percent_pass)0.2f%% pass rate
        %(percent_with_validators)0.2f%% validator coverage
        %(test_cases)d test cases
@@ -3517,7 +3546,8 @@ def test_api(opts):
             "percent_pass": (total_pass * 1.0) / ( (total_pass + total_fail) * 1.0) * 100.0,
             "test_cases": len(tests),
             "test_cases_with_validators": total_with_results_validators,
-            "percent_with_validators": (total_with_results_validators * 1.0) / (len(tests) * 1.0) * 100.0
+            "percent_with_validators": (total_with_results_validators * 1.0) / (len(tests) * 1.0) * 100.0,
+            "elapsed_time": str(test_elapsed)
         }
     )
 
@@ -3529,7 +3559,7 @@ def test_api(opts):
     if len(fail_codes) > 0:
         print("    HTTP status_code for failures")
         for fail_code in sorted(fail_codes.keys()):
-            print("      %d == %d" % (fail_code, fail_codes[fail_code]))
+            print("      %s == %d" % (str(fail_code), fail_codes[fail_code]))
 
     # report on which unique paths failed
     if len(fail_paths) > 0:
