@@ -41,6 +41,25 @@ defmodule ApiServer.ValidationPlug do
     end
   end
 
+  # Error Case
+  #
+  #   missing log :level
+  #
+  # Response:
+  #   - Halt/HTTP 400
+  def valid_observe_level(conn, _) do
+    conn
+    |> put_status(400)
+    |> json(
+         %{
+           error: :true,
+           msg: "Missing observation level",
+           timestamp: DateTime.to_string(DateTime.utc_now())
+         }
+       )
+    |> Plug.Conn.halt()
+  end
+
   # Make sure the action of a TRUST command is valid
   #
   # Requires URI or QUERY parameters:
@@ -67,6 +86,25 @@ defmodule ApiServer.ValidationPlug do
              )
           |> Plug.Conn.halt()
     end
+  end
+
+  # Error Case
+  #
+  #   missing log :action
+  #
+  # Response:
+  #   - Halt/HTTP 400
+  def valid_trust_action(conn, _) do
+    conn
+    |> put_status(400)
+    |> json(
+         %{
+           error: :true,
+           msg: "Missing trust action",
+           timestamp: DateTime.to_string(DateTime.utc_now())
+         }
+       )
+    |> Plug.Conn.halt()
   end
 
   # Make sure the action of a validate command is valid
@@ -103,6 +141,25 @@ defmodule ApiServer.ValidationPlug do
     end
   end
 
+  # Error Case
+  #
+  #   missing log :action
+  #
+  # Response:
+  #   - Halt/HTTP 400
+  def valid_validate_action(conn, _) do
+    conn
+    |> put_status(400)
+    |> json(
+         %{
+           error: :true,
+           msg: "Missing validate action",
+           timestamp: DateTime.to_string(DateTime.utc_now())
+         }
+       )
+    |> Plug.Conn.halt()
+  end
+
   # Make sure the incoming log level parameter is valid
   #
   # Requires URI or QUERY parameters:
@@ -126,6 +183,26 @@ defmodule ApiServer.ValidationPlug do
                 timestamp: DateTime.to_string(DateTime.utc_now())
               }
              )
+          |> Plug.Conn.halt()
     end
+  end
+
+  # Error Case
+  #
+  #   missing log :filter_level
+  #
+  # Response:
+  #   - Halt/HTTP 400
+  def valid_log_level(conn, _) do
+    conn
+      |> put_status(400)
+      |> json(
+          %{
+            error: :true,
+            msg: "Missing log filter level",
+            timestamp: DateTime.to_string(DateTime.utc_now())
+          }
+         )
+      |> Plug.Conn.halt()
   end
 end

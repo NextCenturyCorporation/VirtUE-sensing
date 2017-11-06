@@ -1,17 +1,14 @@
 
 # Sensing Architecture
 
-0- [ ] Outline sensor/log/streaming architecture
-
 # virtue-security
 
 
 6- virtue-security CLI
   - [ ] add support for all commands and link to routes
- 
+  - [ ] move command sets into classes and modules
+  
 # API SERVER
-
-2. basic readme/getting started for API Server
 
  - General API
   - [ ] validation plug methods need to catch missing param cases (write tests for this)
@@ -36,8 +33,9 @@
   - [ ] CA/issuer API
  - Testing
   - [ ] Parallelize `virtue-security` test mode
-5 - [ ] inject unauthenticated tests for every test that is normally a 200 response, replace CODE and RESULTS_VALIDATORS
 3 - [ ] create fuzzing tests
+   - [x] inject by rewriting keyword terms and ending them with _fuzz, and reinject into the test list (see unauthenticated tests above)
+   - [ ] fix things so fuzzing tests don't bork all over the place
 4 - [ ] add failure cases to all endpoints with targeting
   - [ ] Add fuzzing tests with known bad inputs
   - [ ] streaming JSONL in elixir

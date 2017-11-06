@@ -8,8 +8,76 @@ import random
 import re
 import requests
 import sys
-import types
 import uuid
+
+
+def fuzzing_from_blns():
+    """
+    What a wonderful resource [The Big List of Naughty Strings](https://github.com/minimaxir/big-list-of-naughty-strings)
+    is. This method will return a random string from a subset of this list that is useful
+    for URI/query param fuzzing.
+
+    I would really, seriously recommend you not edit this function. I would also collapse this function in
+    your editor if at all possible, as most layout engines go a bit bonkers trying to update this
+    section. Also, your syntax hinting for a few lines after this function may be unreliable.
+
+    :return: String
+    """
+    warm_fuzzies_from_blns = [
+	"undefined","undef","null","NULL","(null)","nil","NIL","true","false","True",
+	"False","TRUE","FALSE","None","hasOwnProperty","0","1","1.00","$1.00","1/2",
+	"1E2","1E02","1E+02","-1","-1.00","-$1.00","-1/2","-1E2","-1E02","-1E+02",
+	"1/0","0/0","-2147483648/-1","-9223372036854775808/-1","-0","-0.0","+0",
+	"+0.0","0.00","0..0",".","0.0.0","0,00","0,,0",",","0,0,0","0.0/0","1.0/0.0",
+	"0.0/0.0","1,0/0,0","0,0/0,0","--1","-","-.","-,",
+	"999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+	"NaN","Infinity","-Infinity","INF","1#INF","-1#IND","1#QNAN","1#SNAN",
+	"1#IND","0x0","0xffffffff","0xffffffffffffffff","0xabad1dea",
+	"123456789012345678901234567890123456789","1,000.00","1 000.00","1'000.00",
+	"1,000,000.00","1 000 000.00","1'000'000.00","1.000,00","1 000,00","1'000,00",
+	"1.000.000,00","1 000 000,00","1'000'000,00","01000","08","09",
+	"2.2250738585072011e-308",",./;'[]\-=","<>?:{}|_+","!@#$%^&*()`~",
+	"",
+	"","	              ​    　",
+	"­؀؁؂؃؄؅؜۝܏᠎​‌‍‎‏‪‫‬‭‮⁠⁡⁢⁣⁤⁦⁧⁨⁩⁪⁫⁬⁭⁮⁯﻿￹￺￻𑂽𛲠𛲡𛲢𛲣𝅳𝅴𝅵𝅶𝅷𝅸𝅹𝅺󠀁󠀠󠀡󠀢󠀣󠀤󠀥󠀦󠀧󠀨󠀩󠀪󠀫󠀬󠀭󠀮󠀯󠀰󠀱󠀲󠀳󠀴󠀵󠀶󠀷󠀸󠀹󠀺󠀻󠀼󠀽󠀾󠀿󠁀󠁁󠁂󠁃󠁄󠁅󠁆󠁇󠁈󠁉󠁊󠁋󠁌󠁍󠁎󠁏󠁐󠁑󠁒󠁓󠁔󠁕󠁖󠁗󠁘󠁙󠁚󠁛󠁜󠁝󠁞󠁟󠁠󠁡󠁢󠁣󠁤󠁥󠁦󠁧󠁨󠁩󠁪󠁫󠁬󠁭󠁮󠁯󠁰󠁱󠁲󠁳󠁴󠁵󠁶󠁷󠁸󠁹󠁺󠁻󠁼󠁽󠁾󠁿","Ω≈ç√∫˜µ≤≥÷",
+	"åß∂ƒ©˙∆˚¬…æ","œ∑´®†¥¨ˆøπ“‘","¡™£¢∞§¶•ªº–≠","¸˛Ç◊ı˜Â¯˘¿","ÅÍÎÏ˝ÓÔÒÚÆ☃",
+	"Œ„´‰ˇÁ¨ˆØ∏”’","`⁄€‹›ﬁﬂ‡°·‚—±","⅛⅜⅝⅞",
+	"ЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя",
+	"٠١٢٣٤٥٦٧٨٩","⁰⁴⁵","₀₁₂","⁰⁴⁵₀₁₂","ด้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็ ด้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็ ด้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็็้้้้้้้้็็็็็้้้้้็็็็","田中さんにあげて下さい",
+	"パーティーへ行かないか","和製漢語","部落格","사회과학원 어학연구소",
+	"찦차를 타고 온 펲시맨과 쑛다리 똠방각하","社會科學院語學研究所","울란바토르","𠜎𠜱𠝹𠱓𠱸𠲖𠳏",
+	"Ⱥ","Ⱦ","ヽ༼ຈل͜ຈ༽ﾉ ヽ༼ຈل͜ຈ༽ﾉ","(｡◕ ∀ ◕｡)","｀ｨ(´∀｀∩","__ﾛ(,_,*)",
+	"・(￣∀￣)・:*:","ﾟ･✿ヾ╲(｡◕‿◕｡)╱✿･ﾟ",",。・:*:・゜’( ☻ ω ☻ )。・:*:・゜’",
+	"(╯°□°）╯︵ ┻━┻)","(ﾉಥ益ಥ）ﾉ﻿ ┻━┻","┬─┬ノ( º _ ºノ)","( ͡° ͜ʖ ͡°)",
+	"😍","👩🏽","👾 🙇 💁 🙅 🙆 🙋 🙎 🙍","🐵 🙈 🙉 🙊",
+	"❤️ 💔 💌 💕 💞 💓 💗 💖 💘 💝 💟 💜 💛 💚 💙","✋🏿 💪🏿 👐🏿 🙌🏿 👏🏿 🙏🏿",
+	"🚾 🆒 🆓 🆕 🆖 🆗 🆙 🏧","0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟",
+	"１２３","١٢٣",
+"ثم نفس سقطت وبالتحديد،, جزيرتي باستخدام أن دنو. إذ هنا؟ الستار وتنصيب كان. أهّل ايطاليا، بريطانيا-فرنسا قد أخذ. سليمان، إتفاقية بين ما, يذكر الحدود أي بعد, معاملة بولندا،",
+	"הָיְתָהtestالصفحات التّحول",
+"﷽",
+"ﷺ",
+"مُنَاقَشَةُ سُبُلِ اِسْتِخْدَامِ اللُّغَةِ فِي النُّظُمِ الْقَائِمَةِ وَفِيم يَخُصَّ التَّطْبِيقَاتُ الْحاسُوبِيَّةُ، ",
+	"‪‪test‪","‫test‫"," test ","test⁠test‫","⁦test⁧",
+	"˙ɐnbᴉlɐ ɐuƃɐɯ ǝɹolop ʇǝ ǝɹoqɐl ʇn ʇunpᴉpᴉɔuᴉ ɹodɯǝʇ poɯsnᴉǝ op pǝs 'ʇᴉlǝ ƃuᴉɔsᴉdᴉpɐ ɹnʇǝʇɔǝsuoɔ 'ʇǝɯɐ ʇᴉs ɹolop ɯnsdᴉ ɯǝɹo˥",
+	"00˙Ɩ$-","Ｔｈｅ ｑｕｉｃｋ ｂｒｏｗｎ ｆｏｘ ｊｕｍｐｓ ｏｖｅｒ ｔｈｅ ｌａｚｙ ｄｏｇ",
+	"𝐓𝐡𝐞 𝐪𝐮𝐢𝐜𝐤 𝐛𝐫𝐨𝐰𝐧 𝐟𝐨𝐱 𝐣𝐮𝐦𝐩𝐬 𝐨𝐯𝐞𝐫 𝐭𝐡𝐞 𝐥𝐚𝐳𝐲 𝐝𝐨𝐠","𝕿𝖍𝖊 𝖖𝖚𝖎𝖈𝖐 𝖇𝖗𝖔𝖜𝖓 𝖋𝖔𝖝 𝖏𝖚𝖒𝖕𝖘 𝖔𝖛𝖊𝖗 𝖙𝖍𝖊 𝖑𝖆𝖟𝖞 𝖉𝖔𝖌",
+	"𝑻𝒉𝒆 𝒒𝒖𝒊𝒄𝒌 𝒃𝒓𝒐𝒘𝒏 𝒇𝒐𝒙 𝒋𝒖𝒎𝒑𝒔 𝒐𝒗𝒆𝒓 𝒕𝒉𝒆 𝒍𝒂𝒛𝒚 𝒅𝒐𝒈",
+	"𝓣𝓱𝓮 𝓺𝓾𝓲𝓬𝓴 𝓫𝓻𝓸𝔀𝓷 𝓯𝓸𝔁 𝓳𝓾𝓶𝓹𝓼 𝓸𝓿𝓮𝓻 𝓽𝓱𝓮 𝓵𝓪𝔃𝔂 𝓭𝓸𝓰","𝕋𝕙𝕖 𝕢𝕦𝕚𝕔𝕜 𝕓𝕣𝕠𝕨𝕟 𝕗𝕠𝕩 𝕛𝕦𝕞𝕡𝕤 𝕠𝕧𝕖𝕣 𝕥𝕙𝕖 𝕝𝕒𝕫𝕪 𝕕𝕠𝕘",
+	"𝚃𝚑𝚎 𝚚𝚞𝚒𝚌𝚔 𝚋𝚛𝚘𝚠𝚗 𝚏𝚘𝚡 𝚓𝚞𝚖𝚙𝚜 𝚘𝚟𝚎𝚛 𝚝𝚑𝚎 𝚕𝚊𝚣𝚢 𝚍𝚘𝚐",
+	"⒯⒣⒠ ⒬⒰⒤⒞⒦ ⒝⒭⒪⒲⒩ ⒡⒪⒳ ⒥⒰⒨⒫⒮ ⒪⒱⒠⒭ ⒯⒣⒠ ⒧⒜⒵⒴ ⒟⒪⒢",
+	"1;DROP TABLE users","1'; DROP TABLE users-- 1","' OR 1=1 -- 1",
+	"' OR '1'='1 ","%","_","-","--","--version","--help",
+	"$USER","/dev/null; touch /tmp/blns.fail ; echo","`touch /tmp/blns.fail`","$(touch /tmp/blns.fail)",
+	"$HOME","$ENV{'HOME'}","%d","%s","{0}","%*.*s","File:///",
+	"../../../../../../../../../../../etc/passwd%00",
+	"../../../../../../../../../../../etc/hosts",
+	"() { 0; }; touch /tmp/blns.shellshock1.fail;",
+	"() { _; } >_[$($())] { touch /tmp/blns.shellshock2.fail; }",
+	"<<< %s(un='%s') = %u","+++ATH0","DCC SEND STARTKEYLOGGER 0 0 0",
+	"Powerلُلُصّبُلُلصّبُررً ॣ ॣh ॣ ॣ冗","🏳0🌈️"]
+
+    return random.choice(warm_fuzzies_from_blns)
 
 
 def test_generate_user_token():
@@ -30,6 +98,23 @@ def test_parameter_application():
     return str(uuid.uuid4())
 
 
+def test_parameter_application_fuzz():
+    """
+    Create fuzzing values for the Application ID. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
+
+
 def test_parameter_resource():
     """
     For identifying resources, we'll use a UUID for now.
@@ -37,6 +122,23 @@ def test_parameter_resource():
     :return: String
     """
     return str(uuid.uuid4())
+
+
+def test_parameter_resource_fuzz():
+    """
+    Create fuzzing values for the Resource ID. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
 
 
 def test_parameter_sensor():
@@ -48,6 +150,23 @@ def test_parameter_sensor():
     return str(uuid.uuid4())
 
 
+def test_parameter_sensor_fuzz():
+    """
+    Create fuzzing values for the Sensor ID. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
+
+
 def test_parameter_username():
     """
     Generate a basic username.
@@ -55,6 +174,23 @@ def test_parameter_username():
     :return: String
     """
     return ".".join(random.sample("Aaden Alaysia Alfred Amia Annabell Anson Apollo Araceli Astrid Audrianna Augustine Avalyn Ayana Bayleigh Belinda Branden Brendon Brenton Broderick Brysen Camilo Camryn Castiel Charity Clyde Collins Corban Cristina Dalilah Darien Dario Davon Deegan Denzel Devyn Emmaline Ephraim Estelle Giovanna Graeme Grey Houston Immanuel India Ireland Jakobe Jaycob Jayde Jayse Jordy Judith Kaidence Kailani Kaiya Kalel Kannon Karissa Karly Karma Kaylyn Kenna Kohen Kylah Lachlan Langston Leroy Lillyana Magnolia Magnus Makena Marleigh Meadow Nahla Natalya Neriah Osvaldo Penny Pierre Princess Reagan Rihanna Rivka Rocky Rowen Roxanne Ryann Santana Sarahi Sidney Tamia Tess Thatcher Tinley Todd Truman Tyree Tyrell Yadiel Yair Zainab".split(" "), 2))
+
+
+def test_parameter_username_fuzz():
+    """
+    Create fuzzing values for the Username. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
 
 
 def test_parameter_since():
@@ -67,6 +203,23 @@ def test_parameter_since():
     return datetime.datetime.now().isoformat()
 
 
+def test_parameter_since_fuzz():
+    """
+    Create fuzzing values for the Since timestamp. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
+
+
 def test_parameter_validate_action():
     """
     Action taken during sensor validation.
@@ -74,6 +227,23 @@ def test_parameter_validate_action():
     :return: String
     """
     return random.choice(["canary", "cross-validation"])
+
+
+def test_parameter_validate_action_fuzz():
+    """
+    Create fuzzing values for the sensor validation action. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
 
 
 def test_parameter_filter_level():
@@ -93,6 +263,23 @@ def test_parameter_filter_level():
     return random.choice(["everything", "debug", "info", "warning", "error", "event"])
 
 
+def test_parameter_filter_level_fuzz():
+    """
+    Create fuzzing values for the Filter level. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
+
+
 def test_parameter_follow():
     """
     Parameter for following (or not) a JSONL series from the log
@@ -103,6 +290,23 @@ def test_parameter_follow():
     return random.choice([True, False])
 
 
+def test_parameter_follow_fuzz():
+    """
+    Create fuzzing values for the Follow. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
+
+
 def test_parameter_action():
     """
     Our test parameters.
@@ -110,6 +314,23 @@ def test_parameter_action():
     :return: String
     """
     return random.choice(["validate", "invalidate"])
+
+
+def test_parameter_action_fuzz():
+    """
+    Create fuzzing values for the action. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
 
 
 def test_parameter_cidr():
@@ -129,6 +350,23 @@ def test_parameter_cidr():
         random.randint(2, 250),
         random.randint(8, 32)
     )
+
+
+def test_parameter_cidr_fuzz():
+    """
+    Create fuzzing values for the Application ID. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
 
 
 def test_parameter_address():
@@ -158,6 +396,23 @@ def test_parameter_address():
         )
 
 
+def test_parameter_address_fuzz():
+    """
+    Create fuzzing values for the Address. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
+
+
 def test_parameter_virtue():
     """
     Generate a VirtueID, which is a UUID.
@@ -165,6 +420,23 @@ def test_parameter_virtue():
     :return: Random UUID as String
     """
     return str(uuid.uuid4())
+
+
+def test_parameter_virtue_fuzz():
+    """
+    Create fuzzing values for the Application ID. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
 
 
 def test_parameter_level():
@@ -177,6 +449,23 @@ def test_parameter_level():
     :return:
     """
     return random.choice("off default low high adversarial".split(" "))
+
+
+def test_parameter_level_fuzz():
+    """
+    Create fuzzing values for the Application ID. Things we'll
+    vary:
+
+        - outside of UUID character set
+        - alternative formats
+        - escapes
+        - path walking
+
+    :return:
+    """
+
+    # right now we'll just use hte BLNS fuzzing set
+    return fuzzing_from_blns()
 
 
 def test_uri_has_parameters(uri):
@@ -291,6 +580,32 @@ def test_interpolate_parameters(test):
             tups.append((parameter, func()))
 
     return {tup[0]: tup[1] for tup in tups}
+
+
+def validate_is_one_of(*kargs):
+    """
+    Given two lists of validators, make sure one
+    or the other passes.
+
+    :param kargs:
+    :return:
+    """
+
+    def validate_is_one_of_inner(results):
+        vnames = []
+
+        for validators in kargs:
+            errors = []
+            for validator in validators:
+                vnames.append(validator.__name__)
+                errors += validator(results)
+            if len(errors) == 0:
+                return []
+
+        # we need to return the whole list of validators
+        return ["Failed validator %s" % (vname,) for vname in vnames]
+
+    return validate_is_one_of_inner
 
 
 def validate_isnt_error(results):
@@ -954,7 +1269,7 @@ def is_uuid(str):
         return re.match(r'^[a-zA-Z0-9]{8}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{12}$', str) is not None
 
 
-def test_case(opts, test, repeat=5):
+def test_case(opts, test):
     """
     Run an individual test one or more times. A list of status dictionaries
     is returned with an entry for each iteration of the test. The dictionary
@@ -996,7 +1311,7 @@ def test_case(opts, test, repeat=5):
         repeat = 1
 
     # let's rock this joint
-    for rep in range(repeat):
+    for rep in range(opts.test_repeat):
 
         # start building our result object
         rep_result = {
@@ -1018,50 +1333,89 @@ def test_case(opts, test, repeat=5):
 
         # record the randomized parameters
         rep_result["parameters"] = selected_params
+        threw_exception = False
+        exception_payload = {}
 
-        # construct request
-        #  but first, are we authenticating?
-        if "authenticate" in test and test["authenticate"]:
-            if test["method"].lower() == "get":
-                # determine any parameters for our get request
-                get_params = test_interpolate_parameters(test)
 
-                # fire away
-                res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
+        try:
+            # construct request
+            #  but first, are we authenticating?
+            if "authenticate" in test and test["authenticate"]:
+                if test["method"].lower() == "get":
+                    # determine any parameters for our get request
+                    get_params = test_interpolate_parameters(test)
+
+                    # fire away
+                    res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
+                else:
+
+                    # generate the request body payload
+                    request_body = {"userToken": test_generate_user_token()}
+                    if "request_body" in test:
+                        for k, v in test["request_body"].items():
+                            request_body[k] = v
+
+                    res = getattr(requests, test["method"].lower())(full_uri, data=request_body)
             else:
+                if test["method"].lower() == "get":
 
-                # generate the request body payload
-                request_body = {"userToken": test_generate_user_token()}
-                if "request_body" in test:
-                    for k, v in test["request_body"].items():
-                        request_body[k] = v
+                    # determine any parameters for our get request
+                    get_params = test_interpolate_parameters(test)
 
-                res = getattr(requests, test["method"].lower())(full_uri, data=request_body)
-        else:
-            if test["method"].lower() == "get":
+                    # fire away
+                    res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
+                else:
 
-                # determine any parameters for our get request
-                get_params = test_interpolate_parameters(test)
+                    # generate the request body payload
+                    request_body = {}
+                    if "request_body" in test:
+                        for k, v in test["request_body"].items():
+                            request_body[k] = v
 
-                # fire away
-                res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
-            else:
-
-                # generate the request body payload
-                request_body = {}
-                if "request_body" in test:
-                    for k, v in test["request_body"].items():
-                        request_body[k] = v
-
-                res = getattr(requests, test["method"].lower())(full_uri)
+                    res = getattr(requests, test["method"].lower())(full_uri)
+        except requests.exceptions.ConnectionError as rece:
+            threw_exception = True
+            exception_payload = {
+                "code": "ConnectionError",
+                "msg": str(rece)
+            }
 
         # check results
         did_pass = True
 
+        # let's make sure that if we threw an exception in the connection/request process, we
+        # bail early
+        if threw_exception:
+
+            # ok, so we got an exception error, but did it pass
+            # the test case?
+            #
+            # TODO: After the migration to Cowboy 2.x this can probably be removed,
+            #       as it is only here to catch a special case of a remote connection
+            #       drop related to fuzzing crashing (without exploit) the connection.
+            if type(test["code"]) == type([]):
+                # it's possible our code is a list, in which case we need to be in that list
+                if exception_payload["code"] in test["code"]:
+                    rep_result["pass"] = True
+            else:
+                if exception_payload["code"] == test["code"]:
+                    rep_result["pass"] = True
+
+            rep_result["code"]["got"] = exception_payload["code"]
+            rep_result["result"] = exception_payload["msg"]
+            results.append(rep_result)
+            continue
+
         # make sure we got the status code we expected
         rep_result["code"]["got"] = res.status_code
-        if res.status_code != test["code"]:
-            did_pass = False
+
+        if type(test["code"]) == type([]):
+            # it's possible our code is a list, in which case we need to be in that list
+            if res.status_code not in test["code"]:
+                did_pass = False
+        else:
+            if res.status_code != test["code"]:
+                did_pass = False
 
         # make sure we got JSON or JSONL if that's what we expected, and then
         # verify the data from the results
@@ -1224,6 +1578,143 @@ def construct_api_uri(opts, uri_path):
 
     # setup the full uri
     return "%s:%d/api/%s%s" % (host, opts.api_port, opts.api_version, uri_path)
+
+
+def test_generate_unauthenticated_tests(tests):
+    """
+    Given the existing body of tests, generate a set
+    of unauthenticated tests for any existing tests that
+    require authentication. Rewrite the conditions for this
+    test to expect HTTP 401, and a results_validator of validate_is_error.
+
+    :param tests: Existing body of tests
+    :return: List of test cases
+    """
+
+    new_tests = []
+
+    for test in tests:
+
+        # generate unauthenticated test cases
+        if test["authenticate"] == True:
+
+            new_test = {}
+
+            # copy the current test
+            for k,v in test.items():
+                new_test[k] = v
+
+            # no longer authenticate
+            new_test["authenticate"] = False
+
+            # HTTP 401
+            new_test["code"] = 401
+
+            # result validators
+            new_test["results_validators"] = [validate_is_error]
+
+            # remove any "result_has_fields" tests
+            new_test["result_has_fields"] = {}
+
+            new_tests.append(new_test)
+
+    return new_tests
+
+
+def test_generate_fuzzing_tests(tests):
+    """
+    Given the existing body of tests, generate fuzzing tests for
+    any test that would normally return a 200 or 401 status code.
+
+    We create the fuzzing tests by:
+
+        - rewriting the request path and parameters to use :*_fuzz keywords
+        - rewrite the results_validators to be `validate_is_error`
+        - rewrite the status code to be 400/invalid parameter for tests that
+            returned 200, and leave status 401 for tests that were 401 status
+        - remove any `result_has_fields` keys
+
+    :param tests: Existing test sets
+    :return: List of fuzzing test cases
+    """
+    new_tests = []
+
+    for test in tests:
+
+        # HTTP/200 or HTTP/400
+        if test["code"] in [200, 401]:
+
+            new_test = {}
+
+            # copy the current test
+            for k, v in test.items():
+                new_test[k] = v
+
+            # status code rewrite. Ok. So status codes. Of a whole universe of
+            # possible codes we might see, the follow are "ok" responses to fuzzing:
+            #
+            #       200 - Fuzzed value was parseable in context
+            #       400 - Fuzzed value was an Invalid parameter
+            #       404 - Fuzzed value altered path to a non-existent route
+            #       414 - URI too long (we have some long values)
+            #       ConnectionError - server is crashing the connection, and we get nothing back
+            #
+            # What we DON'T want to see is 500s, that means something has gone wrong
+            # in the server, and we aren't properly protecting against it.
+            #
+            # TODO: After upgrade to Cowboy 2.x remove the Connection Error case, which
+            #       is caused by an underlying bug in the :cow_lib.(unhex | urldecode)
+            #       library used by Phoenix.
+            #
+            if new_test["code"] == 200:
+
+                # invalid parameter or page not found (some of our fuzzing is path manipulation)
+                new_test["code"] = [200, 400, 404, 414, "ConnectionError"]
+
+            if new_test["code"] == 401:
+
+                # unauthorized OR not found
+                new_test["code"] = [401, 404, 414, "ConnectionError"]
+
+            # parameter rewriting
+            new_test["path"] = rewrite_fuzzing_path(new_test["path"])
+
+            # rewrite any parameters
+            if "parameters" in new_test:
+                new_test["parameters"] = [p + "_fuzz" for p in new_test["parameters"]]
+
+            # reset result_has_fields
+            new_test["result_has_fields"] = {}
+
+            # set the validator - this is basically an OR of two sets of validators
+            new_test["results_validators"] = [validate_is_one_of([validate_is_error], new_test["results_validators"])]
+
+            new_tests.append(new_test)
+
+    return new_tests
+
+
+def rewrite_fuzzing_path(path):
+    """
+    Take apart a path like "/user/:username/something/:action" and relabel
+    all of the keywords with *_fuzz, such that the resulting path is:
+
+        /user/:username_fuzz/something/:action_fuzz
+
+
+    :param path: Normal request path
+    :return: Fuzzing request path
+    """
+    bits = path.split("/")[1:]
+    new_bits = []
+
+    for bit in bits:
+        if bit.startswith(":"):
+            new_bits.append("%s_fuzz" % (bit,))
+        else:
+            new_bits.append(bit)
+
+    return "/%s" % ("/".join(new_bits),)
 
 
 def test_api(opts):
@@ -2958,6 +3449,14 @@ def test_api(opts):
 
     ]
 
+    # generate unauthenticated tests
+    if opts.test_unauthenticated:
+        tests += test_generate_unauthenticated_tests(tests)
+
+    # fuzzing tests
+    if opts.test_fuzzing:
+        tests += test_generate_fuzzing_tests(tests)
+
     print("virtue-security/test - running API endpoint response tests")
     print("  :: %d tests available" % (len(tests),))
 
@@ -2976,6 +3475,9 @@ def test_api(opts):
 
     # temporarily track NOT IMPLEMENTED code 501 returns
     total_not_implemented = 0
+
+    # let's track the test time
+    test_start = datetime.datetime.now()
 
     # now run the individual tests
     for test in tests:
@@ -3023,11 +3525,15 @@ def test_api(opts):
         if fails > 0:
             print(json.dumps(results, indent=4))
 
+    # time tracking
+    test_end = datetime.datetime.now()
+    test_elapsed = test_end - test_start
+
     # summary report
     print("  :: TEST SUMMARY")
     print(
 """
-  :: %(passed)d passed, %(failed)d failed out of %(total)d total tests
+  :: %(passed)d passed, %(failed)d failed out of %(total)d total tests in %(elapsed_time)s
        %(percent_pass)0.2f%% pass rate
        %(percent_with_validators)0.2f%% validator coverage
        %(test_cases)d test cases
@@ -3040,7 +3546,8 @@ def test_api(opts):
             "percent_pass": (total_pass * 1.0) / ( (total_pass + total_fail) * 1.0) * 100.0,
             "test_cases": len(tests),
             "test_cases_with_validators": total_with_results_validators,
-            "percent_with_validators": (total_with_results_validators * 1.0) / (len(tests) * 1.0) * 100.0
+            "percent_with_validators": (total_with_results_validators * 1.0) / (len(tests) * 1.0) * 100.0,
+            "elapsed_time": str(test_elapsed)
         }
     )
 
@@ -3052,7 +3559,7 @@ def test_api(opts):
     if len(fail_codes) > 0:
         print("    HTTP status_code for failures")
         for fail_code in sorted(fail_codes.keys()):
-            print("      %d == %d" % (fail_code, fail_codes[fail_code]))
+            print("      %s == %d" % (str(fail_code), fail_codes[fail_code]))
 
     # report on which unique paths failed
     if len(fail_paths) > 0:
@@ -3128,6 +3635,9 @@ def options():
 
     # for API testing
     parser.add_argument("--test-path", dest="test_path", default="/", help="Filter prefix for selecting tests. Defaults to selecting all tests")
+    parser.add_argument("--skip-unauthenticated-tests", dest="test_unauthenticated", default=True, action="store_false", help="Skip the generation of un-authenticated tests")
+    parser.add_argument("--skip-fuzzing-tests", dest="test_fuzzing", default=True, action="store_false", help="Skip the generation of fuzzing tests")
+    parser.add_argument("--test-repeat", dest="test_repeat", default=5, type=int, help="How many iterations of each test should run")
 
     return parser.parse_args()
 
