@@ -1,24 +1,12 @@
 defmodule ApiServer.Router do
   use ApiServer.Web, :router
 
-#  pipeline :browser do
-#    plug :accepts, ["html"]
-#    plug :fetch_session
-#    plug :fetch_flash
-#    plug :protect_from_forgery
-#    plug :put_secure_browser_headers
-#  end
 
   pipeline :api do
     plug :accepts, ["json"]
     plug ApiServer.Plugs.Authenticate
   end
 
-#  scope "/", ApiServer do
-#    pipe_through :browser # Use the default browser stack
-#
-#    get "/", PageController, :index
-#  end
 
    scope "/version", ApiServer do
      get "/", VersionController, :version
@@ -216,6 +204,6 @@ defmodule ApiServer.Router do
      put "/sensor/:sensor/configure", ConfigureController, :configure, name: "sensor-configure-set"
      get "/sensor/:sensor/validate/check", ValidateController, :check, name: "sensor-validate-check"
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
-
+     put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
   end
 end
