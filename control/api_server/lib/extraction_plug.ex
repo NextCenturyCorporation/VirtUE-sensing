@@ -363,7 +363,13 @@ defmodule ApiServer.ExtractionPlug do
   end
 
   def is_public_key(st) do
-    :true
+
+    case :public_key.pem_decode(st) do
+      [rsa_entry] ->
+        :true
+      [] ->
+        :false
+    end
   end
 
   defp is_uuid?(st) do

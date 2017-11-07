@@ -6,19 +6,24 @@
 
  - [ ] http endpoint
   - [x] basic http request cycle
-  - [ ] clean up the http request cycle into a class
-  - [ ] layout what the different actions would do
+7  - [ ] clean up the http request cycle into a class
+3  - [ ] layout what the different actions would do
  - [ ] sensor registration
-  - [ ] api endpoint
-  - [ ] what does a registration do? virtue/user/sensor IDs
- - [ ] kafka integration
- - [ ] sensor config
-  - [ ] filters as lockable objects, or processed at the kafka emitter
+1  - [x] api endpoint
+1.1 - [x] actually write is_public_key validator
+2  - [ ] what does a registration do? virtue/user/sensor IDs
+    - [ ] persistence
+	- [x] pub key validation
+	- [ ] actually register dummy sensor
+   - [ ] fix special case authentication of the registration API by adding client certificate auth plug
+4 - [ ] kafka integration
+5 - [ ] sensor config
+6  - [ ] filters as lockable objects, or processed at the kafka emitter
  - [ ] CA integration
  - [ ] where is Sensing API
  - [ ] where is Kafka
  - [ ] where is CA?
- - [ ] how do we get default config?
+8 - [ ] how do we get default config?
  
 # infrastructure
 

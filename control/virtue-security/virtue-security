@@ -2,6 +2,7 @@
 __VERSION__ = "1"
 
 import argparse
+from Crypto.PublicKey import RSA
 import datetime
 import json
 import random
@@ -3564,7 +3565,7 @@ def test_api(opts):
                 "sensor": test_parameter_sensor,
                 "virtue": test_parameter_virtue,
                 "user": test_parameter_username,
-                "public_key": "",
+                "public_key": load_public_key("cert/rsa_key.pub"),
                 "hostname": test_parameter_hostname,
                 "port": test_parameter_port
             }
@@ -3709,6 +3710,28 @@ def test_api(opts):
             print("      %s" % (fail_path,))
 
 
+def load_public_key(key_path):
+    """
+    Load and validate a public key for use with the API.
+
+    An exception is raised if the public key is invalid
+
+    :param key_path: Path to the public key.
+    :return: PEM String
+    """
+
+    key_string = open(key_path, 'r').read()
+
+    # validate the key
+    try:
+        rsakey = RSA.importKey(key_string)
+    except ValueError as ve:
+
+        print("Couldn't import RSA public key at %s - %s" % (key_path, str(ve)))
+
+    return key_string
+
+
 def api_version(opts):
     """
     Report on the version of the CLI utility and the running
@@ -3768,6 +3791,9 @@ def options():
 
     parser.add_argument("--since", dest="time_since", default=None, help="Time or timestamp in log history")
     parser.add_argument("--follow", dest="log_follow", default=False, action="store_true", help="Follow the log stream")
+
+    # key management
+    parser.add_argument("--public-key-path", dest="public_key_path", default=None, help="Path to the public key to use")
 
     # communications
     parser.add_argument("-a", "--api-host", dest="api_host", default="localhost", help="API host URI")
