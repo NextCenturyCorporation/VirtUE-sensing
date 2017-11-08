@@ -48,6 +48,15 @@ defmodule ApiServer do
         IO.puts("Encountered a problem starting :mnesia on node(#{node()})")
     end
 
+    # When updates to the data model for sensors are done, they
+    # need to be reflected in a number of places:
+    #
+    #   - below, in create_table
+    #   - below, in each table_info/2 clause
+    #   - web/models/sensor.ex : defstruct
+    #   - web/models/sensor.ex : sensor/*
+    #   - lib/database_utils.ex : register_sensor/1
+    #   - lib/database_utils.ex : index_for_key/1
 
     # Setup our Sensor tracking in Mnesia. Our database is versioned
     # with table transforms. A copy of the database is persisted to

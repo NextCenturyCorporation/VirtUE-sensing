@@ -12,9 +12,14 @@
 1  - [x] api endpoint
 1.1 - [x] actually write is_public_key validator
 2  - [ ] what does a registration do? virtue/user/sensor IDs
-    - [ ] persistence
+    - [x] persistence
 	- [x] pub key validation
 	- [ ] actually register dummy sensor
+	- [ ] how do we un/de-register?
+	 - [ ] as an API call
+	 - [ ] as a result of trust actions
+	 - [ ] by timeout? - if we haven't seen a heartbeat from a sensor in X minutes/hours/days?
+	- [ ] persist the pub key of the sensor
    - [ ] fix special case authentication of the registration API by adding client certificate auth plug
 4 - [ ] kafka integration
 5 - [ ] sensor config
