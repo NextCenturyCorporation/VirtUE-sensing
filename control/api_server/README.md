@@ -65,7 +65,7 @@ More about *targeting* can be found in the Sensing API document.
 ## Data Models
 
 The API Server maintains relevant sensor registration data in a disc persisted, distributed
-Mnesia datastore. The schema for the data store is defined in the `start_mnesia/0` method of the
+[Mnesia](http://erlang.org/doc/man/mnesia.html) [datastore](https://elixirschool.com/en/lessons/specifics/mnesia/#nodes). The schema for the data store is defined in the `start_mnesia/0` method of the
 **lib/api_server.ex** _ApiServer_ module.
 
 Updates to the schema of the data table are handled in the same `start_mnesia/0` method, and
