@@ -12,6 +12,7 @@
 defmodule ApiServer.RegistrationController do
   use ApiServer.Web, :controller
   import ApiServer.ExtractionPlug, only: [extract_sensor_id: 2, is_virtue_id: 1, is_sensor_id: 1, is_hostname: 1, is_username: 1, is_public_key: 1]
+  alias :mnesia, as: Mnesia
 
   # get our Sensor ID into conn::sensor_id
   plug :extract_sensor_id when action in [:review, :configure]
@@ -23,7 +24,7 @@ defmodule ApiServer.RegistrationController do
   # Return:
   #   - HTTP 200 / Sensor registered
   #   - HTTP 400 / Invalid or missing registration parameters in payload
-  #
+  #   - HTTP 500 / Registration error
   def register(
         %Plug.Conn{
           method: "PUT",
@@ -59,16 +60,35 @@ defmodule ApiServer.RegistrationController do
 
       # now we have a valid registration
       :true ->
-        conn
-          |> put_status(200)
-          |> json(
-              %{
-                error: :false,
-                timestamp: DateTime.to_string(DateTime.utc_now()),
-                sensor: sensor,
-                registered: :true
-              }
-             )
+        case ApiServer.DatabaseUtils.register_sensor(
+          Sensor.sensor(sensor, virtue, username, hostname, DateTime.to_string(DateTime.utc_now()), port)
+        ) do
+          {:ok} ->
+            IO.puts("  sensor registered")
+            scount = Mnesia.table_info(Sensor, :size)
+            IO.puts("  #{scount} sensors currently registered.")
+            conn
+            |> put_status(200)
+            |> json(
+                 %{
+                   error: :false,
+                   timestamp: DateTime.to_string(DateTime.utc_now()),
+                   sensor: sensor,
+                   registered: :true
+                 }
+               )
+          {:error, reason} ->
+            IO.puts("  error registering sensor: #{reason}")
+            conn
+            |> put_status(500)
+            |> json(
+                %{
+                  error: :true,
+                  timestamp: DateTime.to_string(DateTime.utc_now()),
+                  msg: "Error registering sensor: #{reason}"
+                }
+               )
+        end
 
     end
   end

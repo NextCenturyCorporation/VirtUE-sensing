@@ -3728,7 +3728,7 @@ def load_public_key(key_path):
     except ValueError as ve:
 
         print("Couldn't import RSA public key at %s - %s" % (key_path, str(ve)))
-
+        print("  If this is encountered during testing, run the gen_cert.sh script to create a key pair, and try testing again")
     return key_string
 
 
