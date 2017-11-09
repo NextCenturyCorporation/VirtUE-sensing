@@ -18,6 +18,14 @@ defmodule ApiServer.Plugs.Authenticate do
     conn
   end
 
+  # TODO: This is a special case to allow /sensor/:sensor/register through unauthenticated until
+  #       we incorporate client certificate authentication, at which point the sensor will mutually
+  #       authenticate and we will change this method
+  def call(%Plug.Conn{:method => "PUT", :path_info => ["api", "v1", "sensor", _, "deregister"]} = conn, _default) do
+    IO.puts "unauthenticated call to /sensor/:sensor/deregister allowed"
+    conn
+  end
+
   # put request without userToken auth
   def call(%Plug.Conn{:method => "PUT"} = conn, _default) do
       conn

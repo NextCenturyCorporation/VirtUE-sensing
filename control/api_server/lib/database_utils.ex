@@ -14,6 +14,49 @@ defmodule ApiServer.DatabaseUtils do
   import UUID, only: [uuid4: 0]
   alias :mnesia, as: Mnesia
 
+  def deregister_sensor(
+        %Sensor{
+          :sensor => sensor,
+          :public_key => public_key
+        }
+      )
+    do
+
+    # remove any records matching this sensor ID, if we can
+    # validate that the sensor ID and public key match
+    case Mnesia.transaction(
+      fn ->
+        case Mnesia.match_object(
+          {
+            Sensor,
+            :_,
+            sensor,
+            :_, :_, :_, :_, :_,
+            public_key
+          }
+        ) do
+
+          # no matches
+          [] ->
+            {:ok, 0}
+
+          # records to remove
+          records ->
+            Enum.map(records,
+                fn (rec) ->
+                  Mnesia.delete_object(rec)
+                end
+            )
+            {:ok, length(records)}
+        end
+      end
+    ) do
+      {:atomic, {:ok, remove_count}} ->
+        {:ok, remove_count}
+      {:atomic, {:aborted, reason}} ->
+        {:error, "deregistration aborted: #{reason}"}
+    end
+  end
 
   @doc """
   Register sensors to the database. Fields that aren't
@@ -31,7 +74,8 @@ defmodule ApiServer.DatabaseUtils do
           :username => username,
           :address => address,
           :timestamp => nil,
-          :port => port
+          :port => port,
+          :public_key => public_key
         })
     do
 
@@ -47,7 +91,8 @@ defmodule ApiServer.DatabaseUtils do
             username,
             address,
             DateTime.to_string(DateTime.utc_now()),
-            as_intger(port)
+            as_intger(port),
+            public_key
           }
         )
       end
@@ -66,7 +111,8 @@ defmodule ApiServer.DatabaseUtils do
           :username => username,
           :address => address,
           :timestamp => timestamp,
-          :port => port
+          :port => port,
+          :public_key => public_key
         })
     do
 
@@ -82,7 +128,8 @@ defmodule ApiServer.DatabaseUtils do
             username,
             address,
             timestamp,
-            as_intger(port)
+            as_intger(port),
+            public_key
           }
         )
       end
@@ -182,7 +229,7 @@ defmodule ApiServer.DatabaseUtils do
   # Interpolate a key into our record position
   defp index_for_key(k) do
     Enum.find(
-      [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port],
+      [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key],
       fn(x) ->
         x == k
       end

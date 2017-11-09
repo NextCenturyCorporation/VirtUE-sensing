@@ -14,12 +14,17 @@
 2  - [ ] what does a registration do? virtue/user/sensor IDs
     - [x] persistence
 	- [x] pub key validation
-	- [ ] actually register dummy sensor
+	- [x] actually register dummy sensor
 	- [ ] how do we un/de-register?
-	 - [ ] as an API call
+	 - [x] as an API call
 	 - [ ] as a result of trust actions
 	 - [ ] by timeout? - if we haven't seen a heartbeat from a sensor in X minutes/hours/days?
-	- [ ] persist the pub key of the sensor
+	- [x] !! persist the pub key of the sensor
+	- [x] finish dereg in registration controller
+	- [x] write deregister in db utils
+	- [x] add invalid_deregistration method in registration_controller
+	- [x] !! Still getting 500 error when deregistering -> investigate
+	- [x] full-cycle ack back to sensor post registration
    - [ ] fix special case authentication of the registration API by adding client certificate auth plug
 4 - [ ] kafka integration
 5 - [ ] sensor config

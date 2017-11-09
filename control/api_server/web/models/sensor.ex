@@ -1,9 +1,9 @@
 defmodule Sensor do
   @enforce_keys [:sensor]
-  defstruct [:sensor, :virtue, :username, :address, :timestamp, :port]
+  defstruct [:sensor, :virtue, :username, :address, :timestamp, :port, :public_key]
 
-  def sensor(sensor, virtue, username, address, timestamp, port) do
-    %Sensor{sensor: sensor, virtue: virtue, username: username, address: address, timestamp: timestamp, port: port}
+  def sensor(sensor, virtue, username, address, timestamp, port, public_key) do
+    %Sensor{sensor: sensor, virtue: virtue, username: username, address: address, timestamp: timestamp, port: port, public_key: public_key}
   end
 
   def sensor(sensor, virtue, timestamp) do
@@ -30,4 +30,7 @@ defmodule Sensor do
     %Sensor{sensor_struct | address: address, port: port}
   end
 
+  def with_public_key(sensor_struct, public_key) do
+    %Sensor{sensor_struct | public_key: public_key}
+  end
 end

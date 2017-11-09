@@ -15,7 +15,8 @@ config :api_server, ApiServer.Endpoint,
   secret_key_base: "xtb19NAC0sCZ1RNjGUJVguTl7wsUKq/nsnjvx7Xxx/K3uP0aakfoQI/DYi3IH7M0",
   render_errors: [view: ApiServer.ErrorView, format: "json", accepts: ~w(json)],
   pubsub: [name: ApiServer.PubSub,
-           adapter: Phoenix.PubSub.PG2]
+           adapter: Phoenix.PubSub.PG2],
+  http: [protocol_options: [max_request_line_length: 8192, max_header_value_length: 8192]]
 
 # Configures Elixir's Logger
 config :logger, :console,

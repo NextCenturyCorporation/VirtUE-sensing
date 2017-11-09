@@ -14,7 +14,7 @@ defmodule ApiServer do
     # Define workers and child supervisors to be supervised
     children = [
       # Start the Ecto repository
-      supervisor(ApiServer.Repo, []),
+#      supervisor(ApiServer.Repo, []),
       # Start the endpoint when the application starts
       supervisor(ApiServer.Endpoint, []),
       # Start your own worker by calling: ApiServer.Worker.start_link(arg1, arg2, arg3)
@@ -48,6 +48,16 @@ defmodule ApiServer do
         IO.puts("Encountered a problem starting :mnesia on node(#{node()})")
     end
 
+    IO.puts("  :: Waiting for Mnesia to sync tables from disc")
+    case Mnesia.wait_for_tables([Sensor], 10000) do
+      :ok ->
+        IO.puts("    - tables ready")
+      {:timeout, _} ->
+        IO.puts("    - synchronization timeout")
+      {:error, reason} ->
+        IO.puts("    - encountered an error while table syncing: #{reason}")
+    end
+
     # When updates to the data model for sensors are done, they
     # need to be reflected in a number of places:
     #
@@ -72,8 +82,10 @@ defmodule ApiServer do
     #     - add registered_at timestamp
     #   Version 03
     #     - add port as companion to address
+    #   Version 04
+    #     - add public_key
     case Mnesia.create_table(Sensor, [
-      attributes: [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port],
+      attributes: [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key],
       disc_copies: [node()]
     ]) do
 
@@ -94,32 +106,44 @@ defmodule ApiServer do
         # table already exists, let's check the version
         case Mnesia.table_info(Sensor, :attributes) do
 
+          # Version 04
+          [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key] ->
+            IO.puts("  :: Sensor table Version 04 ready.")
+
           # Version 03
           [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port] ->
-            IO.puts("  :: Sensor table Version 03 ready.")
-            :ok
+            IO.puts("  :: Updating Sensor table: Version 03 => Version 04")
+            {:atomic, :ok} = Mnesia.transform_table(
+              Sensor,
+              fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp, port}) ->
+                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, ""}
+              end,
+              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key]
+            )
+            IO.puts("  :: Sensor table updated.")
+
 
           # Version 02
           [:id, :sensor_id, :virtue_id, :username, :address, :timestamp] ->
-            IO.puts("  :: Updating Sensor table: Version 02 => Version 03")
-            Mnesia.transform_table(
+            IO.puts("  :: Updating Sensor table: Version 02 => Version 04")
+            {:atomic, :ok} = Mnesia.transform_table(
               Sensor,
               fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, 4000}
+                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, 4000, ""}
               end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port]
+              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key]
             )
             IO.puts("  :: Sensor table updated.")
 
           # Version 01
           [:id, :sensor_id, :virtue_id, :username, :address] ->
-            IO.puts("  :: Updating Sensor table: Version 01 => Version 03")
-            Mnesia.transform_table(
+            IO.puts("  :: Updating Sensor table: Version 01 => Version 04")
+            {:atomic, :ok} = Mnesia.transform_table(
               Sensor,
               fn ({Sensor, id, sensor_id, virtue_id, username, address}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, DateTime.to_string(DateTime.utc_now()), 4000}
+                {Sensor, id, sensor_id, virtue_id, username, address, DateTime.to_string(DateTime.utc_now()), 4000, ""}
               end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port]
+              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key]
             )
             IO.puts("  :: Sensor table updated.")
 
@@ -129,15 +153,6 @@ defmodule ApiServer do
         end
     end
 
-    IO.puts("  :: Waiting for Mnesia to sync tables from disc")
-    case Mnesia.wait_for_tables([Sensor], 10000) do
-      :ok ->
-        IO.puts("    - tables ready")
-      {:timeout, _} ->
-        IO.puts("    - synchronization timeout")
-      {:error, reason} ->
-        IO.puts("    - encountered an error while table syncing: #{reason}")
-    end
 
     rec_count = Mnesia.table_info(Sensor, :size)
     IO.puts("  :: #{rec_count} Sensors currently registered")

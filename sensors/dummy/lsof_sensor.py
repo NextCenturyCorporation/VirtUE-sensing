@@ -3,8 +3,9 @@ __VERSION__ = "1.20171106"
 
 
 import argparse
+import asks
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError
+from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent
 import email
 import hashlib
 from io import StringIO
@@ -12,10 +13,14 @@ import json
 import os
 import pwd
 import requests
+from routes import Mapper
+import signal
 import socket
 import sys
 from uuid import uuid4
 
+# configure ASKS to use curio
+asks.init('curio')
 
 #
 # A dummy sensor that streams log messages based off of following the
@@ -35,6 +40,7 @@ async def register_sensor(opts):
     """
     Register this sensor with the Sensing API.
 
+    :param opts: argparse parsed parameters
     :return:
     """
     uri = construct_api_uri(opts, "/sensor/%s/register" % (opts.sensor_id,))
@@ -46,7 +52,26 @@ async def register_sensor(opts):
         "hostname": opts.sensor_hostname,
         "port": opts.sensor_port
     }
-    res = requests.put(uri, data=payload)
+
+    print("registering with [%s]" % (uri,))
+
+    # we need to setup headers ourselves, because for some stupid, stupid
+    # reason the `asks` library lower cases all standard headers, which
+    # confuses any strict HTTP server looking for headers. Stupid, stupid
+    # stupidness. Guh.
+    headers = {
+        "Host": "%s:%d" % (opts.sensor_hostname, opts.sensor_port),
+        "Connection": "keep-alive",
+        "Accept-Encoding": "gzip, deflate",
+        "Accept": "*/*",
+        # "Content-Length": 0,
+        "User-Agent": "python-asks/1.3.6",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    res = await asks.put(uri, data=payload, headers=headers)
+    # res = requests.put(uri, data=payload)
+
     if res.status_code == 200:
         print("Registered sensor with Sensing API")
     else:
@@ -54,6 +79,27 @@ async def register_sensor(opts):
         print("  status_code == %d" % (res.status_code,))
         print(res.text)
         sys.exit(1)
+
+
+async def deregister_sensor(opts):
+    """
+    Deregister this sensor from the sensing API.
+
+    :param opts: argparse parsed parameters
+    :return:
+    """
+    uri = construct_api_uri(opts, "/sensor/%s/deregister" % (opts.sensor_id,))
+    payload = {
+        "sensor": opts.sensor_id,
+        "public_key": load_public_key(opts.public_key_path)[1]
+    }
+    res = await asks.put(uri, data=payload)
+    if res.status_code == 200:
+        print("Deregistered sensor with Sensing API")
+    else:
+        print("Couldn't deregister sensor with Sensing API")
+        print("  status_code == %d" % (res.status_code,))
+        print(res.text)
 
 
 async def lsof():
@@ -95,7 +141,7 @@ async def log_drain():
             print("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
 
 
-async def send_json(stream, json_data):
+async def send_json(stream, json_data, status_code=200):
     """
     Serialize a data structure to JSON and send it as a response
     to an HTTP request. This includes sending HTTP headers and
@@ -112,8 +158,24 @@ async def send_json(stream, json_data):
     # get the raw length
     content_size = len(raw)
 
+    # figure out the status code string given our numeric code
+    #
+    #       https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
+    #
+    # This is an incomplete list, because we don't use all of the codes.
+    # If we need additional codes, we can add them later.
+    sc_reason = {
+        200: "ok",
+        500: "internal server error",
+        400: "bad request",
+        401: "unauthorized",
+        404: "not found"
+    }
+
     # write the status code
-    await stream.write("HTTP/1.1 200 ok\n".encode())
+    res_header = "HTTP/1.1 %d %s\r\n" % (status_code, sc_reason[status_code])
+
+    await stream.write(res_header.encode())
 
     # write the headers
     headers = {
@@ -122,57 +184,137 @@ async def send_json(stream, json_data):
         "Connection": "close"
     }
     for h_k, h_v in headers.items():
-        await stream.write( ("%s: %s\n" % (h_k, h_v)).encode())
+        await stream.write( ("%s: %s\r\n" % (h_k, h_v)).encode())
 
-    await stream.write("\n".encode())
+    await stream.write("\r\n".encode())
 
     # write the json
     await stream.write(raw)
 
 
-async def http_handler(client, addr):
+def configure_http_handler(opts):
     """
-    Handle an HTTP request from a remote client.
+    Expose the run time options to the http handler which
+    will be spawned by the tcp server.
 
-    :param client: tcp_server client object
-    :param addr: Client address
-    :return: -
+    :param opts: argparse options
+    :return: async http_handler function
     """
-    print(" -> connection from ", addr)
-    s = client.as_stream()
-    try:
 
-        # read everything in. we're parsing HTTP, so
-        # we'll look for the trailing \r\n\r\n after
-        # which we'll jump into header parsing and then
-        # response
-        buff = b''
+    # Configure our HTTP routes
+    mapper = Mapper()
+    mapper.connect(None, "/sensor/{uuid}/registered", controller="route_registration_ping")
+    mapper.connect(None, "/sensor/status", controller="route_sensor_status")
 
-        async for line in s:
-            buff += line
-            if buff[-4:] == b'\r\n\r\n':
-                break
+    # and which methods handle what?
+    mapper_funcs = {
+        "route_registration_ping": route_registration_ping,
+        "route_sensor_status": route_sensor_status
+    }
 
-        # now we need to parse the request
-        path, headers = buff.decode('iso-8859-1').split('\r\n', 1)
-        message = email.message_from_file(StringIO(headers))
-        headers = dict(message.items())
+    async def http_handler(client, addr):
+        """
+        Handle an HTTP request from a remote client.
 
-        # report on the request
-        print("    :: HTTP request for [%s]" % (path,))
-        for k,v in headers.items():
-            print("  \t%s => %s" % (k, v))
+        :param client: tcp_server client object
+        :param addr: Client address
+        :return: -
+        """
+        print(" -> connection from ", addr)
+        s = client.as_stream()
+        try:
 
-        # send some dummy JSON as a response for now
-        await send_json(s, {"error": False, "msg": "hola"})
+            # read everything in. we're parsing HTTP, so
+            # we'll look for the trailing \r\n\r\n after
+            # which we'll jump into header parsing and then
+            # response
+            buff = b''
 
-    except CancelledError:
+            async for line in s:
+                buff += line
+                if buff[-4:] == b'\r\n\r\n':
+                    break
 
-        # ruh-roh, connection broken
-        print("connection goes boom")
+            # now we need to parse the request
+            path, headers = buff.decode('iso-8859-1').split('\r\n', 1)
+            message = email.message_from_file(StringIO(headers))
+            headers = dict(message.items())
 
-    # request cycle done
-    print(" <- connection closed")
+            # break out the request string into it's pieces, as it
+            # is currently something like:
+            #
+            #       GET /sensor/status HTTP/1.1
+            #
+            (r_method, r_path, r_version) = path.strip().split(" ")
+
+            # handle the request, figuring out where it goes with the mapper
+            print("[info] got [%s] request path [%s]" % (r_method, r_path,))
+            handler = mapper.match(r_path)
+
+            if handler is not None:
+                print("[%(controller)s] > handling request" % handler)
+                await mapper_funcs[handler["controller"]](opts, s, headers, handler)
+            else:
+                # whoops
+                print("   :: No route available for request [%s]" % (path,))
+
+                # send an error
+                await send_json(s, {"error": True, "msg": "no such route"}, status_code=404)
+
+        except CancelledError:
+
+            # ruh-roh, connection broken
+            print("connection goes boom")
+
+        # request cycle done
+        print(" <- connection closed")
+
+    return http_handler
+
+
+async def route_registration_ping(opts, stream, headers, params):
+    """
+    Handle a request for:
+
+        /sensor/{uuid}/registered
+
+    :param opts: argparse parsed options
+    :param stream: Async client stream
+    :param headers: HTTP headers
+    :param params: URI path parameters and controller id
+    :return: None
+    """
+
+    # do our UUIDs match?
+    if opts.sensor_id == params["uuid"]:
+        print("  | sensor ID is a match")
+        await send_json(stream, {"error": False, "msg": "ack"})
+    else:
+        print("  | sensor ID is NOT A MATCH")
+        await send_json(stream, {"error": True, "msg": "Sensor ID does not match registration ID"}, status_code=401)
+
+
+async def route_sensor_status(opts, stream, headers, params):
+    """
+    Handle a request for:
+
+        /sensor/status
+
+    :param opts:
+    :param stream:
+    :param headers:
+    :param params:
+    :return:
+    """
+    print("  | reporting status ")
+    await send_json(stream,
+                    {
+                        "error": False,
+                        "sensor": opts.sensor_id,
+                        "virtue": opts.virtue_id,
+                        "user": opts.username
+                    }
+                    )
 
 
 async def main(opts):
@@ -182,11 +324,18 @@ async def main(opts):
 
     :return: -
     """
+    Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
+
     async with TaskGroup() as g:
         await g.spawn(log_drain)
         await g.spawn(lsof)
-        await g.spawn(tcp_server, '', 11000, http_handler)
+        await g.spawn(tcp_server, opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts))
         await g.spawn(register_sensor, opts)
+        await Goodbye.wait()
+        print("Got SIG: deregistering sensor and shutting down")
+        await g.spawn(deregister_sensor, opts)
+        await g.cancel_remaining()
+        print("Stopping.")
 
 
 def load_public_key(key_path):
@@ -335,7 +484,7 @@ def options():
     parser.add_argument("--virtue-id", dest="virtue_id", default=None, help="ID of the current Virtue, auto-generated if absent")
     parser.add_argument("--username", dest="username", default=None, help="Name of the observed user, inferred if absent")
     parser.add_argument("--sensor-hostname", dest="sensor_hostname", default=None, help="Addressable name of the sensor host")
-    parser.add_argument("--sensor-port", dest="sensor_port", default=4000, help="Port on sensor host where sensor is listening for API actuations")
+    parser.add_argument("--sensor-port", dest="sensor_port", default=11000, help="Port on sensor host where sensor is listening for API actuations")
 
     return parser.parse_args()
 
@@ -357,13 +506,13 @@ def check_identification(opts):
     """
 
     if opts.sensor_id is None:
-        opts.sensor_id = uuid4()
+        opts.sensor_id = str(uuid4())
 
     if opts.virtue_id is None:
         if "VIRTUE_ID" is os.environ:
             opts.virtue_id = os.environ["VIRTUE_ID"]
         else:
-            opts.virtue_id = uuid4()
+            opts.virtue_id = str(uuid4())
 
     if opts.username is None:
 
@@ -409,9 +558,13 @@ def check_identification(opts):
     print("\tpriv key  == %s" % (rsa_private_fingerprint(pri_key),))
 
     print("Sensing API")
-    print("\thostname == %s" % (opts.api_host,))
-    print("\tport     == %d" % (opts.api_port,))
-    print("\tversion  == %s" % (opts.api_version,))
+    print("\thostname  == %s" % (opts.api_host,))
+    print("\tport      == %d" % (opts.api_port,))
+    print("\tversion   == %s" % (opts.api_version,))
+
+    print("Sensor Interface")
+    print("\thostname  == %s" % (opts.sensor_hostname,))
+    print("\tport      == %d" % (opts.sensor_port,))
 
 
 if __name__ == "__main__":
