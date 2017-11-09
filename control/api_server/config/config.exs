@@ -30,8 +30,9 @@ config :api_server, ApiServer.Scheduler,
     # heart beat every minute
     {"* * * * *",         {ApiServer, :heartbeat, []}},
 
-    # prune out non-responsive sensors every 2 minutes
-    {"*/2 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [5]}}
+    # check on non-responsive sensors every 2 minutes, and clean them out if
+    # they're older than 5 minutes
+    {"*/15 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [15]}}
   ]
 
 # Import environment specific config. This must remain at the bottom

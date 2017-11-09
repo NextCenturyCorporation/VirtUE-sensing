@@ -118,6 +118,10 @@ defmodule ApiServer.DatabaseUtils do
 
           # no matches
           [] ->
+            IO.puts("  : no matches when trying to deregister sensor(id=#{sensor})")
+            IO.puts("    public key =")
+            IO.puts(public_key)
+
             {:ok, 0}
 
           # records to remove

@@ -35,9 +35,12 @@ defmodule ApiServer.RegistrationController do
           method: "PUT",
           body_params: %{
             "sensor" => sensor,
-            "public_key" => public_key
+            "public_key" => public_key_b64
           }
         } = conn, _) do
+
+    # let's decode the public key from urlsafe base64
+    {:ok, public_key} = Base.url_decode64(public_key_b64)
 
     IO.puts("Deregistering sensor(id=#{sensor})")
 
@@ -100,11 +103,14 @@ defmodule ApiServer.RegistrationController do
             "sensor" => sensor,
             "virtue" => virtue,
             "user" => username,
-            "public_key" => public_key,
+            "public_key" => public_key_b64,
             "hostname" => hostname,
             "port" => port
           }
         } = conn, _) do
+
+    # let's decode the public key from urlsafe base64
+    {:ok, public_key} = Base.url_decode64(public_key_b64)
 
     # basic logging
     IO.puts("Registering sensor(id=#{sensor})")

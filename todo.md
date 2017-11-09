@@ -6,26 +6,9 @@
 
  - [ ] http endpoint
   - [x] basic http request cycle
-7  - [ ] clean up the http request cycle into a class
 3  - [ ] layout what the different actions would do
- - [ ] sensor registration
-1  - [x] api endpoint
-1.1 - [x] actually write is_public_key validator
-2  - [ ] what does a registration do? virtue/user/sensor IDs
-    - [x] persistence
-	- [x] pub key validation
-	- [x] actually register dummy sensor
-	- [ ] how do we un/de-register?
-	 - [x] as an API call
-	 - [ ] as a result of trust actions
-	 - [ ] by timeout? - if we haven't seen a heartbeat from a sensor in X minutes/hours/days?
-	- [x] !! persist the pub key of the sensor
-	- [x] finish dereg in registration controller
-	- [x] write deregister in db utils
-	- [x] add invalid_deregistration method in registration_controller
-	- [x] !! Still getting 500 error when deregistering -> investigate
-	- [x] full-cycle ack back to sensor post registration
-   - [ ] fix special case authentication of the registration API by adding client certificate auth plug
+
+  - [ ] add periodic sensor sync with API (touch timestamp)
 4 - [ ] kafka integration
 5 - [ ] sensor config
 6  - [ ] filters as lockable objects, or processed at the kafka emitter
@@ -55,6 +38,9 @@
   
 # API SERVER
 
+ - Authentication
+  - [ ] fix special case authentication of the registration API by adding client certificate auth plug
+  - [ ] fix failing registration tests now that we have registration ping callbacks
  - General API
   - [ ] catch all query params and path params for validation
    - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing

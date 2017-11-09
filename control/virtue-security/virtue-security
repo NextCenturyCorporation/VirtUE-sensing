@@ -2,6 +2,7 @@
 __VERSION__ = "1"
 
 import argparse
+import base64
 from Crypto.PublicKey import RSA
 import datetime
 import json
@@ -3565,7 +3566,7 @@ def test_api(opts):
                 "sensor": test_parameter_sensor,
                 "virtue": test_parameter_virtue,
                 "user": test_parameter_username,
-                "public_key": load_public_key("cert/rsa_key.pub"),
+                "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode()),
                 "hostname": test_parameter_hostname,
                 "port": test_parameter_port
             }

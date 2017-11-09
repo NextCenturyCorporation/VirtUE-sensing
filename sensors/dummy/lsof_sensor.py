@@ -4,6 +4,7 @@ __VERSION__ = "1.20171106"
 
 import argparse
 import asks
+import base64
 from Crypto.PublicKey import RSA
 from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent
 import email
@@ -44,11 +45,13 @@ async def register_sensor(opts):
     :return:
     """
     uri = construct_api_uri(opts, "/sensor/%s/register" % (opts.sensor_id,))
+    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()), encoding="iso-8859-1")
+
     payload = {
         "sensor": opts.sensor_id,
         "virtue": opts.virtue_id,
         "user": opts.username,
-        "public_key": load_public_key(opts.public_key_path)[1],
+        "public_key": pubkey_b64,
         "hostname": opts.sensor_hostname,
         "port": opts.sensor_port
     }
@@ -81,7 +84,7 @@ async def register_sensor(opts):
         sys.exit(1)
 
 
-async def deregister_sensor(opts):
+def deregister_sensor(opts):
     """
     Deregister this sensor from the sensing API.
 
@@ -89,11 +92,13 @@ async def deregister_sensor(opts):
     :return:
     """
     uri = construct_api_uri(opts, "/sensor/%s/deregister" % (opts.sensor_id,))
+    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()), encoding="iso-8859-1")
+
     payload = {
         "sensor": opts.sensor_id,
-        "public_key": load_public_key(opts.public_key_path)[1]
+        "public_key": pubkey_b64
     }
-    res = await asks.put(uri, data=payload)
+    res = requests.put(uri, data=payload)
     if res.status_code == 200:
         print("Deregistered sensor with Sensing API")
     else:
@@ -333,8 +338,11 @@ async def main(opts):
         await g.spawn(register_sensor, opts)
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
-        await g.spawn(deregister_sensor, opts)
         await g.cancel_remaining()
+
+        # don't run this async - we're happy to block on deregistration
+        deregister_sensor(opts)
+
         print("Stopping.")
 
 
