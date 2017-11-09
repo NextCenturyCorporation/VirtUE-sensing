@@ -142,7 +142,7 @@ defmodule ApiServer.RegistrationController do
               {:ok} ->
 
                 # send out the registration response
-                IO.puts("  sensor registered")
+                IO.puts("  @ sensor(id=#{sensor}) registered at #{DateTime.to_string(DateTime.utc_now())}")
                 scount = Mnesia.table_info(Sensor, :size)
                 IO.puts("  #{scount} sensors currently registered.")
                 conn
@@ -193,19 +193,19 @@ defmodule ApiServer.RegistrationController do
     case HTTPoison.get("http://#{hostname}:#{port}/sensor/#{sensor}/registered") do
 
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
-        IO.puts("  + sensor verified with direct ping")
+        IO.puts("  + sensor(id=#{sensor}) verified with direct ping")
         :ok
       {:ok, %HTTPoison.Response{status_code: 401}} ->
-        IO.puts("  - verification mismatch from direct ping")
+        IO.puts("  - sensor(id=#{sensor}) verification mismatch from direct ping")
         :error
       {:ok, %HTTPoison.Response{status_code: 500}} ->
-        IO.puts("  - internal server error from sensor during verification ping")
+        IO.puts("  - internal server error from sensor(id=#{sensor}) during verification ping")
         :error
       {:ok, %HTTPoison.Response{status_code: status_code}} ->
-        IO.puts("  - status_code == #{status_code} from sensor during verification ping")
+        IO.puts("  - status_code == #{status_code} from sensor(id=#{sensor}) during verification ping")
         :error
       {:error, %HTTPoison.Error{reason: reason}} ->
-        IO.puts("  ! HTTPoison error during verification ping: #{reason}")
+        IO.puts("  ! HTTPoison error during sensor(id=#{sensor}) verification ping: #{reason}")
         :error
     end
   end

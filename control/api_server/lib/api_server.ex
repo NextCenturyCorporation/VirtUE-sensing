@@ -2,6 +2,10 @@ defmodule ApiServer do
   use Application
   alias :mnesia, as: Mnesia
 
+  def heartbeat() do
+    IO.puts("[heartbeat] #{DateTime.to_string(DateTime.utc_now())}")
+  end
+
   def version() do
     "2017.11.1"
   end
@@ -19,6 +23,7 @@ defmodule ApiServer do
       supervisor(ApiServer.Endpoint, []),
       # Start your own worker by calling: ApiServer.Worker.start_link(arg1, arg2, arg3)
       # worker(ApiServer.Worker, [arg1, arg2, arg3]),
+      worker(ApiServer.Scheduler, [])
     ]
 
     # spin up mnesia
@@ -51,7 +56,7 @@ defmodule ApiServer do
     IO.puts("  :: Waiting for Mnesia to sync tables from disc")
     case Mnesia.wait_for_tables([Sensor], 10000) do
       :ok ->
-        IO.puts("    - tables ready")
+        IO.puts("    + tables ready")
       {:timeout, _} ->
         IO.puts("    - synchronization timeout")
       {:error, reason} ->
@@ -67,6 +72,7 @@ defmodule ApiServer do
     #   - web/models/sensor.ex : sensor/*
     #   - lib/database_utils.ex : register_sensor/1
     #   - lib/database_utils.ex : index_for_key/1
+    #   - lib/database_utils.ex : prune_old_sensors/0
 
     # Setup our Sensor tracking in Mnesia. Our database is versioned
     # with table transforms. A copy of the database is persisted to

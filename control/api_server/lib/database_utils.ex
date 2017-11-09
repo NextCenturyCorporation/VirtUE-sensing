@@ -13,7 +13,87 @@ defmodule ApiServer.DatabaseUtils do
   """
   import UUID, only: [uuid4: 0]
   alias :mnesia, as: Mnesia
+  use Timex
 
+  def prune_old_sensors(prune_age) do
+
+    IO.puts("DatabaseUtils::prune_old_sensors/0 - #{DateTime.to_string(DateTime.utc_now())}")
+    IO.puts("  = #{Mnesia.table_info(Sensor, :size)} sensor registrations")
+    IO.puts("  = pruning sensors with checkins older than #{prune_age} minutes")
+
+    # determine our record key
+    rec_key = :"$#{index_for_key(:timestamp) + 1}"
+    case Mnesia.transaction(
+      fn ->
+        case Mnesia.select(Sensor,
+          [
+            {
+              # match
+              {
+                Sensor,
+                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8"
+              },
+
+              # guard (timestamp older than 15 minutes
+              [
+                {
+                  :<,
+                  :"$6",
+                  DateTime.to_string(datetime_minutes_ago(prune_age))
+                }
+              ],
+
+              # result (full record)
+              [
+                :"$$"
+              ]
+            }
+          ]
+        ) do
+
+          # nuthin'
+          [] ->
+            IO.puts("  * no sensor checkins older than #{prune_age} minutes")
+            {:ok, 0}
+          # we've got some old records! Let's prune 'em out!
+          records ->
+            IO.puts("  * #{length(records)} sensor checkins older than #{prune_age} minutes")
+            Enum.map(records,
+              fn (rec) ->
+                rec_t = List.to_tuple([Sensor] ++ rec)
+                IO.puts("  - pruning sensor(id=#{elem(rec_t, 2)})")
+                Mnesia.delete_object(rec_t)
+              end
+            )
+            {:ok, length(records)}
+        end
+      end
+    ) do
+      {:atomic, {:ok, remove_count}} ->
+        IO.puts("  - #{remove_count} sensor entries removed")
+    end
+  end
+
+  @doc """
+  Remove a sensor from the tracking database.
+
+  Sensors are matched based on exact matching of both the **sensor ID**
+  and the **public key**. Call the function as:
+
+    DatabaseUtils.deregister_sensor(%Sensor{sensor: "sensor id", public_key: "public key"})
+
+  Or with the Sensor helper as:
+
+    Sensor.sensor("sensor_id")
+      |> Sensor.with_public_key("public key")
+      |> DatabaseUtils.deregister_sensor()
+
+  Returns:
+
+    {:ok, number_of_removed_records}
+    {:error, reason}
+
+  """
   def deregister_sensor(
         %Sensor{
           :sensor => sensor,
@@ -65,7 +145,8 @@ defmodule ApiServer.DatabaseUtils do
 
   Returns :mnesia transaction result
 
-    {:atomic,
+    {:ok}
+    {:error, reason}
   """
   def register_sensor(
         %Sensor{
@@ -216,6 +297,14 @@ defmodule ApiServer.DatabaseUtils do
     )
   end
 
+  defp datetime_minutes_ago(mins) do
+
+    Timex.now()
+     |> Timex.subtract(%Timex.Duration{megaseconds: 0, microseconds: 0, seconds: 60 * mins})
+     |> Timex.to_datetime()
+
+  end
+
   # Given an :mnesia record, retrieve the address field
   #
   defp address_from_record(rec) do
@@ -228,7 +317,7 @@ defmodule ApiServer.DatabaseUtils do
 
   # Interpolate a key into our record position
   defp index_for_key(k) do
-    Enum.find(
+    Enum.find_index(
       [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key],
       fn(x) ->
         x == k

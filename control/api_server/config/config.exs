@@ -23,6 +23,17 @@ config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
+# Scheduler
+config :api_server, ApiServer.Scheduler,
+  jobs: [
+
+    # heart beat every minute
+    {"* * * * *",         {ApiServer, :heartbeat, []}},
+
+    # prune out non-responsive sensors every 2 minutes
+    {"*/2 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [5]}}
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{Mix.env}.exs"
