@@ -6,7 +6,11 @@
 /* the kernel itself has dynamic trace points, they 
  *  need to be part of the probe capability.
  */
-
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/printk.h>
+#include <linux/spinlock.h>
 #include <kernel/trace/trace.h>
 
 /* prototype probe routine */
@@ -14,6 +18,7 @@ int (*probe)(uint64_t flags, uint8_t *buf) = NULL;
 #define DEFAUT_PROBE_DATA 1024
 struct probe_s {
 	uint8_t *id;
+	spinlock_t lock;
 	uint64_t flags, timeout, repeat;
 	int (*probe)(uint64_t, uint8_t *);
 	uint8_t data[DEFAUT_PROBE_DATA];
