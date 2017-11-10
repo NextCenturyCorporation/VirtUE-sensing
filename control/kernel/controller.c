@@ -11,9 +11,17 @@
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("In-VirtUE Kernel Controller");
 
+int _pr(uint64_t flags, uint8_t *probe_data) 
+{
+	return 0;
+}
+
+struct probe_s p = {.id="probe-controller",
+					.probe=_pr};
+
 static int __init controller_init(void)
 {
-    printk(KERN_INFO "In-kernel probe controller\n");
+    printk(KERN_INFO "In-kernel probe controller, %s\n", p.id);
     return 0;
 }
 
