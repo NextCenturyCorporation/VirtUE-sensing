@@ -1,16 +1,22 @@
 #!/usr/local/bin/python
 __VERSION__ = "1"
 
+from aiohttp import web, ClientSession
+from aiohttp.client_exceptions import ClientConnectionError
 import argparse
+import asyncio
 import base64
+from contextlib import closing
 from Crypto.PublicKey import RSA
 import datetime
 import json
 import random
 import re
 import requests
+import socket
 import sys
 import uuid
+
 
 
 def fuzzing_from_blns():
@@ -653,7 +659,13 @@ def test_interpolate_parameters(test):
                 raise ne
 
             # add a value
-            tups.append((parameter, func()))
+
+            # if our value is a boolean, we need to translate it to a string
+            val = func()
+            if is_boolean(val):
+                val = str(val)
+
+            tups.append((parameter, val))
 
     return {tup[0]: tup[1] for tup in tups}
 
@@ -1393,7 +1405,51 @@ def is_uuid(str):
         return re.match(r'^[a-zA-Z0-9]{8}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{12}$', str) is not None
 
 
-def test_case(opts, test):
+def generate_async_hanlder(payload, capture_dict):
+    """
+    Put a wrapper around a JSON payload for an aiohttp async
+    handler.
+
+    :param payload: JSON payload structure.
+    :return:
+    """
+    async def inner_handler(request):
+
+        # capture incoming data
+        capture_dict["path"] = request.path
+        capture_dict["request_body"] = {}
+        print("got request on path [%s]" % (request.path,))
+        # if request.can_read_body:
+        #     capture_dict["request_body"] = await request.json()
+
+        # serve up our preconfigured payload
+        res = web.Response(text=json.dumps(payload), content_type="application/json")
+        return res
+    return inner_handler
+
+
+async def close_async_http(app):
+    """
+    Handle proper teardown and cleanup of the async
+    service.
+
+    :param app:
+    :param server:
+    :return:
+    """
+    await app.shutdown()
+    await app.cleanup()
+
+
+def find_open_port(base):
+    for port in range(base, 65000):
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+            res = sock.connect_ex((socket.getfqdn(), port))
+            if res != 0:
+                return port
+
+
+async def test_case(opts, test):
     """
     Run an individual test one or more times. A list of status dictionaries
     is returned with an entry for each iteration of the test. The dictionary
@@ -1415,12 +1471,30 @@ def test_case(opts, test):
             "result_has_fields": {
                 "field name": "representative type for result"
             },
+
+            # payload generator for the request body
             "request_body": {
                 "key to insert into request body": "value for key"
             },
+
+            # how do we validate what we get back from the API
             "results_validators": {
                 "key": <validation function>
+            },
+
+            # run an http service async during the test case, with
+            # optional validation of the incoming results
+            "async_http": {
+                "/sensor/{sensor}/registered": {
+                    "serve": {
+                        "error": False,
+                        "msg": "ack"
+                    },
+                    "method": "GET",
+                    "incoming_validators": []
+                }
             }
+
         }
 
     :param opts: Command configuration options
@@ -1448,7 +1522,8 @@ def test_case(opts, test):
                 "got": 0
             },
             "pass": False,
-            "parameters": {}
+            "parameters": {},
+            "async_http": {}
         }
 
         # build a URI
@@ -1462,15 +1537,74 @@ def test_case(opts, test):
 
 
         try:
+
+            # it's possible we need an asynchronous HTTP server running to handle
+            # side channel results/responses/requests from the HTTP server to
+            # the "sensor" we're pretending to be. Here we setup any routes
+            # that are predefined. The async_http definition looks like:
+            #
+            #        "async_http": {
+            #            "/sensor/{sensor}/registered": {
+            #                "serve": {
+            #                    "error": False,
+            #                    "msg": "ack"
+            #                },
+            #                "method": "GET",
+            #                "incoming_validators": []
+            #            }
+            #        }
+            async_incoming_payloads = {}
+            async_server_port = 0
+            if "async_http" in test:
+
+                loop = asyncio.get_event_loop()
+
+                # setup the app
+                async_web_app = web.Application(loop=loop)
+
+                # define any routes
+                route_handlers = {}
+                for route, config in test["async_http"].items():
+
+                    # capture payloads
+                    async_incoming_payloads[route] = {"path": "", "request_body": {}}
+
+                    # build the handler
+                    route_handlers[route] = generate_async_hanlder(config["serve"], async_incoming_payloads[route])
+
+                    # register the handler
+                    if config["method"] == "GET":
+                        async_web_app.router.add_get(route, route_handlers[route])
+                    elif config["method"] == "PUT":
+                        async_web_app.router.add_put(route, route_handlers[route])
+                    elif config["method"] == "POST":
+                        async_web_app.router.add_post(route, route_handlers[route])
+
+                # pick a port
+                async_server_port = find_open_port(opts.test_port)
+                async_server_host = socket.getfqdn()
+                print("  = using [%s:%d] for async http server" % (async_server_host, async_server_port,))
+                # run the app
+
+                # create the server and wait for it to fully spin up
+                await loop.create_server(async_web_app.make_handler(), async_server_host, async_server_port)
+
+
             # construct request
             #  but first, are we authenticating?
             if "authenticate" in test and test["authenticate"]:
                 if test["method"].lower() == "get":
+
                     # determine any parameters for our get request
                     get_params = test_interpolate_parameters(test)
 
-                    # fire away
-                    res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
+                    # rather than the standard requests library, we're going to be handling
+                    # our http requests through the aiohttp lib, so we can run them as non-
+                    # blocking operations
+                    async with ClientSession() as session:
+                        async with session.get(full_uri, params=get_params) as response:
+                            res = response
+
                 else:
 
                     # generate the request body payload
@@ -1478,15 +1612,32 @@ def test_case(opts, test):
                     if "request_body" in test:
                         request_body.update(test_interpolate_request_body(test["request_body"]))
 
-                    res = getattr(requests, test["method"].lower())(full_uri, data=request_body)
+                    # if we're using an async server, and we have a request body value of "async_port",
+                    # we need to fix that to be the port we've selected for this test
+                    for k, v in request_body.items():
+                        if v == "async_port":
+                            request_body[k] = async_server_port
+
+                    # rather than the standard requests library, we're going to be handling
+                    # our http requests through the aiohttp lib, so we can run them as non-
+                    # blocking operations
+                    async with ClientSession() as session:
+                        async with session.put(full_uri, data=request_body) as response:
+                            res = response
+
             else:
                 if test["method"].lower() == "get":
 
                     # determine any parameters for our get request
                     get_params = test_interpolate_parameters(test)
 
-                    # fire away
-                    res = getattr(requests, test["method"].lower())(full_uri, params=get_params)
+                    # rather than the standard requests library, we're going to be handling
+                    # our http requests through the aiohttp lib, so we can run them as non-
+                    # blocking operations
+                    async with ClientSession() as session:
+                        async with session.get(full_uri, params=get_params) as response:
+                            res = response
+
                 else:
 
                     # generate the request body payload
@@ -1494,7 +1645,31 @@ def test_case(opts, test):
                     if "request_body" in test:
                         request_body.update(test_interpolate_request_body(test["request_body"]))
 
-                    res = getattr(requests, test["method"].lower())(full_uri, data=request_body)
+                    # if we're using an async server, and we have a request body value of "async_port",
+                    # we need to fix that to be the port we've selected for this test
+                    for k, v in request_body.items():
+                        if v == "async_port":
+                            request_body[k] = async_server_port
+
+                    # rather than the standard requests library, we're going to be handling
+                    # our http requests through the aiohttp lib, so we can run them as non-
+                    # blocking operations
+                    async with ClientSession() as session:
+                        async with session.put(full_uri, data=request_body) as response:
+                            res = response
+
+
+            # spin down the async web server if it is running
+            if "async_http" in test:
+
+                # close it all down
+                # async_server.close()
+                await close_async_http(async_web_app)
+
+                # save our async results
+                rep_result["async_http"] = async_incoming_payloads
+
+
         except requests.exceptions.ConnectionError as rece:
             threw_exception = True
             exception_payload = {
@@ -1529,24 +1704,46 @@ def test_case(opts, test):
             continue
 
         # make sure we got the status code we expected
-        rep_result["code"]["got"] = res.status_code
+        # rep_result["code"]["got"] = res.status_code
+        rep_result["code"]["got"] = res.status
 
         if type(test["code"]) == type([]):
             # it's possible our code is a list, in which case we need to be in that list
-            if res.status_code not in test["code"]:
+            if res.status not in test["code"]:
                 did_pass = False
         else:
-            if res.status_code != test["code"]:
+            if res.status != test["code"]:
                 did_pass = False
+
+        # let's read in our response, which may be chunked
+        chunked_binary = b''
+        try:
+            while True:
+                chunk = await res.content.read(1024)
+                if not chunk:
+                    break
+                chunked_binary += chunk
+        except ClientConnectionError as cce:
+            # print("caught aiohttp ClientConnectionError")
+            #
+            # We're eating this error because in certain circumstances
+            # the aiohttp library decides to throw an exception when
+            # the remote stream (in streaming situations) closes, rather
+            # than just EOF the stream reader. Because WFT.
+            pass
+
+        response_text = chunked_binary.decode("utf-8")
 
         # make sure we got JSON or JSONL if that's what we expected, and then
         # verify the data from the results
-        rep_result["returns"]["got"] = res.text
+        # rep_result["returns"]["got"] = await res.text()
+        rep_result["returns"]["got"] = response_text
         if test["returns"].lower() == "json":
             try:
 
                 # did we get JSON?
-                res_json = res.json()
+                # res_json = await res.json()
+                res_json = json.loads(response_text)
                 rep_result["returns"]["got"] = "JSON"
                 rep_result["result"] = res_json
 
@@ -1597,15 +1794,24 @@ def test_case(opts, test):
                         if len(errors) > 0:
                             did_pass = False
 
-            except Exception as e:
-                print(e)
-                rep_result["returns"]["got"] = str(e)
-                rep_result["returns"]["raw"] = res.text
-                did_pass = False
+            except ValueError as ve:
+
+                # This is another work around for fuzzing cases where Elixir (Cowboy, in particular)
+                # throws HTTP/400 back with no content after particularly badly malformed requests.
+                if type(rep_result["code"]["expected"]) == type([]) and 400 in rep_result["code"]["expected"] and response_text.strip() == "":
+                    pass
+                else:
+                    print(ve)
+                    rep_result["returns"]["got"] = str(ve)
+                    # rep_result["returns"]["raw"] = res.text
+                    rep_result["returns"]["raw"] = response_text
+                    did_pass = False
         elif test["returns"].lower() == "jsonl":
 
             # we're going to start by splitting our response on newlines
-            responses = res.text.split("\n")
+            # responses = await res.text()
+            responses = response_text
+            responses = responses.split("\n")
 
             for res_line in responses:
 
@@ -1672,7 +1878,8 @@ def test_case(opts, test):
                 except Exception as e:
                     print(e)
                     rep_result["returns"]["got"] = str(e)
-                    rep_result["returns"]["raw"] = res.text
+                    # rep_result["returns"]["raw"] = await res.text()
+                    rep_result["returns"]["raw"] = response_text
                     did_pass = False
 
         rep_result["pass"] = did_pass
@@ -1792,12 +1999,12 @@ def test_generate_fuzzing_tests(tests):
             if new_test["code"] == 200:
 
                 # invalid parameter or page not found (some of our fuzzing is path manipulation)
-                new_test["code"] = [200, 400, 404, 414, "ConnectionError"]
+                new_test["code"] = [200, 400, 404, 414, 417, "ConnectionError"]
 
             if new_test["code"] == 401:
 
                 # unauthorized OR not found
-                new_test["code"] = [401, 404, 414, "ConnectionError"]
+                new_test["code"] = [400, 401, 404, 414, "ConnectionError"]
 
             # parameter rewriting
             new_test["path"] = rewrite_fuzzing_path(new_test["path"])
@@ -1866,7 +2073,7 @@ def rewrite_fuzzing_path(path):
     return "/%s" % ("/".join(new_bits),)
 
 
-def test_api(opts):
+async def test_api(opts):
     """
     Test the virtue-security backend API.
 
@@ -3590,9 +3797,19 @@ def test_api(opts):
                 "sensor": test_parameter_sensor,
                 "virtue": test_parameter_virtue,
                 "user": test_parameter_username,
-                "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode()),
-                "hostname": test_parameter_hostname,
-                "port": test_parameter_port
+                "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode()).decode('iso-8859-1'),
+                "hostname": socket.getfqdn(),
+                "port": "async_port"
+            },
+            "async_http": {
+                "/sensor/{sensor}/registered": {
+                    "serve": {
+                        "error": False,
+                        "msg": "ack"
+                    },
+                    "method": "GET",
+                    "incoming_validators": []
+                }
             }
         },
 
@@ -3606,7 +3823,7 @@ def test_api(opts):
             "results_validators": [validate_sensor_deregistration],
             "request_body": {
                 "sensor": test_parameter_sensor,
-                "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode())
+                "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode()).decode("iso-8859-1")
             }
         },
 
@@ -3666,7 +3883,7 @@ def test_api(opts):
         print("\t%(method)s %(path)s" % test)
 
         # run the test and record the results
-        results = test_case(opts, test)
+        results = await test_case(opts, test)
 
         passes = len([t for t in results if t["pass"]])
         fails = len(results) - passes
@@ -3844,6 +4061,7 @@ def options():
     parser.add_argument("--skip-unauthenticated-tests", dest="test_unauthenticated", default=True, action="store_false", help="Skip the generation of un-authenticated tests")
     parser.add_argument("--skip-fuzzing-tests", dest="test_fuzzing", default=True, action="store_false", help="Skip the generation of fuzzing tests")
     parser.add_argument("--test-repeat", dest="test_repeat", default=5, type=int, help="How many iterations of each test should run")
+    parser.add_argument("--test-sensor-http-port", dest="test_port", default=11111, type=int, help="Port to bind for local async http server used during testing")
 
     return parser.parse_args()
 
@@ -3863,5 +4081,6 @@ if __name__ == "__main__":
         print("There is no [%s] mode, please try again, or use the --help flag" % (opts.mode,))
         sys.exit(1)
 
-    dispatch[opts.mode](opts)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(dispatch[opts.mode](opts))
 

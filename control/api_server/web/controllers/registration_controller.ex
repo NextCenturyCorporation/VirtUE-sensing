@@ -196,7 +196,7 @@ defmodule ApiServer.RegistrationController do
 
   def verify_remote_sensor(hostname, port, sensor) do
     # let's send out our verification ping
-    case HTTPoison.get("http://#{hostname}:#{port}/sensor/#{sensor}/registered") do
+    case HTTPoison.get("http://#{hostname}:#{port}/sensor/#{sensor}/registered", [], [timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
 
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         IO.puts("  + sensor(id=#{sensor}) verified with direct ping")
