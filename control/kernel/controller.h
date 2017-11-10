@@ -12,6 +12,8 @@
 #include <linux/printk.h>
 #include <linux/spinlock.h>
 #include <kernel/trace/trace.h>
+#include <linux/list.h>
+#include <linux/socket.h>
 
 /* prototype probe routine */
 int (*probe)(uint64_t flags, uint8_t *buf) = NULL;
@@ -21,6 +23,7 @@ struct probe_s {
 	spinlock_t lock;
 	uint64_t flags, timeout, repeat;
 	int (*probe)(uint64_t, uint8_t *);
+	struct list_head *l;
 	uint8_t data[DEFAUT_PROBE_DATA];
 };
 

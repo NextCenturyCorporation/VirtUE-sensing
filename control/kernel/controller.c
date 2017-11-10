@@ -7,6 +7,10 @@
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("In-VirtUE Kernel Controller");
 
+LIST_HEAD(active_probes);
+int probe_socket;
+
+/* template probe function  */
 int _pr(uint64_t flags, uint8_t *probe_data) 
 {
 	return 0;
