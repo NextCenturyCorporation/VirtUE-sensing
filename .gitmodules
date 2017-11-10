@@ -1,0 +1,3 @@
+[submodule "control/kernel/jsmn"]
+	path = control/kernel/jsmn
+	url = git@github.com:zserge/jsmn.git
