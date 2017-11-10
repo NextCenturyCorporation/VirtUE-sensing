@@ -1150,6 +1150,30 @@ def validate_sensor_validation(sensor):
     return run_validation(sensor, check_for)
 
 
+def validate_sensor_deregistration(sensor):
+    """
+    Validate a sensor deregistration data blob. It should look like:
+
+        {
+            "error": False,
+            "timestamp": timestamp,
+            "sensor": uuid,
+            "deregistered": True
+        }
+
+    :param sensor: Sensor deregistration data blob
+    :return: List of errors, empty list for no errors
+    """
+    check_for = {
+        "sensor": is_uuid,
+        "timestamp": is_timestamp,
+        "error": is_exactly(False),
+        "deregistered": is_exactly(True)
+    }
+
+    return run_validation(sensor, check_for)
+
+
 def validate_sensor_registration(sensor):
     """
     Validate a sensor data blob received via the sensor registration
@@ -3569,6 +3593,20 @@ def test_api(opts):
                 "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode()),
                 "hostname": test_parameter_hostname,
                 "port": test_parameter_port
+            }
+        },
+
+        # === Deregister
+        {
+            "method": "PUT",
+            "path": "/sensor/:sensor/deregister",
+            "returns": "JSON",
+            "code": 200,
+            "authenticate": False,
+            "results_validators": [validate_sensor_deregistration],
+            "request_body": {
+                "sensor": test_parameter_sensor,
+                "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode())
             }
         },
 
