@@ -1,31 +1,42 @@
-#
-# The ConfigureController provides methods for getting and setting the
-# configuration of specific sensors in the SAVIOR architecture.
-#
-# Called as:
-#
-#     VERB "/path/to/:action", ApiServer.Configure, :action, name: "route-name"
-#
-# @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
-# @date: 2017/10/30
-#
+
 defmodule ApiServer.ConfigureController do
+  @moduledoc """
+  The ConfigureController provides methods for getting and setting the
+  configuration of specific sensors in the SAVIOR architecture.
+
+  Called as:
+
+    VERB "/path/to/:action", ApiServer.Configure, :action, name: "route-name"
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/10/30
+  """
+
   use ApiServer.Web, :controller
   import ApiServer.ExtractionPlug, only: [extract_sensor_id: 2]
 
   # get our Sensor ID into conn::sensor_id
   plug :extract_sensor_id when action in [:review, :configure]
 
-  # Plug.Conn handler /2
-  #
-  # Retrieve the settings of a specific sensor, identified by
-  # the sensor id :sensor in the path.
-  #
-  # Return:
-  #   - HTTP 200 / Sensor config if valid sensor ID
-  #   - HTTP 400 / Error message if invalid sensor ID
-  #   - HTTP 504 / Timeout querying sensor
-  #
+
+  @doc """
+  Retrieve the settings of a specific sensor, identified by
+  the sensor id :sensor in the path.
+
+  This is a _Plug.Conn handler/2_.
+
+  ### Validations:
+
+  ### Available:
+
+    - conn::assigns::sensor_id - canonical sensor ID to review
+
+  ### Return:
+
+    - HTTP 200 / Sensor config if valid sensor ID
+    - HTTP 400 / Error message if invalid sensor ID
+    - HTTP 504 / Timeout querying sensor
+  """
   def review(conn, _) do
     IO.puts("ConfigureController -> Operating on sensor[#{conn.assigns.sensor_id}]")
     conn
@@ -40,22 +51,30 @@ defmodule ApiServer.ConfigureController do
        )
   end
 
-  # Plug.Conn handler /2
-  #
-  # Update the settings of a specific sensor, identified by
-  # the sensor id :sensor in the path. The JSON request body must
-  # include:
-  #
-  #   - configuration: URI or base64 encoded configuration data
-  #
-  # Return:
-  #   - HTTP 200 / Sensor config if valid sensor ID
-  #   - HTTP 400 / Error message if invalid sensor ID
-  #   - HTTP 400 / Missing configuration
-  #   - HTTP 504 / Timeout querying and updating sensor
-  #
 
-  # configuration exists in request body
+  @doc """
+  Update the settings of a specific sensor, identified by
+  the sensor id :sensor in the path.
+
+  This is a _Plug.Conn handler/2_.
+
+  The JSON request body must include:
+
+    - configuration: URI or base64 encoded configuration data
+
+  ### Validations
+
+  ### Available:
+
+    - conn::assigns::sensor_id - canonical ID of sensor to configure
+
+  ### Return:
+
+    - HTTP 200 / Sensor config if valid sensor ID
+    - HTTP 400 / Error message if invalid sensor ID
+    - HTTP 400 / Missing configuration
+    - HTTP 504 / Timeout querying and updating sensor
+  """
   def configure(%Plug.Conn{body_params: %{"configuration" => configuration}}=conn, _) do
     IO.puts("ConfigureController -> Operation on sensor [#{conn.assigns.sensor_id}]")
 

@@ -1,6 +1,9 @@
 defmodule ApiServer.ObserveController do
   @moduledoc """
   Set or retrieve the observation level for a set of sensors.
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/10/30
   """
 
   use ApiServer.Web, :controller
@@ -16,14 +19,22 @@ defmodule ApiServer.ObserveController do
   Set the observation level of the sensors within the targeting
   spec.
 
+  This is a _Plug.Conn handler/2_.
+
   This may alter the level or runtime of one or more sensors,
   including halting or starting sensors.
 
-  Available data:
+  ### Validations:
+
+    - `valid_observe_level` - value is in observation level set
+
+  ### Available:
+
     - conn::assigns::targeting - key/value propery map of target selectors
 
-  Returns:
-    - HTTP/200 - JSON document with observation results
+  ### Returns:
+
+    - HTTP 200 / JSON document with observation results
   """
   def observe(%Plug.Conn{params: %{"level" => level}} = conn, _) do
 

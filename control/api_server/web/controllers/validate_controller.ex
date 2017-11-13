@@ -1,6 +1,9 @@
 defmodule ApiServer.ValidateController do
   @moduledoc """
   Check or run diagnostic and security validations of a set of sensors.
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/10/30
   """
 
   use ApiServer.Web, :controller
@@ -17,8 +20,11 @@ defmodule ApiServer.ValidateController do
   Return the current validation state of the set of targeted sensors.
   This may include one or more sensors, from one or more Virtues.
 
+  This is a _Plug.Conn handler/2_.
+
   The response JSON will look like:
 
+  ```json
      {
        "targeting": { ... k/v map of targeting selectors ... },
        "error": false,
@@ -37,12 +43,17 @@ defmodule ApiServer.ValidateController do
          ...
        ]
      }
+  ```
 
-  Available Data:
-   - conn::assigns::targeting - key/value propery map of target selectors
+  ### Validations:
 
-  Response:
-   - HTTP/200 - JSON document describing the current state of the target sensors
+  ### Available Data:
+
+    - conn::assigns::targeting - key/value propery map of target selectors
+
+  ### Response:
+
+    - HTTP 200 / JSON document describing the current state of the target sensors
   """
   def check(conn, _) do
     conn
@@ -65,8 +76,11 @@ defmodule ApiServer.ValidateController do
   or "canary-validation". This may trigger validations for one or more sensors in one or more
   virtues.
 
+  This is a _Plug.Conn handler/2_.
+
   The response will look like:
 
+  ```json
      {
        "error": false,
        "virtues": [ ... list of virtue IDs effected ... ],
@@ -74,13 +88,20 @@ defmodule ApiServer.ValidateController do
        "token": " UUID to track long running validation ",
        "validation": " canary-validate || cross-validate "
      }
+  ```
 
-  Available Data:
-   - conn::assigns::targeting - key/value property map of target selectors
-   - conn::assigns::validate_action - canary-validate or cross-validate
+  ### Validations:
 
-  Returns:
-    - HTTP/200 - JSON document detailing results and tracking for validation
+    - `valid_validate_action` - value in validate action term set
+
+  ### Available Data:
+
+    - conn::assigns::targeting - key/value property map of target selectors
+    - conn::assigns::validate_action - canary-validate or cross-validate
+
+  ### Returns:
+
+    - HTTP 200 / JSON document detailing results and tracking for validation
   """
   def trigger(conn, _) do
 

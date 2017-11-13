@@ -21,14 +21,21 @@ defmodule ApiServer.RegistrationController do
   plug :extract_sensor_id when action in [:review, :configure]
 
   @doc """
-  Plug.Conn handler /2
-
   Deregister a sensor with the sensing API.
+
+  This is a _Plug.Conn handler/2_.
 
   The sensor **must** be identified by sensor_id and public_key to
   successfully deregister.
 
-  Return:
+  ### Validations:
+
+  ### Available:
+
+    - conn::assigns::sensor_id
+
+  ### Return:
+
     - HTTP 200 / Sensor removed from tracking
     - HTTP 400 / Invalid or missing deregistration parameters in payload
     - HTTP 500 / Deregistration error
@@ -60,6 +67,17 @@ defmodule ApiServer.RegistrationController do
         case ApiServer.DatabaseUtils.deregister_sensor(
           Sensor.with_public_key(Sensor.sensor(sensor), public_key)
         ) do
+          {:ok, 0} ->
+            IO.puts("  error deregistering sensor(id=#{sensor}) - no such sensor ")
+            conn
+            |> put_status(400)
+            |> json(
+                %{
+                  error: :true,
+                  timestamp: DateTime.to_string(DateTime.utc_now()),
+                  msg: "Error deregistering sensor: no such sensor registered"
+                }
+               )
           {:ok, number_deregistered} ->
             IO.puts("  #{number_deregistered} sensor(s) deregistered")
             scount = Mnesia.table_info(Sensor, :size)
@@ -90,14 +108,21 @@ defmodule ApiServer.RegistrationController do
   end
 
   @doc """
-   Plug.Conn handler /2
+  Register a sensor with the Sensing API
 
-   Register a sensor with the Sensing API
+  This is a _Plug.Conn handler/2_.
 
-   Return:
-     - HTTP 200 / Sensor registered
-     - HTTP 400 / Invalid or missing registration parameters in payload
-     - HTTP 500 / Registration error
+  ### Validations:
+
+  ### Available:
+
+    - conn::assigns::sensor_id
+
+  ### Return:
+
+    - HTTP 200 / Sensor registered
+    - HTTP 400 / Invalid or missing registration parameters in payload
+    - HTTP 500 / Registration error
   """
   def register(
         %Plug.Conn{
@@ -217,10 +242,16 @@ defmodule ApiServer.RegistrationController do
   ID is sent as part of the HTTP request, which the sensor should verify as being it's
   correct sensor ID.
 
-  Returns:
+  ### Params:
 
-    :ok - sensor verified
-    :error - verification failed
+    - **hostname**: bare hostname of sensor, without any leading scheme
+    - **port**: integer port monitored by sensor
+    - **sensor**: ID of the sensor being verified
+
+  ### Returns:
+
+    - :ok - sensor verified
+    - :error - verification failed
   """
   def verify_remote_sensor(hostname, port, sensor) do
     # let's send out our verification ping

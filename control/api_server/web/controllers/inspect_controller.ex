@@ -2,6 +2,9 @@ defmodule ApiServer.InspectController do
   @moduledoc """
   Find and enumerate the set of sensors observing the Virtue, User,
   or Resource according to incoming targeting.
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/10/30
   """
   use ApiServer.Web, :controller
 
@@ -17,8 +20,11 @@ defmodule ApiServer.InspectController do
   by the targeting selectors. This is a list of zero or more
   sensors.
 
+  This is a _Plug.Conn handler/2_.
+
   The JSON response will looke like:
 
+  ```json
    {
      "targeting": { ... k/v map of targeting selectors ... },
      "error": false,
@@ -32,12 +38,17 @@ defmodule ApiServer.InspectController do
        }
      ]
    }
+  ```
 
-  Available data:
+  ### Validations:
+
+  ### Available data:
+
    - conn::assigns::targeting - key/value propery map of target selectors
 
-  Returns:
-   - HTTP/200 - JSON document describing a set of sensors
+  ### Returns:
+
+   - HTTP 200 / JSON document describing a set of sensors
   """
   def inspect(conn, _) do
     conn

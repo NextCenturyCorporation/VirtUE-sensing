@@ -3,6 +3,9 @@ defmodule ApiServer.TrustController do
   Inspect and operate on the trust relationship between the sensors
   and infrastructure using the certificate chains and mutual
   authentication information.
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/10/30
   """
   use ApiServer.Web, :controller
 
@@ -16,12 +19,15 @@ defmodule ApiServer.TrustController do
 
 
   @doc """
-   Run certificate validations for all sensors observing virtues, applications,
-   users, or resources within the target selectors. This will run certificate
-   validations on zero or more sensors.
+  Run certificate validations for all sensors observing virtues, applications,
+  users, or resources within the target selectors. This will run certificate
+  validations on zero or more sensors.
 
-   The JSON response from this will look like:
+  This is a _Plug.Conn handler/2_.
 
+  The JSON response from this will look like:
+
+  ```json
      {
        "error": false,
        "targeting": { ... k/v of targeting selectors ... },
@@ -42,12 +48,19 @@ defmodule ApiServer.TrustController do
          }
        ]
      }
+  ```
 
-   Available data:
-     - conn::assigns::targeting - key/value propery map of target selectors
+  ### Validations:
 
-   Response:
-     - HTTP/200 - JSON document describing the certificate validations of scoped sensors
+    - `valid_trust_action` - value in trust action term set
+
+  ### Available data:
+
+    - conn::assigns::targeting - key/value propery map of target selectors
+
+  ### Response:
+
+    - HTTP 200 / JSON document describing the certificate validations of scoped sensors
   """
   def trust(%Plug.Conn{params: %{"action" => "validate"}} = conn, _) do
 
