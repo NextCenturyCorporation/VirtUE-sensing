@@ -1,15 +1,18 @@
-#
-# The RegistrationController provides methods for registering sensors
-# with the API.
-#
-# Called as:
-#
-#     VERB "/path/to/:action", ApiServer.RegisterController, :register, name: "route-name"
-#
-# @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
-# @date: 2017/11/07
-#
+
 defmodule ApiServer.RegistrationController do
+  @moduledoc """
+
+  The RegistrationController provides methods for registering sensors
+  with the API.
+
+  Called as:
+
+     VERB "/path/to/:action", ApiServer.RegisterController, :register, name: "route-name"
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/11/07
+  """
+
   use ApiServer.Web, :controller
   import ApiServer.ExtractionPlug, only: [extract_sensor_id: 2, is_virtue_id: 1, is_sensor_id: 1, is_hostname: 1, is_username: 1, is_public_key: 1]
   alias :mnesia, as: Mnesia
@@ -194,6 +197,31 @@ defmodule ApiServer.RegistrationController do
     end
   end
 
+  def register(conn, _) do
+    conn
+    |> put_status(400)
+    |> json(
+         %{
+           error: :true,
+           timestamp: DateTime.to_string(DateTime.utc_now()),
+           msg: "One or more missing fields in the registration payload"
+         }
+       )
+  end
+
+  @doc """
+  Send a verification ping to a remote sensor.
+
+  During the regstration process, sensors are verified via side channel round trip HTTP
+  calls. If the sensor returns an HTTP/200, we can complete the registration. The sensor
+  ID is sent as part of the HTTP request, which the sensor should verify as being it's
+  correct sensor ID.
+
+  Returns:
+
+    :ok - sensor verified
+    :error - verification failed
+  """
   def verify_remote_sensor(hostname, port, sensor) do
     # let's send out our verification ping
     case HTTPoison.get("http://#{hostname}:#{port}/sensor/#{sensor}/registered", [], [timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
@@ -216,18 +244,8 @@ defmodule ApiServer.RegistrationController do
     end
   end
 
-  def register(conn, _) do
-    conn
-      |> put_status(400)
-      |> json(
-          %{
-            error: :true,
-            timestamp: DateTime.to_string(DateTime.utc_now()),
-            msg: "One or more missing fields in the registration payload"
-          }
-         )
-  end
-
+  # Build the HTTP/400 JSON response to an invalid registration attempt. This call
+  # will halt the connection.
   defp invalid_registration(conn, sensor_id, fieldname, value) do
     IO.puts("! sensor(id=#{sensor_id}) failed registration with invalid field (#{fieldname} = #{value})")
     conn
@@ -242,6 +260,8 @@ defmodule ApiServer.RegistrationController do
     |> Plug.Conn.halt()
   end
 
+  # Build the HTTP/400 JSON response to an invalid deregistration request. This call will
+  # halt the connection.
   defp invalid_deregistration(conn, sensor_id, fieldname, value) do
     IO.puts("! sensor(id=#{sensor_id}) failed deregistration with invalid field (#{fieldname} = #{value})")
     conn

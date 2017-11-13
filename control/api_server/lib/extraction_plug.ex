@@ -12,7 +12,7 @@
 defmodule ApiServer.ExtractionPlug do
   import Phoenix.Controller
   import Plug.Conn
-  import CIDR
+#  import CIDR
 
   # Extract a Sensor ID labeled `:sensor` from the incoming
   # request path.
@@ -365,7 +365,7 @@ defmodule ApiServer.ExtractionPlug do
   def is_public_key(st) do
 
     case :public_key.pem_decode(st) do
-      [rsa_entry] ->
+      [_] ->
         :true
       [] ->
         :false
