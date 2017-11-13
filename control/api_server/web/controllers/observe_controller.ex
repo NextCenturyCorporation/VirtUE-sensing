@@ -1,4 +1,8 @@
 defmodule ApiServer.ObserveController do
+  @moduledoc """
+  Set or retrieve the observation level for a set of sensors.
+  """
+
   use ApiServer.Web, :controller
   import ApiServer.ValidationPlug, only: [valid_observe_level: 2]
   import ApiServer.ExtractionPlug, only: [extract_targeting: 2]
@@ -8,6 +12,13 @@ defmodule ApiServer.ObserveController do
   plug :valid_observe_level when action in [:observe]
   plug :extract_targeting when action in [:observe]
 
+  @doc """
+  Set the observation level of the sensors within the targeting
+  spec.
+
+  This may alter the level or runtime of one or more sensors,
+  including halting or starting sensors.
+  """
   def observe(%Plug.Conn{params: %{"level" => level}} = conn, _) do
 
     conn
@@ -25,8 +36,9 @@ defmodule ApiServer.ObserveController do
          )
   end
 
+  # temporary data generation
   defp generate_actions() do
-    Enum.map(1..:rand.uniform(10), fn (x) -> generate_action() end)
+    Enum.map(1..:rand.uniform(10), fn (_) -> generate_action() end)
   end
 
   defp generate_action() do
