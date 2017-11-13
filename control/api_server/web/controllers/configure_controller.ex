@@ -65,7 +65,7 @@ defmodule ApiServer.ConfigureController do
         # we've got a URI as config
         conn
          |> put_status(200)
-         |> json (%{
+         |> json(%{
               error: :false,
               sensor: conn.assigns.sensor_id,
               timestamp: DateTime.to_string(DateTime.utc_now()),
