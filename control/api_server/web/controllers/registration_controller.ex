@@ -226,7 +226,7 @@ defmodule ApiServer.RegistrationController do
     # let's send out our verification ping
     case HTTPoison.get("http://#{hostname}:#{port}/sensor/#{sensor}/registered", [], [timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
 
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+      {:ok, %HTTPoison.Response{status_code: 200, body: _}} ->
         IO.puts("  + sensor(id=#{sensor}) verified with direct ping")
         :ok
       {:ok, %HTTPoison.Response{status_code: 401}} ->
