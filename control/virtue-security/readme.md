@@ -103,6 +103,12 @@ the request path specification. So, for instance, both the test command and the 
 represent a Sensor ID in their request paths as `:sensor`, and parse or replace that with
 a UUID at run time.
 
+When running the entire test suite, the `--public-key-path` should be set, otherwise
+tests requiring public/private key material will fail:
+
+```bash
+> python virtue-security test --public-key-path cert/rsa_key.pub
+```
 ### Flags
 
  - `--test-path` : Filter the tests run by prefix matching against a supplied request PATH

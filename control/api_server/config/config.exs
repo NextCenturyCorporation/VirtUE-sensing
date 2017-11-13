@@ -15,12 +15,25 @@ config :api_server, ApiServer.Endpoint,
   secret_key_base: "xtb19NAC0sCZ1RNjGUJVguTl7wsUKq/nsnjvx7Xxx/K3uP0aakfoQI/DYi3IH7M0",
   render_errors: [view: ApiServer.ErrorView, format: "json", accepts: ~w(json)],
   pubsub: [name: ApiServer.PubSub,
-           adapter: Phoenix.PubSub.PG2]
+           adapter: Phoenix.PubSub.PG2],
+  http: [protocol_options: [max_request_line_length: 8192, max_header_value_length: 8192]]
 
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
+
+# Scheduler
+config :api_server, ApiServer.Scheduler,
+  jobs: [
+
+    # heart beat every minute
+    {"* * * * *",         {ApiServer, :heartbeat, []}},
+
+    # check on non-responsive sensors every 2 minutes, and clean them out if
+    # they're older than 5 minutes
+    {"*/15 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [15]}}
+  ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

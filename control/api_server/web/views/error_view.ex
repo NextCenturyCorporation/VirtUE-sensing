@@ -13,6 +13,14 @@ defmodule ApiServer.ErrorView do
     }
   end
 
+  def render("400.html", _assigns) do
+    %{
+      error: :true,
+      msg: "Bad request",
+      timestamp: DateTime.to_string(DateTime.utc_now())
+    }
+  end
+
   def render("500.html", _assigns) do
     %{
       error: :true,

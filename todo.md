@@ -1,18 +1,47 @@
 
 # Sensing Architecture
 
+
+# Dummy Sensor
+
+ - [ ] http endpoint
+  - [x] basic http request cycle
+3  - [ ] layout what the different actions would do
+  !- [ ] add periodic sensor sync with API (touch timestamp)
+  !- [ ] geborked testing with sensor registration/deregistration
+4 - [ ] kafka integration
+5 - [ ] sensor config
+6  - [ ] filters as lockable objects, or processed at the kafka emitter
+ - [ ] CA integration
+ - [ ] where is Sensing API
+ - [ ] where is Kafka
+ - [ ] where is CA?
+8 - [ ] how do we get default config?
+ 
+# infrastructure
+
+ - [ ] setup kafka
+ - [ ] spool reader from channel
+
+# CA
+ 
+ - [ ] find basic CA tools
+ - [ ] root certs
+ - [ ] how to generate client/server certs
+  
 # virtue-security
 
 
-6- virtue-security CLI
+- virtue-security CLI
   - [ ] add support for all commands and link to routes
   - [ ] move command sets into classes and modules
   
 # API SERVER
 
+ - Authentication
+  - [ ] fix special case authentication of the registration API by adding client certificate auth plug
+  - [ ] fix failing registration tests now that we have registration ping callbacks
  - General API
-  - [ ] validation plug methods need to catch missing param cases (write tests for this)
-  - [ ] inline test cases with exercised routes
   - [ ] catch all query params and path params for validation
    - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing
          API is in UTC common format.
@@ -33,10 +62,6 @@
   - [ ] CA/issuer API
  - Testing
   - [ ] Parallelize `virtue-security` test mode
-3 - [ ] create fuzzing tests
-   - [x] inject by rewriting keyword terms and ending them with _fuzz, and reinject into the test list (see unauthenticated tests above)
-   - [ ] fix things so fuzzing tests don't bork all over the place
-4 - [ ] add failure cases to all endpoints with targeting
   - [ ] Add fuzzing tests with known bad inputs
   - [ ] streaming JSONL in elixir
    - [ ] create an infinite streaming source for log messages in server, spawn and attach when doing stream/follow

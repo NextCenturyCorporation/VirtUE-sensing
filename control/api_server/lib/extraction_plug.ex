@@ -362,8 +362,19 @@ defmodule ApiServer.ExtractionPlug do
     is_uuid?(st)
   end
 
+  def is_public_key(st) do
+
+    case :public_key.pem_decode(st) do
+      [rsa_entry] ->
+        :true
+      [] ->
+        :false
+    end
+  end
+
   defp is_uuid?(st) do
     String.match?(st, ~r/^[a-zA-Z0-9]{8}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{12}$/)
   end
+
 
 end

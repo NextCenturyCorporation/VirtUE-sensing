@@ -61,3 +61,29 @@ addressed. All of the following are valid *targeting*:
  - select a *virtue* by **virtue id** and an *application* by **application id**, identifying all sensors observing the given application running within the given virtue
  
 More about *targeting* can be found in the Sensing API document.
+
+## Data Models
+
+The API Server maintains relevant sensor registration data in a disc persisted, distributed
+[Mnesia](http://erlang.org/doc/man/mnesia.html) [datastore](https://elixirschool.com/en/lessons/specifics/mnesia/#nodes). The schema for the data store is defined in the `start_mnesia/0` method of the
+**lib/api_server.ex** _ApiServer_ module.
+
+Updates to the schema of the data table are handled in the same `start_mnesia/0` method, and
+follow a process of updating from known previous forms to the current schema.
+
+For the **Sensor** data model, a helper _struct_ is defined in the **web/models/sensor.ex** _Sensor_
+module.
+
+Utilities for working with the data model, _Sensor_ struct, and the Mnesia data store are in
+the **lib/database_utils.ex** _ApiServer.DatabaseUtils_ module.
+
+When updating the schema for any data tables, modifications must be made in the following
+locations:
+
+  - **lib/api_server.ex** `ApiServer.start_mnesia/0` in create_table - append new fields to end of list
+  - **lib/api_server.ex** `ApiServer.start_mnesia/0` in each table_info/2 clause - alter updates from old data schemas to new data schema
+  - **web/models/sensor.ex** `Sensor.defstruct` - append new fields to end of struct list
+  - **web/models/sensor.ex** `Sensor.sensor/*` - extend appropriate methods with the new fields
+  - **lib/database_utils.ex** `ApiServer.DatabaseUtils.register_sensor/1` - include new fields from `Sensor` struct in parameter matching for method call, and record creation with `Mnesia.write/1`
+  - **lib/database_utils.ex** `ApiServer.DatabaseUtils.index_for_key/1` - append new fields to end of lookup list
+ 
