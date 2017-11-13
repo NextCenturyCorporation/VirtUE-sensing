@@ -1,4 +1,8 @@
 defmodule ApiServer.ValidateController do
+  @moduledoc """
+  Check or run diagnostic and security validations of a set of sensors.
+  """
+
   use ApiServer.Web, :controller
   import ApiServer.ValidationPlug, only: [valid_validate_action: 2]
   import ApiServer.ExtractionPlug, only: [extract_targeting: 2]
@@ -8,35 +12,38 @@ defmodule ApiServer.ValidateController do
   plug :valid_validate_action when action in [:trigger]
   plug :extract_targeting when action in [:check, :trigger]
 
-  # Return the current validation state of the set of targeted sensors.
-  # This may include one or more sensors, from one or more Virtues.
-  #
-  # The response JSON will look like:
-  #
-  #   {
-  #     "targeting": { ... k/v map of targeting selectors ... },
-  #     "error": false,
-  #     "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
-  #     "sensors": [
-  #       {
-  #         "sensor": "sensor UUID",
-  #         "virtue": "ID of virtue containing sensor or observed by sensor",
-  #         "name": "human readable sensor name"
-  #         "compromised": false,
-  #         "last-validated": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
-  #         "last-validation-token": "UUID of last triggered and processed validation",
-  #         "cross-validation": { ... map of last cross validation analysis data ... },
-  #         "canary-validation": { ... map of last canary validation analysis data ... }
-  #       },
-  #       ...
-  #     ]
-  #   }
-  #
-  # Available Data:
-  #   - conn::assigns::targeting - key/value propery map of target selectors
-  #
-  # Response:
-  #   - JSON document describing the current state of the target sensors
+
+  @doc """
+  Return the current validation state of the set of targeted sensors.
+  This may include one or more sensors, from one or more Virtues.
+
+  The response JSON will look like:
+
+     {
+       "targeting": { ... k/v map of targeting selectors ... },
+       "error": false,
+       "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+       "sensors": [
+         {
+           "sensor": "sensor UUID",
+           "virtue": "ID of virtue containing sensor or observed by sensor",
+           "name": "human readable sensor name"
+           "compromised": false,
+           "last-validated": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+           "last-validation-token": "UUID of last triggered and processed validation",
+           "cross-validation": { ... map of last cross validation analysis data ... },
+           "canary-validation": { ... map of last canary validation analysis data ... }
+         },
+         ...
+       ]
+     }
+
+  Available Data:
+   - conn::assigns::targeting - key/value propery map of target selectors
+
+  Response:
+   - HTTP/200 - JSON document describing the current state of the target sensors
+  """
   def check(conn, _) do
     conn
       |> put_status(200)
@@ -52,23 +59,29 @@ defmodule ApiServer.ValidateController do
          )
   end
 
-  # Trigger a validation of the targeted sensors. The validation can be either "cross-validation"
-  # or "canary-validation". This may trigger validations for one or more sensors in one or more
-  # virtues.
-  #
-  # The response will look like:
-  #
-  #   {
-  #     "error": false,
-  #     "virtues": [ ... list of virtue IDs effected ... ],
-  #     "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
-  #     "token": " UUID to track long running validation ",
-  #     "validation": " canary-validate || cross-validate "
-  #   }
-  #
-  # Available Data:
-  #   - conn::assigns::targeting - key/value property map of target selectors
-  #   - conn::assigns::validate_action - canary-validate or cross-validate
+
+  @doc """
+  Trigger a validation of the targeted sensors. The validation can be either "cross-validation"
+  or "canary-validation". This may trigger validations for one or more sensors in one or more
+  virtues.
+
+  The response will look like:
+
+     {
+       "error": false,
+       "virtues": [ ... list of virtue IDs effected ... ],
+       "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+       "token": " UUID to track long running validation ",
+       "validation": " canary-validate || cross-validate "
+     }
+
+  Available Data:
+   - conn::assigns::targeting - key/value property map of target selectors
+   - conn::assigns::validate_action - canary-validate or cross-validate
+
+  Returns:
+    - HTTP/200 - JSON document detailing results and tracking for validation
+  """
   def trigger(conn, _) do
 
     conn
@@ -80,7 +93,7 @@ defmodule ApiServer.ValidateController do
               timestamp: DateTime.to_string(DateTime.utc_now()),
               token: uuid4(),
               validation: conn.assigns.validate_action,
-              virtues: Enum.map(1..:rand.uniform(10), fn(x) -> uuid4() end)
+              virtues: Enum.map(1..:rand.uniform(10), fn(_) -> uuid4() end)
             },
             summarize_targeting(conn.assigns)
           )
@@ -89,7 +102,7 @@ defmodule ApiServer.ValidateController do
 
   # Build a random list of between 1 to 10 sensors
   defp generate_random_sensor_list() do
-    Enum.map(1..:rand.uniform(10), fn(x) -> generate_sensor() end)
+    Enum.map(1..:rand.uniform(10), fn(_) -> generate_sensor() end)
   end
 
 
