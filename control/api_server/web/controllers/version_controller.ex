@@ -1,8 +1,6 @@
 defmodule ApiServer.VersionController do
   use ApiServer.Web, :controller
 
-  import ApiServer
-
   def version(conn, _) do
     conn
     |> put_status(200)
