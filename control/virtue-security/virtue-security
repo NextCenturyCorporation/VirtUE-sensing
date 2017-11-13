@@ -3814,13 +3814,15 @@ async def test_api(opts):
         },
 
         # === Deregister
+        # TODO: add a test for the HTTP 200 case when we add support for
+        #       :before steps in test cases (see: https://github.com/twosixlabs/savior/issues/8)
         {
             "method": "PUT",
             "path": "/sensor/:sensor/deregister",
             "returns": "JSON",
-            "code": 200,
+            "code": 400,
             "authenticate": False,
-            "results_validators": [validate_sensor_deregistration],
+            "results_validators": [validate_is_error], #[validate_sensor_deregistration],
             "request_body": {
                 "sensor": test_parameter_sensor,
                 "public_key": base64.urlsafe_b64encode(load_public_key("cert/rsa_key.pub").encode()).decode("iso-8859-1")
