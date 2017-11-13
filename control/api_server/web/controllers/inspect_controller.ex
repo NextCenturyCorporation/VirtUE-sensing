@@ -13,25 +13,31 @@ defmodule ApiServer.InspectController do
   plug :extract_targeting when action in [:inspect]
 
   @doc """
-   Return the set of sensors observing the resources described
-   by the targeting selectors. This is a list of zero or more
-   sensors.
+  Return the set of sensors observing the resources described
+  by the targeting selectors. This is a list of zero or more
+  sensors.
 
-   The JSON response will looke like:
+  The JSON response will looke like:
 
-     {
-       "targeting": { ... k/v map of targeting selectors ... },
-       "error": false,
-       "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
-       "sensors": [
-         {
-           "sensor": sensor uuid,
-           "virtue": virtue containing sensor/observed by sensor,
-           "state": ( active || inactive ),
-           "name": sensor human readable name
-         }
-       ]
-     }
+   {
+     "targeting": { ... k/v map of targeting selectors ... },
+     "error": false,
+     "timestamp": "YYYY-MM-DD HH:MM:SS.mmmmmmZ",
+     "sensors": [
+       {
+         "sensor": sensor uuid,
+         "virtue": virtue containing sensor/observed by sensor,
+         "state": ( active || inactive ),
+         "name": sensor human readable name
+       }
+     ]
+   }
+
+  Available data:
+   - conn::assigns::targeting - key/value propery map of target selectors
+
+  Returns:
+   - HTTP/200 - JSON document describing a set of sensors
   """
   def inspect(conn, _) do
     conn

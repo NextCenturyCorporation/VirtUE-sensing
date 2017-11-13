@@ -18,6 +18,12 @@ defmodule ApiServer.ObserveController do
 
   This may alter the level or runtime of one or more sensors,
   including halting or starting sensors.
+
+  Available data:
+    - conn::assigns::targeting - key/value propery map of target selectors
+
+  Returns:
+    - HTTP/200 - JSON document with observation results
   """
   def observe(%Plug.Conn{params: %{"level" => level}} = conn, _) do
 

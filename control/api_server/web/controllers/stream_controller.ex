@@ -20,9 +20,13 @@ defmodule ApiServer.StreamController do
   This method may or may not automatically terminate, dependinf on
   the _follow_ flag set by the requester.
 
+  Available data:
+    - conn::assigns::targeting - key/value propery map of target selectors
+
+
   Returns:
 
-    JSONL - newline delimited json stream
+    - HTTP/200 - JSONL; newline delimited json stream
   """
   def stream(conn, _) do
     conn
