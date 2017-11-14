@@ -22,7 +22,6 @@ defmodule ApiServer.DatabaseUtils do
     IO.puts("  = pruning sensors with checkins older than #{prune_age} minutes")
 
     # determine our record key
-    rec_key = :"$#{index_for_key(:timestamp) + 1}"
     case Mnesia.transaction(
       fn ->
         case Mnesia.select(Sensor,

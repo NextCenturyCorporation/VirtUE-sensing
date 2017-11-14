@@ -7,7 +7,7 @@
  - [ ] http endpoint
   - [x] basic http request cycle
 3  - [ ] layout what the different actions would do
-  !- [ ] add periodic sensor sync with API (touch timestamp)
+  !- [ ] add periodic sensor sync with API (touch timestamp) to keep records alive
   !- [ ] geborked testing with sensor registration/deregistration
 4 - [ ] kafka integration
 5 - [ ] sensor config

@@ -1,4 +1,10 @@
 defmodule ApiServer.StreamController do
+  @moduledoc """
+  Retrieve the log stream from a set of active sensors.
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/10/30
+  """
   use ApiServer.Web, :controller
 
   import UUID, only: [uuid4: 0]
@@ -10,16 +16,38 @@ defmodule ApiServer.StreamController do
   plug :valid_log_level when action in [:stream]
   plug :extract_targeting when action in [:stream]
 
+  @doc """
+  Find, filter, and stream back to the client a set of log messages
+  from one or more sensors defined by the incoming targeting.
+
+  This is a _Plug.Conn handler/2_.
+
+  This method may or may not automatically terminate, dependinf on
+  the _follow_ flag set by the requester.
+
+  ### Validations:
+
+    - `valid_log_level` - value in log level term set
+
+  ### Available data:
+
+    - conn::assigns::targeting - key/value propery map of target selectors
+
+  ### Returns:
+
+    - HTTP 200 / JSONL: newline delimited json stream
+  """
   def stream(conn, _) do
     conn
       |> send_chunked(200)
       |> create_message_stream()
   end
 
+  # temporary data generation
   defp create_message_stream(conn) do
     Enum.each(1..:rand.uniform(20),
-        fn(x) ->
-          {:ok, conn} = chunk(conn, Poison.encode!(create_message(conn)) <> "\n")
+        fn(_) ->
+          {:ok, _} = chunk(conn, Poison.encode!(create_message(conn)) <> "\n")
         end
     )
 

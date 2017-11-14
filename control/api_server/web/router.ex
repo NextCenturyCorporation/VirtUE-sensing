@@ -16,10 +16,6 @@ defmodule ApiServer.Router do
    scope "/api/v1", ApiServer do
      pipe_through :api
 
-     # Ping/ack endpoints
-     get "/qotds", StatsController, :qotds
-     get "/qotd/:id", StatsController, :qotd
-
      # Static data routes
      get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
      get "/enum/log/levels", EnumController, :log_levels, name: "enum-log-levels"
