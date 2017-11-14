@@ -11,6 +11,7 @@ import email
 import hashlib
 from io import StringIO
 import json
+from kafka import KafkaProducer
 import os
 import pwd
 import requests
@@ -36,6 +37,7 @@ asks.init('curio')
 
 # log message queueing
 log_messages = Queue()
+
 
 async def register_sensor(opts):
     """
@@ -77,6 +79,8 @@ async def register_sensor(opts):
 
     if res.status_code == 200:
         print("Registered sensor with Sensing API")
+        print(res.json())
+        return res.json()
     else:
         print("Couldn't register sensor with Sensing API")
         print("  status_code == %d" % (res.status_code,))
@@ -122,14 +126,24 @@ async def lsof():
         await log_messages.put(line.decode("utf-8"))
 
 
-async def log_drain():
+async def log_drain(kafka_bootstrap_hosts=None, kafka_channel=None):
     """
     Pull messages off of the reporting queue, and splat them out on STDOUT
     for now.
 
+    :param kafka_bootstrap_hosts: Bootstrap host list for kafka
+    :param kafka_channel:
     :return:
     """
     print(" ::starting log_drain")
+    print("  ? configuring KafkaProducer(bootstrap=%s, topic=%s)" % (",".join(kafka_bootstrap_hosts), kafka_channel))
+
+    producer = KafkaProducer(
+        bootstrap_servers=kafka_bootstrap_hosts,
+        retries=5,
+        max_block_ms=10000,
+        value_serializer=str.encode
+    )
 
     # basic channel tracking
     msg_count = 0
@@ -140,6 +154,8 @@ async def log_drain():
 
         msg_count += 1
         msg_bytes += len(message)
+
+        producer.send(kafka_channel, message)
 
         # progress reporting
         if msg_count % 5000 == 0:
@@ -332,10 +348,21 @@ async def main(opts):
     Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
     async with TaskGroup() as g:
-        await g.spawn(log_drain)
-        await g.spawn(lsof)
+
+        # we need to spin up our actuation listener first
         await g.spawn(tcp_server, opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts))
-        await g.spawn(register_sensor, opts)
+
+        # now we register and wait for the results
+        reg = await g.spawn(register_sensor, opts)
+
+        print("  @ waiting for registration cycle")
+        reg_data = await reg.join()
+        print(reg_data)
+        print("  = got registration")
+
+        await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
+        await g.spawn(lsof)
+
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
         await g.cancel_remaining()

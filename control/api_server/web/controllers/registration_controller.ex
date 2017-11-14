@@ -186,7 +186,9 @@ defmodule ApiServer.RegistrationController do
                        error: :false,
                        timestamp: DateTime.to_string(DateTime.utc_now()),
                        sensor: sensor,
-                       registered: :true
+                       registered: :true,
+                       kafka_bootstrap_hosts: ["localhost:9092"],
+                       sensor_topic: sensor
                      }
                    )
 
