@@ -27,7 +27,7 @@ cd kafka_2.12-1.0.0
 ## Start a producer
 
 ```bash
-./bin/kafka-console-producer.sh --broker-list 10.0.1.71:9092 --topic test2
+./bin/kafka-console-producer.sh --broker-list localhost:9092 --topic test2
 ```
 
 ## Start a consumer
