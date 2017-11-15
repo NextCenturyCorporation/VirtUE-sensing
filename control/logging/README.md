@@ -24,6 +24,12 @@ cd kafka_2.12-1.0.0
 ./bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic mytopic
 ```
 
+## List topics
+
+```bash
+./bin/kafka-topics.sh --list --zookeeper localhost:2181
+```
+
 ## Start a producer
 
 ```bash

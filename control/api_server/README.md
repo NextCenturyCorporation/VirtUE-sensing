@@ -32,6 +32,55 @@ mix phoenix.server
 Now you can visit [`localhost:4000/version`](http://localhost:4000/version) from your browser to
 verify you have the server running.
 
+# Run Time
+
+The Sensing API run time is comprised of a set of services that run concurrently to
+provide the entire API capability.
+
+## API Services
+
+The API routing and response are handled by the [Elixir Phoenix](http://phoenixframework.org) 
+framework. These routes provide standard REST capabilities. A few routes provide or use extra
+functionality: 
+ 
+### Sensor Registration
+
+Sensor registration is handled via an API Service route as well as a side channel HTTP request
+back to the registering sensor. The registration cycle is a key component. The Sensing API is
+using the [HTTPoison](https://hexdocs.pm/httpoison/HTTPoison.html) library for generating HTTP
+requests.
+
+### Log Streaming
+
+TBD 
+
+## Data Persistence
+
+Internally the Sensing API uses the distributed, resilient [Mnesia](http://erlang.org/doc/man/mnesia.html)
+data store for persisting sensor registration, routing, and related data. See the [Data Models](#data-models)
+section below for more.
+
+## Schedule Tasks
+
+Asynchronous task scheduling for the Sensing API is done via the [Quantum](https://hexdocs.pm/quantum/readme.html)
+library. The tasks are defined in [config.exs](config/config.exs) as `cron` like tasks in the **Schedule** section.
+
+The following tasks are currently configured:
+
+### Sensor Pruning
+
+Sensor Pruning removes sensor registration data for any sensor that hasn't sent a heartbeat in the
+last 15 minutes. This is to cleanup after any sensors that were unable to deregister properly.
+
+### Sensing Heartbeat
+
+It's nice to know the Sensing API is still alive. [Elixir](https://pragtob.wordpress.com/2017/07/26/choosing-elixir-for-the-code-not-the-performance/), [Erlang OTP](https://en.wikipedia.org/wiki/Open_Telecom_Platform), 
+[Phoenix](http://phoenixframework.org/blog/the-road-to-2-million-websocket-connections) and the [BEAM](https://pragprog.com/articles/erlang) are
+ridiculously robust, so sometimes it's nice to get a "sign of life" out of the system, otherwise it can go for
+_a really long time_ without emitting a log message.
+
+The Sensing API heartbeat happens once a minute. 
+
 # Development
 
 ## Version bumping

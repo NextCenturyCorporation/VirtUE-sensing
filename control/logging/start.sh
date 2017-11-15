@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-KAFKA_ADVERTISED_HOST_NAME=`ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'`
+KAFKA_ADVERTISED_HOST_NAME=`ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p' | head -n 1`
 
 echo "Starting zookeeper on $KAFKA_ADVERTISED_HOST_NAME:2181"
 echo "Starting kafka on $KAFKA_ADVERTISED_HOST_NAME:9092"
