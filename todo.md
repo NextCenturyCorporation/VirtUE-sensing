@@ -10,17 +10,22 @@
   !- [ ] add periodic sensor sync with API (touch timestamp) to keep records alive
   !- [ ] geborked testing with sensor registration/deregistration
 4 - [ ] kafka integration
-   - [ ] scripts to spin up Kafka/zookeeper
-    - [ ] set ENV and pass it through compose
-   - [ ] configure Sensing API to connect to kafka
-   - [ ] use metadata(topic) to ensure a topic exists
-   - [ ] start new topics during request cycle for sensor registration
-   - [ ] return kafka bootstrap params + channel name for sensor reg
+   - [ ] write message formatter for log data coming from sensor
    - [ ] ? destroy topics after sensor deregistration?
-   - [ ] python stream to kafka topic
    - [ ] connect stream/* actions to kafka
+    - [ ] configure Sensing API to connect to kafka
     - [ ] spin up new worker
-	- [ ] batch process messages
+	- [ ] batch process messages 
+   - [ ] write a simple serializer from kafka channels to JSONL on disk
+    - [ ] what should this be written in? Elixir? Java?
+	- [ ] or just write a simple monitor
+	 - [ ] active topics
+	 - [ ] message sizes/counts
+   - [ ] sensing API needs a way to find active sensors beyond just basic targeting
+    - [ ] user/sensor enumeration
+   - [ ] sensor registration needs additional fields
+    - [ ] sensor name
+   - [ ] sensor registration needs to include default configuration
 
 
 5 - [ ] sensor config
