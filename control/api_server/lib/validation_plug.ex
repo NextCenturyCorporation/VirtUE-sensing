@@ -173,6 +173,7 @@ defmodule ApiServer.ValidationPlug do
       filter_level when filter_level in ["everything", "debug", "info", "warning", "error", "event"] ->
         conn
           |> assign(:filter_level, filter_level)
+        filter_level == nil
       _ ->
         conn
           |> put_status(400)
@@ -187,22 +188,14 @@ defmodule ApiServer.ValidationPlug do
     end
   end
 
-  # Error Case
+  # Missing filter_level case
   #
   #   missing log :filter_level
   #
   # Response:
-  #   - Halt/HTTP 400
+  #   - Halt/HTTP 200 - implied everything
   def valid_log_level(conn, _) do
     conn
-      |> put_status(400)
-      |> json(
-          %{
-            error: :true,
-            msg: "Missing log filter level",
-            timestamp: DateTime.to_string(DateTime.utc_now())
-          }
-         )
-      |> Plug.Conn.halt()
+      |> assign(:filter_level, "everything")
   end
 end

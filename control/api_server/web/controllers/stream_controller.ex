@@ -38,9 +38,13 @@ defmodule ApiServer.StreamController do
     - HTTP 200 / JSONL: newline delimited json stream
   """
   def stream(conn, _) do
-    conn
-      |> send_chunked(200)
-      |> create_message_stream()
+#    conn
+#      |> send_chunked(200)
+#      |> create_message_stream()
+
+    {cks, nconn} = create_kafka_stream(send_chunked(conn, 200), "e93830c0-bce8-439c-8015-509b427b1b78")
+    Stream.run(cks)
+#    nconn
   end
 
   # temporary data generation
@@ -52,6 +56,17 @@ defmodule ApiServer.StreamController do
     )
 
     conn
+  end
+
+  defp create_kafka_stream(conn, sensor) do
+    cks_stream = Stream.map(
+      KafkaEx.stream(sensor, 0, offset: 0),
+      fn (msg) ->
+        chunk(conn, Poison.encode!(%{message: msg.value}) <> "\n")
+        IO.puts("msg")
+      end
+    )
+    {cks_stream, conn}
   end
 
   defp create_message(conn) do

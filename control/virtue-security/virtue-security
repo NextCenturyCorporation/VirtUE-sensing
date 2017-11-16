@@ -3708,6 +3708,27 @@ async def test_api(opts):
             "results_validators": [validate_configure_update]
         },
 
+        # === Stream
+        {
+            "method": "GET",
+            "path": "/sensor/:sensor/stream",
+            "returns": "JSONL",
+            "code": 200,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
+        },
+
+        {
+            "method": "GET",
+            "path": "/sensor/:sensor/stream",
+            "returns": "JSONL",
+            "code": 200,
+            "authenticate": True,
+            "parameters": [],
+            "results_validators": [validate_stream_message]
+        },
+
         # --- Failure Cases
 
         #     Invalid Sensor ID
@@ -4023,6 +4044,80 @@ def api_version(opts):
         print(ve)
 
 
+def extract_jsonl_line(binary):
+    """
+    Scan through the binary looking for the first newline - if we find
+    one we want to split apart the binary and return the extracted line
+    decoded into a UTF-8 string, and the remaining binary.
+
+    :param binary: binary stream
+    :return: (utf8_string, binary_remainder)
+    """
+    break_idx = -1
+
+    for idx, c in enumerate(binary):
+        if c == 10:
+            break_idx = idx
+            break
+
+    if break_idx >= 0:
+        s = binary[0:break_idx].decode("utf-8")
+
+        # shift past the newline if we can
+        if len(binary) > (break_idx + 1):
+            break_idx += 1
+        return s, binary[break_idx:]
+
+    else:
+        return None, binary
+
+
+async def api_stream(opts):
+    """
+    Retrieve the JSONL stream from the server and print it out.
+
+    :param opts:
+    :return:
+    """
+
+    full_uri = construct_api_uri(opts, "/sensor/e93830c0-bce8-439c-8015-509b427b1b78/stream")
+    get_params = {"follow": str(True)}
+
+    async with ClientSession() as session:
+        async with session.get(full_uri, params=get_params) as response:
+            res = response
+            bytes_total = 0
+
+            chunked_binary = b''
+            try:
+                while True:
+                    chunk = await res.content.read(1024)
+                    if not chunk:
+                        break
+
+                    chunked_binary += chunk
+
+
+                    bytes_total += len(chunk)
+
+                    msg, chunked_binary = extract_jsonl_line(chunked_binary)
+
+                    if msg is not None:
+                        msg = json.loads(msg)
+                        print(msg["message"].strip())
+
+            except ClientConnectionError as cce:
+                # print("caught aiohttp ClientConnectionError")
+                #
+                # We're eating this error because in certain circumstances
+                # the aiohttp library decides to throw an exception when
+                # the remote stream (in streaming situations) closes, rather
+                # than just EOF the stream reader. Because WFT.
+                print(cce)
+
+            print("%d total bytes" % (bytes_total,))
+
+
 def options():
     """
     Parse out the command line options.
@@ -4032,7 +4127,7 @@ def options():
     parser = argparse.ArgumentParser(description="Interact with the SAVIOR VirtUE security API")
 
     # top level control
-    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version"])
+    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream"])
     #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
 
     # identification variables
@@ -4076,7 +4171,8 @@ if __name__ == "__main__":
     # dispatch our command based upon the primary mode
     dispatch = {
         "test": test_api,
-        "version": api_version
+        "version": api_version,
+        "stream": api_stream
     }
 
     if opts.mode not in dispatch:

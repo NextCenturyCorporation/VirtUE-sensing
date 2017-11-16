@@ -35,6 +35,33 @@ config :api_server, ApiServer.Scheduler,
     {"*/15 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [15]}}
   ]
 
+# Kafka connections
+config :kafka_ex,
+
+  # brokers
+  brokers: [
+    {"localhost", 9092}
+  ],
+
+  consumer_group: "kafka_ex",
+
+  disable_default_worker: false,
+
+  sync_timeout: 3000,
+
+  max_restarts: 10,
+
+  max_seconds: 60,
+
+  commit_interval: 5_000,
+
+  commit_threshold: 100,
+
+  use_ssl: false,
+
+  kafka_version: "0.9.0"
+
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{Mix.env}.exs"

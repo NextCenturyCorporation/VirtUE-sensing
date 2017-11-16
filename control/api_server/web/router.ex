@@ -202,5 +202,7 @@ defmodule ApiServer.Router do
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
      put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
      put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
+     get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
+
   end
 end

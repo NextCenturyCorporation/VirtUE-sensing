@@ -20,7 +20,7 @@ defmodule ApiServer.Mixfile do
   def application do
     [
       mod: {ApiServer, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :kafka_ex]
     ]
   end
 
@@ -45,7 +45,8 @@ defmodule ApiServer.Mixfile do
       {:uuid, "~> 1.1"},
       {:httpoison, "~> 0.13"},
       {:quantum, "~> 2.1.3"},
-      {:timex, "~> 3.0"}
+      {:timex, "~> 3.0"},
+      {:kafka_ex, "~> 0.8.0"}
     ]
   end
 
