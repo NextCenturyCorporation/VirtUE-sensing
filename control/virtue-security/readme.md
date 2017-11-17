@@ -170,3 +170,22 @@ What we DON'T want to see is 500s, that means something has gone wrong in the se
 aren't properly protecting against it.
 
 Our primary fuzzing data set comes from the [Big List of Naughty Strings](https://github.com/minimaxir/big-list-of-naughty-strings).
+
+## Testing in a Container
+
+As of OS X 10.13 (High Sierra) there is a (bug | feature | regression | thing) in Python 3.6 that slows down
+async and socket heavy code by nearly two orders of magnitude, leading a full test suite run to take over an
+hour, instead of under a minute. 
+
+In these cases, it's possible to run `virtue-security` in a Docker container. The container can be built with:
+
+```bash
+docker build -t virtue-savior/virtue-security:latest .
+``` 
+
+And any of the commands and options from the Readme can be run in the container by substituting the `python`
+prefix with a Docker `run` prefix, and adding an IP to reach the Sensing API:
+
+```bash
+docker run virtue-savior/virtue-security:latest python virtue-security test --public-key-path ./cert/rsa_key.pub --api-host 172.20.12.49
+```

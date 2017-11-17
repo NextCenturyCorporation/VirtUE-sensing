@@ -13,6 +13,7 @@ import json
 import random
 import re
 import requests
+import selectors
 import socket
 import sys
 import uuid
@@ -1535,6 +1536,7 @@ async def test_case(opts, test):
         threw_exception = False
         exception_payload = {}
 
+        response_text = ""
 
         try:
 
@@ -1605,6 +1607,27 @@ async def test_case(opts, test):
                         async with session.get(full_uri, params=get_params) as response:
                             res = response
 
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
+
+                            # decode to UTF from the binary string we received
+                            response_text = chunked_binary.decode("utf-8")
+
+
                 else:
 
                     # generate the request body payload
@@ -1624,6 +1647,26 @@ async def test_case(opts, test):
                     async with ClientSession() as session:
                         async with session.put(full_uri, data=request_body) as response:
                             res = response
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
+
+                            # decode to UTF from the binary string we received
+                            response_text += chunked_binary.decode("utf-8")
+
 
             else:
                 if test["method"].lower() == "get":
@@ -1637,6 +1680,26 @@ async def test_case(opts, test):
                     async with ClientSession() as session:
                         async with session.get(full_uri, params=get_params) as response:
                             res = response
+
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
+
+                            # decode to UTF from the binary string we received
+                            response_text = chunked_binary.decode("utf-8")
 
                 else:
 
@@ -1657,7 +1720,25 @@ async def test_case(opts, test):
                     async with ClientSession() as session:
                         async with session.put(full_uri, data=request_body) as response:
                             res = response
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
 
+                            # decode to UTF from the binary string we received
+                            response_text = chunked_binary.decode("utf-8")
 
             # spin down the async web server if it is running
             if "async_http" in test:
@@ -1715,24 +1796,32 @@ async def test_case(opts, test):
             if res.status != test["code"]:
                 did_pass = False
 
-        # let's read in our response, which may be chunked
-        chunked_binary = b''
-        try:
-            while True:
-                chunk = await res.content.read(1024)
-                if not chunk:
-                    break
-                chunked_binary += chunk
-        except ClientConnectionError as cce:
-            # print("caught aiohttp ClientConnectionError")
-            #
-            # We're eating this error because in certain circumstances
-            # the aiohttp library decides to throw an exception when
-            # the remote stream (in streaming situations) closes, rather
-            # than just EOF the stream reader. Because WFT.
-            pass
+        # # let's read in our response, which may be chunked
+        # chunked_binary = b''
+        # try:
+        #     while True:
+        #         chunk = await res.content.read(64 * 1024)
+        #         print(chunk)
+        #         if not chunk and res.content.at_eof():
+        #             print("chunk break")
+        #             break
+        #         chunked_binary += chunk
+        # except ClientConnectionError as cce:
+        #     # print("caught aiohttp ClientConnectionError")
+        #     #
+        #     # We're eating this error because in certain circumstances
+        #     # the aiohttp library decides to throw an exception when
+        #     # the remote stream (in streaming situations) closes, rather
+        #     # than just EOF the stream reader. Because WFT.
+        #     print("chunk ClientConnectionError")
+        #     print(cce)
+        #     pass
+        #
+        # # decode to UTF from the binary string we received
+        # response_text = chunked_binary.decode("utf-8")
 
-        response_text = chunked_binary.decode("utf-8")
+        # close out the response
+        res.close()
 
         # make sure we got JSON or JSONL if that's what we expected, and then
         # verify the data from the results
@@ -1802,6 +1891,7 @@ async def test_case(opts, test):
                     pass
                 else:
                     print(ve)
+                    print(response_text)
                     rep_result["returns"]["got"] = str(ve)
                     # rep_result["returns"]["raw"] = res.text
                     rep_result["returns"]["raw"] = response_text
@@ -3885,6 +3975,19 @@ async def test_api(opts):
     tests = [t for t in tests if t["path"].startswith(opts.test_path)]
     print("  :: %d tests matching --test-path filter" % (len(tests),))
 
+    # apply the suffix filter
+    if opts.skip_suffix is not None:
+
+        # we can skip multiple suffixes separated by a semi-colon
+        suffixes = [opts.skip_suffix]
+        if "," in opts.skip_suffix:
+            suffixes = opts.skip_suffix.split(",")
+
+        for suffix in suffixes:
+            tests = [t for t in tests if not t["path"].endswith(suffix)]
+        print("  :: %d tests matching --skip-suffix filter" % (len(tests),))
+
+
     # track pass/fail totals
     total_pass = 0
     total_fail = 0
@@ -4155,6 +4258,7 @@ def options():
 
     # for API testing
     parser.add_argument("--test-path", dest="test_path", default="/", help="Filter prefix for selecting tests. Defaults to selecting all tests")
+    parser.add_argument("--skip-suffix", dest="skip_suffix", default=None, help="Skip tests that end with the specified suffix. Separate multiple suffixes with ,")
     parser.add_argument("--skip-unauthenticated-tests", dest="test_unauthenticated", default=True, action="store_false", help="Skip the generation of un-authenticated tests")
     parser.add_argument("--skip-fuzzing-tests", dest="test_fuzzing", default=True, action="store_false", help="Skip the generation of fuzzing tests")
     parser.add_argument("--test-repeat", dest="test_repeat", default=5, type=int, help="How many iterations of each test should run")
