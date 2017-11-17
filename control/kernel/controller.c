@@ -68,7 +68,9 @@ static int __init controller_init(void)
 		WARN_ON(1);
 	}
 
-	queue_kthread_work(&ks.kworker, &ks.kwork);
+	/* has k_sensor already been queued? */
+	/* if so, is it able to re-queue itself? */
+	/*queue_kthread_work(&ks.kworker, &ks.kwork); */
 
 	return 0;
 }
