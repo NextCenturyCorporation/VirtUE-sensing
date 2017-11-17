@@ -4,54 +4,31 @@
 
 # Dummy Sensor
 
- - [ ] http endpoint
-  - [x] basic http request cycle
-   - [ ] layout what the different actions would do
 5 - [ ] add periodic sensor sync with API (touch timestamp) to keep records alive
   - [ ] kafka integration
 3  - [ ] write message formatter for log data coming from sensor
-4  - [ ] ? destroy topics after sensor deregistration?
-    - [ ] as a timed task post-deregistration?
-	 - [ ] make this configurable
-   - [ ] make kafka target for streaming configurable in Sensing API
-	!!!! new route added /sensor/:sensor/stream
-	- [ ] testing will now be broken for stream actions
-	- [ ] make stream action use targeting for topic selection
-	- [ ] select multiple topics
-	- [ ] add targeting on virtue-security CLI
+ 	- [ ] testing will now be broken for stream actions
+	 - this will require the ":before" type run selectors
+	 - testing for certain actions seems broken as well - why does `validate` break?
+	- [ ] use the actual sensor_id received from the request to select the kafka topic
 	- [ ] what happens to everything when the sensor disappears?
-	- [ ] do we cleanup processes in Elixir?
-	- [ ] add time offsets in CLI and elixir
-	 - add documentation to Sensing API
-
+	- [ ] add stream flags in CLI and elixir add targeting on virtue-security CLI
+	 - [ ] since
+	 - [ ] follow
+	 - [ ] log level
+	 - [ ] add documentation to Sensing API for /sensor/:sensor/stream
+    - [ ] handle case of non-existent topics in stream mode
 2  - [ ] sensing API needs to broadcast a message on a common Kafka channel when setting up a new sensor
-   - [ ] write a simple serializer from kafka channels to JSONL on disk
-    - [ ] what should this be written in? Elixir? Java?
-	- [ ] or just write a simple monitor
-	 - [ ] active topics
-	 - [ ] message sizes/counts
-   - [ ] sensing API needs a way to find active sensors beyond just basic targeting
-    - [ ] user/sensor enumeration
-	- [ ] some stats/status/count of active sensors/virtues/users
-	- [ ] basic user search by prefix?
-	- [ ] add mode to `virtue-security` to stream the sensor startup notification stream from Kafka
    - [ ] sensor registration needs additional fields
     - [ ] sensor name
-   - [ ] sensor registration needs to include default configuration
+    - [ ] sensor registration response needs to include default configuration
 
 
-  - [ ] sensor config
-   - [ ] filters as lockable objects, or processed at the kafka emitter
  - [ ] CA integration
- - [ ] where is Sensing API
- - [ ] where is Kafka
  - [ ] where is CA?
- - [ ] how do we get default config?
  
 # infrastructure
 
- - [ ] setup kafka
- - [ ] spool reader from channel
 
 # CA
  
