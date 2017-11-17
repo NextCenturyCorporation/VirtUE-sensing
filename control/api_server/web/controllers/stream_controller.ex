@@ -39,7 +39,10 @@ defmodule ApiServer.StreamController do
   """
   def stream(conn, _) do
 
-    case create_kafka_stream(send_chunked(conn, 200), "e93830c0-bce8-439c-8015-509b427b1b78") do
+    stream_topic = conn.assigns.targeting.sensor
+    IO.puts(" <> attempting to stream from (topic=#{stream_topic})")
+
+    case create_kafka_stream(send_chunked(conn, 200), stream_topic) do
       {:error, conn} ->
         IO.puts("Error retrieving Kafka topic for the targeted sensor")
         conn
@@ -60,6 +63,7 @@ defmodule ApiServer.StreamController do
     conn
   end
 
+  # Connect to Kafka and stream the messages from the given channel
   defp create_kafka_stream(conn, sensor) do
 
     # make sure the topic exists

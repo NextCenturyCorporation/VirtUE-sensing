@@ -4183,7 +4183,7 @@ async def api_stream(opts):
     :return:
     """
 
-    full_uri = construct_api_uri(opts, "/sensor/e93830c0-bce8-439c-8015-509b427b1b78/stream")
+    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
     get_params = {"follow": str(True)}
 
     async with ClientSession() as session:
@@ -4236,7 +4236,7 @@ def options():
     # identification variables
     parser.add_argument("--network", dest="var_network", default=None, help="Network or IP in CIDR format")
     parser.add_argument("--virtue-id", dest="var_virtue", default=None, help="Virtue ID")
-
+    parser.add_argument("--sensor-id", dest="var_sensor", default=None, help="Sensor ID")
     # sensor control states
     parser.add_argument("--level", dest="observation_level", default="off", help="Observation level")
     parser.add_argument("--action", dest="trust_action", default="invalidate", help="Validate or invalidate trust",
