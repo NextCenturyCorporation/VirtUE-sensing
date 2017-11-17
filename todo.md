@@ -6,15 +6,8 @@
 
 5 - [ ] add periodic sensor sync with API (touch timestamp) to keep records alive
   - [ ] kafka integration
-3   - [x] write message formatter for log data coming from sensor
-	- [x] use the actual sensor_id received from the request to select the kafka topic
-	- [x] what happens to everything when the sensor disappears?
-	- [ ] add stream flags in [x] CLI and [ ] elixir add targeting on virtue-security CLI
-	 - [ ] since (time stamp and -1 hour, -15 minutes, 20 minutes ago, etc)
-	 - [ ] follow
-	 - [ ] log level
-	 - [ ] add documentation to Sensing API for /sensor/:sensor/stream
-    - [ ] handle case of non-existent topics in stream mode
+3 - [ ] add documentation to Sensing API for /sensor/:sensor/stream
+  - [ ] handle case of non-existent topics in stream mode
 2  - [ ] sensing API needs to broadcast a message on a common Kafka channel when setting up a new sensor
    - [ ] sensor registration needs additional fields
     - [ ] sensor name

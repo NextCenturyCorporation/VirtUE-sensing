@@ -11,6 +11,7 @@ from Crypto.PublicKey import RSA
 import datetime
 import json
 import pytimeparse
+import pytz
 import random
 import re
 import requests
@@ -4192,7 +4193,7 @@ async def api_stream(opts):
     get_params = {
         "follow": str(follow),
         "since": since.isoformat(),
-        "log_level": log_level
+        "filter_level": log_level
     }
 
     # spin up our request and start streaming
@@ -4205,6 +4206,8 @@ async def api_stream(opts):
                 while True:
                     chunk = await response.content.read(1024)
                     if not chunk:
+                        if len(chunked_binary) > 0:
+                            print(chunked_binary.decode("utf-8"))
                         break
 
                     chunked_binary += chunk
@@ -4214,8 +4217,8 @@ async def api_stream(opts):
 
                     # if we have a message, let's do something with it
                     if msg is not None:
-                        msg = json.loads(msg)
-                        print(msg["message"].strip())
+                        # msg = json.loads(msg)
+                        print(msg.strip())
 
             except ClientConnectionError as cce:
                 # print("caught aiohttp ClientConnectionError")
@@ -4242,8 +4245,12 @@ def since_datetime(since_string):
     :param since_string: A human readable/specified relative time delta
     :return: relative adjusted datetime
     """
+
+    # TODO: Fix me once we figure out why Kafka is internally tracking two hours ahead of everything
+    corrective_td = datetime.timedelta(seconds = 60*60*2)
+
     if since_string is None:
-        return datetime.datetime.now()
+        return datetime.datetime.now(tz=pytz.utc) + corrective_td
 
     if since_string.startswith("-"):
         since_string = since_string[1:].strip()
@@ -4256,7 +4263,7 @@ def since_datetime(since_string):
     if seconds is None:
         raise ValueError("The relative time specified by --since is not a valid time offset. Try \"3 minutes ago\".")
 
-    return datetime.datetime.now() - datetime.timedelta(seconds = seconds)
+    return datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(seconds = seconds) + corrective_td
 
 
 def options():
