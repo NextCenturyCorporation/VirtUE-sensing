@@ -6,14 +6,11 @@
 
 5 - [ ] add periodic sensor sync with API (touch timestamp) to keep records alive
   - [ ] kafka integration
-3  - [ ] write message formatter for log data coming from sensor
- 	- [ ] testing will now be broken for stream actions
-	 - this will require the ":before" type run selectors
-	 - testing for certain actions seems broken as well - why does `validate` break?
-	- [ ] use the actual sensor_id received from the request to select the kafka topic
-	- [ ] what happens to everything when the sensor disappears?
-	- [ ] add stream flags in CLI and elixir add targeting on virtue-security CLI
-	 - [ ] since
+3   - [x] write message formatter for log data coming from sensor
+	- [x] use the actual sensor_id received from the request to select the kafka topic
+	- [x] what happens to everything when the sensor disappears?
+	- [ ] add stream flags in [x] CLI and [ ] elixir add targeting on virtue-security CLI
+	 - [ ] since (time stamp and -1 hour, -15 minutes, 20 minutes ago, etc)
 	 - [ ] follow
 	 - [ ] log level
 	 - [ ] add documentation to Sensing API for /sensor/:sensor/stream
@@ -22,7 +19,10 @@
    - [ ] sensor registration needs additional fields
     - [ ] sensor name
     - [ ] sensor registration response needs to include default configuration
+   - [ ] add a /sensor/:sensor/details route to retrieve specific config/key/stream metadata about the sensor (wait, this is what /inspect is supposed to do)
 
+
+Punting on CA - brain just not in that space at the end of the week.
 
  - [ ] CA integration
  - [ ] where is CA?

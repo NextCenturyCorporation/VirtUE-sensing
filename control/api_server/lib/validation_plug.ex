@@ -1,32 +1,44 @@
-#
-# Routing action validation routines. These are executed inline to routing
-# before the final handlers are called as Plug methods. Used inline with
-# a Controller with:
-#
-#   import ApiServer.ValidationPlug, only: [valid_observe_level: 2]
-#   :plug :valid_observe_level when action in [:observe]
-#
-# @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
-# @date: 2017/10/30
-
 defmodule ApiServer.ValidationPlug do
+  @moduledoc """
+  Routing action validation routines. These are executed inline to routing
+  before the final handlers are called as Plug methods. Used inline with
+  a Controller with:
+
+  import ApiServer.ValidationPlug, only: [valid_observe_level: 2]
+  :plug :valid_observe_level when action in [:observe]
+
+  @author: Patrick Dwyer (patrick.dwyer@twosixlabs.com)
+  @date: 2017/10/30
+  """
+
   import Phoenix.Controller
   import Plug.Conn
 
-  # Validate that the OBSERVE level passed into an API endpoint is an acceptable value.
-  #
-  # Requires URI or QUERY parameters:
-  #   - :level
-  #
-  # Response:
-  #   - Continue if valid
-  #   - Halt/HTTP 400 if invalid
+
+  @doc"""
+  Validate that the OBSERVE level passed into an API endpoint is an acceptable value.
+
+  ### Requires URI or QUERY parameters:
+
+    - :level
+
+  ### assigns
+
+    conn::assigns::observation_level
+
+  ### Returns:
+
+    - Continue if valid
+    - HTTP 400 / HALT / JSON with error if invalid
+  """
   def valid_observe_level(%Plug.Conn{params: %{"level" => level}} = conn, _) do
 
     # simple check, halt and catch fire
     case level do
       level when level in ["off", "default", "low", "high", "adversarial"] ->
         conn
+          |> assign(:observation_level, level)
+
       _ ->
         conn
           |> put_status(400)
@@ -46,7 +58,8 @@ defmodule ApiServer.ValidationPlug do
   #   missing log :level
   #
   # Response:
-  #   - Halt/HTTP 400
+  #
+  #   - HTTP 400 / Halt / JSON with error
   def valid_observe_level(conn, _) do
     conn
     |> put_status(400)
@@ -60,20 +73,30 @@ defmodule ApiServer.ValidationPlug do
     |> Plug.Conn.halt()
   end
 
-  # Make sure the action of a TRUST command is valid
-  #
-  # Requires URI or QUERY parameters:
-  #   - :action
-  #
-  # Response:
-  #   - Continue if valid
-  #   - Halt/HTTP 400 if invalid
+
+  @doc """
+  Make sure the action of a TRUST command is valid
+
+  ### Requires URI or QUERY parameters:
+
+    - :action
+
+  ### assigns
+
+    conn::assigns::trust_action
+
+  ### Response:
+
+    - Continue if valid
+    - HTTP 400 / Halt / JSON if invalid
+  """
   def valid_trust_action(%Plug.Conn{params: %{"action" => action}} = conn, _) do
 
     # simple check, as usual
     case action do
       action when action in ["validate", "invalidate"] ->
         conn
+          |> assign(:trust_action, action)
       _ ->
         conn
           |> put_status(400)
@@ -93,7 +116,8 @@ defmodule ApiServer.ValidationPlug do
   #   missing log :action
   #
   # Response:
-  #   - Halt/HTTP 400
+  #
+  #   - HTTP 400 / Halt / JSON
   def valid_trust_action(conn, _) do
     conn
     |> put_status(400)
@@ -107,14 +131,23 @@ defmodule ApiServer.ValidationPlug do
     |> Plug.Conn.halt()
   end
 
-  # Make sure the action of a validate command is valid
-  #
-  # Requires URI or QUERY parameters:
-  #   - :action
-  #
-  # Response:
-  #   - Continue if valid, putting action in conn::assigns:::validate_action
-  #   - Halt/HTTP 400 if invalid
+
+  @doc """
+  Make sure the action of a validate command is valid
+
+  ### Requires URI or QUERY parameters:
+
+    - :action
+
+  ### assigns
+
+    conn::assigns::validate_action
+
+  ### Response:
+
+    - Continue if valid, putting action in conn::assigns:::validate_action
+    - HTTP 400 / Halt / JSON if invalid
+  """
   def valid_validate_action(%Plug.Conn{params: %{"action" => action}} = conn, _) do
     case action do
       action when action in ["canary", "cross-validation"] ->
@@ -146,7 +179,8 @@ defmodule ApiServer.ValidationPlug do
   #   missing log :action
   #
   # Response:
-  #   - Halt/HTTP 400
+  #
+  #   - HTTP 400 / Halt / JSON
   def valid_validate_action(conn, _) do
     conn
     |> put_status(400)
@@ -160,14 +194,23 @@ defmodule ApiServer.ValidationPlug do
     |> Plug.Conn.halt()
   end
 
-  # Make sure the incoming log level parameter is valid
-  #
-  # Requires URI or QUERY parameters:
-  #   - :filter_level
-  #
-  # Response:
-  #   - Continue if valid, putting log level in conn:assigns::filter_level
-  #   - Halt/HTTP 400 if invalid
+
+  @doc """
+  Make sure the incoming log level parameter is valid
+
+  ### Requires URI or QUERY parameters:
+
+    - :filter_level
+
+  ### assigns
+
+    conn::assigns::filter_level
+
+  ### Response:
+
+    - Continue if valid, putting log level in conn:assigns::filter_level
+    - HTTP 400 / Halt / JSON if invalid
+  """
   def valid_log_level(%Plug.Conn{params: %{"filter_level" => filter_level}} = conn, _) do
     case filter_level do
       filter_level when filter_level in ["everything", "debug", "info", "warning", "error", "event"] ->
@@ -195,7 +238,8 @@ defmodule ApiServer.ValidationPlug do
   #   missing log :filter_level
   #
   # Response:
-  #   - Halt/HTTP 200 - implied everything
+  #
+  #   - HTTP 200 / Halt / JSON - implied everything
   def valid_log_level(conn, _) do
     conn
       |> assign(:filter_level, "everything")
