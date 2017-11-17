@@ -102,7 +102,9 @@ defmodule ApiServer.TrustController do
   end
 
   defp generate_validations() do
-    Enum.map(1..:rand.uniform(10), fn(_) -> generate_validation() end)
+    s = Enum.map(1..:rand.uniform(10), fn(_) -> generate_validation() end)
+    IO.puts(Poison.encode!(s))
+    s
   end
 
   defp generate_validation() do

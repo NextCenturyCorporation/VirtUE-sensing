@@ -173,7 +173,9 @@ defmodule ApiServer.ValidationPlug do
       filter_level when filter_level in ["everything", "debug", "info", "warning", "error", "event"] ->
         conn
           |> assign(:filter_level, filter_level)
-        filter_level == nil
+      filter_level when filter_level == nil ->
+        conn
+          |> assign(:filter_level, "everything")
       _ ->
         conn
           |> put_status(400)
