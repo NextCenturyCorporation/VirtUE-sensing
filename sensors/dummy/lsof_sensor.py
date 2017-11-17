@@ -7,6 +7,7 @@ import asks
 import base64
 from Crypto.PublicKey import RSA
 from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent
+import datetime
 import email
 import hashlib
 from io import StringIO
@@ -14,6 +15,7 @@ import json
 from kafka import KafkaProducer
 import os
 import pwd
+import re
 import requests
 from routes import Mapper
 import signal
@@ -111,19 +113,53 @@ def deregister_sensor(opts):
         print(res.text)
 
 
-async def lsof():
+async def lsof(sensor_id):
     """
     Continuously read lsof, at the default interval of 15 seconds between
     repeats.
 
+    :param sensor_id: ID of this sensor
     :return: -
     """
     print(" ::starting lsof")
 
+    # map the LSOF types to log levels
+    lsof_type_map = {
+        "CHR": "debug",
+        "DIR": "debug",
+        "IPv4": "info",
+        "KQUEUE": "info",
+        "NPOLICY": "debug",
+        "REG": "debug",
+        "systm": "warn",
+        "unix": "info",
+        "vnode:": "warn"
+    }
+
     # just read from the subprocess and append to the log_message queue
     p = subprocess.Popen(["lsof", "-r"], stdout=subprocess.PIPE)
     async for line in p.stdout:
-        await log_messages.put(line.decode("utf-8"))
+
+        # slice out the TYPE of the lsof message
+        line_bits = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")
+
+        if len(line_bits) < 4:
+            continue
+
+        line_type = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")[4]
+
+        log_level = "debug"
+        if line_type in lsof_type_map:
+            log_level = lsof_type_map[line_type]
+
+        # build our log message
+        logmsg = {
+            "message": line.decode("utf-8"),
+            "timestamp": datetime.datetime.now().isoformat(),
+            "sensor": sensor_id,
+            "level": log_level
+        }
+        await log_messages.put(json.dumps(logmsg))
 
 
 async def log_drain(kafka_bootstrap_hosts=None, kafka_channel=None):
@@ -361,7 +397,7 @@ async def main(opts):
         print("  = got registration")
 
         await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
-        await g.spawn(lsof)
+        await g.spawn(lsof, opts.sensor_id)
 
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
