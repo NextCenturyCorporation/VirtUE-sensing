@@ -10,10 +10,10 @@ from contextlib import closing
 from Crypto.PublicKey import RSA
 import datetime
 import json
+import pytimeparse
 import random
 import re
 import requests
-import selectors
 import socket
 import sys
 import uuid
@@ -4183,28 +4183,36 @@ async def api_stream(opts):
     :return:
     """
 
-    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
-    get_params = {"follow": str(True)}
+    # build up our parameters
+    since = since_datetime(opts.time_since)
+    follow = opts.log_follow
+    log_level = opts.log_level
 
+    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+    get_params = {
+        "follow": str(follow),
+        "since": since.isoformat(),
+        "log_level": log_level
+    }
+
+    # spin up our request and start streaming
     async with ClientSession() as session:
         async with session.get(full_uri, params=get_params) as response:
-            res = response
-            bytes_total = 0
 
+            # this is an async stream reader, so we pull in byte arrays
             chunked_binary = b''
             try:
                 while True:
-                    chunk = await res.content.read(1024)
+                    chunk = await response.content.read(1024)
                     if not chunk:
                         break
 
                     chunked_binary += chunk
 
-
-                    bytes_total += len(chunk)
-
+                    # try and parse out a full line up to a newline
                     msg, chunked_binary = extract_jsonl_line(chunked_binary)
 
+                    # if we have a message, let's do something with it
                     if msg is not None:
                         msg = json.loads(msg)
                         print(msg["message"].strip())
@@ -4218,7 +4226,37 @@ async def api_stream(opts):
                 # than just EOF the stream reader. Because WFT.
                 print(cce)
 
-            print("%d total bytes" % (bytes_total,))
+
+def since_datetime(since_string):
+    """
+    Turn a string specification used in the _since_ flag into a timedelta
+    we can use to manipulate the stream history. The return value is a
+    local TZ naive datetime.
+
+    Since times can look like:
+
+        -2 minutes
+        15 minutes ago
+        1 hour
+
+    :param since_string: A human readable/specified relative time delta
+    :return: relative adjusted datetime
+    """
+    if since_string is None:
+        return datetime.datetime.now()
+
+    if since_string.startswith("-"):
+        since_string = since_string[1:].strip()
+
+    if "ago" in since_string:
+        since_string = since_string.replace("ago", "").strip()
+
+    seconds = pytimeparse.parse(since_string)
+
+    if seconds is None:
+        raise ValueError("The relative time specified by --since is not a valid time offset. Try \"3 minutes ago\".")
+
+    return datetime.datetime.now() - datetime.timedelta(seconds = seconds)
 
 
 def options():

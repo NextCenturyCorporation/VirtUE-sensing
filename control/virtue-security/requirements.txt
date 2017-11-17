@@ -6,6 +6,7 @@ idna==2.6
 multidict==3.3.2
 Naked==0.1.31
 pycrypto==2.6.1
+pytimeparse==1.1.7
 PyYAML==3.12
 requests==2.18.4
 shellescape==3.4.1
