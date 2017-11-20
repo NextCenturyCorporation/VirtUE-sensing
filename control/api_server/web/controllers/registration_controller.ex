@@ -160,6 +160,8 @@ defmodule ApiServer.RegistrationController do
       ! Integer.parse(port) == :error ->
         IO.puts IEx.Info.info(port)
         invalid_registration(conn, sensor, "port", port)
+      ! ApiServer.ConfigurationUtils.have_default_sensor_config_by_name(sensor_name, %{match_prefix: true}) ->
+        invalid_registration(conn, sensor, "default configuration", "Cannot locate default configuration for #{sensor_name}")
 
       # now we have a valid registration
       :true ->

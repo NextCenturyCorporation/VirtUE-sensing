@@ -40,12 +40,44 @@ defmodule ApiServer.ConfigurationUtils do
 
     case lookup_default_sensor_config_by_name(sensor_name, %{match_prefix: false}) do
       {:ok, config} ->
-
         {:ok, Poison.encode!(config)}
       {:error, reason} ->
         {:error, reason}
     end
 
+  end
+
+  @doc """
+  Check if a default configuration exists for the specified sensor.
+
+  See `default_sensor_config/2` for details of the **options**
+
+  ### Parameters
+
+    - sensor_name : string name of the sensor (required)
+    - match_prefix : Boolean flag - compare to default configuration based on prefix matching of sensor name (optional)
+
+  ### Returns
+
+    - :true
+    - :false
+  """
+  def have_default_sensor_config_by_name(sensor_name, %{match_prefix: match_prefix}) do
+    case lookup_default_sensor_config_by_name(sensor_name, %{match_prefix: match_prefix}) do
+      {:ok, config} ->
+        :true
+      {:error, reason} ->
+        :false
+    end
+  end
+
+  def have_default_sensor_config_by_name(sensor_name, _) do
+    case lookup_default_sensor_config_by_name(sensor_name, %{match_prefix: false}) do
+      {:ok, config} ->
+        :true
+      {:error, reason} ->
+        :false
+    end
   end
 
   defp lookup_default_sensor_config_by_name(sensor_name, %{match_prefix: match_prefix}) do

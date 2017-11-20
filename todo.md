@@ -11,7 +11,7 @@
 2  - [ ] sensing API needs to broadcast a message on a common Kafka channel when setting up a new sensor
    - [ ] sensor registration needs additional fields
     - [x] sensor name
-    - [ ] sensor registration response needs to include default configuration
+    - [x] sensor registration response needs to include default configuration
    - [ ] add a /sensor/:sensor/details route to retrieve specific config/key/stream metadata about the sensor (wait, this is what /inspect is supposed to do)
   - [ ] add simple `monitor` action to virtue-security
 
@@ -42,6 +42,8 @@ Punting on CA - brain just not in that space at the end of the week.
  - Authentication
   - [ ] fix special case authentication of the registration API by adding client certificate auth plug
   - [ ] fix failing registration tests now that we have registration ping callbacks
+ - Registration
+  - [ ] sensor registration workflow needs to be cleaned up before we have really deep nesting
  - General API
   - [ ] catch all query params and path params for validation
    - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing
