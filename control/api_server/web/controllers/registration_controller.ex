@@ -189,7 +189,8 @@ defmodule ApiServer.RegistrationController do
                        sensor: sensor,
                        registered: :true,
                        kafka_bootstrap_hosts: ["localhost:9092"],
-                       sensor_topic: sensor
+                       sensor_topic: sensor,
+                       default_configuration: elem(ApiServer.ConfigurationUtils.default_sensor_config_by_name(sensor_name, %{match_prefix: true}), 1)
                      }
                    )
 

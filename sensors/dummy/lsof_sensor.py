@@ -58,7 +58,7 @@ async def register_sensor(opts):
         "public_key": pubkey_b64,
         "hostname": opts.sensor_hostname,
         "port": opts.sensor_port,
-        "name": "lsof-sensor-v-%s" % (__VERSION__,)
+        "name": "lsof-sensor-%s" % (__VERSION__,)
     }
 
     print("registering with [%s]" % (uri,))
@@ -114,7 +114,7 @@ def deregister_sensor(opts):
         print(res.text)
 
 
-async def lsof(sensor_id):
+async def lsof(sensor_id, default_config):
     """
     Continuously read lsof, at the default interval of 15 seconds between
     repeats.
@@ -122,7 +122,10 @@ async def lsof(sensor_id):
     :param sensor_id: ID of this sensor
     :return: -
     """
+    repeat_delay = default_config.get("repeat-interval", 15)
+
     print(" ::starting lsof")
+    print("    $ repeat-interval = %d" % (repeat_delay,))
 
     # map the LSOF types to log levels
     lsof_type_map = {
@@ -138,7 +141,7 @@ async def lsof(sensor_id):
     }
 
     # just read from the subprocess and append to the log_message queue
-    p = subprocess.Popen(["lsof", "-r"], stdout=subprocess.PIPE)
+    p = subprocess.Popen(["lsof", "-r", "%d" % (repeat_delay,)], stdout=subprocess.PIPE)
     async for line in p.stdout:
 
         # slice out the TYPE of the lsof message
@@ -398,7 +401,7 @@ async def main(opts):
         print("  = got registration")
 
         await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
-        await g.spawn(lsof, opts.sensor_id)
+        await g.spawn(lsof, opts.sensor_id, json.loads(reg_data["default_configuration"]))
 
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
