@@ -135,4 +135,6 @@ locations:
   - **web/models/sensor.ex** `Sensor.sensor/*` - extend appropriate methods with the new fields
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.register_sensor/1` - include new fields from `Sensor` struct in parameter matching for method call, and record creation with `Mnesia.write/1`
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.index_for_key/1` - append new fields to end of lookup list
- 
+  - **lib/database_utils.ex** `ApiServer.DatabaseUtils.prune_old_sensors/0` - remove old sensors from tracking
+  - **web/controllers/registration_controller.ex** - `ApiServer.RegistrationController.register` - add relevant fields to `register` route
+  

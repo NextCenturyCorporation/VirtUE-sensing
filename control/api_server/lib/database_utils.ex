@@ -30,7 +30,7 @@ defmodule ApiServer.DatabaseUtils do
               # match
               {
                 Sensor,
-                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8"
+                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8", :"$9"
               },
 
               # guard (timestamp older than 15 minutes
@@ -159,7 +159,8 @@ defmodule ApiServer.DatabaseUtils do
           :address => address,
           :timestamp => nil,
           :port => port,
-          :public_key => public_key
+          :public_key => public_key,
+          :sensor_name => sensor_name
         })
     do
 
@@ -176,7 +177,8 @@ defmodule ApiServer.DatabaseUtils do
             address,
             DateTime.to_string(DateTime.utc_now()),
             as_intger(port),
-            public_key
+            public_key,
+            sensor_name
           }
         )
       end
@@ -196,7 +198,8 @@ defmodule ApiServer.DatabaseUtils do
           :address => address,
           :timestamp => timestamp,
           :port => port,
-          :public_key => public_key
+          :public_key => public_key,
+          :sensor_name => sensor_name
         })
     do
 
@@ -213,7 +216,8 @@ defmodule ApiServer.DatabaseUtils do
             address,
             timestamp,
             as_intger(port),
-            public_key
+            public_key,
+            sensor_name
           }
         )
       end
@@ -321,7 +325,7 @@ defmodule ApiServer.DatabaseUtils do
   # Interpolate a key into our record position
   defp index_for_key(k) do
     Enum.find_index(
-      [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key],
+      [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name],
       fn(x) ->
         x == k
       end

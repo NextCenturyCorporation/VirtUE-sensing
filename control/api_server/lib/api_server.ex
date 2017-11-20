@@ -91,7 +91,7 @@ defmodule ApiServer do
     #   Version 04
     #     - add public_key
     case Mnesia.create_table(Sensor, [
-      attributes: [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key],
+      attributes: [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name],
       disc_copies: [node()]
     ]) do
 
@@ -112,9 +112,21 @@ defmodule ApiServer do
         # table already exists, let's check the version
         case Mnesia.table_info(Sensor, :attributes) do
 
+          # Version 05
+          [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name] ->
+            IO.puts("  :: Sensor table Version 05 ready.")
+
           # Version 04
           [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key] ->
-            IO.puts("  :: Sensor table Version 04 ready.")
+            IO.puts("  :: Updating Sensor table: Version 04 => Version 05")
+            {:atomic, :ok} = Mnesia.transform_table(
+              Sensor,
+              fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, pub_key}) ->
+                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, pub_key, ""}
+              end,
+              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name]
+            )
+            IO.puts("  :: Sensor table updated.")
 
           # Version 03
           [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port] ->
@@ -122,9 +134,9 @@ defmodule ApiServer do
             {:atomic, :ok} = Mnesia.transform_table(
               Sensor,
               fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp, port}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, ""}
+                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, "", ""}
               end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key]
+              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name]
             )
             IO.puts("  :: Sensor table updated.")
 
@@ -135,9 +147,9 @@ defmodule ApiServer do
             {:atomic, :ok} = Mnesia.transform_table(
               Sensor,
               fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, 4000, ""}
+                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, 4000, "", ""}
               end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key]
+              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name]
             )
             IO.puts("  :: Sensor table updated.")
 
@@ -147,9 +159,9 @@ defmodule ApiServer do
             {:atomic, :ok} = Mnesia.transform_table(
               Sensor,
               fn ({Sensor, id, sensor_id, virtue_id, username, address}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, DateTime.to_string(DateTime.utc_now()), 4000, ""}
+                {Sensor, id, sensor_id, virtue_id, username, address, DateTime.to_string(DateTime.utc_now()), 4000, "", ""}
               end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key]
+              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name]
             )
             IO.puts("  :: Sensor table updated.")
 

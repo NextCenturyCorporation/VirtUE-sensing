@@ -1,5 +1,5 @@
 #!/usr/bin/python
-__VERSION__ = "1.20171106"
+__VERSION__ = "1.20171117"
 
 
 import argparse
@@ -57,7 +57,8 @@ async def register_sensor(opts):
         "user": opts.username,
         "public_key": pubkey_b64,
         "hostname": opts.sensor_hostname,
-        "port": opts.sensor_port
+        "port": opts.sensor_port,
+        "name": "lsof-sensor-v-%s" % (__VERSION__,)
     }
 
     print("registering with [%s]" % (uri,))

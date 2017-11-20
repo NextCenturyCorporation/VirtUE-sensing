@@ -133,7 +133,8 @@ defmodule ApiServer.RegistrationController do
             "user" => username,
             "public_key" => public_key_b64,
             "hostname" => hostname,
-            "port" => port
+            "port" => port,
+            "name" => sensor_name
           }
         } = conn, _) do
 
@@ -169,14 +170,14 @@ defmodule ApiServer.RegistrationController do
           # remote is listening, let's register it
           :ok ->
             case ApiServer.DatabaseUtils.register_sensor(
-                   Sensor.sensor(sensor, virtue, username, hostname, DateTime.to_string(DateTime.utc_now()), port, public_key)
+                   Sensor.sensor(sensor, virtue, username, hostname, DateTime.to_string(DateTime.utc_now()), port, public_key, sensor_name)
                  ) do
 
               # sensor recorded, we're good to go
               {:ok} ->
 
                 # send out the registration response
-                IO.puts("  @ sensor(id=#{sensor}) registered at #{DateTime.to_string(DateTime.utc_now())}")
+                IO.puts("  @ sensor(id=#{sensor}, name=#{sensor_name}) registered at #{DateTime.to_string(DateTime.utc_now())}")
                 scount = Mnesia.table_info(Sensor, :size)
                 IO.puts("  #{scount} sensors currently registered.")
                 conn
