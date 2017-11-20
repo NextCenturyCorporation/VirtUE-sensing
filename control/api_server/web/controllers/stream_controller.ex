@@ -42,20 +42,37 @@ defmodule ApiServer.StreamController do
   def stream(conn, _) do
 
     stream_topic = conn.assigns.targeting.sensor
-    IO.puts(" <> attempting to stream from (topic=#{stream_topic})")
+    stream_remote_ip = remote_ip_to_string(conn.remote_ip)
+
+    IO.puts("  <> attempting to stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
 
     # we'll try and build a Stream generator, which we can run
     # to spool out chunked data responses of JSONL as we receive
     # messages from Kafka
     case create_kafka_stream(send_chunked(conn, 200), stream_topic) do
       {:error, conn} ->
-        IO.puts("Error retrieving Kafka topic for the targeted sensor")
+        IO.puts("  <!> Error retrieving Kafka topic for the targeted sensor")
         conn
       {cks_stream, conn} ->
-        Stream.run(cks_stream)
+
+        # Monitor the stream for a :done value, which signals that either the
+        # upstream channel or the down stream consumer client have closed, after
+        # which we can terminate this stream.
+        cks_stream
+          |> Stream.take_while(
+               fn (x) ->
+                 x != :done
+               end
+             )
+          |> Stream.run()
+          |> (
+               fn (x) ->
+                 IO.puts("  <!> terminating stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
+               end
+             ).()
+
         conn
     end
-
   end
 
   # temporary data generation
@@ -108,12 +125,18 @@ defmodule ApiServer.StreamController do
 
                 case Map.has_key?(parsed_message, "level") do
                   :true ->
-                    IO.puts(parsed_message["level"])
                     case MapSet.member?(level_set, parsed_message["level"]) do
 
                       # this meets or exceeds our level filter
                       :true ->
-                        chunk(conn, Poison.encode!(parsed_message) <> "\n")
+                        case chunk(conn, Poison.encode!(parsed_message) <> "\n") do
+                          {:ok, _} ->
+                            :ok
+                          {:error, term} ->
+
+                            # client has likely disconnected, let's kill this stream
+                            :done
+                        end
                       :false ->
                         :ok
                     end
@@ -125,6 +148,15 @@ defmodule ApiServer.StreamController do
         )
         {cks_stream, conn}
     end
+  end
+
+  # Quick formatter for turning a connections remote IP into a loggable string
+  defp remote_ip_to_string({a, b, c, d}) do
+    "#{a}.#{b}.#{c}.#{d}"
+  end
+
+  defp remote_ip_to_string(_) do
+    "unknown"
   end
 
   defp create_message(conn) do
@@ -167,10 +199,10 @@ defmodule ApiServer.StreamController do
     offset_response =
     case KafkaEx.offset(topic, 0, NaiveDateTime.to_erl(dt)) do
       [%KafkaEx.Protocol.Offset.Response{partition_offsets: [%{offset: [num_offset]}]}| _] ->
-        IO.puts("Found offset of #{num_offset} for #{dt} on topic #{topic}")
+        IO.puts("  <=> Found offset of #{num_offset} for #{dt} on topic #{topic}")
         num_offset
       [%KafkaEx.Protocol.Offset.Response{partition_offsets: [%{offset: []}]}| _] ->
-        IO.puts("No offset available for #{dt} on topic #{topic}")
+        IO.puts("  <=> No offset available for #{dt} on topic #{topic}")
         0
       [] ->
         0

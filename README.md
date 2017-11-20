@@ -4,6 +4,15 @@ VirtUE Program
 
 # Running the Sensing Architecture
 
+## Start Kafka
+
+```bash
+cd control/logging
+./start.sh
+```
+
+See [Start Kafka](control/logging/README.md#start-kafka-docker) for more info.
+
 
 ## Start the Sensing API
 
@@ -14,14 +23,6 @@ mix phoenix.server
 
 See [Sensing API - Running](control/api_server/README.md) for more info.
 
-## Start Kafka
-
-```bash
-cd control/logging
-./start.sh
-```
-
-See [Start Kafka](control/logging/README.md#start-kafka-docker) for more info.
 
 ## Start the Dummy sensor
 
