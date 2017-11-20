@@ -59,9 +59,15 @@ defmodule ApiServer.DatabaseUtils do
             IO.puts("  * #{length(records)} sensor checkins older than #{prune_age} minutes")
             Enum.map(records,
               fn (rec) ->
+
+                # prune out the old sensor
                 rec_t = List.to_tuple([Sensor] ++ rec)
                 IO.puts("  - pruning sensor(id=#{elem(rec_t, 2)})")
                 Mnesia.delete_object(rec_t)
+
+                # announce the pruning on the C2 channel
+                Sensor.from_mnesia_record(rec_t)
+                  |> ApiServer.ControlUtils.announce_deregistered_sensor(elem(rec_t, index_for_key(:sensor_id) + 1))
               end
             )
             {:ok, length(records)}
