@@ -97,7 +97,7 @@ defmodule ApiServer.DatabaseUtils do
         %Sensor{
           :sensor => sensor,
           :public_key => public_key
-        }
+        } = sensor_blob
       )
     do
 
@@ -111,7 +111,7 @@ defmodule ApiServer.DatabaseUtils do
             :_,
             sensor,
             :_, :_, :_, :_, :_,
-            public_key
+            public_key, :_
           }
         ) do
 
@@ -121,21 +121,25 @@ defmodule ApiServer.DatabaseUtils do
             IO.puts("    public key =")
             IO.puts(public_key)
 
-            {:ok, 0}
+            {:error, :no_such_sensor}
 
           # records to remove
           records ->
-            Enum.map(records,
+
+            sensor_structs = Enum.map(records,
                 fn (rec) ->
                   Mnesia.delete_object(rec)
+                  Sensor.from_mnesia_record(rec)
                 end
             )
-            {:ok, length(records)}
+            {:ok, sensor_structs}
         end
       end
     ) do
       {:atomic, {:ok, remove_count}} ->
         {:ok, remove_count}
+      {:atomic, {:error, :no_such_sensor}} ->
+        {:error, :no_such_sensor}
       {:atomic, {:aborted, reason}} ->
         {:error, "deregistration aborted: #{reason}"}
     end
@@ -161,7 +165,7 @@ defmodule ApiServer.DatabaseUtils do
           :port => port,
           :public_key => public_key,
           :sensor_name => sensor_name
-        })
+        } = sensor_blob)
     do
 
     # simple insert, create the timestamp on the fly
@@ -184,7 +188,7 @@ defmodule ApiServer.DatabaseUtils do
       end
     ) do
       {:atomic, :ok} ->
-        {:ok}
+        {:ok, sensor_blob}
       {:atomic, {:aborted, reason}} ->
         {:error, "registration aborted: #{reason}"}
     end
@@ -200,7 +204,7 @@ defmodule ApiServer.DatabaseUtils do
           :port => port,
           :public_key => public_key,
           :sensor_name => sensor_name
-        })
+        } = sensor_blob)
     do
 
     # simple insert
@@ -223,7 +227,7 @@ defmodule ApiServer.DatabaseUtils do
       end
     ) do
       {:atomic, :ok} ->
-        {:ok}
+        {:ok, sensor_blob}
       {:atomic, {:aborted, reason}} ->
         {:error, "registration aborted: #{reason}"}
     end

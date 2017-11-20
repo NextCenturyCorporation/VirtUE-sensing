@@ -7,7 +7,10 @@ use Mix.Config
 
 # General application configuration
 config :api_server,
-  ecto_repos: [ApiServer.Repo]
+  ecto_repos: [ApiServer.Repo],
+  c2_kafka_topic: "api-server-control",
+  sensor_kafka_bootstrap: ["localhost:9092"],
+  client_kafka_bootstrap: ["localhost:9092"]
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,
@@ -60,6 +63,7 @@ config :kafka_ex,
   use_ssl: false,
 
   kafka_version: "0.9.0"
+
 
 
 # Import environment specific config. This must remain at the bottom

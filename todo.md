@@ -1,4 +1,4 @@
-
+💓
 # Sensing Architecture
 
 
@@ -7,13 +7,12 @@
 5 - [ ] add periodic sensor sync with API (touch timestamp) to keep records alive
   - [x] kafka integration
 3 - [ ] add documentation to Sensing API for /sensor/:sensor/stream
-  - [ ] handle case of non-existent topics in stream mode
 2  - [ ] sensing API needs to broadcast a message on a common Kafka channel when setting up a new sensor
-   - [ ] sensor registration needs additional fields
-    - [x] sensor name
-    - [x] sensor registration response needs to include default configuration
+    - [x] and when deregistering a sensor
+	- [ ] and when pruning a sensor
+  - [ ] decouple sensor log topic from sensor id, store topic as part of sensing database
    - [ ] add a /sensor/:sensor/details route to retrieve specific config/key/stream metadata about the sensor (wait, this is what /inspect is supposed to do)
-  - [ ] add simple `monitor` action to virtue-security
+  - [x] add simple `monitor` action to virtue-security
 
 Punting on CA - brain just not in that space at the end of the week.
 

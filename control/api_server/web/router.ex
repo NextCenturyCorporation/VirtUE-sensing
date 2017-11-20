@@ -20,6 +20,10 @@ defmodule ApiServer.Router do
      get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
      get "/enum/log/levels", EnumController, :log_levels, name: "enum-log-levels"
 
+     ###############
+     # Control API #
+     ###############
+     get "/control/c2/channel", ControlController, :c2_channel, name: "control-c2-channel"
 
      ###############
      # NETWORK API #

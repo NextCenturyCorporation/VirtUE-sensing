@@ -50,4 +50,9 @@ defmodule Sensor do
   def named(sensor_struct, sensor_name) do
     %Sensor{sensor_struct | sensor_name: sensor_name}
   end
+
+  def from_mnesia_record(rec) do
+    args = rec |> Tuple.to_list() |> tl |> tl
+    apply(Sensor, :sensor, args)
+  end
 end

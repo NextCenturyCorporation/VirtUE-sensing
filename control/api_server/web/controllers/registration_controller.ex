@@ -67,7 +67,7 @@ defmodule ApiServer.RegistrationController do
         case ApiServer.DatabaseUtils.deregister_sensor(
           Sensor.with_public_key(Sensor.sensor(sensor), public_key)
         ) do
-          {:ok, 0} ->
+          {:error, :no_such_sensor} ->
             IO.puts("  error deregistering sensor(id=#{sensor}) - no such sensor ")
             conn
             |> put_status(400)
@@ -78,10 +78,19 @@ defmodule ApiServer.RegistrationController do
                   msg: "Error deregistering sensor: no such sensor registered"
                 }
                )
-          {:ok, number_deregistered} ->
-            IO.puts("  #{number_deregistered} sensor(s) deregistered")
+          {:ok, sensor_structs} ->
+            IO.puts("  #{length(sensor_structs)} sensor(s) deregistered")
             scount = Mnesia.table_info(Sensor, :size)
             IO.puts("  #{scount} sensors currently registered.")
+
+            # run all of the structs through the deregistration announcement
+            Enum.map(sensor_structs,
+              fn (sensor_struct) ->
+                ApiServer.ControlUtils.announce_deregistered_sensor(sensor_struct, sensor_struct.sensor)
+              end
+            )
+
+            # spit out the results
             conn
             |> put_status(200)
             |> json(
@@ -176,12 +185,17 @@ defmodule ApiServer.RegistrationController do
                  ) do
 
               # sensor recorded, we're good to go
-              {:ok} ->
+              {:ok, sensor_blob} ->
 
-                # send out the registration response
+                # broadcast a control topic alert message
+                ApiServer.ControlUtils.announce_new_sensor(sensor_blob, sensor)
+
+                # record some registration metadata to the log
                 IO.puts("  @ sensor(id=#{sensor}, name=#{sensor_name}) registered at #{DateTime.to_string(DateTime.utc_now())}")
                 scount = Mnesia.table_info(Sensor, :size)
                 IO.puts("  #{scount} sensors currently registered.")
+
+                # send out the registration response
                 conn
                 |> put_status(200)
                 |> json(
@@ -190,7 +204,7 @@ defmodule ApiServer.RegistrationController do
                        timestamp: DateTime.to_string(DateTime.utc_now()),
                        sensor: sensor,
                        registered: :true,
-                       kafka_bootstrap_hosts: ["localhost:9092"],
+                       kafka_bootstrap_hosts: Application.get_env(:api_server, :sensor_kafka_bootstrap),
                        sensor_topic: sensor,
                        default_configuration: elem(ApiServer.ConfigurationUtils.default_sensor_config_by_name(sensor_name, %{match_prefix: true}), 1)
                      }

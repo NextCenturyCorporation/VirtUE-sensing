@@ -10,6 +10,7 @@ from contextlib import closing
 from Crypto.PublicKey import RSA
 import datetime
 import json
+import kafka
 import pytimeparse
 import pytz
 import random
@@ -4176,6 +4177,56 @@ def extract_jsonl_line(binary):
         return None, binary
 
 
+async def api_monitor(opts):
+    """
+    Monitor the Sensing API C2 kafka channel.
+
+    :param opts:
+    :return:
+    """
+
+    full_uri = construct_api_uri(opts, "/control/c2/channel")
+    get_params = {
+        "userToken": test_generate_user_token()
+    }
+    res = requests.get(full_uri, params=get_params)
+
+    if res.status_code == 200:
+        conf = res.json()
+        channel = conf["channel"]
+        bootstraps = conf["kafka_bootstrap_hosts"]
+        print("%% monitoring Sensing API C2 on Kafka")
+        print("    topic=%s" % (channel,))
+        print("    bootstraps=[%s]" % (",".join(bootstraps)),)
+
+        for msg in kafka.KafkaConsumer(channel, bootstrap_servers=bootstraps, value_deserializer=json.loads):
+
+            # what do we do with this information
+            if msg.value["action"] == "heartbeat":
+                print("💓 - (timestamp=%s)" % (msg.value["timestamp"]))
+            elif msg.value["action"] == "sensor-registration":
+                print("+ REGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, name=%s)" % (
+                    msg.value["timestamp"],
+                    msg.value["sensor"]["sensor"],
+                    msg.value["topic"],
+                    msg.value["sensor"]["sensor_name"]
+                ))
+            elif msg.value["action"] == "sensor-deregistration":
+                print("- DEREGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, name=%s)" % (
+                    msg.value["timestamp"],
+                    msg.value["sensor"]["sensor"],
+                    msg.value["topic"],
+                    msg.value["sensor"]["sensor_name"]
+                ))
+            else:
+                print("!! (timestamp=%s, action=%s) unrecognized monitor action" % (
+                    msg.value["timestamp"], msg.value["action"]
+                ))
+                print(json.dumps(msg.value, indent=4))
+
+
+
+
 async def api_stream(opts):
     """
     Retrieve the JSONL stream from the server and print it out.
@@ -4275,7 +4326,7 @@ def options():
     parser = argparse.ArgumentParser(description="Interact with the SAVIOR VirtUE security API")
 
     # top level control
-    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream"])
+    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream", "monitor"])
     #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
 
     # identification variables
@@ -4321,7 +4372,8 @@ if __name__ == "__main__":
     dispatch = {
         "test": test_api,
         "version": api_version,
-        "stream": api_stream
+        "stream": api_stream,
+        "monitor": api_monitor
     }
 
     if opts.mode not in dispatch:

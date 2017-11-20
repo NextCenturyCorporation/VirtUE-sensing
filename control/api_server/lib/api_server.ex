@@ -4,6 +4,7 @@ defmodule ApiServer do
 
   def heartbeat() do
     IO.puts("[heartbeat] #{DateTime.to_string(DateTime.utc_now())}")
+    ApiServer.ControlUtils.heartbeat()
   end
 
   def version() do
