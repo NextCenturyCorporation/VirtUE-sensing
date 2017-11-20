@@ -47,6 +47,19 @@ void  k_sensor(struct kthread_work *work)
 	return ;
 }
 
+
+static inline void init_works(struct kthread_worker *ktr,
+						 struct kthread_work *ktw)
+{
+
+	ktr->lock = __SPIN_LOCK_UNLOCKED((ktr)->lock);  /* spinlock_t */
+	ktr->work_list.next = ktr->work_list.prev = &(ktr->work_list);
+	ktw->node.next = ktw->node.prev = &(ktw->node);
+	ktw->func = k_sensor;
+	return;
+
+}
+
 struct kernel_sensor ks = {.id="kernel-sensor",
 						   .lock=__SPIN_LOCK_UNLOCKED(lock),
 						   .probes[0].id="probe-controller",
@@ -56,25 +69,13 @@ struct kernel_sensor ks = {.id="kernel-sensor",
  *  and links a work node into the worker's list, runs the worker. */
 static int __init controller_init(void)
 {
-	struct kthread_worker *kt_wr = &ks.kworker;
-	struct kthread_work *kt_wk = &ks.kwork;
-
-	kt_wr->lock = __SPIN_LOCK_UNLOCKED((kt_wr)->lock);  /* spinlock_t */
-	kt_wr->work_list.next = kt_wr->work_list.prev = &(kt_wr->work_list);
-	kt_wk->node.next = kt_wk->node.prev = &(kt_wk->node);
-	kt_wk->func = k_sensor;
-
-	printk("%p\n", kt_wr);
-
+	init_works(&ks.kworker, &ks.kwork);
 	ks.kworker.task = kthread_run(kthread_worker_fn, &ks.kwork, "run-kernel-probes");
 	if (IS_ERR(ks.kworker.task)) {
 		WARN_ON(1);
 	}
 
-	/* has k_sensor already been queued? */
-	/* if so, is it able to re-queue itself? */
-	/*queue_kthread_work(&ks.kworker, &ks.kwork); */
-
+	printk("%p\n", ks.kworker.task);
 	return 0;
 }
 
