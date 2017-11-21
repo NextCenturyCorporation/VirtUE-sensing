@@ -67,7 +67,7 @@ defmodule ApiServer.RegistrationController do
         case ApiServer.DatabaseUtils.deregister_sensor(
           Sensor.with_public_key(Sensor.sensor(sensor), public_key)
         ) do
-          {:ok, 0} ->
+          {:error, :no_such_sensor} ->
             IO.puts("  error deregistering sensor(id=#{sensor}) - no such sensor ")
             conn
             |> put_status(400)
@@ -78,10 +78,19 @@ defmodule ApiServer.RegistrationController do
                   msg: "Error deregistering sensor: no such sensor registered"
                 }
                )
-          {:ok, number_deregistered} ->
-            IO.puts("  #{number_deregistered} sensor(s) deregistered")
+          {:ok, sensor_structs} ->
+            IO.puts("  #{length(sensor_structs)} sensor(s) deregistered")
             scount = Mnesia.table_info(Sensor, :size)
             IO.puts("  #{scount} sensors currently registered.")
+
+            # run all of the structs through the deregistration announcement
+            Enum.map(sensor_structs,
+              fn (sensor_struct) ->
+                ApiServer.ControlUtils.announce_deregistered_sensor(sensor_struct, sensor_struct.sensor)
+              end
+            )
+
+            # spit out the results
             conn
             |> put_status(200)
             |> json(
@@ -103,6 +112,80 @@ defmodule ApiServer.RegistrationController do
                    msg: "Error deregistering sensor: #{reason}"
                  }
                )
+        end
+    end
+  end
+
+  @doc """
+  Sync a sensor and it's registration record, updating the registration time stamp.
+
+  Sensors that fall too far out of sync will be automatically deregistered.
+
+  This is a _Plug.Conn handler/2_.
+
+  ### Validations
+
+  ### Available
+
+    - conn::assigns::sensor_id
+
+  ### Return
+
+    - HTTP 200 / Sensor synced
+    - HTTP 400 / Invalid or missing sync parameters in payload
+    - HTTP 410 / Sensor not currently registered or already deregistered
+  """
+  def sync(%Plug.Conn{method: "PUT", body_params: %{"sensor" => sensor, "public_key" => public_key_b64}} = conn, _) do
+
+    # let's decode the public key from urlsafe base64
+    {:ok, public_key} = Base.url_decode64(public_key_b64)
+
+    # basic logging
+    IO.puts("Syncing sensor(id=#{sensor})")
+
+    # construct the sensor struct
+    sensor_blob = Sensor.sensor(sensor) |> Sensor.with_public_key(public_key)
+
+    cond do
+
+      # we have a bunch of failure cases up front
+      ! is_sensor_id(sensor) ->
+        invalid_sync(conn, "-", "sensor", sensor)
+
+      ! is_public_key(public_key) ->
+        invalid_sync(conn, sensor, "public_key", public_key)
+
+      ! ApiServer.DatabaseUtils.is_registered?(sensor_blob)
+        invalid_sync(conn, sensor, "is registered", :false)
+
+      # now we have a valid sync we can do
+      :true ->
+
+        # sync
+        case ApiServer.DatabaseUtils.sync_sensor(sensor_blob) do
+
+          :ok ->
+            IO.puts("Synced sensor(id=#{sensor})")
+            conn
+              |> put_status(200)
+              |> json(
+                  %{
+                    error: false,
+                    timestamp: DateTime.to_string(DateTime.utc_now()),
+                    sensor: sensor,
+                    synchronized: true
+                 }
+                 )
+          {:error, reason} ->
+            IO.puts("Sync error sensor(id=#{sensor}): #{reason}")
+            conn
+              |> put_status(410)
+              |> json(%{
+                error: true,
+                timestamp: DateTime.to_string(DateTime.utc_now()),
+                synchronized: false,
+                msg: reason
+            })
         end
     end
   end
@@ -133,7 +216,8 @@ defmodule ApiServer.RegistrationController do
             "user" => username,
             "public_key" => public_key_b64,
             "hostname" => hostname,
-            "port" => port
+            "port" => port,
+            "name" => sensor_name
           }
         } = conn, _) do
 
@@ -159,6 +243,8 @@ defmodule ApiServer.RegistrationController do
       ! Integer.parse(port) == :error ->
         IO.puts IEx.Info.info(port)
         invalid_registration(conn, sensor, "port", port)
+      ! ApiServer.ConfigurationUtils.have_default_sensor_config_by_name(sensor_name, %{match_prefix: true}) ->
+        invalid_registration(conn, sensor, "default configuration", "Cannot locate default configuration for #{sensor_name}")
 
       # now we have a valid registration
       :true ->
@@ -169,16 +255,21 @@ defmodule ApiServer.RegistrationController do
           # remote is listening, let's register it
           :ok ->
             case ApiServer.DatabaseUtils.register_sensor(
-                   Sensor.sensor(sensor, virtue, username, hostname, DateTime.to_string(DateTime.utc_now()), port, public_key)
+                   Sensor.sensor(sensor, virtue, username, hostname, DateTime.to_string(DateTime.utc_now()), port, public_key, sensor_name)
                  ) do
 
               # sensor recorded, we're good to go
-              {:ok} ->
+              {:ok, sensor_blob} ->
 
-                # send out the registration response
-                IO.puts("  @ sensor(id=#{sensor}) registered at #{DateTime.to_string(DateTime.utc_now())}")
+                # broadcast a control topic alert message
+                ApiServer.ControlUtils.announce_new_sensor(sensor_blob, sensor)
+
+                # record some registration metadata to the log
+                IO.puts("  @ sensor(id=#{sensor}, name=#{sensor_name}) registered at #{DateTime.to_string(DateTime.utc_now())}")
                 scount = Mnesia.table_info(Sensor, :size)
                 IO.puts("  #{scount} sensors currently registered.")
+
+                # send out the registration response
                 conn
                 |> put_status(200)
                 |> json(
@@ -186,7 +277,10 @@ defmodule ApiServer.RegistrationController do
                        error: :false,
                        timestamp: DateTime.to_string(DateTime.utc_now()),
                        sensor: sensor,
-                       registered: :true
+                       registered: :true,
+                       kafka_bootstrap_hosts: Application.get_env(:api_server, :sensor_kafka_bootstrap),
+                       sensor_topic: sensor,
+                       default_configuration: elem(ApiServer.ConfigurationUtils.default_sensor_config_by_name(sensor_name, %{match_prefix: true}), 1)
                      }
                    )
 
@@ -273,6 +367,20 @@ defmodule ApiServer.RegistrationController do
         IO.puts("  ! HTTPoison error during sensor(id=#{sensor}) verification ping: #{reason}")
         :error
     end
+  end
+
+  defp invalid_sync(conn, sensor_id, key, value) do
+    IO.puts("! sensor(id=#{sensor_id}) failed synchronization with (#{key} = #{value})")
+    conn
+    |> put_status(400)
+    |> json(
+         %{
+           error: :true,
+           timestamp: DateTime.to_string(DateTime.utc_now()),
+           msg: "sensor(id=#{sensor_id}) failed synchronization with (#{key} = #{value})"
+         }
+       )
+    |> Plug.Conn.halt()
   end
 
   # Build the HTTP/400 JSON response to an invalid registration attempt. This call

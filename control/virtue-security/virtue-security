@@ -10,6 +10,9 @@ from contextlib import closing
 from Crypto.PublicKey import RSA
 import datetime
 import json
+import kafka
+import pytimeparse
+import pytz
 import random
 import re
 import requests
@@ -1535,6 +1538,7 @@ async def test_case(opts, test):
         threw_exception = False
         exception_payload = {}
 
+        response_text = ""
 
         try:
 
@@ -1605,6 +1609,27 @@ async def test_case(opts, test):
                         async with session.get(full_uri, params=get_params) as response:
                             res = response
 
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
+
+                            # decode to UTF from the binary string we received
+                            response_text = chunked_binary.decode("utf-8")
+
+
                 else:
 
                     # generate the request body payload
@@ -1624,6 +1649,26 @@ async def test_case(opts, test):
                     async with ClientSession() as session:
                         async with session.put(full_uri, data=request_body) as response:
                             res = response
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
+
+                            # decode to UTF from the binary string we received
+                            response_text += chunked_binary.decode("utf-8")
+
 
             else:
                 if test["method"].lower() == "get":
@@ -1637,6 +1682,26 @@ async def test_case(opts, test):
                     async with ClientSession() as session:
                         async with session.get(full_uri, params=get_params) as response:
                             res = response
+
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
+
+                            # decode to UTF from the binary string we received
+                            response_text = chunked_binary.decode("utf-8")
 
                 else:
 
@@ -1657,7 +1722,25 @@ async def test_case(opts, test):
                     async with ClientSession() as session:
                         async with session.put(full_uri, data=request_body) as response:
                             res = response
+                            # let's read in our response, which may be chunked
+                            chunked_binary = b''
+                            try:
+                                while True:
+                                    chunk = await res.content.read(64 * 1024)
+                                    if not chunk and res.content.at_eof():
+                                        break
+                                    chunked_binary += chunk
+                            except ClientConnectionError as cce:
+                                # print("caught aiohttp ClientConnectionError")
+                                #
+                                # We're eating this error because in certain circumstances
+                                # the aiohttp library decides to throw an exception when
+                                # the remote stream (in streaming situations) closes, rather
+                                # than just EOF the stream reader. Because WFT.
+                                pass
 
+                            # decode to UTF from the binary string we received
+                            response_text = chunked_binary.decode("utf-8")
 
             # spin down the async web server if it is running
             if "async_http" in test:
@@ -1715,24 +1798,32 @@ async def test_case(opts, test):
             if res.status != test["code"]:
                 did_pass = False
 
-        # let's read in our response, which may be chunked
-        chunked_binary = b''
-        try:
-            while True:
-                chunk = await res.content.read(1024)
-                if not chunk:
-                    break
-                chunked_binary += chunk
-        except ClientConnectionError as cce:
-            # print("caught aiohttp ClientConnectionError")
-            #
-            # We're eating this error because in certain circumstances
-            # the aiohttp library decides to throw an exception when
-            # the remote stream (in streaming situations) closes, rather
-            # than just EOF the stream reader. Because WFT.
-            pass
+        # # let's read in our response, which may be chunked
+        # chunked_binary = b''
+        # try:
+        #     while True:
+        #         chunk = await res.content.read(64 * 1024)
+        #         print(chunk)
+        #         if not chunk and res.content.at_eof():
+        #             print("chunk break")
+        #             break
+        #         chunked_binary += chunk
+        # except ClientConnectionError as cce:
+        #     # print("caught aiohttp ClientConnectionError")
+        #     #
+        #     # We're eating this error because in certain circumstances
+        #     # the aiohttp library decides to throw an exception when
+        #     # the remote stream (in streaming situations) closes, rather
+        #     # than just EOF the stream reader. Because WFT.
+        #     print("chunk ClientConnectionError")
+        #     print(cce)
+        #     pass
+        #
+        # # decode to UTF from the binary string we received
+        # response_text = chunked_binary.decode("utf-8")
 
-        response_text = chunked_binary.decode("utf-8")
+        # close out the response
+        res.close()
 
         # make sure we got JSON or JSONL if that's what we expected, and then
         # verify the data from the results
@@ -1802,6 +1893,7 @@ async def test_case(opts, test):
                     pass
                 else:
                     print(ve)
+                    print(response_text)
                     rep_result["returns"]["got"] = str(ve)
                     # rep_result["returns"]["raw"] = res.text
                     rep_result["returns"]["raw"] = response_text
@@ -3708,6 +3800,27 @@ async def test_api(opts):
             "results_validators": [validate_configure_update]
         },
 
+        # === Stream
+        {
+            "method": "GET",
+            "path": "/sensor/:sensor/stream",
+            "returns": "JSONL",
+            "code": 200,
+            "authenticate": True,
+            "parameters": ["since", "filter_level", "follow"],
+            "results_validators": [validate_stream_message]
+        },
+
+        {
+            "method": "GET",
+            "path": "/sensor/:sensor/stream",
+            "returns": "JSONL",
+            "code": 200,
+            "authenticate": True,
+            "parameters": [],
+            "results_validators": [validate_stream_message]
+        },
+
         # --- Failure Cases
 
         #     Invalid Sensor ID
@@ -3863,6 +3976,19 @@ async def test_api(opts):
     # apply our test filter
     tests = [t for t in tests if t["path"].startswith(opts.test_path)]
     print("  :: %d tests matching --test-path filter" % (len(tests),))
+
+    # apply the suffix filter
+    if opts.skip_suffix is not None:
+
+        # we can skip multiple suffixes separated by a semi-colon
+        suffixes = [opts.skip_suffix]
+        if "," in opts.skip_suffix:
+            suffixes = opts.skip_suffix.split(",")
+
+        for suffix in suffixes:
+            tests = [t for t in tests if not t["path"].endswith(suffix)]
+        print("  :: %d tests matching --skip-suffix filter" % (len(tests),))
+
 
     # track pass/fail totals
     total_pass = 0
@@ -4023,6 +4149,174 @@ def api_version(opts):
         print(ve)
 
 
+def extract_jsonl_line(binary):
+    """
+    Scan through the binary looking for the first newline - if we find
+    one we want to split apart the binary and return the extracted line
+    decoded into a UTF-8 string, and the remaining binary.
+
+    :param binary: binary stream
+    :return: (utf8_string, binary_remainder)
+    """
+    break_idx = -1
+
+    for idx, c in enumerate(binary):
+        if c == 10:
+            break_idx = idx
+            break
+
+    if break_idx >= 0:
+        s = binary[0:break_idx].decode("utf-8")
+
+        # shift past the newline if we can
+        if len(binary) > (break_idx + 1):
+            break_idx += 1
+        return s, binary[break_idx:]
+
+    else:
+        return None, binary
+
+
+async def api_monitor(opts):
+    """
+    Monitor the Sensing API C2 kafka channel.
+
+    :param opts:
+    :return:
+    """
+
+    full_uri = construct_api_uri(opts, "/control/c2/channel")
+    get_params = {
+        "userToken": test_generate_user_token()
+    }
+    res = requests.get(full_uri, params=get_params)
+
+    if res.status_code == 200:
+        conf = res.json()
+        channel = conf["channel"]
+        bootstraps = conf["kafka_bootstrap_hosts"]
+        print("%% monitoring Sensing API C2 on Kafka")
+        print("    topic=%s" % (channel,))
+        print("    bootstraps=[%s]" % (",".join(bootstraps)),)
+
+        for msg in kafka.KafkaConsumer(channel, bootstrap_servers=bootstraps, value_deserializer=json.loads):
+
+            # what do we do with this information
+            if msg.value["action"] == "heartbeat":
+                print("💓 - (timestamp=%s)" % (msg.value["timestamp"]))
+            elif msg.value["action"] == "sensor-registration":
+                print("+ REGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, name=%s)" % (
+                    msg.value["timestamp"],
+                    msg.value["sensor"]["sensor"],
+                    msg.value["topic"],
+                    msg.value["sensor"]["sensor_name"]
+                ))
+            elif msg.value["action"] == "sensor-deregistration":
+                print("- DEREGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, name=%s)" % (
+                    msg.value["timestamp"],
+                    msg.value["sensor"]["sensor"],
+                    msg.value["topic"],
+                    msg.value["sensor"]["sensor_name"]
+                ))
+            else:
+                print("!! (timestamp=%s, action=%s) unrecognized monitor action" % (
+                    msg.value["timestamp"], msg.value["action"]
+                ))
+                print(json.dumps(msg.value, indent=4))
+
+
+
+
+async def api_stream(opts):
+    """
+    Retrieve the JSONL stream from the server and print it out.
+
+    :param opts:
+    :return:
+    """
+
+    # build up our parameters
+    since = since_datetime(opts.time_since)
+    follow = opts.log_follow
+    log_level = opts.log_level
+
+    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+    get_params = {
+        "follow": str(follow),
+        "since": since.isoformat(),
+        "filter_level": log_level
+    }
+
+    # spin up our request and start streaming
+    async with ClientSession() as session:
+        async with session.get(full_uri, params=get_params) as response:
+
+            # this is an async stream reader, so we pull in byte arrays
+            chunked_binary = b''
+            try:
+                while True:
+                    chunk = await response.content.read(1024)
+                    if not chunk:
+                        if len(chunked_binary) > 0:
+                            print(chunked_binary.decode("utf-8"))
+                        break
+
+                    chunked_binary += chunk
+
+                    # try and parse out a full line up to a newline
+                    msg, chunked_binary = extract_jsonl_line(chunked_binary)
+
+                    # if we have a message, let's do something with it
+                    if msg is not None:
+                        # msg = json.loads(msg)
+                        print(msg.strip())
+
+            except ClientConnectionError as cce:
+                # print("caught aiohttp ClientConnectionError")
+                #
+                # We're eating this error because in certain circumstances
+                # the aiohttp library decides to throw an exception when
+                # the remote stream (in streaming situations) closes, rather
+                # than just EOF the stream reader. Because WFT.
+                print(cce)
+
+
+def since_datetime(since_string):
+    """
+    Turn a string specification used in the _since_ flag into a timedelta
+    we can use to manipulate the stream history. The return value is a
+    local TZ naive datetime.
+
+    Since times can look like:
+
+        -2 minutes
+        15 minutes ago
+        1 hour
+
+    :param since_string: A human readable/specified relative time delta
+    :return: relative adjusted datetime
+    """
+
+    # TODO: Fix me once we figure out why Kafka is internally tracking two hours ahead of everything
+    corrective_td = datetime.timedelta(seconds = 60*60*2)
+
+    if since_string is None:
+        return datetime.datetime.now(tz=pytz.utc) + corrective_td
+
+    if since_string.startswith("-"):
+        since_string = since_string[1:].strip()
+
+    if "ago" in since_string:
+        since_string = since_string.replace("ago", "").strip()
+
+    seconds = pytimeparse.parse(since_string)
+
+    if seconds is None:
+        raise ValueError("The relative time specified by --since is not a valid time offset. Try \"3 minutes ago\".")
+
+    return datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(seconds = seconds) + corrective_td
+
+
 def options():
     """
     Parse out the command line options.
@@ -4032,13 +4326,13 @@ def options():
     parser = argparse.ArgumentParser(description="Interact with the SAVIOR VirtUE security API")
 
     # top level control
-    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version"])
+    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream", "monitor"])
     #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
 
     # identification variables
     parser.add_argument("--network", dest="var_network", default=None, help="Network or IP in CIDR format")
     parser.add_argument("--virtue-id", dest="var_virtue", default=None, help="Virtue ID")
-
+    parser.add_argument("--sensor-id", dest="var_sensor", default=None, help="Sensor ID")
     # sensor control states
     parser.add_argument("--level", dest="observation_level", default="off", help="Observation level")
     parser.add_argument("--action", dest="trust_action", default="invalidate", help="Validate or invalidate trust",
@@ -4060,6 +4354,7 @@ def options():
 
     # for API testing
     parser.add_argument("--test-path", dest="test_path", default="/", help="Filter prefix for selecting tests. Defaults to selecting all tests")
+    parser.add_argument("--skip-suffix", dest="skip_suffix", default=None, help="Skip tests that end with the specified suffix. Separate multiple suffixes with ,")
     parser.add_argument("--skip-unauthenticated-tests", dest="test_unauthenticated", default=True, action="store_false", help="Skip the generation of un-authenticated tests")
     parser.add_argument("--skip-fuzzing-tests", dest="test_fuzzing", default=True, action="store_false", help="Skip the generation of fuzzing tests")
     parser.add_argument("--test-repeat", dest="test_repeat", default=5, type=int, help="How many iterations of each test should run")
@@ -4076,7 +4371,9 @@ if __name__ == "__main__":
     # dispatch our command based upon the primary mode
     dispatch = {
         "test": test_api,
-        "version": api_version
+        "version": api_version,
+        "stream": api_stream,
+        "monitor": api_monitor
     }
 
     if opts.mode not in dispatch:

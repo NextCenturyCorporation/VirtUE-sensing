@@ -1,18 +1,21 @@
 #!/usr/bin/python
-__VERSION__ = "1.20171106"
+__VERSION__ = "1.20171117"
 
 
 import argparse
 import asks
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent
+from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation
+import datetime
 import email
 import hashlib
 from io import StringIO
 import json
+from kafka import KafkaProducer
 import os
 import pwd
+import re
 import requests
 from routes import Mapper
 import signal
@@ -37,6 +40,63 @@ asks.init('curio')
 # log message queueing
 log_messages = Queue()
 
+
+async def sync_sensor(opts):
+    """
+    Synchronize the sensor with the Sensing API so we stay registered.
+
+    :param opts: argparse parse parameters
+    :return:
+    """
+
+    # define our payload for registration sync
+    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()),
+                     encoding="iso-8859-1")
+    uri = construct_api_uri(opts, "/sensor/%s/sync" % (opts.sensor_id,))
+
+    payload = {
+        "sensor": opts.sensor_id,
+        "public_key": pubkey_b64,
+    }
+
+    while True:
+
+        # try and hit the sync end point
+
+
+        print("syncing with [%s]" % (uri,))
+
+        # we need to setup headers ourselves, because for some stupid, stupid
+        # reason the `asks` library lower cases all standard headers, which
+        # confuses any strict HTTP server looking for headers. Stupid, stupid
+        # stupidness. Guh.
+        headers = {
+            "Host": "%s:%d" % (opts.sensor_hostname, opts.sensor_port),
+            "Connection": "keep-alive",
+            "Accept-Encoding": "gzip, deflate",
+            "Accept": "*/*",
+            # "Content-Length": 0,
+            "User-Agent": "python-asks/1.3.6",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
+        res = await asks.put(uri, data=payload, headers=headers)
+
+        if res.status_code == 200:
+            print("Synced sensor with Sensing API")
+        else:
+            print("Couldn't sync sensor with Sensing API")
+            print("  status_code == %d" % (res.status_code,))
+            print(res.json())
+
+        # sleep
+        await sleep(60 * 2)
+
+        # bail if we're being cancelled
+        if await check_cancellation():
+            break
+
+
 async def register_sensor(opts):
     """
     Register this sensor with the Sensing API.
@@ -53,7 +113,8 @@ async def register_sensor(opts):
         "user": opts.username,
         "public_key": pubkey_b64,
         "hostname": opts.sensor_hostname,
-        "port": opts.sensor_port
+        "port": opts.sensor_port,
+        "name": "lsof-sensor-%s" % (__VERSION__,)
     }
 
     print("registering with [%s]" % (uri,))
@@ -77,6 +138,8 @@ async def register_sensor(opts):
 
     if res.status_code == 200:
         print("Registered sensor with Sensing API")
+        print(res.json())
+        return res.json()
     else:
         print("Couldn't register sensor with Sensing API")
         print("  status_code == %d" % (res.status_code,))
@@ -107,29 +170,76 @@ def deregister_sensor(opts):
         print(res.text)
 
 
-async def lsof():
+async def lsof(sensor_id, default_config):
     """
     Continuously read lsof, at the default interval of 15 seconds between
     repeats.
 
+    :param sensor_id: ID of this sensor
     :return: -
     """
+    repeat_delay = default_config.get("repeat-interval", 15)
+
     print(" ::starting lsof")
+    print("    $ repeat-interval = %d" % (repeat_delay,))
+
+    # map the LSOF types to log levels
+    lsof_type_map = {
+        "CHR": "debug",
+        "DIR": "debug",
+        "IPv4": "info",
+        "KQUEUE": "info",
+        "NPOLICY": "debug",
+        "REG": "debug",
+        "systm": "warn",
+        "unix": "info",
+        "vnode:": "warn"
+    }
 
     # just read from the subprocess and append to the log_message queue
-    p = subprocess.Popen(["lsof", "-r"], stdout=subprocess.PIPE)
+    p = subprocess.Popen(["lsof", "-r", "%d" % (repeat_delay,)], stdout=subprocess.PIPE)
     async for line in p.stdout:
-        await log_messages.put(line.decode("utf-8"))
+
+        # slice out the TYPE of the lsof message
+        line_bits = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")
+
+        if len(line_bits) < 4:
+            continue
+
+        line_type = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")[4]
+
+        log_level = "debug"
+        if line_type in lsof_type_map:
+            log_level = lsof_type_map[line_type]
+
+        # build our log message
+        logmsg = {
+            "message": line.decode("utf-8"),
+            "timestamp": datetime.datetime.now().isoformat(),
+            "sensor": sensor_id,
+            "level": log_level
+        }
+        await log_messages.put(json.dumps(logmsg))
 
 
-async def log_drain():
+async def log_drain(kafka_bootstrap_hosts=None, kafka_channel=None):
     """
     Pull messages off of the reporting queue, and splat them out on STDOUT
     for now.
 
+    :param kafka_bootstrap_hosts: Bootstrap host list for kafka
+    :param kafka_channel:
     :return:
     """
     print(" ::starting log_drain")
+    print("  ? configuring KafkaProducer(bootstrap=%s, topic=%s)" % (",".join(kafka_bootstrap_hosts), kafka_channel))
+
+    producer = KafkaProducer(
+        bootstrap_servers=kafka_bootstrap_hosts,
+        retries=5,
+        max_block_ms=10000,
+        value_serializer=str.encode
+    )
 
     # basic channel tracking
     msg_count = 0
@@ -140,6 +250,8 @@ async def log_drain():
 
         msg_count += 1
         msg_bytes += len(message)
+
+        producer.send(kafka_channel, message)
 
         # progress reporting
         if msg_count % 5000 == 0:
@@ -332,10 +444,22 @@ async def main(opts):
     Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
     async with TaskGroup() as g:
-        await g.spawn(log_drain)
-        await g.spawn(lsof)
+
+        # we need to spin up our actuation listener first
         await g.spawn(tcp_server, opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts))
-        await g.spawn(register_sensor, opts)
+
+        # now we register and wait for the results
+        reg = await g.spawn(register_sensor, opts)
+
+        print("  @ waiting for registration cycle")
+        reg_data = await reg.join()
+        print(reg_data)
+        print("  = got registration")
+
+        await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
+        await g.spawn(lsof, opts.sensor_id, json.loads(reg_data["default_configuration"]))
+        await g.spawn(sync_sensor, opts)
+
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
         await g.cancel_remaining()

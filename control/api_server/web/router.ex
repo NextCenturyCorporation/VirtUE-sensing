@@ -20,6 +20,10 @@ defmodule ApiServer.Router do
      get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
      get "/enum/log/levels", EnumController, :log_levels, name: "enum-log-levels"
 
+     ###############
+     # Control API #
+     ###############
+     get "/control/c2/channel", ControlController, :c2_channel, name: "control-c2-channel"
 
      ###############
      # NETWORK API #
@@ -202,5 +206,8 @@ defmodule ApiServer.Router do
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
      put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
      put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
+     put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
+     get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
+
   end
 end
