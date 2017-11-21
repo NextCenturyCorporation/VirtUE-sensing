@@ -14,6 +14,7 @@
 #include <linux/list.h>
 #include <linux/socket.h>
 #include <linux/kthread.h>
+#include <linux/slab.h>
 
 
 /* - - probe - -

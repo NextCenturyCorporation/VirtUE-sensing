@@ -38,27 +38,38 @@ void  k_sensor(struct kthread_work *work)
 			if (bs_ == ks_) {
 				printk("%s\n", ts_inside_info->comm);
 			}
+			/* run each probe as it times out */
+			break;
 		}
-
-		/* run each probe as it times out */
-		break;
+		schedule();
 	}
-
 	return ;
 }
 
 
-static inline void init_works(struct kthread_worker *ktr,
-						 struct kthread_work *ktw)
+static inline struct kthread_worker *init_worker(void)
 {
+	struct kthread_worker *w = kmalloc(sizeof(*w), GFP_KERNEL);
+	if (!w)
+		return ERR_PTR(-ENOMEM);
 
-	ktr->lock = __SPIN_LOCK_UNLOCKED((ktr)->lock);  /* spinlock_t */
-	ktr->work_list.next = ktr->work_list.prev = &(ktr->work_list);
-	ktw->node.next = ktw->node.prev = &(ktw->node);
-	ktw->func = k_sensor;
-	return;
-
+	w->lock = __SPIN_LOCK_UNLOCKED((ktr)->lock);  /* spinlock_t */
+	w->work_list.next = w->work_list.prev = &(w->work_list);
+	return w;
 }
+
+
+static inline struct kthread_work *init_work(void (fn)(struct kthread_work *) )
+{
+	struct kthread_work *w = kmalloc(sizeof(*w), GFP_KERNEL);
+	if (!w)
+		return ERR_PTR(-ENOMEM);
+
+	w->node.next = w->node.prev = &(w->node);
+	w->func = fn;
+	return w;
+}
+
 
 struct kernel_sensor ks = {.id="kernel-sensor",
 						   .lock=__SPIN_LOCK_UNLOCKED(lock),
@@ -69,14 +80,29 @@ struct kernel_sensor ks = {.id="kernel-sensor",
  *  and links a work node into the worker's list, runs the worker. */
 static int __init controller_init(void)
 {
-	init_works(&ks.kworker, &ks.kwork);
-	ks.kworker.task = kthread_run(kthread_worker_fn, &ks.kwork, "run-kernel-probes");
-	if (IS_ERR(ks.kworker.task)) {
-		WARN_ON(1);
+
+	int ccode = -ENOMEM;
+	struct kthread_work *my_work = init_work(k_sensor);
+	struct kthread_worker *my_worker = init_worker();
+
+	if (my_work == NULL || my_worker == NULL)
+		goto err_exit;
+
+	my_worker->task = kthread_run(kthread_worker_fn, my_work, "run-kernel-probes");
+	if (IS_ERR(my_worker->task)) {
+		ccode = -ENOSYS;
+		goto err_exit;
 	}
 
 	printk("%p\n", ks.kworker.task);
 	return 0;
+
+err_exit:
+	if(my_work != NULL)
+		kfree(my_work);
+	if(my_worker != NULL)
+		kfree(my_worker);
+	return ccode;
 }
 
 static void __exit controller_cleanup(void)
