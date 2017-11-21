@@ -12,37 +12,34 @@ struct list_head *probe_queues[0x10];
 
 int probe_socket;
 
+int _pr(uint64_t, uint8_t *);
+
+
+struct kernel_sensor ks = {.id="kernel-sensor",
+						   .lock=__SPIN_LOCK_UNLOCKED(lock),
+						   .probes[0].id="probe-controller",
+						   .probes[0].lock=__SPIN_LOCK_UNLOCKED(lock),
+						   .probes[0].probe=_pr};
+
 /* template probe function  */
 int _pr(uint64_t flags, uint8_t *probe_data)
 {
 	return 0;
 }
 
+/* a generic sensor function, called from kernel worker thread. */
+/* a sensor that did something would replace the schedule call */
+/* with some sleep/reschedule logic */
 void  k_sensor(struct kthread_work *work)
 {
-/* ok, this is an opportunity for the sensors and their probes to
- * have a more stable presence
- * we have the kthread_work struct, now we need to index our other
- * information.
- */
-	struct kernel_sensor *ks_ = NULL, *bs_ = NULL;
-	ks_ = (struct kernel_sensor *) container_of(work,  struct kernel_sensor, kwork);
-
-/* now put myself on the list to run again */
-
-	while (1){
-		if (ks_ != bs_) {
-			struct task_struct *ts_inside_info;
-			bs_ = (struct kernel_sensor *) container_of(work, struct kernel_sensor, kwork);
-			ts_inside_info = bs_->kworker.task;
-			if (bs_ == ks_) {
-				printk("%s\n", ts_inside_info->comm);
-			}
-			/* run each probe as it times out */
-			break;
-		}
-		schedule();
+	static int did_not_run=1;
+	while (did_not_run){
+		printk("%s\n", ks.kworker->task->comm);
+		did_not_run = 0;
 	}
+
+	schedule();
+
 	return ;
 }
 
@@ -69,13 +66,6 @@ static inline struct kthread_work *init_work(void (fn)(struct kthread_work *) )
 	w->func = fn;
 	return w;
 }
-
-
-struct kernel_sensor ks = {.id="kernel-sensor",
-						   .lock=__SPIN_LOCK_UNLOCKED(lock),
-						   .probes[0].id="probe-controller",
-						   .probes[0].lock=__SPIN_LOCK_UNLOCKED(lock),
-						   .probes[0].probe=_pr};
 /* init function for the controller, creates a worker
  *  and links a work node into the worker's list, runs the worker. */
 static int __init controller_init(void)
@@ -84,7 +74,11 @@ static int __init controller_init(void)
 	int ccode = -ENOMEM;
 	struct kthread_work *my_work = init_work(k_sensor);
 	struct kthread_worker *my_worker = init_worker();
+	ks.kworker = my_worker;
+	ks.kwork = my_work;
 
+	/* note for now we are using the statically defined sensor struct, */
+	/* if needed, we can dyamically allocate it. */
 	if (my_work == NULL || my_worker == NULL)
 		goto err_exit;
 
@@ -94,7 +88,7 @@ static int __init controller_init(void)
 		goto err_exit;
 	}
 
-	printk("%p\n", ks.kworker.task);
+	printk("%p\n", ks.kworker->task);
 	return 0;
 
 err_exit:
@@ -107,7 +101,7 @@ err_exit:
 
 static void __exit controller_cleanup(void)
 {
-	kthread_stop(ks.kworker.task);
+	kthread_stop(ks.kworker->task);
 }
 
 module_init(controller_init);

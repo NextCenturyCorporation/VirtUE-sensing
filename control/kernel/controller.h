@@ -76,8 +76,8 @@ struct kernel_sensor {
 	spinlock_t lock;
 	uint64_t flags;
 	struct list_head *l;
-	struct kthread_worker kworker;
-	struct kthread_work kwork;
+	struct kthread_worker *kworker;
+	struct kthread_work *kwork;
 	struct probe_s probes[PROBES_PER_SENSE];
 };
 
