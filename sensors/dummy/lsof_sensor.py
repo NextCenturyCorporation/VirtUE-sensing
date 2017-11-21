@@ -6,7 +6,7 @@ import argparse
 import asks
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent
+from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation
 import datetime
 import email
 import hashlib
@@ -39,6 +39,62 @@ asks.init('curio')
 
 # log message queueing
 log_messages = Queue()
+
+
+async def sync_sensor(opts):
+    """
+    Synchronize the sensor with the Sensing API so we stay registered.
+
+    :param opts: argparse parse parameters
+    :return:
+    """
+
+    # define our payload for registration sync
+    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()),
+                     encoding="iso-8859-1")
+    uri = construct_api_uri(opts, "/sensor/%s/sync" % (opts.sensor_id,))
+
+    payload = {
+        "sensor": opts.sensor_id,
+        "public_key": pubkey_b64,
+    }
+
+    while True:
+
+        # try and hit the sync end point
+
+
+        print("syncing with [%s]" % (uri,))
+
+        # we need to setup headers ourselves, because for some stupid, stupid
+        # reason the `asks` library lower cases all standard headers, which
+        # confuses any strict HTTP server looking for headers. Stupid, stupid
+        # stupidness. Guh.
+        headers = {
+            "Host": "%s:%d" % (opts.sensor_hostname, opts.sensor_port),
+            "Connection": "keep-alive",
+            "Accept-Encoding": "gzip, deflate",
+            "Accept": "*/*",
+            # "Content-Length": 0,
+            "User-Agent": "python-asks/1.3.6",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
+        res = await asks.put(uri, data=payload, headers=headers)
+
+        if res.status_code == 200:
+            print("Synced sensor with Sensing API")
+        else:
+            print("Couldn't sync sensor with Sensing API")
+            print("  status_code == %d" % (res.status_code,))
+            print(res.json())
+
+        # sleep
+        await sleep(60 * 2)
+
+        # bail if we're being cancelled
+        if await check_cancellation():
+            break
 
 
 async def register_sensor(opts):
@@ -402,7 +458,8 @@ async def main(opts):
 
         await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
         await g.spawn(lsof, opts.sensor_id, json.loads(reg_data["default_configuration"]))
-
+        await g.spawn(sync_sensor, opts)
+        
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
         await g.cancel_remaining()

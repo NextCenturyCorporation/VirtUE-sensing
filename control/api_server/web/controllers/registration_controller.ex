@@ -117,6 +117,80 @@ defmodule ApiServer.RegistrationController do
   end
 
   @doc """
+  Sync a sensor and it's registration record, updating the registration time stamp.
+
+  Sensors that fall too far out of sync will be automatically deregistered.
+
+  This is a _Plug.Conn handler/2_.
+
+  ### Validations
+
+  ### Available
+
+    - conn::assigns::sensor_id
+
+  ### Return
+
+    - HTTP 200 / Sensor synced
+    - HTTP 400 / Invalid or missing sync parameters in payload
+    - HTTP 410 / Sensor not currently registered or already deregistered
+  """
+  def sync(%Plug.Conn{method: "PUT", body_params: %{"sensor" => sensor, "public_key" => public_key_b64}} = conn, _) do
+
+    # let's decode the public key from urlsafe base64
+    {:ok, public_key} = Base.url_decode64(public_key_b64)
+
+    # basic logging
+    IO.puts("Syncing sensor(id=#{sensor})")
+
+    # construct the sensor struct
+    sensor_blob = Sensor.sensor(sensor) |> Sensor.with_public_key(public_key)
+
+    cond do
+
+      # we have a bunch of failure cases up front
+      ! is_sensor_id(sensor) ->
+        invalid_sync(conn, "-", "sensor", sensor)
+
+      ! is_public_key(public_key) ->
+        invalid_sync(conn, sensor, "public_key", public_key)
+
+      ! ApiServer.DatabaseUtils.is_registered?(sensor_blob)
+        invalid_sync(conn, sensor, "is registered", :false)
+
+      # now we have a valid sync we can do
+      :true ->
+
+        # sync
+        case ApiServer.DatabaseUtils.sync_sensor(sensor_blob) do
+
+          :ok ->
+            IO.puts("Synced sensor(id=#{sensor})")
+            conn
+              |> put_status(200)
+              |> json(
+                  %{
+                    error: false,
+                    timestamp: DateTime.to_string(DateTime.utc_now()),
+                    sensor: sensor,
+                    synchronized: true
+                 }
+                 )
+          {:error, reason} ->
+            IO.puts("Sync error sensor(id=#{sensor}): #{reason}")
+            conn
+              |> put_status(410)
+              |> json(%{
+                error: true,
+                timestamp: DateTime.to_string(DateTime.utc_now()),
+                synchronized: false,
+                msg: reason
+            })
+        end
+    end
+  end
+
+  @doc """
   Register a sensor with the Sensing API
 
   This is a _Plug.Conn handler/2_.
@@ -293,6 +367,20 @@ defmodule ApiServer.RegistrationController do
         IO.puts("  ! HTTPoison error during sensor(id=#{sensor}) verification ping: #{reason}")
         :error
     end
+  end
+
+  defp invalid_sync(conn, sensor_id, key, value) do
+    IO.puts("! sensor(id=#{sensor_id}) failed synchronization with (#{key} = #{value})")
+    conn
+    |> put_status(400)
+    |> json(
+         %{
+           error: :true,
+           timestamp: DateTime.to_string(DateTime.utc_now()),
+           msg: "sensor(id=#{sensor_id}) failed synchronization with (#{key} = #{value})"
+         }
+       )
+    |> Plug.Conn.halt()
   end
 
   # Build the HTTP/400 JSON response to an invalid registration attempt. This call

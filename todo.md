@@ -1,18 +1,16 @@
-💓
+
 # Sensing Architecture
 
 
 # Dummy Sensor
 
-5 - [ ] add periodic sensor sync with API (touch timestamp) to keep records alive
+5 - [x] add periodic sensor sync with API (touch timestamp) to keep records alive
   - [x] kafka integration
 3 - [ ] add documentation to Sensing API for /sensor/:sensor/stream
-2  - [ ] sensing API needs to broadcast a message on a common Kafka channel when setting up a new sensor
-    - [x] and when deregistering a sensor
-	- [ ] and when pruning a sensor
   - [ ] decouple sensor log topic from sensor id, store topic as part of sensing database
-   - [ ] add a /sensor/:sensor/details route to retrieve specific config/key/stream metadata about the sensor (wait, this is what /inspect is supposed to do)
+  - [ ] add a /sensor/:sensor/details route to retrieve specific config/key/stream metadata about the sensor (wait, this is what /inspect is supposed to do)
   - [x] add simple `monitor` action to virtue-security
+
 
 Punting on CA - brain just not in that space at the end of the week.
 
@@ -35,6 +33,7 @@ Punting on CA - brain just not in that space at the end of the week.
 - virtue-security CLI
   - [ ] add support for all commands and link to routes
   - [ ] move command sets into classes and modules
+  - [ ] document the `monitor` action
   
 # API SERVER
 
@@ -44,6 +43,8 @@ Punting on CA - brain just not in that space at the end of the week.
  - Registration
   - [ ] sensor registration workflow needs to be cleaned up before we have really deep nesting
  - General API
+  - [ ] reject streaming requests for sensors that aren't registered
+  - [ ] add general "is sensor registered" method to database utils
   - [ ] catch all query params and path params for validation
    - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing
          API is in UTC common format.
@@ -71,3 +72,4 @@ Punting on CA - brain just not in that space at the end of the week.
  - [ ] trust routes now return additional fields (see application/trust )
  - [ ] stream routes now return additional fields (see application/stream )]
  - [ ] sensor registration now includes additional fields (public key, port, hostname, sensor name, etc) (see registration_controller.ex)
+ - [ ] document the c2 channel and related routes (get c2 channel, etc)

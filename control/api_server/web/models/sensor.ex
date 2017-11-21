@@ -51,8 +51,29 @@ defmodule Sensor do
     %Sensor{sensor_struct | sensor_name: sensor_name}
   end
 
+  def touch_timestamp(sensor_struct) do
+    %Sensor{sensor_struct | timestamp: DateTime.to_string(DateTime.utc_now())}
+  end
+
   def from_mnesia_record(rec) do
     args = rec |> Tuple.to_list() |> tl |> tl
     apply(Sensor, :sensor, args)
+  end
+
+  def to_mnesia_record(
+        %Sensor{
+          sensor: sensor,
+          virtue: virtue,
+          username: username,
+          address: address,
+          timestamp: timestamp,
+          port: port,
+          public_key: public_key,
+          sensor_name: sensor_name
+        },
+        %{original: original_record}
+      ) do
+    mnesia_id = elem(original_record, 1)
+    List.to_tuple([Sensor, mnesia_id, sensor, virtue, username, address, timestamp, port, public_key, sensor_name])
   end
 end

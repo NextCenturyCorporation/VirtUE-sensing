@@ -15,6 +15,85 @@ defmodule ApiServer.DatabaseUtils do
   alias :mnesia, as: Mnesia
   use Timex
 
+  @doc """
+  Update the timestamp in the internal tracker for the given sensor, identified by it's sensor ID and
+  public key.
+
+
+  ### Parameters
+
+    - %Sensor{} data struct
+
+  ### Side Effects
+
+    - Internal tracking database updates
+
+  ### Returns
+
+    :ok
+    {:error, reason}
+
+  """
+  def sync_sensor(%Sensor{:sensor => sensor, :public_key => public_key}) do
+    case Mnesia.transaction(
+           fn ->
+             case Mnesia.match_object(
+                    {
+                      Sensor,
+                      :_,
+                      sensor,
+                      :_, :_, :_, :_, :_,
+                      public_key, :_
+                    }
+                  ) do
+
+               # no matches
+               [] ->
+                 :false
+
+               # records to remove
+               records ->
+
+                 Enum.map(records,
+                 fn (rec) ->
+
+                   rec
+                    |> Sensor.from_mnesia_record()
+                    |> Sensor.touch_timestamp()
+                    |> Sensor.to_mnesia_record(%{:original => rec})
+                    |> Mnesia.write()
+
+                 end
+                 )
+                 :true
+             end
+           end
+         ) do
+      {:atomic, :true} ->
+        :ok
+      {:atomic, :false} ->
+        {:error, :no_such_sensor}
+    end
+
+  end
+
+  @doc """
+  Remove sensors that have exceeded the synchronization time limit.
+
+  ### Parameters
+
+    - prune_age : age, in minutes, to use as the synchronization limit. Sensors with timestamps older will be pruned
+
+  ### Side Effects
+
+    - sensors removed from internal :mnesia tracking
+    - announcments on kafka command and control topic
+
+  ### Returns
+
+    nil
+
+  """
   def prune_old_sensors(prune_age) do
 
     IO.puts("DatabaseUtils::prune_old_sensors/0 - #{DateTime.to_string(DateTime.utc_now())}")
@@ -80,6 +159,56 @@ defmodule ApiServer.DatabaseUtils do
   end
 
   @doc """
+  Test whether a sensor identified by sensor ID and public key is already
+  registered.
+
+  Sensors are matched based on exact matching of both the **sensor ID**
+  and the **public key**. Call the function as:
+
+    DatabaseUtils.is_registered?(%Sensor{sensor: "sensor id", public_key: "public key"})
+
+  Or with the Sensor helper as:
+
+    Sensor.sensor("sensor_id")
+      |> Sensor.with_public_key("public key")
+      |> DatabaseUtils.is_registered?()
+
+  ### Returns:
+
+    :true
+    :false
+  """
+  def is_registered?(%Sensor{:sensor => sensor, :public_key => public_key}) do
+    case Mnesia.transaction(
+           fn ->
+             case Mnesia.match_object(
+                    {
+                      Sensor,
+                      :_,
+                      sensor,
+                      :_, :_, :_, :_, :_,
+                      public_key, :_
+                    }
+                  ) do
+
+               # no matches
+               [] ->
+                 :false
+
+               # records to remove
+               records ->
+                 :true
+             end
+           end
+         ) do
+      {:atomic, :true} ->
+        :true
+      {:atomic, :false} ->
+        :false
+    end
+  end
+
+  @doc """
   Remove a sensor from the tracking database.
 
   Sensors are matched based on exact matching of both the **sensor ID**
@@ -93,11 +222,10 @@ defmodule ApiServer.DatabaseUtils do
       |> Sensor.with_public_key("public key")
       |> DatabaseUtils.deregister_sensor()
 
-  Returns:
+  ### Returns:
 
     {:ok, number_of_removed_records}
     {:error, reason}
-
   """
   def deregister_sensor(
         %Sensor{
