@@ -459,7 +459,7 @@ async def main(opts):
         await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
         await g.spawn(lsof, opts.sensor_id, json.loads(reg_data["default_configuration"]))
         await g.spawn(sync_sensor, opts)
-        
+
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
         await g.cancel_remaining()

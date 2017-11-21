@@ -4,13 +4,6 @@
 
 # Dummy Sensor
 
-5 - [x] add periodic sensor sync with API (touch timestamp) to keep records alive
-  - [x] kafka integration
-3 - [ ] add documentation to Sensing API for /sensor/:sensor/stream
-  - [ ] decouple sensor log topic from sensor id, store topic as part of sensing database
-  - [ ] add a /sensor/:sensor/details route to retrieve specific config/key/stream metadata about the sensor (wait, this is what /inspect is supposed to do)
-  - [x] add simple `monitor` action to virtue-security
-
 
 Punting on CA - brain just not in that space at the end of the week.
 
@@ -66,10 +59,3 @@ Punting on CA - brain just not in that space at the end of the week.
  
 # Sensing API Documentation Updates
 
- - [ ] validate/check now returns additional fields (see resource/validate )
- - [ ] validate/trigger now returns additional fields (see resource/validate )
- - [ ] inspect now returns additional fields (see application/inspect )
- - [ ] trust routes now return additional fields (see application/trust )
- - [ ] stream routes now return additional fields (see application/stream )]
- - [ ] sensor registration now includes additional fields (public key, port, hostname, sensor name, etc) (see registration_controller.ex)
- - [ ] document the c2 channel and related routes (get c2 channel, etc)
