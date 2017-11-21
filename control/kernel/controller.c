@@ -17,6 +17,8 @@ int _pr(uint64_t, uint8_t *);
 
 struct kernel_sensor ks = {.id="kernel-sensor",
 						   .lock=__SPIN_LOCK_UNLOCKED(lock),
+						   .kworker=NULL,
+						   .kwork=NULL,
 						   .probes[0].id="probe-controller",
 						   .probes[0].lock=__SPIN_LOCK_UNLOCKED(lock),
 						   .probes[0].probe=_pr};
@@ -102,6 +104,10 @@ err_exit:
 static void __exit controller_cleanup(void)
 {
 	kthread_stop(ks.kworker->task);
+	if (ks.kworker != NULL)
+		kfree(ks.kworker);
+	if (ks.kwork != NULL)
+		kfree(ks.kwork);
 }
 
 module_init(controller_init);
