@@ -37,7 +37,7 @@ Punting on CA - brain just not in that space at the end of the week.
   - [ ] sensor registration workflow needs to be cleaned up before we have really deep nesting
  - General API
   - [ ] reject streaming requests for sensors that aren't registered
-  - [ ] add general "is sensor registered" method to database utils
+  - [x] add general "is sensor registered" method to database utils
   - [ ] catch all query params and path params for validation
    - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing
          API is in UTC common format.
