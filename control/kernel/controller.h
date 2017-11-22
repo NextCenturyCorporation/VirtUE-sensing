@@ -15,7 +15,7 @@
 #include <linux/socket.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-
+#include <linux/delay.h>
 
 /* - - probe - -
  *
@@ -84,3 +84,6 @@ struct kernel_sensor {
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
+
+
+#define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
