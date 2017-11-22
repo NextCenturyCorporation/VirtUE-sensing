@@ -256,16 +256,19 @@ defmodule ApiServer.RegistrationController do
           :ok ->
             case ApiServer.DatabaseUtils.register_sensor(
                    Sensor.sensor(sensor, virtue, username, hostname, DateTime.to_string(DateTime.utc_now()), port, public_key, sensor_name)
+                   |> Sensor.randomize_kafka_topic()
                  ) do
 
               # sensor recorded, we're good to go
               {:ok, sensor_blob} ->
 
                 # broadcast a control topic alert message
-                ApiServer.ControlUtils.announce_new_sensor(sensor_blob, sensor)
+                ApiServer.ControlUtils.announce_new_sensor(sensor_blob)
 
                 # record some registration metadata to the log
                 IO.puts("  @ sensor(id=#{sensor}, name=#{sensor_name}) registered at #{DateTime.to_string(DateTime.utc_now())}")
+                IO.puts("  <> sensor(id=#{sensor}) assigned kafka topic(id=#{sensor_blob.kafka_topic})")
+
                 scount = Mnesia.table_info(Sensor, :size)
                 IO.puts("  #{scount} sensors currently registered.")
 
@@ -279,7 +282,7 @@ defmodule ApiServer.RegistrationController do
                        sensor: sensor,
                        registered: :true,
                        kafka_bootstrap_hosts: Application.get_env(:api_server, :sensor_kafka_bootstrap),
-                       sensor_topic: sensor,
+                       sensor_topic: sensor_blob.kafka_topic,
                        default_configuration: elem(ApiServer.ConfigurationUtils.default_sensor_config_by_name(sensor_name, %{match_prefix: true}), 1)
                      }
                    )

@@ -43,7 +43,7 @@ defmodule ApiServer.DatabaseUtils do
                       :_,
                       sensor,
                       :_, :_, :_, :_, :_,
-                      public_key, :_
+                      public_key, :_, :_
                     }
                   ) do
 
@@ -109,7 +109,7 @@ defmodule ApiServer.DatabaseUtils do
               # match
               {
                 Sensor,
-                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8", :"$9"
+                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8", :"$9", "$10"
               },
 
               # guard (timestamp older than 15 minutes
@@ -187,7 +187,7 @@ defmodule ApiServer.DatabaseUtils do
                       :_,
                       sensor,
                       :_, :_, :_, :_, :_,
-                      public_key, :_
+                      public_key, :_, :_
                     }
                   ) do
 
@@ -205,6 +205,46 @@ defmodule ApiServer.DatabaseUtils do
         :true
       {:atomic, :false} ->
         :false
+    end
+  end
+
+  @doc """
+  Retrieve the full Sensor record for a sensor id.
+
+  ### Returns:
+
+    {:ok, record}
+    {:error, reason}
+  """
+  def record_for_sensor(%Sensor{:sensor => sensor}) do
+    case Mnesia.transaction(
+           fn ->
+             case Mnesia.match_object(
+                    {
+                      Sensor,
+                      :_,
+                      sensor,
+                      :_, :_, :_, :_, :_,
+                      :_, :_, :_
+                    }
+                  ) do
+
+               # no matches
+               [] ->
+                 {:error, :no_such_sensor}
+
+               # one or more matching records. we return the first of them
+               records ->
+                 {:ok, Sensor.from_mnesia_record(List.first(records))}
+             end
+           end
+         ) do
+      {:atomic, {:ok, sensor_struct}} ->
+        {:ok, sensor_struct}
+      {:atomic, {:error, :no_such_sensor}} ->
+        {:error, :no_such_sensor}
+      {:atomic, {:aborted, reason}} ->
+        {:error, "deregistration aborted: #{reason}"}
     end
   end
 
@@ -245,7 +285,7 @@ defmodule ApiServer.DatabaseUtils do
             :_,
             sensor,
             :_, :_, :_, :_, :_,
-            public_key, :_
+            public_key, :_, :_
           }
         ) do
 
@@ -298,7 +338,8 @@ defmodule ApiServer.DatabaseUtils do
           :timestamp => nil,
           :port => port,
           :public_key => public_key,
-          :sensor_name => sensor_name
+          :sensor_name => sensor_name,
+          :kafka_topic => kafka_topic
         } = sensor_blob)
     do
 
@@ -316,7 +357,8 @@ defmodule ApiServer.DatabaseUtils do
             DateTime.to_string(DateTime.utc_now()),
             as_intger(port),
             public_key,
-            sensor_name
+            sensor_name,
+            kafka_topic
           }
         )
       end
@@ -337,7 +379,8 @@ defmodule ApiServer.DatabaseUtils do
           :timestamp => timestamp,
           :port => port,
           :public_key => public_key,
-          :sensor_name => sensor_name
+          :sensor_name => sensor_name,
+          :kafka_topic => kafka_topic
         } = sensor_blob)
     do
 
@@ -355,7 +398,8 @@ defmodule ApiServer.DatabaseUtils do
             timestamp,
             as_intger(port),
             public_key,
-            sensor_name
+            sensor_name,
+            kafka_topic
           }
         )
       end
@@ -463,7 +507,7 @@ defmodule ApiServer.DatabaseUtils do
   # Interpolate a key into our record position
   defp index_for_key(k) do
     Enum.find_index(
-      [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name],
+      [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic],
       fn(x) ->
         x == k
       end

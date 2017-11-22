@@ -41,37 +41,58 @@ defmodule ApiServer.StreamController do
   """
   def stream(conn, _) do
 
-    stream_topic = conn.assigns.targeting.sensor
-    stream_remote_ip = remote_ip_to_string(conn.remote_ip)
 
-    IO.puts("  <> attempting to stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
+    # Let's see if this sensor really exists
+    case ApiServer.DatabaseUtils.record_for_sensor(Sensor.sensor(conn.assigns.targeting.sensor)) do
 
-    # we'll try and build a Stream generator, which we can run
-    # to spool out chunked data responses of JSONL as we receive
-    # messages from Kafka
-    case create_kafka_stream(send_chunked(conn, 200), stream_topic) do
-      {:error, conn} ->
-        IO.puts("  <!> Error retrieving Kafka topic for the targeted sensor")
+      # ok, the sensor is real, let's start the streamer
+      {:ok, sensor_struct} ->
+
+        stream_topic = sensor_struct.kafka_topic
+        stream_remote_ip = remote_ip_to_string(conn.remote_ip)
+
+        IO.puts("  <> attempting to stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
+
+        # we'll try and build a Stream generator, which we can run
+        # to spool out chunked data responses of JSONL as we receive
+        # messages from Kafka
+        case create_kafka_stream(send_chunked(conn, 200), stream_topic) do
+          {:error, conn} ->
+            IO.puts("  <!> Error retrieving Kafka topic for the targeted sensor")
+            conn
+          {cks_stream, conn} ->
+
+            # Monitor the stream for a :done value, which signals that either the
+            # upstream channel or the down stream consumer client have closed, after
+            # which we can terminate this stream.
+            cks_stream
+            |> Stream.take_while(
+                 fn (x) ->
+                   x != :done
+                 end
+               )
+            |> Stream.run()
+            |> (
+                 fn (x) ->
+                   IO.puts("  <!> terminating stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
+                 end
+                 ).()
+
+            conn
+        end
+
+      # error finding this sensor, we're gonna bail
+      {:error, reason} ->
+        IO.puts("  ! Attempting to stream from a sensor caused an error [#{reason}]")
         conn
-      {cks_stream, conn} ->
-
-        # Monitor the stream for a :done value, which signals that either the
-        # upstream channel or the down stream consumer client have closed, after
-        # which we can terminate this stream.
-        cks_stream
-          |> Stream.take_while(
-               fn (x) ->
-                 x != :done
-               end
+          |> put_status(500)
+          |> json(
+              %{
+                error: true,
+                timestamp: DateTime.to_string(DateTime.utc_now()),
+                msg: reason
+              }
              )
-          |> Stream.run()
-          |> (
-               fn (x) ->
-                 IO.puts("  <!> terminating stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
-               end
-             ).()
-
-        conn
     end
   end
 

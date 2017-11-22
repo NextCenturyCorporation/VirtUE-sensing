@@ -1,3 +1,8 @@
+# In Progress
+ 
+ - [x] decouple sensor id and topic (https://github.com/twosixlabs/savior/issues/22)
+ - [ ] wire up inspect route for sensor lookup
+ - [ ] expand inspect with targeting utility to convert targeting data to mnesia lookup
 
 # Sensing Architecture
 
