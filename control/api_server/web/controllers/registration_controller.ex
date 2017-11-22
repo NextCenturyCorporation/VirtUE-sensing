@@ -263,7 +263,7 @@ defmodule ApiServer.RegistrationController do
               {:ok, sensor_blob} ->
 
                 # broadcast a control topic alert message
-                ApiServer.ControlUtils.announce_new_sensor(sensor_blob, sensor)
+                ApiServer.ControlUtils.announce_new_sensor(sensor_blob)
 
                 # record some registration metadata to the log
                 IO.puts("  @ sensor(id=#{sensor}, name=#{sensor_name}) registered at #{DateTime.to_string(DateTime.utc_now())}")

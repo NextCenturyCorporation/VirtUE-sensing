@@ -24,19 +24,19 @@ defmodule ApiServer.ControlUtils do
 
     {:ok, %Sensor{}}
   """
-  def announce_new_sensor(sensor_stuct_data, topic) do
+  def announce_new_sensor(sensor_struct_data) do
 
     case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
       %{
         error: false,
         action: "sensor-registration",
-        sensor: sensor_stuct_data,
-        topic: topic,
+        sensor: sensor_struct_data,
+        topic: sensor_struct_data.kafka_topic,
         timestamp: DateTime.to_string(DateTime.utc_now())
       }
     )) do
       :ok ->
-        IO.puts("announced new sensor (topic=#{topic})")
+        IO.puts("announced new sensor(id=#{sensor_struct_data.sensor}) (topic=#{sensor_struct_data.kafka_topic})")
       {:error, reason} ->
         IO.puts("got some kinda error announcing a new sensor: #{reason}")
     end

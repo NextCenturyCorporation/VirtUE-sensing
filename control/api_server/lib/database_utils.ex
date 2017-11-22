@@ -209,6 +209,46 @@ defmodule ApiServer.DatabaseUtils do
   end
 
   @doc """
+  Retrieve the full Sensor record for a sensor id.
+
+  ### Returns:
+
+    {:ok, record}
+    {:error, reason}
+  """
+  def record_for_sensor(%Sensor{:sensor => sensor}) do
+    case Mnesia.transaction(
+           fn ->
+             case Mnesia.match_object(
+                    {
+                      Sensor,
+                      :_,
+                      sensor,
+                      :_, :_, :_, :_, :_,
+                      :_, :_, :_
+                    }
+                  ) do
+
+               # no matches
+               [] ->
+                 {:error, :no_such_sensor}
+
+               # one or more matching records. we return the first of them
+               records ->
+                 {:ok, Sensor.from_mnesia_record(List.first(records))}
+             end
+           end
+         ) do
+      {:atomic, {:ok, sensor_struct}} ->
+        {:ok, sensor_struct}
+      {:atomic, {:error, :no_such_sensor}} ->
+        {:error, :no_such_sensor}
+      {:atomic, {:aborted, reason}} ->
+        {:error, "deregistration aborted: #{reason}"}
+    end
+  end
+
+  @doc """
   Remove a sensor from the tracking database.
 
   Sensors are matched based on exact matching of both the **sensor ID**
@@ -245,7 +285,7 @@ defmodule ApiServer.DatabaseUtils do
             :_,
             sensor,
             :_, :_, :_, :_, :_,
-            public_key, :_
+            public_key, :_, :_
           }
         ) do
 
