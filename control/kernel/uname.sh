@@ -13,7 +13,7 @@ echo "/* this file is generated automatically in the makefile */" > $FILENAME
 echo "const char *cont_long_version = \"$VERSION\";" >> $FILENAME
 echo "const char *cont_short_version = \"$SHORT_VERSION\";" >> $FILENAME
 
-if [[ $SHORT_VERSION < "4.13.1" ]] ; then
+if [[ $SHORT_VERSION < "4.9" ]] ; then
     API=old
     echo "#define OLD_API = 1;" >> $FILENAME
 else
