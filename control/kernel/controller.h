@@ -2,8 +2,7 @@
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
-
-/* the kernel itself has dynamic trace points, they 
+/* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
  */
 #include <linux/module.h>
@@ -15,7 +14,8 @@
 #include <linux/list.h>
 #include <linux/socket.h>
 #include <linux/kthread.h>
-
+#include <linux/slab.h>
+#include <linux/delay.h>
 
 /* - - probe - -
  *
@@ -76,9 +76,14 @@ struct kernel_sensor {
 	spinlock_t lock;
 	uint64_t flags;
 	struct list_head *l;
+	struct kthread_worker *kworker;
+	struct kthread_work *kwork;
 	struct probe_s probes[PROBES_PER_SENSE];
 };
 
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
+
+
+#define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
