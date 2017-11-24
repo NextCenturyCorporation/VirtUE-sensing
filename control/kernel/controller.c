@@ -12,8 +12,8 @@ struct list_head *probe_queues[0x10];
 
 int probe_socket;
 
-int _pr(uint64_t, uint8_t *);
-
+struct kthread_work *co_work;
+struct kthread_worker *co_worker;
 
 struct kernel_sensor ks = {.id="kernel-sensor",
 						   .lock=__SPIN_LOCK_UNLOCKED(lock),
@@ -21,24 +21,45 @@ struct kernel_sensor ks = {.id="kernel-sensor",
 						   .kwork=NULL,
 						   .probes[0].id="probe-controller",
 						   .probes[0].lock=__SPIN_LOCK_UNLOCKED(lock),
-						   .probes[0].probe=_pr};
+						   .probes[0].probe=k_probe};
 
-/* template probe function  */
-int _pr(uint64_t flags, uint8_t *probe_data)
+/* ugly but expedient way to support < 4.9 kernels */
+static bool
+init_and_queue_work(struct kthread_work *work,
+					struct kthread_worker *worker,
+					void (*function)(struct kthread_work *))
 {
-	return 0;
+#ifdef OLD_API
+	init_kthread_work(work, function);
+#else
+	kthread_init_work(work, function);
+#endif
+
+#ifdef OLD_API
+	return queue_kthread_work(worker, work);
+#else
+	return kthread_queue_work(worker, work);
+#endif
+
 }
 
-/* a generic sensor function, called from kernel worker thread. */
-/* a sensor that did something would replace the schedule call */
-/* with some sleep/reschedule logic */
-void  k_sensor(struct kthread_work *work)
+
+
+/* This is a worker, called from kernel worker thread.
+ * it needs to execute quickly and can't hold any locks or
+ * blocking objects. Once it runs once, it must be re-initialized
+ * and re-queued to run again..
+ */
+
+void  k_probe(struct kthread_work *work)
 {
-
-  DMSG();
-  printk(KERN_ALERT "nothing to see here\n");
-
-  DMSG();
+	static int countdown = 4;
+	struct kthread_worker *co_worker = work->worker;
+	printk(KERN_ALERT "generic probe function\n");
+	if (countdown) {
+		countdown--;
+		init_and_queue_work(work, co_worker, k_probe);
+	}
 
   return;
 }
@@ -50,55 +71,40 @@ static int __init controller_init(void)
 {
 
 	int ccode = 0;
-
-
-	struct kthread_work *my_work;
-	struct kthread_worker *my_worker;
 	DMSG();
 
-	my_work = kmalloc(sizeof(*my_work), GFP_KERNEL);
-	if (!my_work) {
+	co_work = kmalloc(sizeof(*co_work), GFP_KERNEL);
+	if (!co_work) {
 		DMSG();
 		return -ENOMEM;
 	}
 
 	do {
-	  my_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
+	  co_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
 		schedule();
-		if (ERR_PTR(-ENOMEM) == my_worker) {
+		if (ERR_PTR(-ENOMEM) == co_worker) {
 			ccode = -ENOMEM;
 			goto err_exit;
 		}
-	} while (ERR_PTR(-EINTR) == my_worker);
+	} while (ERR_PTR(-EINTR) == co_worker);
 
-	printk(KERN_ALERT "my_worker is %p; my_work is %p\n", my_worker, my_work);
-	DMSG();
-
-#ifdef OLD_API
-	init_kthread_work(my_work, k_sensor);
-#else
-	kthread_init_work(my_work, k_sensor);
-#endif
-	ks.kworker = my_worker;
-	ks.kwork = my_work;
-	DMSG();
-#ifdef OLD_API
-	queue_kthread_work(my_worker, my_work);
-#else
-	kthread_queue_work(my_worker, my_work);
-#endif
+	printk(KERN_ALERT "co_worker is %p; co_work is %p\n", co_worker, co_work);
 	DMSG();
 
 err_exit:
+	kfree(co_work);
+	co_work = NULL;
 	return ccode;
-
 }
 
 static void __exit controller_cleanup(void)
 {
-  kthread_destroy_worker(ks.kworker);
-  printk(KERN_ALERT "controller cleanup\n");
-
+	printk(KERN_ALERT "controller cleanup\n");
+    kthread_destroy_worker(ks.kworker);
+	/* work nodes do not get destroyed along with a worker */
+	if (co_work) {
+		kfree(co_work);
+	}
 }
 
 module_init(controller_init);

@@ -40,15 +40,15 @@
  */
 
 #define PROBES_PER_SENSE 128
-
 /* prototype probe routine */
+void  k_probe(struct kthread_work *work);
 int (*probe)(uint64_t flags, uint8_t *buf) = NULL;
 #define DEFAUT_PROBE_DATA 1024
 struct probe_s {
 	uint8_t *id;
 	spinlock_t lock;
 	uint64_t flags, timeout, repeat;
-	int (*probe)(uint64_t, uint8_t *);
+	void (*probe)(struct kthread_work *);
 	struct list_head *l;
 	uint8_t data[DEFAUT_PROBE_DATA];
 };
@@ -99,7 +99,7 @@ kthread_destroy_worker(struct kthread_worker *worker)
 {
 	;
 }
-#endif 
+#endif
 
 
 #define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
