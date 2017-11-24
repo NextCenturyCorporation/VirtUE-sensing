@@ -67,7 +67,7 @@ static int __init controller_init(void)
 	}
 
 	do {
-		my_worker = kthread_create_worker(0, "unremarkable-daemon", &ks);
+	  my_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
 		schedule();
 		if (ERR_PTR(-ENOMEM) == my_worker) {
 			ccode = -ENOMEM;
