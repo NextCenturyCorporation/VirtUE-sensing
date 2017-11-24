@@ -37,7 +37,7 @@ void  k_sensor(struct kthread_work *work)
 
   DMSG();
   printk(KERN_ALERT "nothing to see here\n");
-  
+
   DMSG();
 
   return;
@@ -70,7 +70,7 @@ static int __init controller_init(void)
 			goto err_exit;
 		}
 	} while (ERR_PTR(-EINTR) == my_worker);
-	
+
 	printk(KERN_ALERT "my_worker is %p; my_work is %p\n", my_worker, my_work);
 	DMSG();
 
@@ -91,14 +91,14 @@ static int __init controller_init(void)
 
 err_exit:
 	return ccode;
-	
+
 }
 
 static void __exit controller_cleanup(void)
 {
   kthread_destroy_worker(ks.kworker);
   printk(KERN_ALERT "controller cleanup\n");
-	
+
 }
 
 module_init(controller_init);
