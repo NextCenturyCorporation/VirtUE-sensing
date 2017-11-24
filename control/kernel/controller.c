@@ -4,7 +4,6 @@
  ******************************************************************************/
 #include "controller.h"
 
-
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("In-VirtUE Kernel Controller");
 
@@ -37,11 +36,8 @@ void  k_sensor(struct kthread_work *work)
 {
 
   DMSG();
-
-  while(!kthread_should_stop()) {
-	  printk("nothing to see here\n");
-	  ssleep(60);
-  }
+  printk(KERN_ALERT "nothing to see here\n");
+  
   DMSG();
 
   return;
@@ -54,7 +50,7 @@ static int __init controller_init(void)
 {
 
 	int ccode = 0;
-/* kthread_create_worker */
+
 
 	struct kthread_work *my_work;
 	struct kthread_worker *my_worker;
@@ -100,7 +96,8 @@ err_exit:
 
 static void __exit controller_cleanup(void)
 {
-	kthread_destroy_worker(ks.kworker);
+  kthread_destroy_worker(ks.kworker);
+  printk(KERN_ALERT "controller cleanup\n");
 	
 }
 
