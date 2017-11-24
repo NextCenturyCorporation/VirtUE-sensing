@@ -53,7 +53,7 @@ static inline struct kthread_worker *init_worker(void)
 	struct kthread_worker *w = kmalloc(sizeof(*w), GFP_KERNEL);
 	if (!w)
 		return NULL;
-#ifdef CONT_OLD_API
+#ifdef OLD_API
 	init_kthread_worker(w);
 #else
 	kthread_init_worker(w);
@@ -67,7 +67,7 @@ static inline struct kthread_work *init_work(void (fn)(struct kthread_work *) )
 	struct kthread_work *w = kmalloc(sizeof(*w), GFP_KERNEL);
 	if (!w)
 		return NULL;
-#ifdef CONT_OLD_API
+#ifdef OLD_API
 	init_kthread_work(w, fn);
 #else
 	kthread_init_work(w, fn);
@@ -83,6 +83,8 @@ static int __init controller_init(void)
 {
 
 	int ccode = -ENOMEM;
+/* kthread_create_worker */
+
 	struct kthread_work *my_work = init_work(k_sensor);
 	struct kthread_worker *my_worker = init_worker();
 	DMSG();
