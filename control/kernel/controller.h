@@ -17,6 +17,8 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 
+#include "uname.h"
+
 /* - - probe - -
  *
  * A probe is an active sensor. It is a function that runs as a kernel
@@ -84,6 +86,20 @@ struct kernel_sensor {
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
+
+#ifdef OLD_API
+struct kthread_worker *
+kthread_create_worker(unsigned int flags, const char namefmt[], ...)
+{
+	return ERR_PTR(-ENOMEM);
+}
+
+void
+kthread_destroy_worker(struct kthread_worker *worker)
+{
+	;
+}
+#endif 
 
 
 #define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
