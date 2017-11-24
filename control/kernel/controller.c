@@ -3,7 +3,7 @@
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
 #include "controller.h"
-#include "uname.h"
+
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("In-VirtUE Kernel Controller");
@@ -39,8 +39,8 @@ void  k_sensor(struct kthread_work *work)
   DMSG();
 
   while(!kthread_should_stop()) {
-	  ssleep(5);
-    printk("%s\n", ks.kworker->task->comm);
+	  printk("nothing to see here\n");
+	  ssleep(60);
   }
   DMSG();
 
@@ -48,94 +48,60 @@ void  k_sensor(struct kthread_work *work)
 }
 
 
-static inline struct kthread_worker *init_worker(void)
-{
-	struct kthread_worker *w = kmalloc(sizeof(*w), GFP_KERNEL);
-	if (!w)
-		return NULL;
-#ifdef OLD_API
-	init_kthread_worker(w);
-#else
-	kthread_init_worker(w);
-#endif
-	return w;
-}
-
-
-static inline struct kthread_work *init_work(void (fn)(struct kthread_work *) )
-{
-	struct kthread_work *w = kmalloc(sizeof(*w), GFP_KERNEL);
-	if (!w)
-		return NULL;
-#ifdef OLD_API
-	init_kthread_work(w, fn);
-#else
-	kthread_init_work(w, fn);
-#endif
-	return w;
-}
-
-int started_task = 0;
-
 /* init function for the controller, creates a worker
  *  and links a work node into the worker's list, runs the worker. */
 static int __init controller_init(void)
 {
 
-	int ccode = -ENOMEM;
+	int ccode = 0;
 /* kthread_create_worker */
 
-	struct kthread_work *my_work = init_work(k_sensor);
-	struct kthread_worker *my_worker = init_worker();
+	struct kthread_work *my_work;
+	struct kthread_worker *my_worker;
 	DMSG();
 
-	if (my_work == NULL || my_worker == NULL)
-	{
+	my_work = kmalloc(sizeof(*my_work), GFP_KERNEL);
+	if (!my_work) {
 		DMSG();
-		goto err_exit;
+		return -ENOMEM;
 	}
 
-	DMSG();
+	do {
+		my_worker = kthread_create_worker(0, "unremarkable-daemon", &ks);
+		schedule();
+		if (ERR_PTR(-ENOMEM) == my_worker) {
+			ccode = -ENOMEM;
+			goto err_exit;
+		}
+	} while (ERR_PTR(-EINTR) == my_worker);
+	
 	printk(KERN_ALERT "my_worker is %p; my_work is %p\n", my_worker, my_work);
 	DMSG();
-	my_worker->task = kthread_run(kthread_worker_fn, my_work, "run-kernel-probes");
-	DMSG();
-	if (IS_ERR(my_worker->task)) {
-		ccode = -ENOSYS;
-		DMSG();
-		printk(KERN_ALERT "error starting the worker thread kthread_worker_fn %p"\
-			   "my_work %p my_worker %p\n", kthread_worker_fn,
-			   my_work, my_worker);
-		goto err_exit;
-	}
-	started_task = 1;
-	DMSG();
 
-	printk("%p\n", ks.kworker->task);
-	return 0;
+#ifdef OLD_API
+	init_kthread_work(my_work, k_sensor);
+#else
+	kthread_init_work(my_work, k_sensor);
+#endif
+	ks.kworker = my_worker;
+	ks.kwork = my_work;
+	DMSG();
+#ifdef OLD_API
+	queue_kthread_work(my_worker, my_work);
+#else
+	kthread_queue_work(my_worker, my_work);
+#endif
+	DMSG();
 
 err_exit:
-	if(my_work != NULL) {
-		kfree(my_work);
-		my_work = NULL;
-	}
-
-	if(my_worker != NULL) {
-		kfree(my_worker);
-		my_worker = NULL;
-	}
-
-	DMSG();
 	return ccode;
+	
 }
 
 static void __exit controller_cleanup(void)
 {
-	if (started_task == 1) {
-		kthread_stop(ks.kworker->task);
-		/* remainder of kernel_sensor shutdown goes here */
-	}
-
+	kthread_destroy_worker(ks.kworker);
+	
 }
 
 module_init(controller_init);
