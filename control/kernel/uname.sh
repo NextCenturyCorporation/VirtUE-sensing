@@ -28,10 +28,14 @@ echo "const int sublevel = $SUBLEVEL;" >> $FILENAME
 if (( $VERSION >= 4 )) ; then
     if (( $PATCHLEVEL < 9 )); then
 	API=old
-	echo "#define OLD_API 1;" >> $FILENAME
+	echo "#define OLD_API 1" >> $FILENAME
+	echo "#define CONT_INIT_WORK init_kthread_work"  >> $FILENAME
+	echo "#define CONT_QUEUE_WORK queue_kthread_work"  >> $FILENAME
     else
 	API=new
-	echo "#define NEW_API 1;" >> $FILENAME
+		echo "#define CONT_INIT_WORK kthread_init_work"  >> $FILENAME
+	echo "#define CONT_QUEUE_WORK kthread_queue_work"  >> $FILENAME
+	echo "#define NEW_API 1" >> $FILENAME
     fi
 fi
 

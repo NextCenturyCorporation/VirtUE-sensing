@@ -31,17 +31,8 @@ init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
 					void (*function)(struct kthread_work *))
 {
-#ifdef OLD_API
-	init_kthread_work(work, function);
-#else
-	kthread_init_work(work, function);
-#endif
-
-#ifdef OLD_API
-	return queue_kthread_work(worker, work);
-#else
-	return kthread_queue_work(worker, work);
-#endif
+	CONT_INIT_WORK(work, function);
+	return CONT_QUEUE_WORK(worker, work);
 
 }
 
