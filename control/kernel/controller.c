@@ -36,6 +36,48 @@ init_and_queue_work(struct kthread_work *work,
 
 }
 
+void *destroy_probe_work(struct kthread_work *work)
+{
+	memset(work, 0, sizeof(struct kthread_work));
+	return work;
+
+}
+
+
+/**
+ * destroy a struct probe_s, by tearing down
+ * its allocated resources.
+ * To free a dynamically allocated probe, you
+ * could call it like this:
+ *
+ *   kfree(destroy_k_probe(probe));
+ *
+ *  The inside call frees memory allocated for the probe id
+ *   and probe data, destroys a probe work node if it is there,
+ *  and returns a zero'ed out memory buffer to the outer call.
+ */
+void *destroy_k_probe(struct probe_s *probe)
+{
+	uint8_t *pid = NULL, *pdata = NULL;
+	struct kthread_work *pwork = probe->probe_work;
+	pid = probe->probe_id;
+	pdata = probe->data;
+	memset(probe, 0, sizeof(struct probe_s));
+	if (pid) {
+		kfree(pid);
+	}
+	if (pdata) {
+		kfree(pdata);
+	}
+	if (pwork) {
+		destroy_probe_work(probe->probe_work);
+	}
+
+	return probe;
+}
+
+
+
 
 
 /**
@@ -43,9 +85,9 @@ init_and_queue_work(struct kthread_work *work,
  *  - clear the kprobe memory
  *  - initialize the probe's spinlock and list head
  *  - allocates memory for the probe's ID and data
- *  - does not initialize probe->probe_work with a work node, 
- *    that does need to get done by the kthreads library. 
- * Initialize a kernel probe structure. 
+ *  - does not initialize probe->probe_work with a work node,
+ *    which does need to get done by the kthreads library.
+ * Initialize a kernel probe structure.
  * void *init_k_probe(struct probe_s *p)
  */
 struct probe_s *init_k_probe(struct probe_s *probe)
