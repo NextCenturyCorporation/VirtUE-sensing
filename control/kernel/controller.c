@@ -76,6 +76,7 @@ void *destroy_k_probe(struct probe_s *probe)
 	return probe;
 }
 
+
 struct kthread_worker *
 __cont_create_worker(int cpu, unsigned int flags,
 			const char namefmt[], va_list args)
@@ -110,8 +111,6 @@ fail_task:
 	kfree(worker);
 	return ERR_CAST(task);
 }
-
-
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 {
