@@ -39,11 +39,10 @@
  * they are registered with the kernel.
  */
 
+
+
 #define PROBE_ID_SIZE 0x1000
 #define PROBE_DATA_SIZE 0x4000
-/* prototype probe routine */
-void  k_probe(struct kthread_work *work);
-int (*probe)(uint64_t flags, uint8_t *buf) = NULL;
 
 struct probe_s {
 	uint8_t *probe_id;
@@ -53,9 +52,23 @@ struct probe_s {
 	struct list_head probe_list;
 	uint8_t *data;
 };
+/* probes are run by kernel worker threads (struct kthread_worker)
+ * and they are structured as kthread "works" (struct kthread_work)
+ */
+struct kthread_worker *
+kthread_create_worker(unsigned int flags, const char namefmt[], ...);
+void kthread_destroy_worker(struct kthread_worker *worker);
 
-struct probe_s *init_k_probe(struct probe_s *);
+struct probe_s *init_k_probe(struct probe_s *probe);
+void *destroy_probe_work(struct kthread_work *work);
+void *destroy_k_probe(struct probe_s *probe);
 
+
+
+/**
+ *
+ * "more stable" api from here onward
+ */
 uint8_t *register_probe(uint64_t flags,
 				   int (*probe)(uint64_t, uint8_t *),
 				   int delay, int timeout, int repeat);

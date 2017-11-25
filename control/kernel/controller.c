@@ -36,11 +36,17 @@ init_and_queue_work(struct kthread_work *work,
 
 }
 
+/**
+ * Flushes this work off any work_list it is on.
+ * If work is executing or scheduled, this routine
+ * will block until the work is no longer being run.
+ */
 void *destroy_probe_work(struct kthread_work *work)
 {
+
+	CONT_FLUSH_WORK(work);
 	memset(work, 0, sizeof(struct kthread_work));
 	return work;
-
 }
 
 
@@ -124,12 +130,24 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	return worker;
 }
 
-
-void
-kthread_destroy_worker(struct kthread_worker *worker)
+#ifdef OLD_API
+void kthread_destroy_worker(struct kthread_worker *worker)
 {
+	struct task_struct *task;
+
+	task = worker->task;
+	if (WARN_ON(!task))
+		return;
+
+	flush_kthread_worker(worker);
+	kthread_stop(task);
+	WARN_ON(!list_empty(&worker->work_list));
+	kfree(worker);
+
 	;
 }
+
+#endif
 
 /**
  * init_k_probe - initialize a kprobe that has already been allocated.
