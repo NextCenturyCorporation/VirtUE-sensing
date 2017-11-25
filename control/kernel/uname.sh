@@ -17,7 +17,8 @@ IFS=$OLDIFS
 
 echo "#ifndef _UNAME_CONTROLLER_H" > $FILENAME
 echo "#define _UNAME_CONTROLLER_H" >> $FILENAME
-echo "/* this file is generated automatically in the makefile */" >> $FILENAME
+echo "/*this file is generated automatically in the makefile */" >> $FILENAME
+echo "/*NB: I always assume you are running the same kernel you are building!*/">>$FILENAME
 echo "const char *cont_long_version = \"$FULL_VERSION\";" >> $FILENAME
 echo "const char *cont_short_version = \"$SHORT_VERSION\";" >> $FILENAME
 echo "const int version = $VERSION;" >> $FILENAME
