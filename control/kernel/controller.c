@@ -38,6 +38,49 @@ init_and_queue_work(struct kthread_work *work,
 
 
 
+/**
+ * init_k_probe - initialize a kprobe that has already been allocated.
+ *  - clear the kprobe memory
+ *  - initialize the probe's spinlock and list head
+ *  - allocates memory for the probe's ID and data
+ *  - does not initialize probe->probe_work with a work node, 
+ *    that does need to get done by the kthreads library. 
+ * Initialize a kernel probe structure. 
+ * void *init_k_probe(struct probe_s *p)
+ */
+struct probe_s *init_k_probe(struct probe_s *probe)
+{
+	if (!probe) {
+		return ERR_PTR(-ENOMEM);
+	}
+	memset(probe, 0, sizeof(struct probe_s));
+	probe->probe_id = kzalloc(PROBE_ID_SIZE, GFP_KERNEL);
+	if (!probe->probe_id) {
+		return ERR_PTR(-ENOMEM);
+	}
+
+	probe->probe_lock=__SPIN_LOCK_UNLOCKED("probe");
+	/* flags, timeout, repeat are zero'ed */
+	/* probe_work is NULL */
+	INIT_LIST_HEAD(&(probe)->probe_list);
+
+	probe->data = kzalloc(PROBE_DATA_SIZE, GFP_KERNEL);
+	if (!probe->data) {
+		goto err_exit;
+	}
+	return probe;
+
+err_exit:
+	if (probe->probe_id) {
+		kfree(probe->probe_id);
+	}
+	if (probe->data) {
+		kfree(probe->data);
+	}
+	return ERR_PTR(-ENOMEM);
+}
+
+
 /* A probe routine is a kthread  worker, called from kernel thread.
  * it needs to execute quickly and can't hold any locks or
  * blocking objects. Once it runs once, it must be re-initialized
@@ -91,7 +134,7 @@ static int __init controller_init(void)
 	int ccode = 0;
 	DMSG();
 
-	co_work = kmalloc(sizeof(*co_work), GFP_KERNEL);
+	co_work = kzalloc(sizeof(*co_work), GFP_KERNEL);
 	if (!co_work) {
 		DMSG();
 		return -ENOMEM;

@@ -39,7 +39,8 @@
  * they are registered with the kernel.
  */
 
-#define PROBES_PER_SENSE 128
+#define PROBE_ID_SIZE 0x1000
+#define PROBE_DATA_SIZE 0x4000
 /* prototype probe routine */
 void  k_probe(struct kthread_work *work);
 int (*probe)(uint64_t flags, uint8_t *buf) = NULL;
@@ -52,6 +53,8 @@ struct probe_s {
 	struct list_head probe_list;
 	uint8_t *data;
 };
+
+struct probe_s *init_k_probe(struct probe_s *);
 
 uint8_t *register_probe(uint64_t flags,
 				   int (*probe)(uint64_t, uint8_t *),
@@ -80,7 +83,7 @@ struct kernel_sensor {
 	struct list_head *l;
 	struct kthread_worker *kworker;
 	struct kthread_work *kwork;
-	struct probe_s probes[PROBES_PER_SENSE];
+	struct probe_s probes[1]; /* use it as a pointer */
 };
 
 uint8_t *register_sensor(struct kernel_sensor *s);
