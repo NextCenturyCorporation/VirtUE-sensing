@@ -43,14 +43,14 @@
 /* prototype probe routine */
 void  k_probe(struct kthread_work *work);
 int (*probe)(uint64_t flags, uint8_t *buf) = NULL;
-#define DEFAUT_PROBE_DATA 1024
+
 struct probe_s {
-	uint8_t *id;
-	spinlock_t lock;
-	uint64_t flags, timeout, repeat;
-	void (*probe)(struct kthread_work *);
-	struct list_head *l;
-	uint8_t data[DEFAUT_PROBE_DATA];
+	uint8_t *probe_id;
+	spinlock_t probe_lock;
+	uint64_t flags, timeout, repeat; /* expect that flages will contail level bits */
+	struct kthread_work *probe_work;
+	struct list_head probe_list;
+	uint8_t *data;
 };
 
 uint8_t *register_probe(uint64_t flags,

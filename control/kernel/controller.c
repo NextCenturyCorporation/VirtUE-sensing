@@ -19,11 +19,13 @@ struct kernel_sensor ks = {.id="kernel-sensor",
 						   .lock=__SPIN_LOCK_UNLOCKED(lock),
 						   .kworker=NULL,
 						   .kwork=NULL,
-						   .probes[0].id="probe-controller",
-						   .probes[0].lock=__SPIN_LOCK_UNLOCKED(lock),
-						   .probes[0].probe=k_probe};
+						   .probes[0].probe_id="probe-controller",
+						   .probes[0].probe_lock=__SPIN_LOCK_UNLOCKED(lock)};
 
 /* ugly but expedient way to support < 4.9 kernels */
+/* todo: convert to macros and move to header */
+/* CONT_INIT_AND_QUEUE, CONT_INIT_WORK, CONT_QUEUE_WORK */
+
 static bool
 init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
@@ -45,22 +47,47 @@ init_and_queue_work(struct kthread_work *work,
 
 
 
-/* This is a worker, called from kernel worker thread.
+/* A probe routine is a kthread  worker, called from kernel thread.
  * it needs to execute quickly and can't hold any locks or
  * blocking objects. Once it runs once, it must be re-initialized
- * and re-queued to run again..
+ * and re-queued to run again...see /include/linux/kthread.h
  */
 
+/*
+ * Sample probe function
+ *
+ * Called by the "sensor" thread to "probe."
+ * This sample keeps track of how many times is has run.
+ * Each time the sample runs it increments its count, prints probe
+ * information, and either reschedules itself or dies.
+ *
+ */
 void  k_probe(struct kthread_work *work)
 {
-	static int countdown = 4;
+
+	uint64_t *count;
 	struct kthread_worker *co_worker = work->worker;
-	printk(KERN_ALERT "generic probe function\n");
-	if (countdown) {
-		countdown--;
+    struct probe_s *probe_struct =
+		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
+
+/* this pragma is necessary until we make more explicit use of probe_struct->data */
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wunused-value"
+	count = (uint64_t *)probe_struct->data;
+	*count++;
+
+	printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
+		   probe_struct->probe_id,
+		   probe_struct->flags,
+		   probe_struct->timeout,
+		   probe_struct->repeat,
+		   *count);
+
+	if (probe_struct->repeat) {
+		probe_struct->repeat--;
 		init_and_queue_work(work, co_worker, k_probe);
 	}
-
+#pragma GCC diagnostic pop
   return;
 }
 
