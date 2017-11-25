@@ -76,9 +76,8 @@ void *destroy_k_probe(struct probe_s *probe)
 		kfree(pdata);
 	}
 	if (pwork) {
-		destroy_probe_work(probe->probe_work);
+		destroy_probe_work(pwork);
 	}
-
 	return probe;
 }
 
