@@ -1,10 +1,10 @@
 # In Progress
  
- - [ ] wire up inspect route for sensor lookup
+ - [x] wire up inspect route for sensor lookup
   
  - [x] expand inspect with targeting utility to convert targeting data to mnesia lookup
   - [x] build out all of our combos from precedence order
- - [ ] pruning appears to be broken...
+ - [x] pruning appears to be broken...
  - [x] basic logging of targeting and selection scope
  - [x] convert targeting and scope into mnesia query
  - [ ] finish INSPECT
@@ -18,7 +18,7 @@
  - [ ] new values in sync (add/remove tracking of applications and resource monitored)
  - [ ] we can expand querying by Username and Address and Virtue across more of the scopes
  
-Inspect 
+Inspect returns a list of sensors including
  - Virtue - all virtues in use by user, or limited to a virtue
   - username
   - virtue_id

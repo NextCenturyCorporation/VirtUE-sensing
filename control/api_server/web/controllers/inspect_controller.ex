@@ -53,8 +53,6 @@ defmodule ApiServer.InspectController do
   """
   def inspect(conn, opts) do
 
-#    inspect_scope = conn.assigns.targeting_scope
-#    IO.puts("  🔍 #{inspect_scope}")
     ApiServer.TargetingUtils.log_targeting(conn.assigns.targeting, conn.assigns.targeting_scope)
     {:ok, sensors} = ApiServer.TargetingUtils.select_sensors_from_targeting(conn.assigns.targeting, conn.assigns.targeting_scope)
 
@@ -73,19 +71,5 @@ defmodule ApiServer.InspectController do
          )
 
   end
-
-  # temporary data generation
-  defp generate_random_sensor_list() do
-    Enum.map(1..:rand.uniform(10), fn (_) -> generate_random_sensor() end)
-  end
-
-  defp generate_random_sensor() do
-    %{
-      "sensor": uuid4(),
-      "virtue": uuid4(),
-      "state": Enum.random(["active", "inactive"]),
-      "name": Enum.random(["snort", "tripwire", "ptrace"])
-    }
-  end
-
+  
 end
