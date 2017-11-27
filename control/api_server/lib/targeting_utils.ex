@@ -20,7 +20,19 @@ defmodule ApiServer.TargetingUtils do
     )
   end
 
+  @doc """
+  Use targeting metadata to select a list of sensors.
 
+  ### Parameters
+
+    - targeting : Targeting data as extracted by ApiServer.ExtractionPlug.extract_targeting/2
+    - query scope: Scope of the targeting data as extracted by ApiServer.ExtractionPlug.extract_scope/2
+
+  ### Returns
+
+    {:ok, [%Sensor{},...]}
+
+  """
   def select_sensors_from_targeting(targeting, targeting_scope) do
 
     guard = select_guard_from_targeting(targeting, targeting_scope)
