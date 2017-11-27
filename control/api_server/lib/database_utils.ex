@@ -109,7 +109,7 @@ defmodule ApiServer.DatabaseUtils do
               # match
               {
                 Sensor,
-                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8", :"$9", "$10"
+                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8", :"$9", :"$10"
               },
 
               # guard (timestamp older than 15 minutes
@@ -211,6 +211,10 @@ defmodule ApiServer.DatabaseUtils do
   @doc """
   Retrieve the full Sensor record for a sensor id.
 
+  ### Parameters
+
+    - sensor - %Sensor{} struct with sensor id set
+
   ### Returns:
 
     {:ok, record}
@@ -248,6 +252,18 @@ defmodule ApiServer.DatabaseUtils do
     end
   end
 
+  @doc """
+  Retrieve the full sensor records for a given Virtue
+
+  ### Parameters
+
+    - virtue - Virtue ID
+
+  ### Returns
+
+    {:ok, [%Sensor{},...]}
+    {:error, reason}
+  """
   def record_for_virtue(virtue) when virtue != nil do
 
     case Mnesia.transaction(
