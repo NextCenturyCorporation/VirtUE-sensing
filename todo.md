@@ -1,9 +1,53 @@
 # In Progress
  
- - [x] decouple sensor id and topic (https://github.com/twosixlabs/savior/issues/22)
  - [ ] wire up inspect route for sensor lookup
- - [ ] expand inspect with targeting utility to convert targeting data to mnesia lookup
-
+  
+ - [x] expand inspect with targeting utility to convert targeting data to mnesia lookup
+  - [x] build out all of our combos from precedence order
+ - [ ] pruning appears to be broken...
+ - [x] basic logging of targeting and selection scope
+ - [x] convert targeting and scope into mnesia query
+ - [ ] finish INSPECT
+ - [ ] update STREAM with targeting
+  - [ ] stream from single
+  - [ ] stream from multiple
+ - [ ] query mnesia
+ - [ ] expand queries based on the scope (see INSPECT below)
+ - [ ] how to expand queries to values we don't yet have? (application, resource)
+  - [ ] new tables in mnesia (id, sensor, application) (id, sensor, resource)
+ - [ ] new values in sync (add/remove tracking of applications and resource monitored)
+ - [ ] we can expand querying by Username and Address and Virtue across more of the scopes
+ 
+Inspect 
+ - Virtue - all virtues in use by user, or limited to a virtue
+  - username
+  - virtue_id
+ - VM - all vms in use by user or at address or support virtue
+  - username
+  - address
+  - virtue_id
+ - Application - all applications being used by user, or in a virtue, or specific app
+  - username
+  - virtue_id
+  - application_id
+ - Resource - all resources being used by user, or mounted by a virtue, or used by application, or specific resource
+  - username
+  - resource_id
+  - virtue_id
+  - application_id
+ - User - all sensors observing user
+  - username
+  
+ - [ ] username (in db)
+ - [ ] virtue_id (in db)
+ - [ ] address (in db) (partial, interpolate address into ipv4 and hostname, and lookup against both)
+ - [ ] cidr buh. more complicated. we could binary encode it? i guess? guh. we could use a custom function, but isn't that like a table scan?
+ - [ ] application_id (part of register and sync)
+ - [ ] resource_id (part of register and sync)
+ - [ ] sensor_id (in db)
+ 
+ - document order of priority/precedence when fields exist for targeting
+ 
 # Sensing Architecture
 
 

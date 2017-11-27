@@ -216,7 +216,7 @@ defmodule ApiServer.DatabaseUtils do
     {:ok, record}
     {:error, reason}
   """
-  def record_for_sensor(%Sensor{:sensor => sensor}) do
+  def record_for_sensor(%Sensor{:sensor => sensor}) when sensor != nil do
     case Mnesia.transaction(
            fn ->
              case Mnesia.match_object(
@@ -246,6 +246,22 @@ defmodule ApiServer.DatabaseUtils do
       {:atomic, {:aborted, reason}} ->
         {:error, "deregistration aborted: #{reason}"}
     end
+  end
+
+  def record_for_virtue(virtue) when virtue != nil do
+
+    case Mnesia.transaction(
+      fn ->
+        Mnesia.select(Sensor, [{{Sensor, :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8", :"$9", :"$10"}, [{:==, :"$3", virtue}], [:"$$"]}])
+      end
+    ) do
+
+      {:atomic, []} ->
+        {:error, :no_such_sensor}
+      {:atomic, records} ->
+        {:ok, Enum.map(records, fn(rec) -> Sensor.from_mnesia_record(rec) end)}
+    end
+
   end
 
   @doc """

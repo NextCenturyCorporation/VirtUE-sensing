@@ -14,6 +14,28 @@ defmodule ApiServer.ExtractionPlug do
   import Plug.Conn
 #  import CIDR
 
+  @doc """
+  Determine the outer scope of a targeting request.
+
+  For the current v1 API, this is the virst path element
+  after the `/api/v1` portion of the URI path.
+
+  ### Side effects
+
+    conn.assigns.targeting_scope = (:virtue | :application | ...)
+
+  ### Returns
+
+    Plug.Conn
+
+  """
+  def extract_targeting_scope(%Plug.Conn{path_info: path_info} = conn, _) do
+
+    conn
+      |> assign(:targeting_scope, hd(tl(tl(path_info))))
+
+  end
+
   # Extract a Sensor ID labeled `:sensor` from the incoming
   # request path.
   #

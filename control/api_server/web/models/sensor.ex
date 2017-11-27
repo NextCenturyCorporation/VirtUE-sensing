@@ -76,8 +76,13 @@ defmodule Sensor do
     %Sensor{sensor_struct | kafka_topic: uuid4()}
   end
 
-  def from_mnesia_record(rec) do
+  def from_mnesia_record(rec) when is_tuple(rec) do
     args = rec |> Tuple.to_list() |> tl |> tl
+    apply(Sensor, :sensor, args)
+  end
+
+  def from_mnesia_record(rec) when is_list(rec) do
+    args = rec |> tl
     apply(Sensor, :sensor, args)
   end
 

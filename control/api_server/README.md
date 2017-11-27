@@ -32,6 +32,40 @@ mix phoenix.server
 Now you can visit [`localhost:4000/version`](http://localhost:4000/version) from your browser to
 verify you have the server running.
 
+# API Queries and Targeting
+
+The Sensing API uses the concept of _targeting_ to describe the various ways to select
+a group of sensors. The selection is controlled by the route being queried and the parameters
+used as part of the targeting selection. The following values can be used in targeting selectors:
+
+ - **username**: (labeled **user** when targeting) User logged into a Virtue or utilizing a resource or application 
+ - **virtue id**: (labeled **virtue** when targeting) ID string of a specific Virtue
+ - **address**: (labeled **address** when targeting) Hostname or IP address assigned to a Virtue
+ - **CIDR**: (labeled **cidr** when targeting) [Classless Inter-Domain Routing](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) string, possibly matching one or more IP addresses in use by a Virtue
+ - **application id**: (labeled **application** when targeting) ID string of a specific Application
+ - **resource id**: (labeled **resource** when targeting) ID string of a specific network or file system resource
+ - **sensor id**: (labeled **sensor** when targeting) ID string of a specific instantiation of a sensor
+
+Some of these identifiers and terms can be used in combination to refine or expand
+targeting. There is also a defined precedence in the terms or combination of terms
+used to build a targeting selector. The first precedence group that contains non-NULL
+values in a targeting selector is used, regardless of possible groups of lesser precedence.
+The precedence, in decreasing order, is:
+
+ - virtue && user && application
+ - virtue && user
+ - virtue && application
+ - user && application
+ - cidr
+ - virtue
+ - user
+ - address
+ - application
+ - resource
+ - sensor
+
+The order of precedence (and validations for each value type) can be found in [extraction_plug.ex](https://github.com/twosixlabs/savior/blob/master/control/api_server/lib/extraction_plug.ex).
+
 # Run Time
 
 The Sensing API run time is comprised of a set of services that run concurrently to

@@ -10,10 +10,11 @@ defmodule ApiServer.InspectController do
 
   import UUID, only: [uuid4: 0]
 
-  import ApiServer.ExtractionPlug, only: [extract_targeting: 2]
+  import ApiServer.ExtractionPlug, only: [extract_targeting: 2, extract_targeting_scope: 2]
   import ApiServer.TargetingUtils, only: [summarize_targeting: 1]
 
   plug :extract_targeting when action in [:inspect]
+  plug :extract_targeting_scope when action in [:inspect]
 
   @doc """
   Return the set of sensors observing the resources described
@@ -50,7 +51,14 @@ defmodule ApiServer.InspectController do
 
    - HTTP 200 / JSON document describing a set of sensors
   """
-  def inspect(conn, _) do
+  def inspect(conn, opts) do
+
+#    inspect_scope = conn.assigns.targeting_scope
+#    IO.puts("  🔍 #{inspect_scope}")
+    ApiServer.TargetingUtils.log_targeting(conn.assigns.targeting, conn.assigns.targeting_scope)
+    {:ok, sensors} = ApiServer.TargetingUtils.select_sensors_from_targeting(conn.assigns.targeting, conn.assigns.targeting_scope)
+
+
     conn
       |> put_status(200)
       |> json(
@@ -58,7 +66,7 @@ defmodule ApiServer.InspectController do
             %{
               "error": :false,
               "timestamp": DateTime.to_string(DateTime.utc_now()),
-              "sensors": generate_random_sensor_list()
+              "sensors": sensors
             },
             summarize_targeting(conn.assigns)
           )
