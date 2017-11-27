@@ -55,6 +55,8 @@ struct probe_s {
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
  */
+
+#define CONT_CPU_ANY -1
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...);
 void kthread_destroy_worker(struct kthread_worker *worker);

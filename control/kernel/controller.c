@@ -98,7 +98,7 @@ __cont_create_worker(int cpu, unsigned int flags,
 
 	if (cpu >= 0)
 		node = cpu_to_node(cpu);
-	task = kthread_create_on_node(kthread_worker_fn, worker, -1, namefmt, args);
+	task = kthread_create_on_node(kthread_worker_fn, worker, cpu, namefmt, args);
 
 	if (IS_ERR(task))
 		goto fail_task;
@@ -123,7 +123,7 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	va_list args;
 
 	va_start(args, namefmt);
-	worker = __cont_create_worker(-1, flags, namefmt, args);
+	worker = __cont_create_worker(CONT_CPU_ANY, flags, namefmt, args);
 	va_end(args);
 
 	return worker;
