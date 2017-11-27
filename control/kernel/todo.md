@@ -1,15 +1,22 @@
 # Sensing Architecture
 ## Kernel, in-virtue controller, probes, sensors
 
+* Controller: linux kernel module that provides the sensing and probing interface to sensors and probes that need access to kernel memory.
+* Sensor: a collection of probes and some logic that are focused on a ***single type*** of resource.
+* Probe: a function that runs in a kernel context and reads or writes kernel memory; and an organizing structure with a temporary data store. Probes are designed to be low profile and to work together in groups as part of the same Sensor.
+
 ### Controller
   - [ ] open domain socket, r/w messages in a persistent thread
-  - [ ] init function initializes first work node, links it to the work list.
-  - [ ] register probes with each having a timeout and repeat value; run probes as scheduled
+  - [x] init function initializes first work node, links it to the work list.
+  - [x] register probes with each having a timeout and repeat value; run probes as scheduled
+      - [x] provide an example probe structure that runs and reschedules itself
   - [ ] parse jsonl defensively and handle all sensing API messages
   - [ ] kernel sensor handles all of the sensing API messages in JSON format and can be used as a driver for client API testing (more detail on the kernel sensor below.)
 
 ### Test Virtual World
   - [x] create fedora linux VM with kbuild and ksource
+    - [x] install kdebug, debug kernel, kernel debugging tools
+    - [x] save snapshots of starting points for debugging sessions
   - [ ] pull, build, load, and unload module as an automatic test
   - [ ] provide a place and means to store in-kernel test results for later analysis
 
