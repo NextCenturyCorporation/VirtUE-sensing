@@ -40,7 +40,7 @@ if (( $VERSION >= 4 )) ; then
 	echo "#define CONT_INIT_WORK kthread_init_work"  >> $FILENAME
 	echo "#define CONT_FLUSH_WORK kthread_flush_work" >> $FILENAME
 	echo "#define CONT_QUEUE_WORK kthread_queue_work"  >> $FILENAME
-        echo "#define CONT_INIT_WORKER init_kthread_worker"  >> $FILENAME
+        echo "#define CONT_INIT_WORKER kthread_init_worker"  >> $FILENAME
     fi
 fi
 

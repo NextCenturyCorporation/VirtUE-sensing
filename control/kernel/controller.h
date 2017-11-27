@@ -1,3 +1,5 @@
+#ifndef _CONTROLLER_H
+#define _CONTROLLER_H
 /*******************************************************************************
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
@@ -106,3 +108,5 @@ int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
 
 #define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
+#endif // CONTROLLER_H
