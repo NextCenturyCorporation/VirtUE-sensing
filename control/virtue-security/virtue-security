@@ -4274,6 +4274,13 @@ async def api_stream(opts):
     log_level = opts.log_level
 
     full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+
+    if opts.var_username is not None:
+        full_uri = construct_api_uri(opts, "/user/%s/stream" % (opts.var_username,))
+
+    elif opts.var_sensor is not None:
+        full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+
     get_params = {
         "follow": str(follow),
         "since": since.isoformat(),
