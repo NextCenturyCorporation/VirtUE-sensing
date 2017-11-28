@@ -1,17 +1,6 @@
 # In Progress
  
- - [x] wire up inspect route for sensor lookup
-  
- - [x] expand inspect with targeting utility to convert targeting data to mnesia lookup
-  - [x] build out all of our combos from precedence order
- - [x] pruning appears to be broken...
- - [x] basic logging of targeting and selection scope
- - [x] convert targeting and scope into mnesia query
- - [ ] finish INSPECT
- - [ ] update STREAM with targeting
-  - [ ] stream from single
-  - [ ] stream from multiple
- - [ ] query mnesia
+ - [ ] document targeting utils queries for use in other 
  - [ ] expand queries based on the scope (see INSPECT below)
  - [ ] how to expand queries to values we don't yet have? (application, resource)
   - [ ] new tables in mnesia (id, sensor, application) (id, sensor, resource)
