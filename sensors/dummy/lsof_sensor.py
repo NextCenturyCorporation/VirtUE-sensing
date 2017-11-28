@@ -616,7 +616,7 @@ def options():
     parser.add_argument("--virtue-id", dest="virtue_id", default=None, help="ID of the current Virtue, auto-generated if absent")
     parser.add_argument("--username", dest="username", default=None, help="Name of the observed user, inferred if absent")
     parser.add_argument("--sensor-hostname", dest="sensor_hostname", default=None, help="Addressable name of the sensor host")
-    parser.add_argument("--sensor-port", dest="sensor_port", default=11000, help="Port on sensor host where sensor is listening for API actuations")
+    parser.add_argument("--sensor-port", dest="sensor_port", type=int, default=11000, help="Port on sensor host where sensor is listening for API actuations")
 
     return parser.parse_args()
 
