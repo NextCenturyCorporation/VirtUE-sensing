@@ -208,6 +208,7 @@ defmodule ApiServer.Router do
      put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
      put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
      get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
+     get "/sensor/:sensor/inspect", InspectController, :inspect, name: "sensor-inspect"
 
   end
 end

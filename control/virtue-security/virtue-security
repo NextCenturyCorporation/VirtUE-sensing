@@ -4177,6 +4177,39 @@ def extract_jsonl_line(binary):
         return None, binary
 
 
+async def api_inspect(opts):
+    """
+    Query the inspection endpoint.
+
+    :param opts:
+    :return:
+    """
+
+    if opts.var_virtue is not None and opts.var_username is not None:
+        full_uri = construct_api_uri(opts, "/resource/virtue/%s/user/%s/inspect" % (opts.var_virtue, opts.var_username))
+
+    elif opts.var_virtue is not None:
+        full_uri = construct_api_uri(opts, "/virtue/%s/inspect" % (opts.var_virtue,))
+
+    elif opts.var_username is not None:
+        full_uri = construct_api_uri(opts, "/user/%s/inspect" % (opts.var_username,))
+
+    elif opts.var_address is not None:
+        full_uri = construct_api_uri(opts, "/vm/address/%s/inspect" % (opts.var_address,))
+
+    elif opts.var_sensor is not None:
+        full_uri = construct_api_uri(opts, "/sensor/%s/inspect" % (opts.var_sensor,))
+
+    get_params = {
+        "userToken": test_generate_user_token()
+    }
+    res = requests.get(full_uri, params=get_params)
+
+    if res.status_code == 200:
+        print(json.dumps(res.json(), indent=4))
+
+
+
 async def api_monitor(opts):
     """
     Monitor the Sensing API C2 kafka channel.
@@ -4241,6 +4274,13 @@ async def api_stream(opts):
     log_level = opts.log_level
 
     full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+
+    if opts.var_username is not None:
+        full_uri = construct_api_uri(opts, "/user/%s/stream" % (opts.var_username,))
+
+    elif opts.var_sensor is not None:
+        full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+
     get_params = {
         "follow": str(follow),
         "since": since.isoformat(),
@@ -4326,13 +4366,16 @@ def options():
     parser = argparse.ArgumentParser(description="Interact with the SAVIOR VirtUE security API")
 
     # top level control
-    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream", "monitor"])
+    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream", "monitor", "inspect"])
     #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
 
     # identification variables
     parser.add_argument("--network", dest="var_network", default=None, help="Network or IP in CIDR format")
     parser.add_argument("--virtue-id", dest="var_virtue", default=None, help="Virtue ID")
     parser.add_argument("--sensor-id", dest="var_sensor", default=None, help="Sensor ID")
+    parser.add_argument("--username", dest="var_username", default=None, help="Virtue Username")
+    parser.add_argument("--address", dest="var_address", default=None, help="Virtue Address")
+
     # sensor control states
     parser.add_argument("--level", dest="observation_level", default="off", help="Observation level")
     parser.add_argument("--action", dest="trust_action", default="invalidate", help="Validate or invalidate trust",
@@ -4373,7 +4416,8 @@ if __name__ == "__main__":
         "test": test_api,
         "version": api_version,
         "stream": api_stream,
-        "monitor": api_monitor
+        "monitor": api_monitor,
+        "inspect": api_inspect
     }
 
     if opts.mode not in dispatch:

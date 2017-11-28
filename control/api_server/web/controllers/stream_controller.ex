@@ -7,9 +7,10 @@ defmodule ApiServer.StreamController do
   """
   use ApiServer.Web, :controller
 
+  import Supervisor.Spec
   import UUID, only: [uuid4: 0]
 
-  import ApiServer.ExtractionPlug, only: [extract_targeting: 2]
+  import ApiServer.ExtractionPlug, only: [extract_targeting: 2, extract_targeting_scope: 2]
   import ApiServer.TargetingUtils, only: [summarize_targeting: 1]
   import ApiServer.ValidationPlug, only: [valid_log_level: 2, valid_follow: 2, valid_since: 2]
 
@@ -17,6 +18,7 @@ defmodule ApiServer.StreamController do
   plug :valid_follow when action in [:stream]
   plug :valid_since when action in [:stream]
   plug :extract_targeting when action in [:stream]
+  plug :extract_targeting_scope when action in [:stream]
 
   @doc """
   Find, filter, and stream back to the client a set of log messages
@@ -38,48 +40,44 @@ defmodule ApiServer.StreamController do
   ### Returns:
 
     - HTTP 200 / JSONL: newline delimited json stream
+    - HTTP 500 / JSONL: stream or targeting error
   """
   def stream(conn, _) do
 
+    # log targeting data
+    ApiServer.TargetingUtils.log_targeting(conn.assigns.targeting, conn.assigns.targeting_scope)
+
 
     # Let's see if this sensor really exists
-    case ApiServer.DatabaseUtils.record_for_sensor(Sensor.sensor(conn.assigns.targeting.sensor)) do
+    case ApiServer.TargetingUtils.select_sensors_from_targeting(conn.assigns.targeting, conn.assigns.targeting_scope) do
 
-      # ok, the sensor is real, let's start the streamer
-      {:ok, sensor_struct} ->
+      # no sensors selected by targeting
+      {:ok, []} ->
+        IO.puts("  0 sensors found for streaming")
+        conn
+          |> put_status(500)
+          |> json(
+              Map.merge(%{
+                error: true,
+                timestamp: DateTime.to_string(DateTime.utc_now()),
+                reason: "No sensors found matching targeting",
+                },
+                summarize_targeting(conn.assigns)
+              )
+             )
 
-        stream_topic = sensor_struct.kafka_topic
+      # we've got one or more sensor, let's start all of the sterams
+      {:ok, sensor_structs} ->
+
+        stream_topics = Enum.map(sensor_structs, fn (s) -> s.kafka_topic end)
         stream_remote_ip = remote_ip_to_string(conn.remote_ip)
 
-        IO.puts("  <> attempting to stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
+        # Basic logging so we know what's going on
+        IO.puts("  #{length(sensor_structs)} sensors found for streaming")
+        IO.puts("  <> attempting to stream from #{length sensor_structs} sensors to #{stream_remote_ip}")
 
-        # we'll try and build a Stream generator, which we can run
-        # to spool out chunked data responses of JSONL as we receive
-        # messages from Kafka
-        case create_kafka_stream(send_chunked(conn, 200), stream_topic) do
-          {:error, conn} ->
-            IO.puts("  <!> Error retrieving Kafka topic for the targeted sensor")
-            conn
-          {cks_stream, conn} ->
-
-            # Monitor the stream for a :done value, which signals that either the
-            # upstream channel or the down stream consumer client have closed, after
-            # which we can terminate this stream.
-            cks_stream
-            |> Stream.take_while(
-                 fn (x) ->
-                   x != :done
-                 end
-               )
-            |> Stream.run()
-            |> (
-                 fn (x) ->
-                   IO.puts("  <!> terminating stream from (topic=#{stream_topic}) to #{stream_remote_ip}")
-                 end
-                 ).()
-
-            conn
-        end
+        # spin up all of the streams, this will return a Plug.Conn when the stream is broken
+        spawn_stream(send_chunked(conn, 200), stream_topics)
 
       # error finding this sensor, we're gonna bail
       {:error, reason} ->
@@ -96,26 +94,126 @@ defmodule ApiServer.StreamController do
     end
   end
 
-  # temporary data generation
-  defp create_message_stream(conn) do
-    Enum.each(1..:rand.uniform(20),
-        fn(_) ->
-          {:ok, _} = chunk(conn, Poison.encode!(create_message(conn)) <> "\n")
-        end
-    )
+  @doc """
+  Setup tasks to monitor each topic stream and a gather task that collates
+  the messages from the streaming tasks into a single output stream to the
+  client connection.
 
+  This method will finish when the client stream is broken
+
+  ### Parameters
+
+    - %Plug.Conn - Client connection already set for chunked response
+    - [string, ...] - list of one or more kafka topics
+
+  ### Side effects
+
+  This method uses `Task.async` to spawn and manage stream and collation tasks,
+  which are cleaned up with `Task.shutdown` when the client connection is broken.
+
+  ### Returns
+
+    - %Plug.Conn
+  """
+  def spawn_stream(conn, topics) do
+
+    IO.puts("  <> Starting stream with #{length topics} topics")
+
+    # launch the gather
+    gather_task = Task.async(__MODULE__, :stream_gather, [self(), conn])
+
+    # launch the streaming tasks
+    stream_tasks = Enum.map(topics, fn (topic) ->
+      Task.async(__MODULE__, :stream_task, [gather_task.pid, conn, topic])
+    end)
+
+    # wait
+    receive do
+      :stream_gather_done ->
+        IO.puts("  <!> Streaming complete.")
+    end
+
+    # shut it all down
+    IO.puts("  <🛑> Stopping streams and gather tasks")
+    Task.shutdown(gather_task)
+    Enum.each(stream_tasks, fn (t) -> Task.shutdown(t) end)
     conn
   end
 
-  # Connect to Kafka and stream the messages from the given channel
-  defp create_kafka_stream(conn, sensor) do
+  @doc """
+  Gather messages from the streaming tasks, encoded them, and send them
+  to the client.
+
+  ### Parameters
+
+    - Parent PID
+    - %Plug.Conn - Client connection already set to chunked response
+
+  ### Messaging
+
+  If a client connection error is detected during streaming, recursion
+  is halted and a `:stream_gather_done` message is sent to the task parent.
+
+  ### Returns
+
+    - n/a
+  """
+  def stream_gather(parent, conn) do
+
+    receive do
+
+      # we've got a decode JSON message from one of our topics
+      {:ok, msg} ->
+        case chunk(conn, Poison.encode!(msg) <> "\n") do
+          {:ok, _} ->
+            stream_gather(parent, conn)
+
+          {:error, term} ->
+
+            # client has likely disconnected, let's kill this stream
+            send(parent, :stream_gather_done)
+        end
+
+      # one of our topics doesn't exist
+      {:error, :no_such_topic, topic} ->
+        IO.puts("  ! topic(id=#{topic}) doesn't exist")
+        chunk(conn, Poison.encode!(%{error: true, message: "No such topic"}) <> "\n")
+        stream_gather(parent, conn)
+    end
+  end
+
+  @doc """
+  Establish a streaming connection to Kafka for a topic, forwardig received messages
+  to the Gather task.
+
+  This method must be stopped by the Task parent, or the message stream must be exhausted
+  and timed out or broken.
+
+  The Task parent should kill this task with `Task.shutdown`.
+
+  ### Parameters
+
+    - parent - Gather task PID
+    - %Plug.Conn - Client connection
+    - topic - String, kafka topic
+
+  ### Messaging
+
+    - {:error, :no_such_topic, topic} - If topic doesn't yet exist in kafka
+    - {:ok, %{}} - Parsed message payload from Kafka
+
+  ### Returns
+
+    - n/a
+  """
+  def stream_task(parent, conn, topic) do
 
     # make sure the topic exists
-    case KafkaEx.latest_offset(sensor, 0) do
+    case KafkaEx.latest_offset(topic, 0) do
 
       # doesn't exist - we send an error JSON
       :topic_not_found ->
-        chunk(conn, Poison.encode!(%{error: true, message: "No such topic"}) <> "\n")
+        send(parent, {:error, :no_such_topic, topic})
         {:error, conn}
 
       # looks like it exists, let's start streaming
@@ -129,8 +227,8 @@ defmodule ApiServer.StreamController do
         # we build the stream
         cks_stream = Stream.map(
           KafkaEx.stream(
-            sensor, 0,
-            offset: get_topic_offset(sensor, conn.assigns.since_datetime),
+            topic, 0,
+            offset: get_topic_offset(topic, conn.assigns.since_datetime),
             no_wait_at_logend: !conn.assigns.follow_log
           ),
           fn (msg) ->
@@ -150,14 +248,7 @@ defmodule ApiServer.StreamController do
 
                       # this meets or exceeds our level filter
                       :true ->
-                        case chunk(conn, Poison.encode!(parsed_message) <> "\n") do
-                          {:ok, _} ->
-                            :ok
-                          {:error, term} ->
-
-                            # client has likely disconnected, let's kill this stream
-                            :done
-                        end
+                        send(parent, {:ok, parsed_message})
                       :false ->
                         :ok
                     end
@@ -167,7 +258,7 @@ defmodule ApiServer.StreamController do
             end
           end
         )
-        {cks_stream, conn}
+        |> Stream.run()
     end
   end
 
@@ -180,24 +271,11 @@ defmodule ApiServer.StreamController do
     "unknown"
   end
 
-  defp create_message(conn) do
-    Map.merge(
-      %{
-        error: :false,
-        timestamp: DateTime.to_string(DateTime.utc_now()),
-        log_level: Enum.random(["everything", "debug", "info", "warning", "error", "event"]),
-        sensor: uuid4(),
-        message: "this is a log message with a number #{:rand.uniform(1000)}"
-      },
-      summarize_targeting(conn.assigns)
-    )
-  end
-
   @doc """
   Retrieve the MapSet of log levels which are allowable message levels given
   a filtering level.
   """
-  defp get_log_level_set(level) do
+  def get_log_level_set(level) do
     Map.get(%{
       "everything": MapSet.new(["everything", "debug", "info", "warning", "error", "event"]),
       "debug": MapSet.new(["debug", "info", "warning", "error", "event"]),
