@@ -53,10 +53,12 @@ defmodule ApiServer.InspectController do
   """
   def inspect(conn, opts) do
 
+    # Gather the targeted sensors
     ApiServer.TargetingUtils.log_targeting(conn.assigns.targeting, conn.assigns.targeting_scope)
     {:ok, sensors} = ApiServer.TargetingUtils.select_sensors_from_targeting(conn.assigns.targeting, conn.assigns.targeting_scope)
 
-
+    # well, this is easy, isn't it? We only need to make sure we sanitize the sensor records before
+    # releasing them.
     conn
       |> put_status(200)
       |> json(
@@ -64,12 +66,12 @@ defmodule ApiServer.InspectController do
             %{
               "error": :false,
               "timestamp": DateTime.to_string(DateTime.utc_now()),
-              "sensors": sensors
+              "sensors": Enum.map(sensors, fn (s) -> Sensor.sanitize(s) end)
             },
             summarize_targeting(conn.assigns)
           )
          )
 
   end
-  
+
 end
