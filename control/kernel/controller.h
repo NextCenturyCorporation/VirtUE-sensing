@@ -1,9 +1,10 @@
+#ifndef _CONTROLLER_H
+#define _CONTROLLER_H
 /*******************************************************************************
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
-
-/* the kernel itself has dynamic trace points, they 
+/* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
  */
 #include <linux/module.h>
@@ -15,7 +16,10 @@
 #include <linux/list.h>
 #include <linux/socket.h>
 #include <linux/kthread.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
 
+#include "uname.h"
 
 /* - - probe - -
  *
@@ -37,20 +41,38 @@
  * they are registered with the kernel.
  */
 
-#define PROBES_PER_SENSE 128
 
-/* prototype probe routine */
-int (*probe)(uint64_t flags, uint8_t *buf) = NULL;
-#define DEFAUT_PROBE_DATA 1024
+
+#define PROBE_ID_SIZE 0x1000
+#define PROBE_DATA_SIZE 0x4000
+
 struct probe_s {
-	uint8_t *id;
-	spinlock_t lock;
-	uint64_t flags, timeout, repeat;
-	int (*probe)(uint64_t, uint8_t *);
-	struct list_head *l;
-	uint8_t data[DEFAUT_PROBE_DATA];
+	uint8_t *probe_id;
+	spinlock_t probe_lock;
+	uint64_t flags, timeout, repeat; /* expect that flages will contail level bits */
+	struct kthread_work *probe_work;
+	struct list_head probe_list;
+	uint8_t *data;
 };
+/* probes are run by kernel worker threads (struct kthread_worker)
+ * and they are structured as kthread "works" (struct kthread_work)
+ */
 
+#define CONT_CPU_ANY -1
+struct kthread_worker *
+kthread_create_worker(unsigned int flags, const char namefmt[], ...);
+void kthread_destroy_worker(struct kthread_worker *worker);
+
+struct probe_s *init_k_probe(struct probe_s *probe);
+void *destroy_probe_work(struct kthread_work *work);
+void *destroy_k_probe(struct probe_s *probe);
+
+
+
+/**
+ *
+ * "more stable" api from here onward
+ */
 uint8_t *register_probe(uint64_t flags,
 				   int (*probe)(uint64_t, uint8_t *),
 				   int delay, int timeout, int repeat);
@@ -76,9 +98,15 @@ struct kernel_sensor {
 	spinlock_t lock;
 	uint64_t flags;
 	struct list_head *l;
-	struct probe_s probes[PROBES_PER_SENSE];
+	struct kthread_worker *kworker;
+	struct kthread_work *kwork;
+	struct probe_s probes[1]; /* use it as a pointer */
 };
 
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
+
+#define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+
+#endif // CONTROLLER_H
