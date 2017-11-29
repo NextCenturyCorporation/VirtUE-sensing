@@ -21,6 +21,7 @@ from routes import Mapper
 import signal
 import socket
 import sys
+import time
 from uuid import uuid4
 
 # configure ASKS to use curio
@@ -618,6 +619,9 @@ def options():
     parser.add_argument("--sensor-hostname", dest="sensor_hostname", default=None, help="Addressable name of the sensor host")
     parser.add_argument("--sensor-port", dest="sensor_port", type=int, default=11000, help="Port on sensor host where sensor is listening for API actuations")
 
+    # for testing and time management/dependency management
+    parser.add_argument("--delay-start", dest="delay_start", type=int, default=0, help="Number of seconds to delay before startup")
+
     return parser.parse_args()
 
 
@@ -707,6 +711,10 @@ if __name__ == "__main__":
     opts = options()
 
     check_identification(opts)
+
+    if opts.delay_start > 0:
+        print("Delaying startup of lsof_sensor %d seconds" % (opts.delay_start,))
+        time.sleep(opts.delay_start)
 
     # let's jump right into async land
     run(main, opts)
