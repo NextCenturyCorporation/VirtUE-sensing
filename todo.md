@@ -1,13 +1,5 @@
 # In Progress
  
- - [x] containerize sensing api
- - [x] containerize lsof-sensor
- - [ ] setup compose with Kafka, sensing API, two sensors
- - [ ] add a simple "stats" or "report" function to virtue-security to get a list of what's registered
- - [ ] quick script commands for virtue-security container
-  - [ ] monitor
-  - [ ] stream
- 
 # Sensing Architecture
 
 
