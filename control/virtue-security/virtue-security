@@ -4116,7 +4116,7 @@ def load_public_key(key_path):
     return key_string
 
 
-def api_version(opts):
+async def api_version(opts):
     """
     Report on the version of the CLI utility and the running
     Sensing API if we can reach it.
