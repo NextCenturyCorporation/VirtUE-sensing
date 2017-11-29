@@ -9,12 +9,12 @@ use Mix.Config
 config :api_server,
   ecto_repos: [ApiServer.Repo],
   c2_kafka_topic: "api-server-control",
-  sensor_kafka_bootstrap: ["localhost:9092"],
-  client_kafka_bootstrap: ["localhost:9092"]
+  sensor_kafka_bootstrap: ["kafka:9092"],
+  client_kafka_bootstrap: ["kafka:9092"]
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,
-  url: [host: "localhost"],
+  url: [host: "kafka"],
   secret_key_base: "xtb19NAC0sCZ1RNjGUJVguTl7wsUKq/nsnjvx7Xxx/K3uP0aakfoQI/DYi3IH7M0",
   render_errors: [view: ApiServer.ErrorView, format: "json", accepts: ~w(json)],
   pubsub: [name: ApiServer.PubSub,
@@ -43,14 +43,14 @@ config :kafka_ex,
 
   # brokers
   brokers: [
-    {"localhost", 9092}
+    {"kafka", 9092}
   ],
 
   consumer_group: "kafka_ex",
 
   disable_default_worker: false,
 
-  sync_timeout: 3000,
+  sync_timeout: 30000,
 
   max_restarts: 10,
 

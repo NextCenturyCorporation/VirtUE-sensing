@@ -1,0 +1,34 @@
+version: '2'
+services:
+  kafka:
+    image: spotify/kafka
+    ports:
+      - "2181:2181"
+      - "9092:9092"
+    environment:
+      ADVERTISED_HOST: kafka
+      ADVERTISED_PORT: "9092"
+  api:
+    build: "./control/api_server"
+    ports:
+      - "4000:4000"
+    depends_on:
+      - kafka
+    links:
+      - "kafka:kafka"
+  sensor_1:
+    build: "./sensors/dummy"
+    ports:
+      - "11000:11000"
+    depends_on:
+      - kafka
+      - api
+    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11000 --delay-start 7
+  sensor_2:
+    build: "./sensors/dummy"
+    ports:
+      - "11001:11001"
+    depends_on:
+      - kafka
+      - api
+    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11001 --delay-start 7
