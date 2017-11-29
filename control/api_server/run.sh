@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-sleep 5
+sleep 7
 mix phx.server

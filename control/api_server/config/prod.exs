@@ -13,7 +13,7 @@ use Mix.Config
 # which you typically run after static files are built.
 config :api_server, ApiServer.Endpoint,
   http: [:inet6, port: {:system, "PORT"}],
-  url: [host: "example.com", port: 80],
+  url: [host: "example.com", port: 17504],
   cache_static_manifest: "priv/static/cache_manifest.json"
 
 # Do not print debug messages in production

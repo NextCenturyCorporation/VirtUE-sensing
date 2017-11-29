@@ -29,7 +29,7 @@ dependencies with `mix deps.get`, you can start the server with:
 mix phoenix.server
 ```  
 
-Now you can visit [`localhost:4000/version`](http://localhost:4000/version) from your browser to
+Now you can visit [`localhost:17504/version`](http://localhost:4000/version) from your browser to
 verify you have the server running.
 
 # API Queries and Targeting
@@ -175,3 +175,9 @@ locations:
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.sync_sensor/1` - update timestamp for sensor sync
   - **web/controllers/registration_controller.ex** - `ApiServer.RegistrationController.register` - add relevant fields to `register` route
   
+# FAQ
+
+## What's up with port 17504?
+
+The Unicode code point for the 🔍 character is U+1F50D. The numeric conversion is 128269, which is too big for a port number,
+so a literal transposition with _D=4_ and _F=7_ gives us `17504`.  

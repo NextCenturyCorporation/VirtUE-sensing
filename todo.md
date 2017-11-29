@@ -2,7 +2,20 @@
  
 # Sensing Architecture
 
-
+ - [x] fork letsencrypt/boulder
+ - [x] port 4000 conflict
+  - [x] move SensingAPI to a different default port 17504 (Unicode LEFT-POINTING MAGNIFYING GLASS is U+1F50D), numeric conversion is 128269, which is too big, so literal transpose it is
+  - [x] update everywhere
+ - [x] update va.json config
+ - [x] update docker-compose
+ - [ ] figure out certbot workflow, plan integration with python wrapper
+  - [ ] start with just using certbot itself?
+ - [x] run CA in separate docker-compose
+ - [ ] setup named network for API infrastructure
+ - [ ] attach networks for boulder/sensing API
+ - [ ] change "FAKE_DNS" to either be real docker based lookups, or externalized lookups
+ - [ ] how do we get the root public into the trust stores of the other containers?
+ 
 # Dummy Sensor
 
 
@@ -17,7 +30,7 @@ Punting on CA - brain just not in that space at the end of the week.
 
 # CA
  
- - [ ] find basic CA tools
+ - [x] find basic CA tools
  - [ ] root certs
  - [ ] how to generate client/server certs
   

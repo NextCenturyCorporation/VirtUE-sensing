@@ -609,7 +609,7 @@ def options():
     parser.add_argument("--private-key-path", dest="private_key_path", default=None, help="Path to the private key to use")
     # communications
     parser.add_argument("-a", "--api-host", dest="api_host", default="localhost", help="API host URI")
-    parser.add_argument("-p", "--api-port", dest="api_port", default=4000, type=int, help="API host port")
+    parser.add_argument("-p", "--api-port", dest="api_port", default=17504, type=int, help="API host port")
     parser.add_argument("--api-version", dest="api_version", default="v1", help="API version being called")
 
     # identification
