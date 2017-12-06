@@ -1,21 +1,34 @@
 # In Progress
  
+!! - how do we visualize what virtues are active and what they're doing?
+    - how are we going to visualize state of the world
+ 
 # Sensing Architecture
 
- - [x] fork letsencrypt/boulder
- - [x] port 4000 conflict
-  - [x] move SensingAPI to a different default port 17504 (Unicode LEFT-POINTING MAGNIFYING GLASS is U+1F50D), numeric conversion is 128269, which is too big, so literal transpose it is
-  - [x] update everywhere
- - [x] update va.json config
- - [x] update docker-compose
- - [ ] figure out certbot workflow, plan integration with python wrapper
-  - [ ] start with just using certbot itself?
- - [x] run CA in separate docker-compose
- - [ ] setup named network for API infrastructure
- - [ ] attach networks for boulder/sensing API
- - [ ] change "FAKE_DNS" to either be real docker based lookups, or externalized lookups
+ - [x] add CFSSL to the infrastructure compose file
+ - [ ] document CFSSL tooling, add to the docco for the root README
+ - [ ] document the get_certs tool readme
+ - [ ] document the sensor registration and spin up workflow
+ - [ ] separately document the workflow for certificates (quasi HTTP-01 challenge)
  - [ ] how do we get the root public into the trust stores of the other containers?
- 
+ - [ ] start on CA related issues from GH
+ - [ ] stub out Sensing API extensions for certificates
+ - [ ] fix authentication routes in Sensing API to use over-lapping scopes and a non-auth-api plug
+ - [ ] CA integration with Sensor wrapper
+ - [ ] Cert generation for Kafka
+ - [ ] Cert generation for Sensing API
+
+
+!!! cfssl
+
+- use output of gen_csr_and_sign.sh script built so far to call the cfssl `sign` or `authsign` end point
+
+- test deploy on EC2
+
+## how we're using certbot
+
+Boulder directory is at http://boulder:4000/directory
+
 # Dummy Sensor
 
 
