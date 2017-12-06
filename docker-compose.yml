@@ -8,14 +8,20 @@ services:
     environment:
       ADVERTISED_HOST: kafka
       ADVERTISED_PORT: "9092"
+  cfssl:
+    build: "./control/savior-ca"
+    ports:
+      - "3030:3030"
   api:
     build: "./control/api_server"
     ports:
       - "17504:17504"
     depends_on:
       - kafka
+      - cfssl
     links:
       - "kafka:kafka"
+      - "cfssl:cfssl"
   sensor_1:
     build: "./sensors/dummy"
     ports:
