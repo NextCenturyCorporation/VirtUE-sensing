@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+curl -d '{ "request": {"hosts":["sensor-001.savior"], "names":[{"C":"US", "ST":"Virginia", "L":"Arlington", "O":"sensor-001.savior"}], "CN": "sensor-001.savior"} }' http://localhost:3030/api/v1/cfssl/newcert

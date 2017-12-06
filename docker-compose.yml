@@ -20,6 +20,7 @@ services:
     build: "./sensors/dummy"
     ports:
       - "11000:11000"
+      - "5002:5002"
     depends_on:
       - kafka
       - api

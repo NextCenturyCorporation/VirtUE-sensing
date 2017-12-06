@@ -1,0 +1,18 @@
+{
+	"hosts": [
+		"savior-ca"
+	],
+	"key": {
+		"algo": "rsa",
+		"size": 4096
+	},
+	"names": [
+		{
+			"C": "US",
+			"L": "Arlington",
+			"O": "SAVIOR",
+			"OU": "Certificate Authority",
+			"ST": "VA"
+		}
+	]
+}
