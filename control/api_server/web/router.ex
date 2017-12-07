@@ -7,12 +7,25 @@ defmodule ApiServer.Router do
     plug ApiServer.Plugs.Authenticate
   end
 
+  pipeline :api_no_auth do
+    plug :accepts, ["json"]
+  end
 
-   scope "/version", ApiServer do
-     get "/", VersionController, :version
-   end
 
-   # Other scopes may use custom stacks.
+  scope "/version", ApiServer do
+    get "/", VersionController, :version
+  end
+
+  # API routes that do not require authentication
+  scope "/api/v1", ApiServer do
+    pipe_through :api_no_auth
+
+    # server status/availability
+    get "/ready", StatsController, :ready, name: "stats-ready"
+
+  end
+
+   # API routes requiring authentication
    scope "/api/v1", ApiServer do
      pipe_through :api
 
