@@ -107,6 +107,10 @@ defmodule ApiServer do
     #     - add port as companion to address
     #   Version 04
     #     - add public_key
+    #   Version 05
+    #     - add sensor name
+    #   Version 06
+    #     - add kafka topic
     case Mnesia.create_table(Sensor, [
       attributes: [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic],
       disc_copies: [node()]
