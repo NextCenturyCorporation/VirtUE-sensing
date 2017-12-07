@@ -6,10 +6,12 @@
 # Sensing Architecture
 
  - [x] add CFSSL to the infrastructure compose file
- - [ ] document CFSSL tooling, add to the docco for the root README
- - [ ] document the get_certs tool readme
- - [ ] document the sensor registration and spin up workflow
- - [ ] separately document the workflow for certificates (quasi HTTP-01 challenge)
+ - [x] document CFSSL tooling, add to the docco for the root README
+ - [ ] stub out BEAM scaling of Sensing API
+ - [ ] stub out CFSSL scaling
+ - [x] document the get_certs tool readme
+ - [x] document the sensor registration and spin up workflow
+ - [x] separately document the workflow for certificates (quasi HTTP-01 challenge)
  - [ ] how do we get the root public into the trust stores of the other containers?
  - [ ] start on CA related issues from GH
  - [ ] stub out Sensing API extensions for certificates
@@ -17,7 +19,7 @@
  - [ ] CA integration with Sensor wrapper
  - [ ] Cert generation for Kafka
  - [ ] Cert generation for Sensing API
-
+ - [ ] sensor deregistration needs to cause certificate revocation
 
 !!! cfssl
 
