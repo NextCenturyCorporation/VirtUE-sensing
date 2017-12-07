@@ -14,7 +14,7 @@ config :api_server,
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,
-  url: [host: "kafka"],
+  url: [host: "api"],
   secret_key_base: "xtb19NAC0sCZ1RNjGUJVguTl7wsUKq/nsnjvx7Xxx/K3uP0aakfoQI/DYi3IH7M0",
   render_errors: [view: ApiServer.ErrorView, format: "json", accepts: ~w(json)],
   pubsub: [name: ApiServer.PubSub,
@@ -48,7 +48,7 @@ config :kafka_ex,
 
   consumer_group: "kafka_ex",
 
-  disable_default_worker: false,
+  disable_default_worker: true,
 
   sync_timeout: 30000,
 

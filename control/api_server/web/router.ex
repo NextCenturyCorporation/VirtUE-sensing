@@ -23,6 +23,15 @@ defmodule ApiServer.Router do
     # server status/availability
     get "/ready", StatsController, :ready, name: "stats-ready"
 
+    # sensor registration/sync/deregistration workflow
+    put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
+    put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
+    put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
+
+    # unauthenticated calls used during testing
+    get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
+    get "/user/:user/stream", StreamController, :stream, name: "user-stream"
+
   end
 
    # API routes requiring authentication
@@ -205,7 +214,6 @@ defmodule ApiServer.Router do
      ############
      put "/user/:user/observe/:level", ObserveController, :observe, name: "user-observe"
      put "/user/:user/trust/:action", TrustController, :trust, name: "user-trust"
-     get "/user/:user/stream", StreamController, :stream, name: "user-stream"
      get "/user/:user/inspect", InspectController, :inspect, name: "user-inspect"
      get "/user/:user/validate/check", ValidateController, :check, name: "user-validate-check"
      put "/user/:user/validate/:action", ValidateController, :trigger, name: "user-validate-trigger"
@@ -217,10 +225,6 @@ defmodule ApiServer.Router do
      put "/sensor/:sensor/configure", ConfigureController, :configure, name: "sensor-configure-set"
      get "/sensor/:sensor/validate/check", ValidateController, :check, name: "sensor-validate-check"
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
-     put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
-     put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
-     put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
-     get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
      get "/sensor/:sensor/inspect", InspectController, :inspect, name: "sensor-inspect"
 
   end

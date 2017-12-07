@@ -1,6 +1,7 @@
 defmodule ApiServer do
   use Application
   alias :mnesia, as: Mnesia
+  use Retry
 
   def heartbeat() do
     IO.puts("[heartbeat] #{DateTime.to_string(DateTime.utc_now())}")
@@ -30,6 +31,9 @@ defmodule ApiServer do
     # spin up mnesia
     start_mnesia()
 
+    # spin up kafka connection
+    start_kafkaex()
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ApiServer.Supervisor]
@@ -41,6 +45,23 @@ defmodule ApiServer do
   def config_change(changed, _new, removed) do
     ApiServer.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp start_kafkaex() do
+
+    IO.puts("  :: Waiting for Kafka")
+    result = retry with: exp_backoff |> cap(1_000) |> expiry(20_000) do
+
+      case KafkaEx.create_worker(:kafka_ex) do
+        {:ok, _} ->
+          IO.puts("    + Kafka is ready")
+          {:ok, "kafka ready"}
+        {:error, e} ->
+          IO.puts("    ... Kafka not ready")
+          {:error, e}
+      end
+    end
+
   end
 
   defp start_mnesia() do
