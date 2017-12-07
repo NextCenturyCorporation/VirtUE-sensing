@@ -211,7 +211,7 @@ def test_parameter_since():
 
     :return: String
     """
-    return datetime.datetime.now().isoformat()
+    return datetime.datetime.now(tz=pytz.utc).isoformat()
 
 
 def test_parameter_since_fuzz():
