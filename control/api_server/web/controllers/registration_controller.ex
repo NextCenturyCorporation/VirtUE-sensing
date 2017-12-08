@@ -351,6 +351,14 @@ defmodule ApiServer.RegistrationController do
     - :error - verification failed
   """
   def verify_remote_sensor(hostname, port, sensor) do
+
+    # TODO: this request will happen over HTTPS, and we'll need to pass our custom
+    # root CA to the HTTPoison hackney instance, with something like:
+    #
+    #   HTTPoison.get("https://example.com/", [], ssl: [cacertfile: "/app/certs/ca.pem"])
+    #
+    # see: https://github.com/edgurgel/httpoison/issues/294
+
     # let's send out our verification ping
     case HTTPoison.get("http://#{hostname}:#{port}/sensor/#{sensor}/registered", [], [timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
 

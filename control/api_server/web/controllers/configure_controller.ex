@@ -20,6 +20,64 @@ defmodule ApiServer.ConfigureController do
 
 
   @doc """
+  Load the CA root certificate from disk and return it to the caller.
+
+  ### Validations:
+
+    n/a
+
+  ### Available:
+
+    n/a
+
+  ### Return:
+
+    - HTTP 200 / CA root as JSON
+    - HTTP 500 / CA root not found
+  """
+  def ca_root_cert(conn, _) do
+
+    case Application.get_env(:api_server, :ca_cert_file, :does_not_exist) do
+
+      :does_not_exist ->
+        IO.puts("ConfigureController::ca_root_cert -> Cannot find configuration for locating the CA root certificate!")
+        conn
+          |> put_status(500)
+          |> json(
+              %{
+                "error": true,
+                "timestamp": DateTime.to_string(DateTime.utc_now()),
+                "message": "Could not locate the CA root public certificate"
+              }
+             )
+      ca_root_cert_path ->
+        case File.read(ca_root_cert_path) do
+          {:ok, ca_root_cert_data} ->
+            conn
+              |> put_status(200)
+              |> json(
+                  %{
+                    "error": false,
+                    "certificate": ca_root_cert_data,
+                    "timestamp": DateTime.to_string(DateTime.utc_now())
+                  }
+                 )
+          {:error, reason} ->
+            IO.puts("ConfigureController::ca_root_cert -> error reading CA public key from #{ca_root_cert_path}: #{:file.format_error(reason)}")
+            conn
+              |> put_status(500)
+              |> json(
+                  %{
+                    "error": true,
+                    "timestamp": DateTime.to_string(DateTime.utc_now()),
+                    "message": to_string(:file.format_error(reason))
+                  }
+                 )
+        end
+    end
+  end
+
+  @doc """
   Retrieve the settings of a specific sensor, identified by
   the sensor id :sensor in the path.
 

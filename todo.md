@@ -7,10 +7,31 @@
 
  - [ ] 6 start on CA related issues from GH
  - [ ] 3 stub out Sensing API extensions for certificates
- - [ ] 2 fix authentication routes in Sensing API to use over-lapping scopes and a non-auth-api plug
+  - [x] how do we dist the root certificate over a connection that relies on that root cert as the authentication chain?
+  - [x] dist cert over http route
+  - [x] add a plug or scope that allows insecure routing
+   - [x] other routes need to force SSL
+  - [ ] use 17867/17504 https/http
+  - [ ] add certificate generation routes
+   - [ ] new private key for hostname/algo/size
+   - [ ] verification via http-01 challenge
+   - [ ] new public key for private key/hostname/algo/size
+   - [ ] key revocation
+   - [ ] automated revocation on deregistration
+ - [x] 2 fix authentication routes in Sensing API to use over-lapping scopes and a non-auth-api plug
  - [ ] 4 CA integration with Sensor wrapper
+  - [ ] api http vs https port
+  - [ ] root ca pubkey retrieval
+  - [ ] certificate cycle
+  - [ ] https integration (local server)
+  - [ ] https for sync
  - [ ] 5 Cert generation for Kafka
  - [ ] 1 Cert generation for Sensing API
+  - [x] get certs
+  - [x] add certs to phoenix
+  - [ ] add CA root
+   - [ ] HTTPoison needs to use ca file when doing GET request to sensor for registration verification
+  - [x] run 17504 as SSL? hmmm. how do we distribute the root CA 
  - [ ] sensor deregistration needs to cause certificate revocation
  - [ ] stub out BEAM scaling of Sensing API
  - [ ] stub out CFSSL scaling

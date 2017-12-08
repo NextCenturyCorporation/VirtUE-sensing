@@ -7,7 +7,8 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
 # wget for convenience, use curl if you want to
-RUN apt-get -y -q install wget
+RUN apt-get update
+RUN apt-get -y -q install wget python3-pip
 
 # add erlang otp
 RUN wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
@@ -20,4 +21,12 @@ RUN chmod ugo+x /app/run.sh
 RUN mix local.hex --force
 RUN mix deps.get --only-prod
 RUN mix compile
+
+# setup support tooling
+RUN pip3 install -r ./tools/get_certificates_requirements.txt
+
+# setup directory for certificates
+RUN mkdir /app/certs
+
+
 CMD ["bash", "/app/run.sh"]

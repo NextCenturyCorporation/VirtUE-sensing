@@ -15,7 +15,10 @@ services:
   api:
     build: "./control/api_server"
     ports:
+      - "17502:17502"
       - "17504:17504"
+    environment:
+      CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
     depends_on:
       - kafka
       - cfssl
@@ -30,7 +33,7 @@ services:
     depends_on:
       - kafka
       - api
-    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11000
+    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host "https://api" --api-port 17504 --sensor-port 11000
   sensor_2:
     build: "./sensors/dummy"
     ports:
@@ -38,4 +41,4 @@ services:
     depends_on:
       - kafka
       - api
-    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11001
+    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --api-port 17502 --sensor-port 11001

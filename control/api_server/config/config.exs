@@ -10,7 +10,8 @@ config :api_server,
   ecto_repos: [ApiServer.Repo],
   c2_kafka_topic: "api-server-control",
   sensor_kafka_bootstrap: ["kafka:9092"],
-  client_kafka_bootstrap: ["kafka:9092"]
+  client_kafka_bootstrap: ["kafka:9092"],
+  ca_cert_file: "/app/certs/ca.pem"
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,

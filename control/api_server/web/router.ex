@@ -1,22 +1,37 @@
 defmodule ApiServer.Router do
   use ApiServer.Web, :router
 
+  # There are a small number of routes that we'll allow over HTTP and without authentication
+  pipeline :insecure do
+    plug :accepts, ["json"]
+  end
 
+  # Standard routes need to use HTTPS and provide authentication
   pipeline :api do
+    plug Plug.SSL
     plug :accepts, ["json"]
     plug ApiServer.Plugs.Authenticate
   end
 
+  # Some routes don't require authentication, but are still forced over HTTPS
   pipeline :api_no_auth do
+    plug Plug.SSL
     plug :accepts, ["json"]
   end
-
 
   scope "/version", ApiServer do
     get "/", VersionController, :version
   end
 
-  # API routes that do not require authentication
+  # INSECURE AND UNAUTHENTICADED
+  scope "/api/v1", ApiServer do
+    pipe_through :insecure
+
+    get "/ca/root/public", ConfigureController, :ca_root_cert, name: "ca-root-cert"
+
+  end
+
+  # SECURE AND UNAUTHENTICATED
   scope "/api/v1", ApiServer do
     pipe_through :api_no_auth
 
@@ -34,7 +49,7 @@ defmodule ApiServer.Router do
 
   end
 
-   # API routes requiring authentication
+  # SECURE AND AUTHENTICATED
    scope "/api/v1", ApiServer do
      pipe_through :api
 
