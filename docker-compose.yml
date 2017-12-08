@@ -30,7 +30,7 @@ services:
     depends_on:
       - kafka
       - api
-    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11000 --delay-start 10
+    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11000
   sensor_2:
     build: "./sensors/dummy"
     ports:
@@ -38,4 +38,4 @@ services:
     depends_on:
       - kafka
       - api
-    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11001 --delay-start 10
+    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11001

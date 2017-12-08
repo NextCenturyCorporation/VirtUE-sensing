@@ -5,31 +5,21 @@
  
 # Sensing Architecture
 
- - [x] add CFSSL to the infrastructure compose file
- - [x] document CFSSL tooling, add to the docco for the root README
+ - [ ] 6 start on CA related issues from GH
+ - [ ] 3 stub out Sensing API extensions for certificates
+ - [ ] 2 fix authentication routes in Sensing API to use over-lapping scopes and a non-auth-api plug
+ - [ ] 4 CA integration with Sensor wrapper
+ - [ ] 5 Cert generation for Kafka
+ - [ ] 1 Cert generation for Sensing API
+ - [ ] sensor deregistration needs to cause certificate revocation
  - [ ] stub out BEAM scaling of Sensing API
  - [ ] stub out CFSSL scaling
- - [x] document the get_certs tool readme
- - [x] document the sensor registration and spin up workflow
- - [x] separately document the workflow for certificates (quasi HTTP-01 challenge)
  - [ ] how do we get the root public into the trust stores of the other containers?
- - [ ] start on CA related issues from GH
- - [ ] stub out Sensing API extensions for certificates
- - [ ] fix authentication routes in Sensing API to use over-lapping scopes and a non-auth-api plug
- - [ ] CA integration with Sensor wrapper
- - [ ] Cert generation for Kafka
- - [ ] Cert generation for Sensing API
- - [ ] sensor deregistration needs to cause certificate revocation
-
-!!! cfssl
-
-- use output of gen_csr_and_sign.sh script built so far to call the cfssl `sign` or `authsign` end point
-
+ - [ ] update tests to reflect current architecture and expectations
+  - [ ] streaming response error when no sensors match
+  - [ ] how to mock a stream when testing?
 - test deploy on EC2
 
-## how we're using certbot
-
-Boulder directory is at http://boulder:4000/directory
 
 # Dummy Sensor
 
@@ -45,9 +35,6 @@ Punting on CA - brain just not in that space at the end of the week.
 
 # CA
  
- - [x] find basic CA tools
- - [ ] root certs
- - [ ] how to generate client/server certs
   
 # virtue-security
 

@@ -42,6 +42,55 @@ asks.init('curio')
 log_messages = Queue()
 
 
+async def wait_for_sensor_api(opts):
+    """
+    We may spin up before our configured Sensor API endpoint
+    is ready to work. We need to wait (a configurable amount
+    of time) for the API to be ready.
+
+    This method loops on calls to the API /ready endpoint, either
+    waiting for a ready: True response, or killing the sensor
+    if we exceed a defined retry time limit.
+
+    :param opts:
+    :return:
+    """
+
+    print("  @ Waiting for Sensing API")
+
+    uri = construct_api_uri(opts, "/ready")
+
+    st = time.time()
+
+    while True:
+
+        try:
+
+            # try to connect to the ready endpoint
+            res = requests.get(uri)
+
+            # did we get a status 200?
+            if res.status_code == 200:
+                res_json = res.json()
+
+                # can we break free?
+                if "ready" in res_json and res_json["ready"]:
+                    print("    + Sensing API is ready")
+                    return
+        except Exception as e:
+            print("  ! Exception while waiting for the Sensing API (%s)" % (str(e),))
+
+        # have we exceeded our retry time limit?
+        if (time.time() - st) > opts.api_retry_max:
+            raise ConnectionError("Cannot connect to Sensing API")
+
+        # The endpoint isn't ready, we need to sleep on it
+        print("    ~ retrying in %0.2f seconds" % (opts.api_retry_wait,))
+
+        time.sleep(opts.api_retry_wait)
+
+
+
 async def sync_sensor(opts):
     """
     Synchronize the sensor with the Sensing API so we stay registered.
@@ -446,6 +495,10 @@ async def main(opts):
 
     async with TaskGroup() as g:
 
+        # first thing first - let's make sure the Sensing API is ready for us
+        api_ready = await g.spawn(wait_for_sensor_api, opts)
+        await api_ready.join()
+
         # we need to spin up our actuation listener first
         await g.spawn(tcp_server, opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts))
 
@@ -621,6 +674,8 @@ def options():
 
     # for testing and time management/dependency management
     parser.add_argument("--delay-start", dest="delay_start", type=int, default=0, help="Number of seconds to delay before startup")
+    parser.add_argument("--api-connect-retry-max", dest="api_retry_max", type=float, default=30.0, help="How many seconds should we wait for the Sensing API to be ready before we shutdown")
+    parser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensign API connection retries")
 
     return parser.parse_args()
 
