@@ -27,6 +27,9 @@ defmodule ApiServer.Router do
   scope "/api/v1", ApiServer do
     pipe_through :insecure
 
+    # server status/availability
+    get "/ready", StatsController, :ready, name: "stats-ready"
+
     get "/ca/root/public", ConfigureController, :ca_root_cert, name: "ca-root-cert"
 
   end
@@ -34,9 +37,6 @@ defmodule ApiServer.Router do
   # SECURE AND UNAUTHENTICATED
   scope "/api/v1", ApiServer do
     pipe_through :api_no_auth
-
-    # server status/availability
-    get "/ready", StatsController, :ready, name: "stats-ready"
 
     # sensor registration/sync/deregistration workflow
     put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
