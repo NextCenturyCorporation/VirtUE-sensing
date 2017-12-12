@@ -3,15 +3,19 @@
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
  
+ - new sensor: fake ps (elide by process pattern)
+ - new sensor: syscall for process list
+ 
 # Sensing Architecture
 
+ - [ ] document how we could do key delivery with libvmi
  - [ ] 6 start on CA related issues from GH
  - [ ] 3 stub out Sensing API extensions for certificates
   - [x] how do we dist the root certificate over a connection that relies on that root cert as the authentication chain?
   - [x] dist cert over http route
   - [x] add a plug or scope that allows insecure routing
    - [x] other routes need to force SSL
-  - [ ] use 17867/17504 https/http
+  - [ ] document the https/http ports and reasons
   - [ ] add certificate generation routes
    - [ ] new private key for hostname/algo/size
    - [ ] verification via http-01 challenge
@@ -20,11 +24,11 @@
    - [ ] automated revocation on deregistration
  - [x] 2 fix authentication routes in Sensing API to use over-lapping scopes and a non-auth-api plug
  - [ ] 4 CA integration with Sensor wrapper
-  - [ ] api http vs https port
-  - [ ] root ca pubkey retrieval
-  - [ ] certificate cycle
+  - [x] root ca pubkey retrieval
+  - [x] certificate cycle
   - [ ] https integration (local server)
-  - [ ] https for sync
+  - [x] https for sync
+  - [ ] client certs for all API comms
  - [ ] 5 Cert generation for Kafka
  - [ ] 1 Cert generation for Sensing API
   - [x] get certs
