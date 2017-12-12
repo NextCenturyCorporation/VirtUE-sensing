@@ -20,7 +20,7 @@ use Mix.Config
 # configured to run both http and https servers on
 # different ports.
 config :api_server, ApiServer.Endpoint,
-  http: [port: 17502],
+  http: [port: 17141],
   https: [:inet6, port: 17504, keyfile: "/app/certs/cert-key.pem", certfile: "/app/certs/cert.pem"],
   url: [host: "api", port: 17504],
   debug_errors: false,
