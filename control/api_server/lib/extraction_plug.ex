@@ -394,6 +394,17 @@ defmodule ApiServer.ExtractionPlug do
     end
   end
 
+  def is_sensor_port(p) do
+
+    parsable = Integer.parse(p)
+
+    case p do
+      p when is_integer(p) -> true
+      p when parsable != :error -> true
+      _ -> false
+    end
+  end
+
   defp is_uuid?(st) do
     String.match?(st, ~r/^[a-zA-Z0-9]{8}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{4}\-[a-zA-Z0-9]{12}$/)
   end
