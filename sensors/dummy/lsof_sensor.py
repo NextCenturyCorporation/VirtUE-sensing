@@ -564,7 +564,16 @@ async def main(opts):
         print("  %% private key fingerprint(%s)" % (rsa_private_fingerprint(priv_key),))
         print("  %% CA http-savior challenge url(%s) and token(%s)" % (challenge_data["url"], challenge_data["token"]))
 
-        # we need to spin up our actuation listener first
+        # TODO: FROM HERE
+        #  1. spin up the http challenge responder
+        #  2. call the public key signer of the Sensing API
+        #  3. Store our public and private keys
+        #  4. Continue with spinning up the actuator and registration cycle
+        #       - https server for registration responder
+        #       - client certs for registration request
+        #       - client certs for all heartbeats
+
+        # we need to spin up our HTTPS actuation listener first
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(certfile=opts.public_key_path, keyfile=opts.private_key_path)
         await g.spawn(tcp_server(opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts), ssl=ssl_context))
