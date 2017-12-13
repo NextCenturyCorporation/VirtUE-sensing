@@ -38,6 +38,9 @@ defmodule ApiServer.Router do
   scope "/api/v1", ApiServer do
     pipe_through :api_no_auth
 
+    # certificate registration
+    put "/ca/register/private_key/new", CertificateController, :private_key_new, name: "ca-private-key-new"
+
     # sensor registration/sync/deregistration workflow
     put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
     put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"

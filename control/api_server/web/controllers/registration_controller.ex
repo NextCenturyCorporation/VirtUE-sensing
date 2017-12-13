@@ -223,7 +223,7 @@ defmodule ApiServer.RegistrationController do
 
     # let's decode the public key from urlsafe base64
     {:ok, public_key} = Base.url_decode64(public_key_b64)
-    
+
     # basic logging
     IO.puts("Registering sensor(id=#{sensor})")
 
@@ -240,7 +240,7 @@ defmodule ApiServer.RegistrationController do
         invalid_registration(conn, sensor, "username", username)
       ! is_public_key(public_key) ->
         invalid_registration(conn, sensor, "public_key", public_key)
-      ! is_port(port) == :error ->
+      ! is_sensor_port(port) ->
         IO.puts IEx.Info.info(port)
         invalid_registration(conn, sensor, "port", port)
       ! ApiServer.ConfigurationUtils.have_default_sensor_config_by_name(sensor_name, %{match_prefix: true}) ->

@@ -5,7 +5,7 @@ __VERSION__ = "1.20171117"
 import argparse
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation
+from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl
 import curequests
 import datetime
 import email
@@ -166,6 +166,41 @@ async def sync_sensor(opts):
         # bail if we're being cancelled
         if await check_cancellation():
             break
+
+
+async def get_private_key_and_csr(opts):
+    """
+    Request a new private key from the Sensing API. This will get us both
+    the private key (RSA 4096 by default) and the Certificate Signing Request.
+
+
+    :param opts: argparse program options
+    :param root_cert: Savior CA public root
+    :return: success, private_key, csr, challenge data
+    """
+    print("  @ Requesting Private Key and Certificate Signing Request from the Sensing API")
+
+    uri = construct_api_uri(opts, "/ca/register/private_key/new")
+    payload = {
+        "hostname": opts.sensor_hostname,
+        "port": opts.sensor_port
+    }
+    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
+
+    pki_priv_res = await curequests.put(uri, json=payload, verify=ca_path)
+
+    if pki_priv_res.status_code == 200:
+        print("  + got private key response from Sensing API")
+        pki_priv_json = pki_priv_res.json()
+
+        return True, pki_priv_json["private_key"], pki_priv_json["certificate_request"], pki_priv_json["challenge"]
+    else:
+        print("  ! got status_code(%d) from the Sensing API" % (pki_priv_res.status_code,))
+        res_json = pki_priv_res.json()
+        if "messages" in res_json:
+            for msg in res_json["messages"]:
+                print("    - %s" % (msg,))
+        return False, "", "", {}
 
 
 async def register_sensor(opts, root_cert):
@@ -519,8 +554,20 @@ async def main(opts):
             print("  ! Couldn't get the CA root certificate - no way to verify secure communications")
             sys.exit(1)
 
+        # now the certificate cycle, where we get our pub/priv key pair
+        pki_private_future = await g.spawn(get_private_key_and_csr, opts)
+        pki_priv_success, priv_key, csr, challenge_data = await pki_private_future.join()
+        if not pki_priv_success:
+            print("  ! Encountered an error when retrieving a private key for the sensor, aborting")
+            sys.exit(1)
+
+        print("  %% private key fingerprint(%s)" % (rsa_private_fingerprint(priv_key),))
+        print("  %% CA http-savior challenge url(%s) and token(%s)" % (challenge_data["url"], challenge_data["token"]))
+
         # we need to spin up our actuation listener first
-        await g.spawn(tcp_server, opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts))
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(certfile=opts.public_key_path, keyfile=opts.private_key_path)
+        await g.spawn(tcp_server(opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts), ssl=ssl_context))
 
         # now we register and wait for the results
         reg = await g.spawn(register_sensor, opts, root_cert)
@@ -616,7 +663,7 @@ def insert_char_every_n_chars(string, char='\n', every=64):
         string[i:i + every] for i in range(0, len(string), every))
 
 
-def rsa_public_fingerprint(key):
+def rsa_public_fingerprint(pem_data):
     """
     Generate a hex digest in the form ##:##:##...## of the given
     public key. The fingerprint will be a 47 character string, with
@@ -627,12 +674,13 @@ def rsa_public_fingerprint(key):
     :param key: RSA Public Key object
     :return:
     """
+    key = RSA.importKey(pem_data)
     md5digest = hashlib.md5(key.exportKey("DER")).hexdigest()
     fingerprint = insert_char_every_n_chars(md5digest, ':', 2)
     return fingerprint
 
 
-def rsa_private_fingerprint(key):
+def rsa_private_fingerprint(pem_data):
     """
     Generate a hex digest of the form ##:##:##..## of the given
     private key. The finger print will be a 59 character string,
@@ -640,9 +688,10 @@ def rsa_private_fingerprint(key):
 
     The private key fingerprint is a sha1 digest.
 
-    :param key:
+    :param key: PEM string
     :return:
     """
+    key = RSA.importKey(pem_data)
     sha1digest = hashlib.sha1(key.exportKey("DER", pkcs=8)).hexdigest()
     fingerprint = insert_char_every_n_chars(sha1digest, ':', 2)
     return fingerprint
@@ -766,16 +815,16 @@ def check_identification(opts):
         if opts.sensor_hostname is None:
             raise ValueError("Can't identify the current hostname, bailing out")
 
-    pub_key, pub_key_string = load_public_key(opts.public_key_path)
-    pri_key, pri_key_string = load_private_key(opts.private_key_path)
+    # pub_key, pub_key_string = load_public_key(opts.public_key_path)
+    # pri_key, pri_key_string = load_private_key(opts.private_key_path)
 
     # report
     print("\tsensor_id  == %s" % (opts.sensor_id,))
     print("\tvirtue_id  == %s" % (opts.virtue_id,))
     print("\tusername   == %s" % (opts.username,))
     print("\thostname   == %s" % (opts.sensor_hostname,))
-    print("\tpub key    == %s" % (rsa_public_fingerprint(pub_key),))
-    print("\tpriv key   == %s" % (rsa_private_fingerprint(pri_key),))
+    # print("\tpub key    == %s" % (rsa_public_fingerprint(pub_key),))
+    # print("\tpriv key   == %s" % (rsa_private_fingerprint(pri_key),))
 
     print("Sensing API")
     print("\thostname   == %s" % (opts.api_host,))

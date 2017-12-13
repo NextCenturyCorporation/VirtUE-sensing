@@ -6,6 +6,33 @@ defmodule ApiServer.ConfigurationUtils do
   """
 
   @doc """
+  Find the shared secret key for CFSSL.
+
+  This checks, in order, the environment variable CFSSL_SHARED_SECRET and the configuration
+  item config::api_server::cfssl_shared_secret. If neither of these is set, :no_shared_secret_available is returned.
+
+  ### Returns
+
+    - "shared secret"
+    - :no_shared_secret_available
+
+  """
+  def get_cfssl_shared_secret() do
+
+    case System.get_env("CFSSL_SHARED_SECRET") do
+      nil ->
+        case Application.get_env(:api_server, :c2_kafka_topic) do
+          nil ->
+            :no_shared_secret_available
+          secret ->
+            secret
+        end
+      secret ->
+        secret
+    end
+  end
+
+  @doc """
   Find the default configuration for a sensor by name lookup.
 
   In `match-prefix` mode, everything after the final `-` in the sensor name will be removed during

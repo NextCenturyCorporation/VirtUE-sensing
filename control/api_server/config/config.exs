@@ -11,7 +11,12 @@ config :api_server,
   c2_kafka_topic: "api-server-control",
   sensor_kafka_bootstrap: ["kafka:9092"],
   client_kafka_bootstrap: ["kafka:9092"],
-  ca_cert_file: "/app/certs/ca.pem"
+  ca_cert_file: "/app/certs/ca.pem",
+  cfssl_host: "cfssl",
+  cfssl_port: 3030,
+  cfssl_default_algo: "rsa",
+  cfssl_default_size: 4096
+
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,

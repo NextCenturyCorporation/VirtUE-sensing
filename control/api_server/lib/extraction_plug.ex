@@ -394,12 +394,15 @@ defmodule ApiServer.ExtractionPlug do
     end
   end
 
+  def is_sensor_port(p) when is_integer(p) do
+    :true
+  end
+
   def is_sensor_port(p) do
 
     parsable = Integer.parse(p)
 
     case p do
-      p when is_integer(p) -> true
       p when parsable != :error -> true
       _ -> false
     end

@@ -10,30 +10,24 @@
 
  - [ ] document how we could do key delivery with libvmi
  - [ ] 6 start on CA related issues from GH
- - [ ] 3 stub out Sensing API extensions for certificates
-  - [x] how do we dist the root certificate over a connection that relies on that root cert as the authentication chain?
-  - [x] dist cert over http route
-  - [x] add a plug or scope that allows insecure routing
-   - [x] other routes need to force SSL
+ - [ ] stub out Sensing API extensions for certificates
   - [ ] document the https/http ports and reasons
-  - [ ] add certificate generation routes
-   - [ ] new private key for hostname/algo/size
+  - [ ] 1 add certificate generation routes
    - [ ] verification via http-01 challenge
    - [ ] new public key for private key/hostname/algo/size
    - [ ] key revocation
    - [ ] automated revocation on deregistration
- - [x] 2 fix authentication routes in Sensing API to use over-lapping scopes and a non-auth-api plug
- - [ ] 4 CA integration with Sensor wrapper
+ - [ ] CA integration with Sensor wrapper
   - [x] root ca pubkey retrieval
-  - [x] certificate cycle
+  - [ ] 2 certificate generation cycle
   - [ ] https integration (local server)
   - [x] https for sync
-  - [ ] client certs for all API comms
+  - [ ] 3 client certs for all API comms
  - [ ] 5 Cert generation for Kafka
- - [ ] 1 Cert generation for Sensing API
+ - [ ] Cert generation for Sensing API
   - [x] get certs
   - [x] add certs to phoenix
-  - [ ] add CA root
+  - [ ] 4 add CA root
    - [ ] HTTPoison needs to use ca file when doing GET request to sensor for registration verification
   - [x] run 17504 as SSL? hmmm. how do we distribute the root CA 
  - [ ] sensor deregistration needs to cause certificate revocation

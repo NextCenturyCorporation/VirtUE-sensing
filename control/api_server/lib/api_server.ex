@@ -205,8 +205,61 @@ defmodule ApiServer do
     end
 
 
-    rec_count = Mnesia.table_info(Sensor, :size)
-    IO.puts("  :: #{rec_count} Sensors currently registered")
+
+
+    # When updates to the data model for sensors are done, they
+    # need to be reflected in a number of places. See the API Server
+    # README for more info:
+    #
+    #   https://github.com/twosixlabs/savior/tree/master/control/api_server#data-models
+    #
+    # Setup our Public/Private key tracking in Mnesia. Our database is versioned
+    # with table transforms. A copy of the database is persisted to
+    # disc via ETS.
+    #
+    #   Version 01
+    #     - add hostname
+    #     - add port
+    #     - add challenge JSON
+    #     - add pub/priv key algorithm
+    #     - add pub/priv key size
+    #     - add CSR
+    #     - add private key hash
+    #     - add public key
+    case Mnesia.create_table(PKIKey, [
+      attributes: [:id, :hostname, :port, :challenge, :algo, :size, :csr, :private_key_hash, :public_key],
+      disc_copies: [node()]
+    ]) do
+
+      {:atomic, :ok} ->
+
+        IO.puts("  :: PKIKey table created.")
+
+        # normal table create / table did not yet exist
+        Mnesia.add_table_index(PKIKey, :csr)
+        Mnesia.add_table_index(PKIKey, :public_key)
+        Mnesia.add_table_index(PKIKey, :private_key_hash)
+
+        IO.puts("  :: indexes added")
+
+      {:aborted, {:already_exists, PKIKey}} ->
+
+        # table already exists, let's check the version
+        case Mnesia.table_info(PKIKey, :attributes) do
+
+          # Version 01
+          [:id, :hostname, :port, :challenge, :algo, :size, :csr, :private_key_hash, :public_key] ->
+            IO.puts("  :: PKIKey table Version 01 ready.")
+
+
+          other ->
+            IO.puts("  :: PKIKey table error #{other}")
+            {:error, other}
+        end
+    end
+
+    pki_keys_rec_count = Mnesia.table_info(PKIKey, :size)
+    IO.puts("  :: #{pki_keys_rec_count } PKI Keys currently registered")
 
   end
 end

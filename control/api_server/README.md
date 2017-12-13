@@ -154,11 +154,19 @@ The API Server maintains relevant sensor registration data in a disc persisted, 
 Updates to the schema of the data table are handled in the same `start_mnesia/0` method, and
 follow a process of updating from known previous forms to the current schema.
 
+### Sensor
+
 For the **Sensor** data model, a helper _struct_ is defined in the **web/models/sensor.ex** _Sensor_
 module.
 
 Utilities for working with the data model, _Sensor_ struct, and the Mnesia data store are in
 the **lib/database_utils.ex** _ApiServer.DatabaseUtils_ module.
+
+
+### PKI Keys
+
+
+### Updating
 
 When updating the schema for any data tables, modifications must be made in the following
 locations:
@@ -168,6 +176,9 @@ locations:
   - **web/models/sensor.ex** `Sensor.defstruct` - append new fields to end of struct list
   - **web/models/sensor.ex** `Sensor.sensor/*` - extend appropriate methods with the new fields
   - **web/models/sensor.ex** `Sensor.to_mnesia_record/2` - include field in translation from MapSet to tuple record
+  - **web/models/pki.ex** `PKIKey.defstruct` - append new fields to end of struct list
+  - **web/models/pki.ex** `PKIKey.create/*` - extend appropriate methods with the new fields
+  - **web/models/pki.ex** `PKIKey.to_mnesia_record/2` - include field in translation from MapSet to tuple record
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.register_sensor/1` - include new fields from `Sensor` struct in parameter matching for method call, and record creation with `Mnesia.write/1`
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.index_for_key/1` - append new fields to end of lookup list
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.prune_old_sensors/0` - remove old sensors from tracking
