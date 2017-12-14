@@ -18,6 +18,7 @@ ADD . /app
 WORKDIR /app
 RUN chmod ugo+x /app/run.sh
 RUN mix local.hex --force
+RUN mix local.rebar --force
 RUN mix deps.get --only-prod
 RUN mix compile
 CMD ["bash", "/app/run.sh"]
