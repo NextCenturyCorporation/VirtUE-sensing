@@ -127,7 +127,7 @@ async def wait_for_sensor_api(opts):
         time.sleep(opts.api_retry_wait)
 
 
-async def sync_sensor(opts):
+async def sync_sensor(opts, pub_key):
     """
     Synchronize the sensor with the Sensing API so we stay registered.
 
@@ -136,7 +136,7 @@ async def sync_sensor(opts):
     """
 
     # define our payload for registration sync
-    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()),
+    pubkey_b64 = str(base64.urlsafe_b64encode(pub_key.encode()),
                      encoding="iso-8859-1")
     uri = construct_api_uri(opts, "/sensor/%s/sync" % (opts.sensor_id,))
 
@@ -243,7 +243,7 @@ async def get_signed_public_key(opts, csr):
         return False, ""
 
 
-async def register_sensor(opts, root_cert):
+async def register_sensor(opts, pub_key):
     """
     Register this sensor with the Sensing API.
 
@@ -251,7 +251,7 @@ async def register_sensor(opts, root_cert):
     :return:
     """
     uri = construct_api_uri(opts, "/sensor/%s/register" % (opts.sensor_id,))
-    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()), encoding="iso-8859-1")
+    pubkey_b64 = str(base64.urlsafe_b64encode(pub_key.encode()), encoding="iso-8859-1")
 
     payload = {
         "sensor": opts.sensor_id,
@@ -638,14 +638,24 @@ async def main(opts):
         print("  %% private key fingerprint(%s)" % (rsa_private_fingerprint(priv_key),))
         print("  %% CA http-savior challenge url(%s) and token(%s)" % (challenge_data["url"], challenge_data["token"]))
 
-        # TODO: FROM HERE
+        # Our Verification and Challenge cycle has two components:
+        #
+        #  1. HTTP-01-SAVIOR challenge for issuing a signed public certificate
+        #  2. Sensor control verification and configuration
+        #
+        # We've already retrieved a private key and Certificate Signing Request from
+        # the Sensing API. Now the Challenge cycle requires us to
+        #
         #  1. spin up the http challenge responder
         #  2. call the public key signer of the Sensing API
         #  3. Store our public and private keys
-        #  4. Continue with spinning up the actuator and registration cycle
-        #       - https server for registration responder
-        #       - client certs for registration request
-        #       - client certs for all heartbeats
+        #
+        # Once we have our public and private key, we can continue with the sensor
+        # control challenge, where we our certificates for:
+        #
+        #  - https server for registration responder
+        #  - client certs for registration request
+        #  - client certs for all heartbeats
 
         # layout the routes we'll serve during the certificate challenge
         http_routes = [
@@ -671,7 +681,15 @@ async def main(opts):
         # spin down the http server
         await challenge_server.cancel()
 
-        # write out our keys to the pub_key/priv_key paths in our options
+        # write out our keys to the pub_key/priv_key paths in our options, and make
+        # sure we set the correct permissions (0x600)
+        with open(opts.public_key_path, "w") as public_key_file:
+            public_key_file.write(pub_key)
+        os.chmod(opts.public_key_path, 0o600)
+
+        with open(opts.private_key_path, "w") as private_key_file:
+            private_key_file.write(priv_key)
+        os.chmod(opts.private_key_path, 0x600)
 
         # we can now spin up our HTTPS actuation listener using our new keys
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -692,7 +710,7 @@ async def main(opts):
         )
 
         # now we register and wait for the results
-        reg = await g.spawn(register_sensor, opts, root_cert)
+        reg = await g.spawn(register_sensor, opts, pub_key)
 
         print("  @ waiting for registration cycle")
         reg_data = await reg.join()
@@ -701,7 +719,7 @@ async def main(opts):
 
         await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
         await g.spawn(lsof, opts.sensor_id, json.loads(reg_data["default_configuration"]))
-        await g.spawn(sync_sensor, opts)
+        await g.spawn(sync_sensor, opts, pub_key)
 
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")

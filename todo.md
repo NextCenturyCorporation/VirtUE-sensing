@@ -13,24 +13,17 @@
  - [ ] stub out Sensing API extensions for certificates
   - [ ] document the https/http ports and reasons
   - [ ] 1 add certificate generation routes
-   - [x] verification via http-01 challenge
-   - [x] new public key for private key/hostname/algo/size
+   - [ ] Client certs for sensor registration/sync
    - [ ] key revocation
    - [ ] automated revocation on deregistration
    - [ ] https everywhere
  - [ ] CA integration with Sensor wrapper
-  - [x] root ca pubkey retrieval
-  - [x] 2 certificate generation cycle
-  - [ ] https integration (local server)
-  - [x] https for sync
   - [ ] 3 client certs for all API comms
  - [ ] 5 Cert generation for Kafka
  - [ ] Cert generation for Sensing API
-  - [x] get certs
-  - [x] add certs to phoenix
   - [ ] 4 add CA root
-   - [ ] HTTPoison needs to use ca file when doing GET request to sensor for registration verification
-  - [x] run 17504 as SSL? hmmm. how do we distribute the root CA 
+   - [x] HTTPoison needs to use ca file when doing GET request to sensor for registration verification !!!!!!!
+   - [ ] handle SSLError around https server in python registration/actuation mode
  - [ ] sensor deregistration needs to cause certificate revocation
  - [ ] stub out BEAM scaling of Sensing API
  - [ ] stub out CFSSL scaling
@@ -38,6 +31,7 @@
  - [ ] update tests to reflect current architecture and expectations
   - [ ] streaming response error when no sensors match
   - [ ] how to mock a stream when testing?
+ - [ ] check and fix all of the ./bin/dockerized_* tools
 - test deploy on EC2
 
 
