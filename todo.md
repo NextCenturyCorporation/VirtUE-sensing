@@ -3,11 +3,6 @@
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
  
-
- - [ ] mark out CA related issues from GH
- - [ ] Cert generation for Kafka -> move to a new branch
- - [ ] virtue-security command needs to get the ca root certificate from the sensing API
-  - [ ] check and fix all of the ./bin/dockerized_* tools
  
 # Sensing Architecture
 
