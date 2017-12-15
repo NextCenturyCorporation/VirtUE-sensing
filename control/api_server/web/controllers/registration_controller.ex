@@ -352,7 +352,6 @@ defmodule ApiServer.RegistrationController do
   """
   def verify_remote_sensor(hostname, port, sensor) do
 
-    # TODO: this request will happen over HTTPS, and we'll need to pass our custom
     # root CA to the HTTPoison hackney instance, with something like:
     #
     #   HTTPoison.get("https://example.com/", [], ssl: [cacertfile: "/app/certs/ca.pem"])

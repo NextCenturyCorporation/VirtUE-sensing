@@ -3,51 +3,33 @@
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
  
- - new sensor: fake ps (elide by process pattern)
- - new sensor: syscall for process list
+
+ - [ ] mark out CA related issues from GH
+ - [ ] Cert generation for Kafka -> move to a new branch
+ - [ ] virtue-security command needs to get the ca root certificate from the sensing API
+  - [ ] check and fix all of the ./bin/dockerized_* tools
  
 # Sensing Architecture
 
- - [ ] document how we could do key delivery with libvmi
- - [ ] 6 start on CA related issues from GH
- - [ ] stub out Sensing API extensions for certificates
-  - [ ] document the https/http ports and reasons
-  - [ ] 1 add certificate generation routes
-   - [ ] Client certs for sensor registration/sync
-   - [ ] key revocation
-   - [ ] automated revocation on deregistration
-   - [ ] https everywhere
- - [ ] CA integration with Sensor wrapper
-  - [ ] 3 client certs for all API comms
- - [ ] 5 Cert generation for Kafka
- - [ ] Cert generation for Sensing API
-  - [ ] 4 add CA root
-   - [x] HTTPoison needs to use ca file when doing GET request to sensor for registration verification !!!!!!!
-   - [ ] handle SSLError around https server in python registration/actuation mode
- - [ ] sensor deregistration needs to cause certificate revocation
  - [ ] stub out BEAM scaling of Sensing API
- - [ ] stub out CFSSL scaling
- - [ ] how do we get the root public into the trust stores of the other containers?
- - [ ] update tests to reflect current architecture and expectations
-  - [ ] streaming response error when no sensors match
-  - [ ] how to mock a stream when testing?
- - [ ] check and fix all of the ./bin/dockerized_* tools
-- test deploy on EC2
 
 
 # Dummy Sensor
 
+ - new sensor: fake ps (elide by process pattern)
+ - new sensor: syscall for process list
 
-Punting on CA - brain just not in that space at the end of the week.
 
- - [ ] CA integration
- - [ ] where is CA?
- 
 # infrastructure
 
  - [ ] Sensing API needs to be resilient to Kafka going away
+ - [ ] test deploy on EC2
+
 
 # CA
+
+ - [ ] document how we could do key delivery with libvmi
+ - [ ] stub out CFSSL scaling
  
   
 # virtue-security
@@ -57,14 +39,18 @@ Punting on CA - brain just not in that space at the end of the week.
   - [ ] add support for all commands and link to routes
   - [ ] move command sets into classes and modules
   - [ ] document the `monitor` action
+- [ ] update tests to reflect current architecture and expectations
+  - [ ] streaming response error when no sensors match
+  - [ ] how to mock a stream when testing?
+ - Testing
+  - [ ] Parallelize `virtue-security` test mode
+  
   
 # API SERVER
 
  - Authentication
   - [ ] fix special case authentication of the registration API by adding client certificate auth plug
   - [ ] fix failing registration tests now that we have registration ping callbacks
- - Registration
-  - [ ] sensor registration workflow needs to be cleaned up before we have really deep nesting
  - General API
   - [ ] reject streaming requests for sensors that aren't registered
   - [x] add general "is sensor registered" method to database utils
@@ -72,20 +58,12 @@ Punting on CA - brain just not in that space at the end of the week.
    - [ ] we need to standardize time. right now the `since` query param is in ISO format, while everything in the Sensing
          API is in UTC common format.
  - Sensors
-  - [ ] wire first basic sensor in a VM/container
-   - this will be our target sensor for the sprint
-   - [ ] basic inline controller (python?)
   - [ ] Integrate toy sensor
    - [ ] Observation level
    - [ ] Trust level
    - [x] Streaming
    - [ ] Inspection
    - [ ] validation
- - TLS/Encryption
-  - [ ] client certificates for sensors in api
-  - [ ] CA/issuer API
- - Testing
-  - [ ] Parallelize `virtue-security` test mode
  
 # Sensing API Documentation Updates
 

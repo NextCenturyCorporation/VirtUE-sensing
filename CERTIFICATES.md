@@ -43,3 +43,19 @@ Generate and Sign
 											     |
 												 *
 ```
+
+# Acquiring the CA Public Root
+
+Currently there is an API endpoint for acquiring a copy of the CA Root public certificate
+while in _development_ mode:
+
+```bash
+> curl http://localhost:17141/api/v1/ca/root/public
+{
+    "timestamp":"2017-12-15 20:12:07.691819Z",
+    "error":false,
+    "certificate":"-----BEGIN CERTIFICATE-----\nMII...Okz/AIJw==\n-----END CERTIFICATE-----"
+}
+``` 
+
+Loading the Root Public Certificate in a _production_ environment is still unsolved.
