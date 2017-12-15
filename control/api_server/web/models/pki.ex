@@ -104,7 +104,12 @@ defmodule PKIKey do
   where a JSON structure will be hosted to complete the verification challenge when
   later requesting the signed public key for the current private key.
 
-  The JSON response at the
+  The JSON response at the path given in URL will look like:
+
+      {
+          "token": ""
+      }
+
   This is a chainable method.
 
   ### Parameters

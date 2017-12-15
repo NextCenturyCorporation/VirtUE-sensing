@@ -13,13 +13,14 @@
  - [ ] stub out Sensing API extensions for certificates
   - [ ] document the https/http ports and reasons
   - [ ] 1 add certificate generation routes
-   - [ ] verification via http-01 challenge
-   - [ ] new public key for private key/hostname/algo/size
+   - [x] verification via http-01 challenge
+   - [x] new public key for private key/hostname/algo/size
    - [ ] key revocation
    - [ ] automated revocation on deregistration
+   - [ ] https everywhere
  - [ ] CA integration with Sensor wrapper
   - [x] root ca pubkey retrieval
-  - [ ] 2 certificate generation cycle
+  - [x] 2 certificate generation cycle
   - [ ] https integration (local server)
   - [x] https for sync
   - [ ] 3 client certs for all API comms

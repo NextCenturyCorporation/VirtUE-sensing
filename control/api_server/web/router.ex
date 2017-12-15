@@ -40,6 +40,7 @@ defmodule ApiServer.Router do
 
     # certificate registration
     put "/ca/register/private_key/new", CertificateController, :private_key_new, name: "ca-private-key-new"
+    put "/ca/register/public_key/signed", CertificateController, :public_key_signed, name: "ca-private-key-signed"
 
     # sensor registration/sync/deregistration workflow
     put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"

@@ -367,7 +367,7 @@ defmodule ApiServer.ExtractionPlug do
 
   # Is the given string a valid Hostname according to RFC 1123 specifications?
   def is_hostname(st) do
-    String.match?(st, ~r/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/)
+    String.match?(st, ~r/^(([a-zA-Z0-9_]|[a-zA-Z0-9_][a-zA-Z0-9\-_]*[a-zA-Z0-9_])\.)*([A-Za-z0-9_]|[A-Za-z0-9_][A-Za-z0-9\-_]*[A-Za-z0-9_])$/)
   end
 
   # Is the given string a valid Virtue ID?

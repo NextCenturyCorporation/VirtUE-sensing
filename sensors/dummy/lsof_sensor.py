@@ -22,6 +22,7 @@ import signal
 import socket
 import sys
 import time
+from urllib.parse import urlparse
 from uuid import uuid4
 
 #
@@ -201,6 +202,45 @@ async def get_private_key_and_csr(opts):
             for msg in res_json["messages"]:
                 print("    - %s" % (msg,))
         return False, "", "", {}
+
+
+async def get_signed_public_key(opts, csr):
+    """
+    Request a signed public certificate that corresponds to the CSR that we received
+    with our private key.
+
+    Return will be:
+
+        - True, key
+        - False
+
+    :param opts: argparse program options
+    :param csr: certificate signing request PEM data
+    :return: success, key
+    """
+    print("  @ Requesting Signed Public Key from the Sensing API")
+
+    uri = construct_api_uri(opts, "/ca/register/public_key/signed")
+    payload = {
+        "certificate_request": csr
+    }
+    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
+
+    pub_key_res = await curequests.put(uri, json=payload, verify=ca_path)
+
+    if pub_key_res.status_code == 200:
+        print("  + got a signed public key from the Sensing API")
+        pub_key_json = pub_key_res.json()
+
+        return True, pub_key_json["certificate"]
+
+    else:
+        print("  ! got status_code(%d) from the Sensing API" % (pub_key_res.status_code,))
+        res_json = pub_key_res.json()
+        if "messages" in res_json:
+            for msg in res_json["messages"]:
+                print("    - %s" % (msg,))
+        return False, ""
 
 
 async def register_sensor(opts, root_cert):
@@ -406,25 +446,34 @@ async def send_json(stream, json_data, status_code=200):
     await stream.write(raw)
 
 
-def configure_http_handler(opts):
+def configure_http_handler(opts, routes, secure=False):
     """
     Expose the run time options to the http handler which
     will be spawned by the tcp server.
 
+    The `routes` list contains dictionaries, with each dictionary defining
+    a route that the HTTP(s) server should handle.
+
     :param opts: argparse options
+    :param routes: List of dicts
+    :param secure: Secure the server with an SSL/TLS certificate
     :return: async http_handler function
     """
 
     # Configure our HTTP routes
     mapper = Mapper()
-    mapper.connect(None, "/sensor/{uuid}/registered", controller="route_registration_ping")
-    mapper.connect(None, "/sensor/status", controller="route_sensor_status")
+    # mapper.connect(None, "/sensor/{uuid}/registered", controller="route_registration_ping")
+    # mapper.connect(None, "/sensor/status", controller="route_sensor_status")
+    #
+    # # and which methods handle what?
+    mapper_funcs = {}
+    #     "route_registration_ping": route_registration_ping,
+    #     "route_sensor_status": route_sensor_status
+    # }
 
-    # and which methods handle what?
-    mapper_funcs = {
-        "route_registration_ping": route_registration_ping,
-        "route_sensor_status": route_sensor_status
-    }
+    for route in routes:
+        mapper.connect(None, route["path"], controller=route["name"])
+        mapper_funcs[route["name"]] = route["handler"]
 
     async def http_handler(client, addr):
         """
@@ -484,6 +533,31 @@ def configure_http_handler(opts):
         print(" <- connection closed")
 
     return http_handler
+
+
+def create_challenge_handler(outer_opts, challenge):
+    """
+    Create the HTTP handler that will be used during the HTTP-01/SAVIOR verification
+    challenge.
+
+    :param opts: argparse program options
+    :param challenge: challenge configuration data from Sensing API
+    :return:
+    """
+
+    async def challenge_handler(opts, stream, headers, params):
+        """
+        Handle the HTTP-01/Savior certificate challenge
+        :param opts:
+        :param stream:
+        :param headers:
+        :param params:
+        :return:
+        """
+        print("  | sending HTTP-01/SAVIOR certificate challenge response")
+        await send_json(stream, challenge)
+
+    return challenge_handler
 
 
 async def route_registration_ping(opts, stream, headers, params):
@@ -573,10 +647,49 @@ async def main(opts):
         #       - client certs for registration request
         #       - client certs for all heartbeats
 
-        # we need to spin up our HTTPS actuation listener first
+        # layout the routes we'll serve during the certificate challenge
+        http_routes = [
+            {"path": urlparse(challenge_data["url"]).path, "name": "http_01_savior_challenge", "handler": create_challenge_handler(opts, challenge_data)}
+        ]
+
+        # now spin up the http server so we can respond to the challenge
+        challenge_server = await g.spawn(
+            tcp_server(
+                opts.sensor_hostname,
+                opts.sensor_port,
+                configure_http_handler(opts, http_routes, secure=False)
+            )
+        )
+
+        # request a public cert
+        pki_public_future = await g.spawn(get_signed_public_key, opts, csr)
+        pub_key_success, pub_key = await pki_public_future.join()
+        if not pub_key_success:
+            print("  ! Encountered an error when retrieving a public key for the sensor, aborting")
+            sys.exit(1)
+
+        # spin down the http server
+        await challenge_server.cancel()
+
+        # write out our keys to the pub_key/priv_key paths in our options
+
+        # we can now spin up our HTTPS actuation listener using our new keys
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(certfile=opts.public_key_path, keyfile=opts.private_key_path)
-        await g.spawn(tcp_server(opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts), ssl=ssl_context))
+
+        # layout the routes we'll be serving persistently for actuation/inspection over HTTPS
+        https_routes = [
+            {"path": "/sensor/{uuid}/registered", "name": "route_registration_ping", "handler": route_registration_ping},
+            {"path": "/sensor/status", "name": "route_sensor_status", "handler": route_sensor_status}
+        ]
+        await g.spawn(
+            tcp_server(
+                opts.sensor_hostname,
+                opts.sensor_port,
+                configure_http_handler(opts, https_routes, secure=True),
+                ssl=ssl_context
+            )
+        )
 
         # now we register and wait for the results
         reg = await g.spawn(register_sensor, opts, root_cert)
