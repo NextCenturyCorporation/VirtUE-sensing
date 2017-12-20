@@ -2,6 +2,8 @@
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
+
+#include "controller-linux.h"
 #include "controller.h"
 
 MODULE_LICENSE("GPL");
