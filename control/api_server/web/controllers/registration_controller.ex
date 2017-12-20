@@ -14,7 +14,7 @@ defmodule ApiServer.RegistrationController do
   """
 
   use ApiServer.Web, :controller
-  import ApiServer.ExtractionPlug, only: [extract_sensor_id: 2, is_virtue_id: 1, is_sensor_id: 1, is_hostname: 1, is_username: 1, is_public_key: 1]
+  import ApiServer.ExtractionPlug, only: [extract_sensor_id: 2, is_virtue_id: 1, is_sensor_id: 1, is_hostname: 1, is_username: 1, is_public_key: 1, is_sensor_port: 1]
   alias :mnesia, as: Mnesia
 
   # get our Sensor ID into conn::sensor_id
@@ -240,7 +240,7 @@ defmodule ApiServer.RegistrationController do
         invalid_registration(conn, sensor, "username", username)
       ! is_public_key(public_key) ->
         invalid_registration(conn, sensor, "public_key", public_key)
-      ! Integer.parse(port) == :error ->
+      ! is_sensor_port(port) ->
         IO.puts IEx.Info.info(port)
         invalid_registration(conn, sensor, "port", port)
       ! ApiServer.ConfigurationUtils.have_default_sensor_config_by_name(sensor_name, %{match_prefix: true}) ->
@@ -351,8 +351,15 @@ defmodule ApiServer.RegistrationController do
     - :error - verification failed
   """
   def verify_remote_sensor(hostname, port, sensor) do
+
+    # root CA to the HTTPoison hackney instance, with something like:
+    #
+    #   HTTPoison.get("https://example.com/", [], ssl: [cacertfile: "/app/certs/ca.pem"])
+    #
+    # see: https://github.com/edgurgel/httpoison/issues/294
+
     # let's send out our verification ping
-    case HTTPoison.get("http://#{hostname}:#{port}/sensor/#{sensor}/registered", [], [timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
+    case HTTPoison.get("https://#{hostname}:#{port}/sensor/#{sensor}/registered", [], [ssl: [cacertfile: Application.get_env(:api_server, :ca_cert_file)], timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
 
       {:ok, %HTTPoison.Response{status_code: 200, body: _}} ->
         IO.puts("  + sensor(id=#{sensor}) verified with direct ping")

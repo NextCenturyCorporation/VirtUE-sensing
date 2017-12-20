@@ -20,7 +20,9 @@ use Mix.Config
 # configured to run both http and https servers on
 # different ports.
 config :api_server, ApiServer.Endpoint,
-  http: [port: 4000],
+  http: [port: 17141],
+  https: [:inet6, port: 17504, keyfile: "/app/certs/cert-key.pem", certfile: "/app/certs/cert.pem"],
+  url: [host: "api", port: 17504],
   debug_errors: false,
   code_reloader: true,
   check_origin: false,
@@ -47,10 +49,10 @@ config :logger, :console, format: "[$level] $message\n"
 config :phoenix, :stacktrace_depth, 20
 
 # Configure your database
-config :api_server, ApiServer.Repo,
-  adapter: Ecto.Adapters.Postgres,
-  username: "postgres",
-  password: "postgres",
-  database: "api_server_dev",
-  hostname: "localhost",
-  pool_size: 10
+#config :api_server, ApiServer.Repo,
+#  adapter: Ecto.Adapters.Postgres,
+#  username: "postgres",
+#  password: "postgres",
+#  database: "api_server_dev",
+#  hostname: "localhost",
+#  pool_size: 10

@@ -29,7 +29,7 @@ dependencies with `mix deps.get`, you can start the server with:
 mix phoenix.server
 ```  
 
-Now you can visit [`localhost:4000/version`](http://localhost:4000/version) from your browser to
+Now you can visit [`localhost:17504/version`](http://localhost:4000/version) from your browser to
 verify you have the server running.
 
 # API Queries and Targeting
@@ -69,7 +69,33 @@ The order of precedence (and validations for each value type) can be found in [e
 # Run Time
 
 The Sensing API run time is comprised of a set of services that run concurrently to
-provide the entire API capability.
+provide the entire API capability. Security and authentication wise, services are broken down into
+three groups:
+
+ - Insecure and Unauthenticated
+ - Secure and Unauthenticated
+ - Secure and Authenticated
+ 
+The **Insecure and Unauthenticated** services are available as standard HTTP endpoints on
+port _17141_. Both **Authenticated** and **Unauthenticated** _Secure_ services are available
+via HTTPS endpoints on port _17504_.
+
+## Bootstrapping Certificates
+
+While the Sensing API is the main gateway for other services to acquire Certificates, it uses
+the `get_certificates.py` tool to acquire its own Certificates prior to the API booting up. The
+local copy of `get_certificates.py` is located in the `tools` folder, while the canonical version
+is in the [tools](https://github.com/twosixlabs/savior/tree/master/tools/certificates) project. 
+
+When the canonical `get_certificates.py` tool has changed, the `update_tools.sh` script in the
+main `bin` directory can be used to update all instances of the tool through the Savior repository:
+
+```bash
+# in repository root
+> ./bin/update_tools.sh 
+Updating Certificate tools
+ ... [control/api_server/tools]
+``` 
 
 ## API Services
 
@@ -84,9 +110,32 @@ back to the registering sensor. The registration cycle is a key component. The S
 using the [HTTPoison](https://hexdocs.pm/httpoison/HTTPoison.html) library for generating HTTP
 requests.
 
+See also the [Certificate Workflow](https://github.com/twosixlabs/savior/blob/master/CERTIFICATES.md) and [Sensor Lifecycle](https://github.com/twosixlabs/savior/blob/master/SENSORARCH.md).
+
 ### Log Streaming
 
 TBD 
+
+### Certificate Authority
+
+The Sensing API provided a [Certificate Workflow](https://github.com/twosixlabs/savior/blob/master/CERTIFICATES.md) for
+services and sensors to acquire Private and Public TLS certificates that are signed by the
+Savior Certificate Authority. 
+
+Obtaining the Public Key for the Savior Certificate Authority depends on the environment: in
+a _development_ context, the Root CA public key is available over an **Insecure and Unauthenticated**
+API endpoint in the Sensing API:
+
+```bash
+> curl http://localhost:17141/api/v1/ca/root/public
+{
+    "timestamp":"2017-12-15 20:12:07.691819Z",
+    "error":false,
+    "certificate":"-----BEGIN CERTIFICATE-----\nMII...Okz/AIJw==\n-----END CERTIFICATE-----"
+}
+``` 
+
+Loading the Root Public Certificate in a _production_ environment is still unsolved.
 
 ## Data Persistence
 
@@ -114,6 +163,14 @@ ridiculously robust, so sometimes it's nice to get a "sign of life" out of the s
 _a really long time_ without emitting a log message.
 
 The Sensing API heartbeat happens once a minute. 
+
+# Configuration
+
+## Environment Variables
+
+### CFSSL_SHARED_SECRET
+
+The shared secret key for HMAC request signing between CFSSL and CA clients, including the Sensing API.
 
 # Development
 
@@ -154,11 +211,23 @@ The API Server maintains relevant sensor registration data in a disc persisted, 
 Updates to the schema of the data table are handled in the same `start_mnesia/0` method, and
 follow a process of updating from known previous forms to the current schema.
 
+### Sensor
+
 For the **Sensor** data model, a helper _struct_ is defined in the **web/models/sensor.ex** _Sensor_
 module.
 
 Utilities for working with the data model, _Sensor_ struct, and the Mnesia data store are in
 the **lib/database_utils.ex** _ApiServer.DatabaseUtils_ module.
+
+
+### PKI Keys
+
+For the **PKIKey** data model, a helper _struct_ is defined in the **web/models/pki.ex** __PKIKey_ module.
+
+Utilities for working with the data model, _PKIKey_ struct, and the Mnesia data store are
+in the **lib/database_utils.ex** _ApiServer.DatabaseUtils_ module. 
+
+### Updating
 
 When updating the schema for any data tables, modifications must be made in the following
 locations:
@@ -168,6 +237,9 @@ locations:
   - **web/models/sensor.ex** `Sensor.defstruct` - append new fields to end of struct list
   - **web/models/sensor.ex** `Sensor.sensor/*` - extend appropriate methods with the new fields
   - **web/models/sensor.ex** `Sensor.to_mnesia_record/2` - include field in translation from MapSet to tuple record
+  - **web/models/pki.ex** `PKIKey.defstruct` - append new fields to end of struct list
+  - **web/models/pki.ex** `PKIKey.create/*` - extend appropriate methods with the new fields
+  - **web/models/pki.ex** `PKIKey.to_mnesia_record/2` - include field in translation from MapSet to tuple record
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.register_sensor/1` - include new fields from `Sensor` struct in parameter matching for method call, and record creation with `Mnesia.write/1`
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.index_for_key/1` - append new fields to end of lookup list
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.prune_old_sensors/0` - remove old sensors from tracking
@@ -175,3 +247,10 @@ locations:
   - **lib/database_utils.ex** `ApiServer.DatabaseUtils.sync_sensor/1` - update timestamp for sensor sync
   - **web/controllers/registration_controller.ex** - `ApiServer.RegistrationController.register` - add relevant fields to `register` route
   
+# FAQ
+
+## What's up with port 17504 and 17141?
+
+The Unicode code point for the 🔍 character is U+1F50D. The numeric conversion is 128269, which is too big for a port number,
+so a literal transposition with _D=4_ and _F=7_ gives us `17504`. Since the port `17504` is used for HTTPS traffic, the port
+for HTTP traffic with naturally be `17141`, or `(443 - 80) = 363` ports lower than the HTTPS port.

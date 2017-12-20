@@ -1,18 +1,59 @@
 defmodule ApiServer.Router do
   use ApiServer.Web, :router
 
+  # There are a small number of routes that we'll allow over HTTP and without authentication
+  pipeline :insecure do
+    plug :accepts, ["json"]
+  end
 
+  # Standard routes need to use HTTPS and provide authentication
   pipeline :api do
+    plug Plug.SSL
     plug :accepts, ["json"]
     plug ApiServer.Plugs.Authenticate
   end
 
+  # Some routes don't require authentication, but are still forced over HTTPS
+  pipeline :api_no_auth do
+    plug Plug.SSL
+    plug :accepts, ["json"]
+  end
 
-   scope "/version", ApiServer do
-     get "/", VersionController, :version
-   end
+  scope "/version", ApiServer do
+    get "/", VersionController, :version
+  end
 
-   # Other scopes may use custom stacks.
+  # INSECURE AND UNAUTHENTICADED
+  scope "/api/v1", ApiServer do
+    pipe_through :insecure
+
+    # server status/availability
+    get "/ready", StatsController, :ready, name: "stats-ready"
+
+    get "/ca/root/public", ConfigureController, :ca_root_cert, name: "ca-root-cert"
+
+  end
+
+  # SECURE AND UNAUTHENTICATED
+  scope "/api/v1", ApiServer do
+    pipe_through :api_no_auth
+
+    # certificate registration
+    put "/ca/register/private_key/new", CertificateController, :private_key_new, name: "ca-private-key-new"
+    put "/ca/register/public_key/signed", CertificateController, :public_key_signed, name: "ca-private-key-signed"
+
+    # sensor registration/sync/deregistration workflow
+    put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
+    put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
+    put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
+
+    # unauthenticated calls used during testing
+    get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
+    get "/user/:user/stream", StreamController, :stream, name: "user-stream"
+
+  end
+
+  # SECURE AND AUTHENTICATED
    scope "/api/v1", ApiServer do
      pipe_through :api
 
@@ -192,7 +233,6 @@ defmodule ApiServer.Router do
      ############
      put "/user/:user/observe/:level", ObserveController, :observe, name: "user-observe"
      put "/user/:user/trust/:action", TrustController, :trust, name: "user-trust"
-     get "/user/:user/stream", StreamController, :stream, name: "user-stream"
      get "/user/:user/inspect", InspectController, :inspect, name: "user-inspect"
      get "/user/:user/validate/check", ValidateController, :check, name: "user-validate-check"
      put "/user/:user/validate/:action", ValidateController, :trigger, name: "user-validate-trigger"
@@ -204,10 +244,6 @@ defmodule ApiServer.Router do
      put "/sensor/:sensor/configure", ConfigureController, :configure, name: "sensor-configure-set"
      get "/sensor/:sensor/validate/check", ValidateController, :check, name: "sensor-validate-check"
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
-     put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
-     put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
-     put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
-     get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
      get "/sensor/:sensor/inspect", InspectController, :inspect, name: "sensor-inspect"
 
   end

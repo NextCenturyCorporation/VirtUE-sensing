@@ -4,7 +4,7 @@ VirtUE Program
 
 # Running the Sensing Architecture - Docker
 
-The components of the Sensing API can be run as Docker containers to make demonstrations and tests easier
+The components of the Sensing API can be run as Docker containers to make demonstrations, development, and tests easier
 to execute in a wide variety of environments. The infrastructure services will all be automatically built
 when the `docker-compose.yml` file is used to start the services, but the container for the `virtue-security`
 tool needs to be built prior to use. All of the following commands are designed to be run from the repository
@@ -74,8 +74,14 @@ The `virtue-security stream` command will continue receiving messages until you 
 
 # Running the Sensing Architecture - Native
 
-During development, it is recommended that you run the Sensing architecture natively, so code changes, bugs, and issues
-aren't missed due to Docker caching and Docker network shims.
+Running the Sensing architecture natively outside of Docker is cumbersome:
+
+ - container startup scripts handle partial automation of the Certificate Authority
+ - Runtime options are codified on the command line controls of the `docker-compose` containers
+ - DNS and service naming are handled via Docker networking
+ 
+If you still want to try and run the components natively, the original and incomplete instructions
+follow:
 
 ## Start Kafka
 

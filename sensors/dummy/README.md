@@ -37,11 +37,14 @@ the Kafka log streamer.
 ## RSA Keys
 
 Each sensor uses a public/private RSA 4096bit key pair for encrypting connections to external services,
-as well as using the public key as part of the authentication and sensor registration process. During
-development keys can be generated with the `gen_cert.sh` script.
+as well as using the public key as part of the authentication and sensor registration process. The Sensing
+API is used to acquire both the Savior Root CA Public Key, as well as the sensor specific public/private key
+pair. 
 
-In the production environment certificates will be generated and distributed via the Sensing Certificate
-Authority.
+The workflows used for key acquisition and sensor registration are documented in the [Certificate Workflow](https://github.com/twosixlabs/savior/blob/master/CERTIFICATES.md) 
+and [Sensor Lifecycle](https://github.com/twosixlabs/savior/blob/master/SENSORARCH.md). These two cycles
+are used in the `main` method of the Sensor wrapper.
+
 
 ## Sensor Registration / Deregistration
 

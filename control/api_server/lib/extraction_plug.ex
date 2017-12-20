@@ -367,7 +367,7 @@ defmodule ApiServer.ExtractionPlug do
 
   # Is the given string a valid Hostname according to RFC 1123 specifications?
   def is_hostname(st) do
-    String.match?(st, ~r/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/)
+    String.match?(st, ~r/^(([a-zA-Z0-9_]|[a-zA-Z0-9_][a-zA-Z0-9\-_]*[a-zA-Z0-9_])\.)*([A-Za-z0-9_]|[A-Za-z0-9_][A-Za-z0-9\-_]*[A-Za-z0-9_])$/)
   end
 
   # Is the given string a valid Virtue ID?
@@ -391,6 +391,20 @@ defmodule ApiServer.ExtractionPlug do
         :true
       [] ->
         :false
+    end
+  end
+
+  def is_sensor_port(p) when is_integer(p) do
+    :true
+  end
+
+  def is_sensor_port(p) do
+
+    parsable = Integer.parse(p)
+
+    case p do
+      p when parsable != :error -> true
+      _ -> false
     end
   end
 

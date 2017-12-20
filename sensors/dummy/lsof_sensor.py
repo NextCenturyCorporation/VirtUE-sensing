@@ -3,10 +3,10 @@ __VERSION__ = "1.20171117"
 
 
 import argparse
-import asks
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, spawn, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation
+from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl
+import curequests
 import datetime
 import email
 import hashlib
@@ -22,10 +22,8 @@ import signal
 import socket
 import sys
 import time
+from urllib.parse import urlparse
 from uuid import uuid4
-
-# configure ASKS to use curio
-asks.init('curio')
 
 #
 # A dummy sensor that streams log messages based off of following the
@@ -42,7 +40,94 @@ asks.init('curio')
 log_messages = Queue()
 
 
-async def sync_sensor(opts):
+async def get_root_ca_pubkey(opts):
+    """
+    Get the public key of the CA root. During development, this is an unauthenticated
+    and insecure connection to the Sensing API.
+
+    Returns look like:
+
+        True, "PEM data"
+        False, "error message"
+
+    The PEM will also be written to the "ca_key_path" directory as ca.pem.
+
+    :param opts: argparse options
+    :return: success boolean, PEM encoded CA public key or error message
+    """
+    print("  @ Retrieving CA Root public key")
+
+    uri = construct_api_uri(opts, "/ca/root/public", secure=False)
+
+    res = requests.get(uri)
+
+    if res.status_code == 200:
+        res_json = res.json()
+
+        if not res_json["error"]:
+            print("  + got PEM encoded certificate")
+
+            with open(os.path.join(opts.ca_key_path, "ca.pem"), "w") as ca_pem:
+                ca_pem.write(res_json["certificate"])
+                print("  < PEM written to [%s]" % (os.path.join(opts.ca_key_path, "ca.pem")))
+            return True, res_json["certificate"]
+        else:
+            print("  ! encountered an error retrieving the certificate: %s" % (res_json["message"],))
+            return False, res_json["message"]
+    else:
+        print("  ! Encountered an HTTP error retrieving the certificate: status_code(%d)" % (res.status_code,))
+        return False, "HTTP(%d)" % (res.status_code,)
+
+
+async def wait_for_sensor_api(opts):
+    """
+    We may spin up before our configured Sensor API endpoint
+    is ready to work. We need to wait (a configurable amount
+    of time) for the API to be ready.
+
+    This method loops on calls to the API /ready endpoint, either
+    waiting for a ready: True response, or killing the sensor
+    if we exceed a defined retry time limit.
+
+    :param opts: argparse options
+    :return: Return if ready, otherwise raise ConnectionError
+    """
+
+    print("  @ Waiting for Sensing API")
+
+    uri = construct_api_uri(opts, "/ready", secure=False)
+
+    st = time.time()
+
+    while True:
+
+        try:
+
+            # try to connect to the ready endpoint
+            res = requests.get(uri)
+
+            # did we get a status 200?
+            if res.status_code == 200:
+                res_json = res.json()
+
+                # can we break free?
+                if "ready" in res_json and res_json["ready"]:
+                    print("    + Sensing API is ready")
+                    return
+        except Exception as e:
+            print("  ! Exception while waiting for the Sensing API (%s)" % (str(e),))
+
+        # have we exceeded our retry time limit?
+        if (time.time() - st) > opts.api_retry_max:
+            raise ConnectionError("Cannot connect to Sensing API")
+
+        # The endpoint isn't ready, we need to sleep on it
+        print("    ~ retrying in %0.2f seconds" % (opts.api_retry_wait,))
+
+        time.sleep(opts.api_retry_wait)
+
+
+async def sync_sensor(opts, pub_key):
     """
     Synchronize the sensor with the Sensing API so we stay registered.
 
@@ -51,7 +136,7 @@ async def sync_sensor(opts):
     """
 
     # define our payload for registration sync
-    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()),
+    pubkey_b64 = str(base64.urlsafe_b64encode(pub_key.encode()),
                      encoding="iso-8859-1")
     uri = construct_api_uri(opts, "/sensor/%s/sync" % (opts.sensor_id,))
 
@@ -63,32 +148,18 @@ async def sync_sensor(opts):
     while True:
 
         # try and hit the sync end point
-
-
         print("syncing with [%s]" % (uri,))
 
-        # we need to setup headers ourselves, because for some stupid, stupid
-        # reason the `asks` library lower cases all standard headers, which
-        # confuses any strict HTTP server looking for headers. Stupid, stupid
-        # stupidness. Guh.
-        headers = {
-            "Host": "%s:%d" % (opts.sensor_hostname, opts.sensor_port),
-            "Connection": "keep-alive",
-            "Accept-Encoding": "gzip, deflate",
-            "Accept": "*/*",
-            # "Content-Length": 0,
-            "User-Agent": "python-asks/1.3.6",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
+        ca_path = os.path.join(opts.ca_key_path, "ca.pem")
 
-        res = await asks.put(uri, data=payload, headers=headers)
+        reg_res = await curequests.put(uri, json=payload, verify=ca_path)
 
-        if res.status_code == 200:
+        if reg_res.status_code == 200:
             print("Synced sensor with Sensing API")
         else:
             print("Couldn't sync sensor with Sensing API")
-            print("  status_code == %d" % (res.status_code,))
-            print(res.json())
+            print("  status_code == %d" % (reg_res.status_code,))
+            print(reg_res.json())
 
         # sleep
         await sleep(60 * 2)
@@ -98,7 +169,81 @@ async def sync_sensor(opts):
             break
 
 
-async def register_sensor(opts):
+async def get_private_key_and_csr(opts):
+    """
+    Request a new private key from the Sensing API. This will get us both
+    the private key (RSA 4096 by default) and the Certificate Signing Request.
+
+
+    :param opts: argparse program options
+    :param root_cert: Savior CA public root
+    :return: success, private_key, csr, challenge data
+    """
+    print("  @ Requesting Private Key and Certificate Signing Request from the Sensing API")
+
+    uri = construct_api_uri(opts, "/ca/register/private_key/new")
+    payload = {
+        "hostname": opts.sensor_hostname,
+        "port": opts.sensor_port
+    }
+    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
+
+    pki_priv_res = await curequests.put(uri, json=payload, verify=ca_path)
+
+    if pki_priv_res.status_code == 200:
+        print("  + got private key response from Sensing API")
+        pki_priv_json = pki_priv_res.json()
+
+        return True, pki_priv_json["private_key"], pki_priv_json["certificate_request"], pki_priv_json["challenge"]
+    else:
+        print("  ! got status_code(%d) from the Sensing API" % (pki_priv_res.status_code,))
+        res_json = pki_priv_res.json()
+        if "messages" in res_json:
+            for msg in res_json["messages"]:
+                print("    - %s" % (msg,))
+        return False, "", "", {}
+
+
+async def get_signed_public_key(opts, csr):
+    """
+    Request a signed public certificate that corresponds to the CSR that we received
+    with our private key.
+
+    Return will be:
+
+        - True, key
+        - False
+
+    :param opts: argparse program options
+    :param csr: certificate signing request PEM data
+    :return: success, key
+    """
+    print("  @ Requesting Signed Public Key from the Sensing API")
+
+    uri = construct_api_uri(opts, "/ca/register/public_key/signed")
+    payload = {
+        "certificate_request": csr
+    }
+    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
+
+    pub_key_res = await curequests.put(uri, json=payload, verify=ca_path)
+
+    if pub_key_res.status_code == 200:
+        print("  + got a signed public key from the Sensing API")
+        pub_key_json = pub_key_res.json()
+
+        return True, pub_key_json["certificate"]
+
+    else:
+        print("  ! got status_code(%d) from the Sensing API" % (pub_key_res.status_code,))
+        res_json = pub_key_res.json()
+        if "messages" in res_json:
+            for msg in res_json["messages"]:
+                print("    - %s" % (msg,))
+        return False, ""
+
+
+async def register_sensor(opts, pub_key):
     """
     Register this sensor with the Sensing API.
 
@@ -106,7 +251,7 @@ async def register_sensor(opts):
     :return:
     """
     uri = construct_api_uri(opts, "/sensor/%s/register" % (opts.sensor_id,))
-    pubkey_b64 = str(base64.urlsafe_b64encode(load_public_key(opts.public_key_path)[1].encode()), encoding="iso-8859-1")
+    pubkey_b64 = str(base64.urlsafe_b64encode(pub_key.encode()), encoding="iso-8859-1")
 
     payload = {
         "sensor": opts.sensor_id,
@@ -120,31 +265,18 @@ async def register_sensor(opts):
 
     print("registering with [%s]" % (uri,))
 
-    # we need to setup headers ourselves, because for some stupid, stupid
-    # reason the `asks` library lower cases all standard headers, which
-    # confuses any strict HTTP server looking for headers. Stupid, stupid
-    # stupidness. Guh.
-    headers = {
-        "Host": "%s:%d" % (opts.sensor_hostname, opts.sensor_port),
-        "Connection": "keep-alive",
-        "Accept-Encoding": "gzip, deflate",
-        "Accept": "*/*",
-        # "Content-Length": 0,
-        "User-Agent": "python-asks/1.3.6",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
 
-    res = await asks.put(uri, data=payload, headers=headers)
-    # res = requests.put(uri, data=payload)
+    reg_res = await curequests.put(uri, json=payload, verify=ca_path)
 
-    if res.status_code == 200:
+    if reg_res.status_code == 200:
         print("Registered sensor with Sensing API")
-        print(res.json())
-        return res.json()
+        print(reg_res.json())
+        return reg_res.json()
     else:
         print("Couldn't register sensor with Sensing API")
-        print("  status_code == %d" % (res.status_code,))
-        print(res.text)
+        print("  status_code == %d" % (reg_res.status_code,))
+        print(reg_res.text)
         sys.exit(1)
 
 
@@ -162,7 +294,11 @@ def deregister_sensor(opts):
         "sensor": opts.sensor_id,
         "public_key": pubkey_b64
     }
-    res = requests.put(uri, data=payload)
+
+    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
+
+    res = requests.put(uri, data=payload, verify=ca_path)
+
     if res.status_code == 200:
         print("Deregistered sensor with Sensing API")
     else:
@@ -310,25 +446,34 @@ async def send_json(stream, json_data, status_code=200):
     await stream.write(raw)
 
 
-def configure_http_handler(opts):
+def configure_http_handler(opts, routes, secure=False):
     """
     Expose the run time options to the http handler which
     will be spawned by the tcp server.
 
+    The `routes` list contains dictionaries, with each dictionary defining
+    a route that the HTTP(s) server should handle.
+
     :param opts: argparse options
+    :param routes: List of dicts
+    :param secure: Secure the server with an SSL/TLS certificate
     :return: async http_handler function
     """
 
     # Configure our HTTP routes
     mapper = Mapper()
-    mapper.connect(None, "/sensor/{uuid}/registered", controller="route_registration_ping")
-    mapper.connect(None, "/sensor/status", controller="route_sensor_status")
+    # mapper.connect(None, "/sensor/{uuid}/registered", controller="route_registration_ping")
+    # mapper.connect(None, "/sensor/status", controller="route_sensor_status")
+    #
+    # # and which methods handle what?
+    mapper_funcs = {}
+    #     "route_registration_ping": route_registration_ping,
+    #     "route_sensor_status": route_sensor_status
+    # }
 
-    # and which methods handle what?
-    mapper_funcs = {
-        "route_registration_ping": route_registration_ping,
-        "route_sensor_status": route_sensor_status
-    }
+    for route in routes:
+        mapper.connect(None, route["path"], controller=route["name"])
+        mapper_funcs[route["name"]] = route["handler"]
 
     async def http_handler(client, addr):
         """
@@ -390,6 +535,31 @@ def configure_http_handler(opts):
     return http_handler
 
 
+def create_challenge_handler(outer_opts, challenge):
+    """
+    Create the HTTP handler that will be used during the HTTP-01/SAVIOR verification
+    challenge.
+
+    :param opts: argparse program options
+    :param challenge: challenge configuration data from Sensing API
+    :return:
+    """
+
+    async def challenge_handler(opts, stream, headers, params):
+        """
+        Handle the HTTP-01/Savior certificate challenge
+        :param opts:
+        :param stream:
+        :param headers:
+        :param params:
+        :return:
+        """
+        print("  | sending HTTP-01/SAVIOR certificate challenge response")
+        await send_json(stream, challenge)
+
+    return challenge_handler
+
+
 async def route_registration_ping(opts, stream, headers, params):
     """
     Handle a request for:
@@ -446,11 +616,101 @@ async def main(opts):
 
     async with TaskGroup() as g:
 
-        # we need to spin up our actuation listener first
-        await g.spawn(tcp_server, opts.sensor_hostname, opts.sensor_port, configure_http_handler(opts))
+        # first thing first - let's make sure the Sensing API is ready for us
+        api_ready = await g.spawn(wait_for_sensor_api, opts)
+        await api_ready.join()
+
+        # now we need to get the root public key
+        ca_root_cert_future = await g.spawn(get_root_ca_pubkey, opts)
+        rc_success, root_cert = await ca_root_cert_future.join()
+
+        if not rc_success:
+            print("  ! Couldn't get the CA root certificate - no way to verify secure communications")
+            sys.exit(1)
+
+        # now the certificate cycle, where we get our pub/priv key pair
+        pki_private_future = await g.spawn(get_private_key_and_csr, opts)
+        pki_priv_success, priv_key, csr, challenge_data = await pki_private_future.join()
+        if not pki_priv_success:
+            print("  ! Encountered an error when retrieving a private key for the sensor, aborting")
+            sys.exit(1)
+
+        print("  %% private key fingerprint(%s)" % (rsa_private_fingerprint(priv_key),))
+        print("  %% CA http-savior challenge url(%s) and token(%s)" % (challenge_data["url"], challenge_data["token"]))
+
+        # Our Verification and Challenge cycle has two components:
+        #
+        #  1. HTTP-01-SAVIOR challenge for issuing a signed public certificate
+        #  2. Sensor control verification and configuration
+        #
+        # We've already retrieved a private key and Certificate Signing Request from
+        # the Sensing API. Now the Challenge cycle requires us to
+        #
+        #  1. spin up the http challenge responder
+        #  2. call the public key signer of the Sensing API
+        #  3. Store our public and private keys
+        #
+        # Once we have our public and private key, we can continue with the sensor
+        # control challenge, where we our certificates for:
+        #
+        #  - https server for registration responder
+        #  - client certs for registration request
+        #  - client certs for all heartbeats
+
+        # layout the routes we'll serve during the certificate challenge
+        http_routes = [
+            {"path": urlparse(challenge_data["url"]).path, "name": "http_01_savior_challenge", "handler": create_challenge_handler(opts, challenge_data)}
+        ]
+
+        # now spin up the http server so we can respond to the challenge
+        challenge_server = await g.spawn(
+            tcp_server(
+                opts.sensor_hostname,
+                opts.sensor_port,
+                configure_http_handler(opts, http_routes, secure=False)
+            )
+        )
+
+        # request a public cert
+        pki_public_future = await g.spawn(get_signed_public_key, opts, csr)
+        pub_key_success, pub_key = await pki_public_future.join()
+        if not pub_key_success:
+            print("  ! Encountered an error when retrieving a public key for the sensor, aborting")
+            sys.exit(1)
+
+        # spin down the http server
+        await challenge_server.cancel()
+
+        # write out our keys to the pub_key/priv_key paths in our options, and make
+        # sure we set the correct permissions (0x600)
+        with open(opts.public_key_path, "w") as public_key_file:
+            public_key_file.write(pub_key)
+        os.chmod(opts.public_key_path, 0o600)
+
+        with open(opts.private_key_path, "w") as private_key_file:
+            private_key_file.write(priv_key)
+        os.chmod(opts.private_key_path, 0x600)
+
+        # we can now spin up our HTTPS actuation listener using our new keys
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(certfile=opts.public_key_path, keyfile=opts.private_key_path)
+
+        # layout the routes we'll be serving persistently for actuation/inspection over HTTPS
+        https_routes = [
+            {"path": "/sensor/{uuid}/registered", "name": "route_registration_ping", "handler": route_registration_ping},
+            {"path": "/sensor/status", "name": "route_sensor_status", "handler": route_sensor_status}
+        ]
+        await g.spawn(
+            tcp_server(
+                opts.sensor_hostname,
+                opts.sensor_port,
+                configure_http_handler(opts, https_routes, secure=True),
+                ssl=ssl_context
+            )
+        )
 
         # now we register and wait for the results
-        reg = await g.spawn(register_sensor, opts)
+        reg = await g.spawn(register_sensor, opts, pub_key)
 
         print("  @ waiting for registration cycle")
         reg_data = await reg.join()
@@ -459,7 +719,7 @@ async def main(opts):
 
         await g.spawn(log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
         await g.spawn(lsof, opts.sensor_id, json.loads(reg_data["default_configuration"]))
-        await g.spawn(sync_sensor, opts)
+        await g.spawn(sync_sensor, opts, pub_key)
 
         await Goodbye.wait()
         print("Got SIG: deregistering sensor and shutting down")
@@ -543,7 +803,7 @@ def insert_char_every_n_chars(string, char='\n', every=64):
         string[i:i + every] for i in range(0, len(string), every))
 
 
-def rsa_public_fingerprint(key):
+def rsa_public_fingerprint(pem_data):
     """
     Generate a hex digest in the form ##:##:##...## of the given
     public key. The fingerprint will be a 47 character string, with
@@ -554,12 +814,13 @@ def rsa_public_fingerprint(key):
     :param key: RSA Public Key object
     :return:
     """
+    key = RSA.importKey(pem_data)
     md5digest = hashlib.md5(key.exportKey("DER")).hexdigest()
     fingerprint = insert_char_every_n_chars(md5digest, ':', 2)
     return fingerprint
 
 
-def rsa_private_fingerprint(key):
+def rsa_private_fingerprint(pem_data):
     """
     Generate a hex digest of the form ##:##:##..## of the given
     private key. The finger print will be a 59 character string,
@@ -567,15 +828,16 @@ def rsa_private_fingerprint(key):
 
     The private key fingerprint is a sha1 digest.
 
-    :param key:
+    :param key: PEM string
     :return:
     """
+    key = RSA.importKey(pem_data)
     sha1digest = hashlib.sha1(key.exportKey("DER", pkcs=8)).hexdigest()
     fingerprint = insert_char_every_n_chars(sha1digest, ':', 2)
     return fingerprint
 
 
-def construct_api_uri(opts, uri_path):
+def construct_api_uri(opts, uri_path, secure=True):
     """
     Build a full URI for a request to the API.
 
@@ -586,12 +848,18 @@ def construct_api_uri(opts, uri_path):
 
     # setup the host
     host = opts.api_host
+    port = opts.api_https_port
+    if not secure:
+        port = opts.api_http_port
 
     if not host.startswith("http"):
-        host = "http://%s" % (host,)
+        if secure:
+            host = "https://%s" % (host,)
+        else:
+            host = "http://%s" % (host,)
 
     # setup the full uri
-    return "%s:%d/api/%s%s" % (host, opts.api_port, opts.api_version, uri_path)
+    return "%s:%d/api/%s%s" % (host, port, opts.api_version, uri_path)
 
 
 def options():
@@ -607,9 +875,12 @@ def options():
     # key management
     parser.add_argument("--public-key-path", dest="public_key_path", default=None, help="Path to the public key to use")
     parser.add_argument("--private-key-path", dest="private_key_path", default=None, help="Path to the private key to use")
+    parser.add_argument("--ca-key-path", dest="ca_key_path", default="./cert", help="Directory path at which CA public keys can be written")
     # communications
     parser.add_argument("-a", "--api-host", dest="api_host", default="localhost", help="API host URI")
-    parser.add_argument("-p", "--api-port", dest="api_port", default=4000, type=int, help="API host port")
+    parser.add_argument("--api-https-port", dest="api_https_port", default=17504, type=int, help="API host secure port")
+    parser.add_argument("--api-http-port", dest="api_http_port", default=17141, type=int,
+                        help="API host insecure port")
     parser.add_argument("--api-version", dest="api_version", default="v1", help="API version being called")
 
     # identification
@@ -621,6 +892,8 @@ def options():
 
     # for testing and time management/dependency management
     parser.add_argument("--delay-start", dest="delay_start", type=int, default=0, help="Number of seconds to delay before startup")
+    parser.add_argument("--api-connect-retry-max", dest="api_retry_max", type=float, default=30.0, help="How many seconds should we wait for the Sensing API to be ready before we shutdown")
+    parser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensign API connection retries")
 
     return parser.parse_args()
 
@@ -682,21 +955,22 @@ def check_identification(opts):
         if opts.sensor_hostname is None:
             raise ValueError("Can't identify the current hostname, bailing out")
 
-    pub_key, pub_key_string = load_public_key(opts.public_key_path)
-    pri_key, pri_key_string = load_private_key(opts.private_key_path)
+    # pub_key, pub_key_string = load_public_key(opts.public_key_path)
+    # pri_key, pri_key_string = load_private_key(opts.private_key_path)
 
     # report
-    print("\tsensor_id == %s" % (opts.sensor_id,))
-    print("\tvirtue_id == %s" % (opts.virtue_id,))
-    print("\tusername  == %s" % (opts.username,))
-    print("\thostname  == %s" % (opts.sensor_hostname,))
-    print("\tpub key   == %s" % (rsa_public_fingerprint(pub_key),))
-    print("\tpriv key  == %s" % (rsa_private_fingerprint(pri_key),))
+    print("\tsensor_id  == %s" % (opts.sensor_id,))
+    print("\tvirtue_id  == %s" % (opts.virtue_id,))
+    print("\tusername   == %s" % (opts.username,))
+    print("\thostname   == %s" % (opts.sensor_hostname,))
+    # print("\tpub key    == %s" % (rsa_public_fingerprint(pub_key),))
+    # print("\tpriv key   == %s" % (rsa_private_fingerprint(pri_key),))
 
     print("Sensing API")
-    print("\thostname  == %s" % (opts.api_host,))
-    print("\tport      == %d" % (opts.api_port,))
-    print("\tversion   == %s" % (opts.api_version,))
+    print("\thostname   == %s" % (opts.api_host,))
+    print("\thttp port  == %d" % (opts.api_http_port,))
+    print("\thttps port == %d" % (opts.api_https_port,))
+    print("\tversion    == %s" % (opts.api_version,))
 
     print("Sensor Interface")
     print("\thostname  == %s" % (opts.sensor_hostname,))

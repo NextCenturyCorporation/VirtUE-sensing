@@ -2,7 +2,9 @@ FROM python:3.6
 ENV PYTHONUNBUFFERED=0
 
 RUN apt-get update
-RUN apt-get install -y lsof
+
+# gonna need lsof if we're going to try and stream lsof...
+RUN apt-get install -y lsof vim
 
 WORKDIR /usr/src/app
 COPY requirements.txt ./

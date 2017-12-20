@@ -10,11 +10,17 @@ config :api_server,
   ecto_repos: [ApiServer.Repo],
   c2_kafka_topic: "api-server-control",
   sensor_kafka_bootstrap: ["kafka:9092"],
-  client_kafka_bootstrap: ["kafka:9092"]
+  client_kafka_bootstrap: ["kafka:9092"],
+  ca_cert_file: "/app/certs/ca.pem",
+  cfssl_host: "cfssl",
+  cfssl_port: 3030,
+  cfssl_default_algo: "rsa",
+  cfssl_default_size: 4096
+
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,
-  url: [host: "kafka"],
+  url: [host: "api"],
   secret_key_base: "xtb19NAC0sCZ1RNjGUJVguTl7wsUKq/nsnjvx7Xxx/K3uP0aakfoQI/DYi3IH7M0",
   render_errors: [view: ApiServer.ErrorView, format: "json", accepts: ~w(json)],
   pubsub: [name: ApiServer.PubSub,
@@ -48,7 +54,7 @@ config :kafka_ex,
 
   consumer_group: "kafka_ex",
 
-  disable_default_worker: false,
+  disable_default_worker: true,
 
   sync_timeout: 30000,
 
