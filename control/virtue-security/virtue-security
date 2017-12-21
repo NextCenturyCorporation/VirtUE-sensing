@@ -4314,8 +4314,6 @@ async def api_monitor(opts):
                 print(json.dumps(msg.value, indent=4))
 
 
-
-
 async def api_stream(opts):
     """
     Retrieve the JSONL stream from the server and print it out.
