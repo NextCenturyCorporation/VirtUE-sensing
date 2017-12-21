@@ -371,11 +371,14 @@ async def log_drain(kafka_bootstrap_hosts=None, kafka_channel=None):
     print(" ::starting log_drain")
     print("  ? configuring KafkaProducer(bootstrap=%s, topic=%s)" % (",".join(kafka_bootstrap_hosts), kafka_channel))
 
+    # see http://kafka-python.readthedocs.io/en/master/apidoc/KafkaProducer.html for more info on using client certs
     producer = KafkaProducer(
         bootstrap_servers=kafka_bootstrap_hosts,
         retries=5,
         max_block_ms=10000,
-        value_serializer=str.encode
+        value_serializer=str.encode,
+        ssl_cafile=os.path.join(opts.ca_key_path, "ca.pem"),
+        security_protocol="SSL"
     )
 
     # basic channel tracking
