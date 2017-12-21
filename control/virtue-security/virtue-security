@@ -4288,7 +4288,7 @@ async def api_monitor(opts):
         print("    topic=%s" % (channel,))
         print("    bootstraps=[%s]" % (",".join(bootstraps)),)
 
-        for msg in kafka.KafkaConsumer(channel, bootstrap_servers=bootstraps, value_deserializer=json.loads):
+        for msg in kafka.KafkaConsumer(channel, bootstrap_servers=bootstraps, value_deserializer=json.loads, ssl_cafile=ca_path, security_protocol="SSL"):
 
             # what do we do with this information
             if msg.value["action"] == "heartbeat":

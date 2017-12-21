@@ -5,7 +5,7 @@
  
  1. [x] get API to use SSL when connecting to KAFKA
  2. [x] get sensor to use SSL when connecting to KAFKA
- 3. [ ] get client to use SSL when connecting to KAFKA? (c2 channel for monitoring)
+ 3. [x] get client to use SSL when connecting to KAFKA? (c2 channel for monitoring)
  
  # client certs everywhere
 
