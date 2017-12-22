@@ -47,7 +47,8 @@ defmodule ApiServer.Mixfile do
       {:quantum, "~> 2.1.3"},
       {:timex, "~> 3.0"},
       {:kafka_ex, "~> 0.8.0"},
-      {:retry, "~> 0.8.0"}
+      {:retry, "~> 0.8.0"},
+      {:phoenix_client_ssl, "~> 0.1.0"}
     ]
   end
 

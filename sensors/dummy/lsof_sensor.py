@@ -152,7 +152,7 @@ async def sync_sensor(opts, pub_key):
 
         ca_path = os.path.join(opts.ca_key_path, "ca.pem")
 
-        reg_res = await curequests.put(uri, json=payload, verify=ca_path)
+        reg_res = await curequests.put(uri, json=payload, verify=ca_path, cert=(opts.public_key_path, opts.private_key_path))
 
         if reg_res.status_code == 200:
             print("Synced sensor with Sensing API")
@@ -266,8 +266,9 @@ async def register_sensor(opts, pub_key):
     print("registering with [%s]" % (uri,))
 
     ca_path = os.path.join(opts.ca_key_path, "ca.pem")
-
-    reg_res = await curequests.put(uri, json=payload, verify=ca_path)
+    client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    print("  client certificate public(%s), private(%s)" % client_cert_paths)
+    reg_res = await curequests.put(uri, json=payload, verify=ca_path, cert=client_cert_paths)
 
     if reg_res.status_code == 200:
         print("Registered sensor with Sensing API")
@@ -297,7 +298,7 @@ def deregister_sensor(opts):
 
     ca_path = os.path.join(opts.ca_key_path, "ca.pem")
 
-    res = requests.put(uri, data=payload, verify=ca_path)
+    res = requests.put(uri, data=payload, verify=ca_path, cert=(opts.public_key_path, opts.private_key_path))
 
     if res.status_code == 200:
         print("Deregistered sensor with Sensing API")

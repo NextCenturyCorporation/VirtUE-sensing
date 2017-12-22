@@ -63,11 +63,17 @@ defmodule ApiServer.StatsController do
   end
 
   defp kakfa_ready?() do
-    case KafkaEx.latest_offset("asdf", 0) do
-      :topic_not_found ->
-        :true
-      [%KafkaEx.Protocol.Offset.Response{}] ->
-        :true
+
+    try do
+      case KafkaEx.latest_offset("asdf", 0) do
+        :topic_not_found ->
+          :true
+        [%KafkaEx.Protocol.Offset.Response{}] ->
+          :true
+        _ ->
+          :false
+      end
+    rescue
       _ ->
         :false
     end
