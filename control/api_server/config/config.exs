@@ -9,8 +9,8 @@ use Mix.Config
 config :api_server,
   ecto_repos: [ApiServer.Repo],
   c2_kafka_topic: "api-server-control",
-  sensor_kafka_bootstrap: ["kafka:9092"],
-  client_kafka_bootstrap: ["kafka:9092"],
+  sensor_kafka_bootstrap: ["kafka:9455"],
+  client_kafka_bootstrap: ["kafka:9455"],
   ca_cert_file: "/app/certs/ca.pem",
   cfssl_host: "cfssl",
   cfssl_port: 3030,
@@ -49,7 +49,7 @@ config :kafka_ex,
 
   # brokers
   brokers: [
-    {"kafka", 9092}
+    {"kafka", 9455}
   ],
 
   consumer_group: "kafka_ex",
@@ -66,7 +66,13 @@ config :kafka_ex,
 
   commit_threshold: 100,
 
-  use_ssl: false,
+  use_ssl: true,
+
+  ssl_options: [
+
+    cacertfile: "/app/certs/ca.pem"
+    # see https://hexdocs.pm/kafka_ex/KafkaEx.Config.html#content for info on using client certs as well
+  ],
 
   kafka_version: "0.9.0"
 

@@ -3,7 +3,7 @@
 
 # push the get_certificates.py script and requirements where ever we need it
 echo "Updating Certificate tools"
-for push_dir in "control/api_server/tools"
+for push_dir in "control/api_server/tools" "control/logging/tools"
 do
 	echo " ... [$push_dir]"
 	cp ./tools/certificates/get_certificates.py ./$push_dir/get_certificates.py

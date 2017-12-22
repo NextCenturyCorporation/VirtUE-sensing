@@ -1,13 +1,14 @@
 version: '2'
 services:
   kafka:
-    image: spotify/kafka
+    build: "./control/logging"
     ports:
       - "2181:2181"
       - "9092:9092"
     environment:
       ADVERTISED_HOST: kafka
       ADVERTISED_PORT: "9092"
+      CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
   cfssl:
     build: "./control/savior-ca"
     ports:
