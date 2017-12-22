@@ -70,8 +70,10 @@ config :kafka_ex,
 
   ssl_options: [
 
-    cacertfile: "/app/certs/ca.pem"
-    # see https://hexdocs.pm/kafka_ex/KafkaEx.Config.html#content for info on using client certs as well
+    cacertfile: "/app/certs/ca.pem",
+    certfile: "/app/certs/cert.pem",
+    keyfile: "/app/certs/cert-key.pem"
+
   ],
 
   kafka_version: "0.9.0"

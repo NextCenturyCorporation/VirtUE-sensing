@@ -3,12 +3,14 @@
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
  
- 1. [x] get API to use SSL when connecting to KAFKA
- 2. [x] get sensor to use SSL when connecting to KAFKA
- 3. [x] get client to use SSL when connecting to KAFKA? (c2 channel for monitoring)
- 
- # client certs everywhere
-
+ Friday:  client certs everywhere & cert pinning?
+  - [ ] sensors talking to Sensing API
+  - [x] sensors talking to Kafka
+  - [x] Sensing API talking to Kafka
+  - [ ] Sensing API talking to Sensor
+  - [ ] virtue-security talking to Sensing API
+  - [ ] virtue-security talking to Kafka
+  
  
 # Sensing Architecture
 

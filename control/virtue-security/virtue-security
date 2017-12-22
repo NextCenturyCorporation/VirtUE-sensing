@@ -4288,6 +4288,7 @@ async def api_monitor(opts):
         print("    topic=%s" % (channel,))
         print("    bootstraps=[%s]" % (",".join(bootstraps)),)
 
+        # see http://kafka-python.readthedocs.io/en/master/apidoc/KafkaProducer.html for more on using client certificates
         for msg in kafka.KafkaConsumer(channel, bootstrap_servers=bootstraps, value_deserializer=json.loads, ssl_cafile=ca_path, security_protocol="SSL"):
 
             # what do we do with this information
