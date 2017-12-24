@@ -43,3 +43,16 @@ services:
       - kafka
       - api
     command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11001 --sensor-hostname sensor_2
+  dropper_callback:
+    build: "./external/dropper_callback"
+    ports:
+      - "8080:8080"
+    # hostname: dropper1
+    # domainname: evil.io
+  target_1:
+    build: "./targets/base"
+    depends_on:
+      - kafka
+      - api
+    stdin_open: true
+    tty: true
