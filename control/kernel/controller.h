@@ -34,6 +34,103 @@
 
 #define PROBE_ID_SIZE 0x1000
 #define PROBE_DATA_SIZE 0x4000
+#define PS_HEADER_SIZE 0x100
+/**
+ * __task_cred - Access a task's objective credentials
+ * @task: The task to query
+ *
+ * Access the objective credentials of a task.  The caller must hold the RCU
+ * readlock.
+ *
+ * The result of this function should not be passed directly to get_cred();
+ * rather get_task_cred() should be used instead.
+ *
+ *  #define __task_cred(task)
+ *	rcu_dereference((task)->real_cred)
+ **/
+
+
+/**
+ * #ifdef CONFIG_TASK_XACCT
+ * here is RSS memory in struct stack struct:
+ * Accumulated RSS usage:
+ * u64				acct_rss_mem1;
+ * Accumulated virtual memory usage:
+ * u64				acct_vm_mem1;
+ * stime + utime since last update:
+ * u64				acct_timexpd;
+ * #endif
+ **/
+
+
+
+
+/**
+  * executable name, excluding path.
+  * - normally initialized setup_new_exec()
+  * - access it with [gs]et_task_comm()
+  * - lock it with task_lock()
+  **/
+extern const struct cred *get_task_cred(struct task_struct *);
+
+/*
+ * The task state array is a strange "bitmap" of
+ * reasons to sleep. Thus "running" is zero, and
+ * you can test for combinations of others with
+ * simple bit tests.
+ */
+#if 0
+static const char * const task_state_array[] = {
+	"R (running)",		/*   0 */
+	"S (sleeping)",		/*   1 */
+	"D (disk sleep)",	/*   2 */
+	"T (stopped)",		/*   4 */
+	"t (tracing stop)",	/*   8 */
+	"X (dead)",		/*  16 */
+	"Z (zombie)",		/*  32 */
+};
+
+static inline const char *get_task_state(struct task_struct *tsk)
+
+/**
+ * struct task_cputime - collected CPU time counts
+ * @utime:		time spent in user mode, in nanoseconds
+ * @stime:		time spent in kernel mode, in nanoseconds
+ * @sum_exec_runtime:	total time spent on the CPU, in nanoseconds
+ *
+ * This structure groups together three kinds of CPU time that are tracked for
+ * threads and thread groups.  Most things considering CPU time want to group
+ * these counts together and treat all three of them in parallel.
+ */
+struct task_cputime {
+	u64				utime;
+	u64				stime;
+	unsigned long long		sum_exec_runtime;
+};
+
+static inline void task_cputime(struct task_struct *t,
+				u64 *utime, u64 *stime)
+{
+	*utime = t->utime;
+	*stime = t->stime;
+}
+#endif
+
+struct kernel_ps_data {
+	uint8_t header[PS_HEADER_SIZE];
+	kuid_t user_id;
+	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
+	uint64_t load_avg;
+	uint64_t util_avg; /* see struct sched_avg in linux/sched.h */
+#define TASK_STATE_LEN 24
+	uint8_t state[TASK_STATE_LEN];
+	uint64_t start_time; /* task->start_time */
+	uint64_t u_time;
+	uint64_t s_time;
+	uint64_t task_time;
+	uint8_t comm[TASK_COMM_LEN];
+};
+
 
 struct probe_s {
 	uint8_t *probe_id;

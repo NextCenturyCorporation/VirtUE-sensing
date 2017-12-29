@@ -24,6 +24,31 @@ struct kernel_sensor ks = {.id="kernel-sensor",
 						   .probes[0].probe_id="probe-controller",
 						   .probes[0].probe_lock=__SPIN_LOCK_UNLOCKED(lock)};
 
+
+
+
+
+
+
+#ifdef NOTHING
+/*     struct task_struct *task = get_current); */
+static int kernel_ps(void)
+{
+	int ccode =  0;
+	struct task_struct *task;
+	uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND";
+	printk(KERN_ALERT "%s\n", header);
+
+	for_each_process(task) {
+		printk(KERN_ALERT "%s [%d]\n", task->comm, task->pid);
+		ccode++;
+	}
+
+    return ccode;
+}
+#endif
+
+
 /* ugly but expedient way to support < 4.9 kernels */
 /* todo: convert to macros and move to header */
 /* CONT_INIT_AND_QUEUE, CONT_INIT_WORK, CONT_QUEUE_WORK */
@@ -229,6 +254,8 @@ void  k_probe(struct kthread_work *work)
 		   probe_struct->repeat,
 		   *count);
 
+//kernel_ps();
+
 	if (probe_struct->repeat) {
 		probe_struct->repeat--;
 		init_and_queue_work(work, co_worker, k_probe);
@@ -252,6 +279,7 @@ static int __init controller_init(void)
 		return -ENOMEM;
 	}
 
+	#ifdef NOTHING
 	do {
 	  co_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
 		schedule();
@@ -260,11 +288,14 @@ static int __init controller_init(void)
 			goto err_exit;
 		}
 	} while (ERR_PTR(-EINTR) == co_worker);
-
 	printk(KERN_ALERT "co_worker is %p; co_work is %p\n", co_worker, co_work);
+#endif
 	DMSG();
 
-err_exit:
+	return 0;
+
+
+//err_exit:
 	kfree(co_work);
 	co_work = NULL;
 	return ccode;
@@ -273,7 +304,7 @@ err_exit:
 static void __exit controller_cleanup(void)
 {
 	printk(KERN_ALERT "controller cleanup\n");
-    kthread_destroy_worker(ks.kworker);
+//	kthread_destroy_worker(ks.kworker);
 	/* work nodes do not get destroyed along with a worker */
 	if (co_work) {
 		kfree(co_work);
