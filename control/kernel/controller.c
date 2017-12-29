@@ -14,8 +14,8 @@ struct list_head *probe_queues[0x10];
 
 int probe_socket;
 
-struct kthread_work *co_work;
-struct kthread_worker *co_worker;
+struct kthread_work *controller_work;
+struct kthread_worker *controller_worker;
 
 struct kernel_sensor ks = {.id="kernel-sensor",
 						   .lock=__SPIN_LOCK_UNLOCKED(lock),
@@ -23,11 +23,6 @@ struct kernel_sensor ks = {.id="kernel-sensor",
 						   .kwork=NULL,
 						   .probes[0].probe_id="probe-controller",
 						   .probes[0].probe_lock=__SPIN_LOCK_UNLOCKED(lock)};
-
-
-
-
-
 
 
 #ifdef NOTHING
@@ -143,6 +138,9 @@ fail_task:
 	kfree(worker);
 	return ERR_CAST(task);
 }
+
+
+#ifdef OLD_API
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 {
@@ -156,7 +154,6 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	return worker;
 }
 
-#ifdef OLD_API
 void kthread_destroy_worker(struct kthread_worker *worker)
 {
 	struct task_struct *task;
@@ -273,29 +270,32 @@ static int __init controller_init(void)
 	int ccode = 0;
 	DMSG();
 
-	co_work = kzalloc(sizeof(*co_work), GFP_KERNEL);
-	if (!co_work) {
+	controller_work = kzalloc(sizeof(*controller_work), GFP_KERNEL);
+	if (!controller_work) {
 		DMSG();
 		return -ENOMEM;
 	}
 
+	ks.kwork = controller_work;
+
 	do {
-		co_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
+		controller_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
 		schedule();
-		if (ERR_PTR(-ENOMEM) == co_worker) {
+		if (ERR_PTR(-ENOMEM) == controller_worker) {
 			ccode = -ENOMEM;
 			goto err_exit;
 		}
-	} while (ERR_PTR(-EINTR) == co_worker);
-	printk(KERN_ALERT "co_worker is %p; co_work is %p\n", co_worker, co_work);
+	} while (ERR_PTR(-EINTR) == controller_worker);
+	printk(KERN_ALERT "controller_worker is %p; controller_work is %p\n",
+		   controller_worker, controller_work);
 	DMSG();
 	return 0;
 
 
 err_exit:
 	DMSG();
-	kfree(co_work);
-	co_work = NULL;
+	kfree(controller_work);
+	controller_work = NULL;
 	return ccode;
 }
 
@@ -308,10 +308,10 @@ static void __exit controller_cleanup(void)
 	}
 
 	/* work nodes do not get destroyed along with a worker */
-	if (co_work) {
+	if (controller_work) {
 		DMSG();
-		kfree(co_work);
-		co_work = NULL;
+		kfree(controller_work);
+		controller_work = NULL;
 		DMSG();
 	}
 }
