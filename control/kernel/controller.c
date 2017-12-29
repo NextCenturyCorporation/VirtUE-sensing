@@ -111,7 +111,7 @@ void *destroy_k_probe(struct probe_s *probe)
 
 struct kthread_worker *
 __cont_create_worker(int cpu, unsigned int flags,
-			const char namefmt[], va_list args)
+					 const char namefmt[], va_list args)
 {
 	struct kthread_worker *worker;
 	struct task_struct *task;
@@ -242,8 +242,8 @@ void  k_probe(struct kthread_work *work)
 		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
 
 /* this pragma is necessary until we make more explicit use of probe_struct->data */
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wunused-value"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 	count = (uint64_t *)probe_struct->data;
 	*count++;
 
@@ -261,7 +261,7 @@ void  k_probe(struct kthread_work *work)
 		init_and_queue_work(work, co_worker, k_probe);
 	}
 #pragma GCC diagnostic pop
-  return;
+	return;
 }
 
 
@@ -279,9 +279,8 @@ static int __init controller_init(void)
 		return -ENOMEM;
 	}
 
-	#ifdef NOTHING
 	do {
-	  co_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
+		co_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
 		schedule();
 		if (ERR_PTR(-ENOMEM) == co_worker) {
 			ccode = -ENOMEM;
@@ -289,13 +288,12 @@ static int __init controller_init(void)
 		}
 	} while (ERR_PTR(-EINTR) == co_worker);
 	printk(KERN_ALERT "co_worker is %p; co_work is %p\n", co_worker, co_work);
-#endif
 	DMSG();
-
 	return 0;
 
 
-//err_exit:
+err_exit:
+	DMSG();
 	kfree(co_work);
 	co_work = NULL;
 	return ccode;
@@ -304,10 +302,17 @@ static int __init controller_init(void)
 static void __exit controller_cleanup(void)
 {
 	printk(KERN_ALERT "controller cleanup\n");
-//	kthread_destroy_worker(ks.kworker);
+	if (ks.kworker) {
+		DMSG();
+		kthread_destroy_worker(ks.kworker);
+	}
+
 	/* work nodes do not get destroyed along with a worker */
 	if (co_work) {
+		DMSG();
 		kfree(co_work);
+		co_work = NULL;
+		DMSG();
 	}
 }
 
