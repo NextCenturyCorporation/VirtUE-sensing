@@ -255,6 +255,8 @@ void  k_probe(struct kthread_work *work)
 
 	if (probe_struct->repeat) {
 		probe_struct->repeat--;
+
+/* audit this workflow, mdd */
 		init_and_queue_work(work, co_worker, k_probe);
 	}
 #pragma GCC diagnostic pop
@@ -262,8 +264,49 @@ void  k_probe(struct kthread_work *work)
 }
 
 
-/* init function for the controller, creates a worker
- *  and links a work node into the worker's list, runs the worker. */
+/**
+ * this init reflects the correct workflow - the struct work needs to be
+ * initialized and queued into the worker, before running the worker.
+ * the worker will dequeue the work and run work->func(work),
+ * then someone needs to decide if the work should be requeued.
+ **/
+static int __init __kcontrol_init(void)
+{
+	int ccode = 0;
+	DMSG();
+	controller_work = kzalloc(sizeof(*controller_work), GFP_KERNEL);
+	if (!controller_work) {
+		DMSG();
+		return -ENOMEM;
+	}
+	controller_worker = kzalloc(sizeof(kthread_worker));
+	if (!controller_worker) {
+		DMSG();
+		kfree(controller_work);
+		return -ENOMEM;
+	}
+
+	init_kthread_work(controller_work, k_probe);
+	init_kthread_worker(controller_worker);
+	queue_kthread_work(controller_worker, controller_work);
+	kthread_run(kthread_worker_fn, controller_worker,
+					"unremarkable-\%p", &
+	return ccode;
+
+err_exit:
+	DMSG();
+	kfree(controller_work);
+	controller_work = NULL;
+	return ccode;
+}
+
+/**
+ * this init reflects the incorrect workflow, it does not queue
+ * the work node before running the worker. It also uses the longhand
+ * version of creating a kthread task.
+ *  init function for the controller, creates a worker
+ *  and links a work node into the worker's list, runs the worker.
+ **/
 static int __init controller_init(void)
 {
 
@@ -275,6 +318,13 @@ static int __init controller_init(void)
 		DMSG();
 		return -ENOMEM;
 	}
+
+
+    /**
+	 * controller_work->func = k_probe
+	 * this is all too complicated -  build it up using simple
+	 * init_kthread_worker, them kthread_run, as in x86/kvm/i8254.c 704
+	 **/
 
 	ks.kwork = controller_work;
 
