@@ -1,14 +1,15 @@
 # In Progress
+
+2a Update virtue-security to use client certificates 
+3. Determine what needs to happen for new sensors
+4. Genericize the sensor wrapper
+5. Create new sensors
+6. Integrate dropper/malware into instrumented container
+7. script demo 
+8. Invalidate a sensor? (can we do run time revocation?)
  
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
- 
- 1. [x] get API to use SSL when connecting to KAFKA
- 2. [x] get sensor to use SSL when connecting to KAFKA
- 3. [x] get client to use SSL when connecting to KAFKA? (c2 channel for monitoring)
- 
- # client certs everywhere
-
  
 # Sensing Architecture
 
