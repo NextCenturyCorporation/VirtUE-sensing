@@ -1,7 +1,7 @@
 # In Progress
 
 1. Determine which authentication tasks need to happen now
- 1a. Basic hostname checking
+ 1a. Basic hostname checking	
  1b. algorithmic complexity
  1c. chain validation
  1d. Update virtue-security to use client certificates 
@@ -12,6 +12,7 @@
 5. Create new sensors
 6. Integrate dropper/malware into instrumented container
 7. script demo 
+8. Invalidate a sensor? (can we do run time revocation?)
  
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world

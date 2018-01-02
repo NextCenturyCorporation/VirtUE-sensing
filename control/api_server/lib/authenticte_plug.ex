@@ -10,9 +10,9 @@ defmodule ApiServer.Plugs.Authenticate do
   def call(%Plug.Conn{private: %{client_certificate_common_name: tls_common_name, client_certificate: certificate}} = conn, _opts) do
 
     ## Verification process
-    # 1. hostname verification (not yet done)
+    # 1. hostname verification (not yet done - how do we decide what hostname to compare against?)
     # 2. date bounding verification
-    # 3. CRL checking (not yet done)
+    # 3. CRL checking (not yet done) (public_key::pkix_crls_validate, public_key::pkix_dist_points)
     # 4. not-self-signed
     # 5. certificate chain validation with Savior CA
     # 6. algorithmic complexity of signature algo (not yet done)
@@ -43,6 +43,8 @@ defmodule ApiServer.Plugs.Authenticate do
       {:"SignatureAlgorithm", _, _},
       cert_signature
     } = certificate
+
+    cert_key_size = key_size_from_modulus(cert_modulus)
 
     # date bounds checks
     # According to IETF RFC5280 these time will be formatted as:
@@ -88,10 +90,14 @@ defmodule ApiServer.Plugs.Authenticate do
         {:error, {:bad_cert, reason }} = :public_key.pkix_path_validation(ca_root_cert, [certificate], [])
         IO.puts("    ! Verifying the certificate chain raised an error (#{reason})")
         reject_connection(conn, 495, "Certificate validation raised an error (#{reason})")
+      cert_key_size < 4096 ->
+        IO.puts("    ! Certificate key size(#{cert_key_size}) is too small - must be at least 4096 bits")
+        reject_connection(conn, 495, "Certificate key too small")
 
       true ->
         IO.puts("    @ certificate not self-signed")
         IO.puts("    @ trust chain validates")
+        IO.puts("    @ certificate key size(#{cert_key_size}) large enough")
         IO.puts("    + certificate constraints met")
         sig_64 = cert_signature |> Base.encode64()
         IO.puts("  + authenticated CN(#{tls_common_name}) with certificate(#{sig_64})")
@@ -104,6 +110,10 @@ defmodule ApiServer.Plugs.Authenticate do
     reject_connection(conn, 496, "Client certificate required")
   end
 
+  # Convert an RSA Key modulus into an RSA Key bit strength/size
+  defp key_size_from_modulus(modint) do
+    (String.length(Integer.to_string(modint, 16))) * 4
+  end
 
   # Simple function to turn an ASN.1 UTC time into an Elixir DateTime
   defp cert_time_to_date_time({:utcTime, t}) do
