@@ -215,13 +215,14 @@ err_exit:
 }
 
 
-/* A probe routine is a kthread  worker, called from kernel thread.
+/**
+ * A probe routine is a kthread  worker, called from kernel thread.
  * it needs to execute quickly and can't hold any locks or
  * blocking objects. Once it runs once, it must be re-initialized
  * and re-queued to run again...see /include/linux/kthread.h
- */
+ **/
 
-/*
+/**
  * Sample probe function
  *
  * Called by the "sensor" thread to "probe."
@@ -229,7 +230,7 @@ err_exit:
  * Each time the sample runs it increments its count, prints probe
  * information, and either reschedules itself or dies.
  *
- */
+ **/
 void  k_probe(struct kthread_work *work)
 {
 
@@ -279,73 +280,32 @@ static int __init __kcontrol_init(void)
 		DMSG();
 		return -ENOMEM;
 	}
-	controller_worker = kzalloc(sizeof(kthread_worker));
+	controller_worker = kzalloc(sizeof(struct kthread_worker), GFP_KERNEL);
 	if (!controller_worker) {
 		DMSG();
-		kfree(controller_work);
-		return -ENOMEM;
+		ccode = -ENOMEM;
+		goto err_exit;
 	}
 
 	init_kthread_work(controller_work, k_probe);
 	init_kthread_worker(controller_worker);
 	queue_kthread_work(controller_worker, controller_work);
 	kthread_run(kthread_worker_fn, controller_worker,
-					"unremarkable-\%p", &
+				"unremarkable-\%p", &ks);
+
 	return ccode;
 
 err_exit:
 	DMSG();
-	kfree(controller_work);
-	controller_work = NULL;
-	return ccode;
-}
-
-/**
- * this init reflects the incorrect workflow, it does not queue
- * the work node before running the worker. It also uses the longhand
- * version of creating a kthread task.
- *  init function for the controller, creates a worker
- *  and links a work node into the worker's list, runs the worker.
- **/
-static int __init controller_init(void)
-{
-
-	int ccode = 0;
-	DMSG();
-
-	controller_work = kzalloc(sizeof(*controller_work), GFP_KERNEL);
-	if (!controller_work) {
-		DMSG();
-		return -ENOMEM;
+	if (controller_work) {
+		kfree(controller_work);
+		controller_work = NULL;
+	}
+	if (controller_worker) {
+		kfree(controller_worker);
+		controller_worker = NULL;
 	}
 
-
-    /**
-	 * controller_work->func = k_probe
-	 * this is all too complicated -  build it up using simple
-	 * init_kthread_worker, them kthread_run, as in x86/kvm/i8254.c 704
-	 **/
-
-	ks.kwork = controller_work;
-
-	do {
-		controller_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
-		schedule();
-		if (ERR_PTR(-ENOMEM) == controller_worker) {
-			ccode = -ENOMEM;
-			goto err_exit;
-		}
-	} while (ERR_PTR(-EINTR) == controller_worker);
-	printk(KERN_ALERT "controller_worker is %p; controller_work is %p\n",
-		   controller_worker, controller_work);
-	DMSG();
-	return 0;
-
-
-err_exit:
-	DMSG();
-	kfree(controller_work);
-	controller_work = NULL;
 	return ccode;
 }
 
@@ -366,5 +326,5 @@ static void __exit controller_cleanup(void)
 	}
 }
 
-module_init(controller_init);
+module_init(__kcontrol_init);
 module_exit(controller_cleanup);
