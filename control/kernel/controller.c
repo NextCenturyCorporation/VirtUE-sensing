@@ -1,7 +1,7 @@
-/******************************************************************************
+/**********************************************************
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
- ******************************************************************************/
+ **********************************************************/
 
 #include "controller-linux.h"
 #include "controller.h"
@@ -16,6 +16,8 @@ int probe_socket;
 
 struct kthread_work *controller_work;
 struct kthread_worker *controller_worker;
+struct probe_s *controller_probe;
+
 
 struct kernel_sensor ks = {.id="kernel-sensor",
 						   .lock=__SPIN_LOCK_UNLOCKED(lock),
@@ -31,7 +33,8 @@ static int kernel_ps(void)
 {
 	int ccode =  0;
 	struct task_struct *task;
-	uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND";
+	uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
+		"STAT START   TIME COMMAND";
 	printk(KERN_ALERT "%s\n", header);
 
 	for_each_process(task) {
@@ -45,7 +48,7 @@ static int kernel_ps(void)
 /* ugly but expedient way to support < 4.9 kernels */
 /* todo: convert to macros and move to header */
 /* CONT_INIT_AND_QUEUE, CONT_INIT_WORK, CONT_QUEUE_WORK */
-#ifdef NOTHING
+
 static bool
 init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
@@ -55,7 +58,7 @@ init_and_queue_work(struct kthread_work *work,
 	return CONT_QUEUE_WORK(worker, work);
 
 }
-#endif
+
 
 /**
  * Flushes this work off any work_list it is on.
@@ -232,40 +235,39 @@ err_exit:
  **/
 void  k_probe(struct kthread_work *work)
 {
-
-//	uint64_t *count;
-//	struct kthread_worker *co_worker = work->worker;
-//    struct probe_s *probe_struct =
-//		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
-
 /* this pragma is necessary until we make more explicit use of probe_struct->data */
-//#pragma GCC diagnostic push
-//#pragma GCC diagnostic ignored "-Wunused-value"
-//	count = (uint64_t *)probe_struct->data;
-//	*count++;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
+#pragma GCC diagnostic ignored "-Wunused-variable"
 
-	/*
-	  printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
-	  probe_struct->probe_id,
-	  probe_struct->flags,
-	  probe_struct->timeout,
-	  probe_struct->repeat,
-	  *count);
-	  */
-	printk(KERN_ALERT "no probe\n");
+	uint64_t *count;
+	struct kthread_worker *co_worker = work->worker;
+	struct probe_s *probe_struct =
+		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
+
+	count = (uint64_t *)probe_struct->data;
+	*count++;
+
+
+	printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
+		   probe_struct->probe_id,
+		   probe_struct->flags,
+		   probe_struct->timeout,
+		   probe_struct->repeat,
+		   *count);
+
 
 	kernel_ps();
 
-//	if (probe_struct->repeat) {
-//		probe_struct->repeat--;
+	if (probe_struct->repeat) {
+		probe_struct->repeat--;
+	}
 
 /* audit this workflow, mdd */
-//		init_and_queue_work(work, co_worker, k_probe);
-
-//#pragma GCC diagnostic pop
+		init_and_queue_work(work, co_worker, k_probe);
+#pragma GCC diagnostic pop
 	return;
 }
-
 
 /**
  * this init reflects the correct workflow - the struct work needs to be
@@ -288,9 +290,25 @@ static int __init __kcontrol_init(void)
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
+	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
+	if (!controller_probe) {
+		DMSG();
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+
+	controller_probe = init_k_probe(controller_probe);
+	if (controller_probe == ERR_PTR(-ENOMEM)) {
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+
+	controller_probe->probe_work = controller_work;
 
 
-/* using the static struct until it becomes clear how probes will be used */
+/**
+ *  using the static struct until it becomes clear how probes will be used
+ **/
 	ks.kworker = controller_worker;
 	ks.kwork = controller_work;
 
@@ -313,6 +331,10 @@ err_exit:
 		controller_worker = NULL;
 	}
 
+	if (controller_probe) {
+		kfree(controller_probe);
+		controller_probe = NULL;
+	}
 	return ccode;
 }
 

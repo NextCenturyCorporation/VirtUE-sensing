@@ -136,7 +136,7 @@ struct probe_s {
 	uint8_t *probe_id;
 	spinlock_t probe_lock;
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
-	struct kthread_work *probe_work;
+	struct kthread_work *probe_work; /* need this for container_of() */
 	struct list_head probe_list;
 	uint8_t *data;
 };
@@ -184,8 +184,8 @@ struct kernel_sensor {
 	spinlock_t lock;
 	uint64_t flags;
 	struct list_head *l;
-	struct kthread_worker *kworker;
-	struct kthread_work *kwork;
+	struct kthread_worker *kworker; /* plan to move */
+	struct kthread_work *kwork;    /* plan to move */
 	struct probe_s probes[1]; /* use it as a pointer */
 };
 
