@@ -25,7 +25,7 @@ struct kernel_sensor ks = {.id="kernel-sensor",
 						   .probes[0].probe_lock=__SPIN_LOCK_UNLOCKED(lock)};
 
 
-#ifdef NOTHING
+
 /*     struct task_struct *task = get_current); */
 static int kernel_ps(void)
 {
@@ -41,13 +41,11 @@ static int kernel_ps(void)
 
     return ccode;
 }
-#endif
-
 
 /* ugly but expedient way to support < 4.9 kernels */
 /* todo: convert to macros and move to header */
 /* CONT_INIT_AND_QUEUE, CONT_INIT_WORK, CONT_QUEUE_WORK */
-
+#ifdef NOTHING
 static bool
 init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
@@ -57,6 +55,7 @@ init_and_queue_work(struct kthread_work *work,
 	return CONT_QUEUE_WORK(worker, work);
 
 }
+#endif
 
 /**
  * Flushes this work off any work_list it is on.
@@ -234,33 +233,36 @@ err_exit:
 void  k_probe(struct kthread_work *work)
 {
 
-	uint64_t *count;
-	struct kthread_worker *co_worker = work->worker;
-    struct probe_s *probe_struct =
-		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
+//	uint64_t *count;
+//	struct kthread_worker *co_worker = work->worker;
+//    struct probe_s *probe_struct =
+//		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
 
 /* this pragma is necessary until we make more explicit use of probe_struct->data */
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-value"
-	count = (uint64_t *)probe_struct->data;
-	*count++;
+//#pragma GCC diagnostic push
+//#pragma GCC diagnostic ignored "-Wunused-value"
+//	count = (uint64_t *)probe_struct->data;
+//	*count++;
 
-	printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
-		   probe_struct->probe_id,
-		   probe_struct->flags,
-		   probe_struct->timeout,
-		   probe_struct->repeat,
-		   *count);
+	/*
+	  printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
+	  probe_struct->probe_id,
+	  probe_struct->flags,
+	  probe_struct->timeout,
+	  probe_struct->repeat,
+	  *count);
+	  */
+	printk(KERN_ALERT "no probe\n");
 
-//kernel_ps();
+	kernel_ps();
 
-	if (probe_struct->repeat) {
-		probe_struct->repeat--;
+//	if (probe_struct->repeat) {
+//		probe_struct->repeat--;
 
 /* audit this workflow, mdd */
-		init_and_queue_work(work, co_worker, k_probe);
-	}
-#pragma GCC diagnostic pop
+//		init_and_queue_work(work, co_worker, k_probe);
+
+//#pragma GCC diagnostic pop
 	return;
 }
 
@@ -286,6 +288,11 @@ static int __init __kcontrol_init(void)
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
+
+
+/* using the static struct until it becomes clear how probes will be used */
+	ks.kworker = controller_worker;
+	ks.kwork = controller_work;
 
 	init_kthread_work(controller_work, k_probe);
 	init_kthread_worker(controller_worker);

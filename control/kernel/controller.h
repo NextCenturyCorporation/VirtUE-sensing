@@ -135,7 +135,7 @@ struct kernel_ps_data {
 struct probe_s {
 	uint8_t *probe_id;
 	spinlock_t probe_lock;
-	uint64_t flags, timeout, repeat; /* expect that flages will contail level bits */
+	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
 	struct kthread_work *probe_work;
 	struct list_head probe_list;
 	uint8_t *data;
