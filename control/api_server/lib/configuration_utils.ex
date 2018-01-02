@@ -107,6 +107,32 @@ defmodule ApiServer.ConfigurationUtils do
     end
   end
 
+  @doc """
+  Load the CA certificate for Savior CA and return as an OTPCertificate.
+
+  ### Parameters
+
+    n/a
+
+  ### Returns
+
+    {:ok, [der_encoded()]}
+
+    {:error, reason}
+
+  """
+  def load_ca_certificate() do
+
+    case File.read(Application.get_env(:api_server, :ca_cert_file)) do
+
+      {:ok, content} ->
+      [{:"Certificate", ca_cert, :not_encrypted}|_] = :public_key.pem_decode(content)
+        {:ok, :public_key.pkix_decode_cert(ca_cert, :otp)}
+      {:error, reason} ->
+        {:error, "Error reading file: #{reason}"}
+    end
+  end
+
   defp lookup_default_sensor_config_by_name(sensor_name, %{match_prefix: match_prefix}) do
 
     # create our lookup name based on prefix matching setting
