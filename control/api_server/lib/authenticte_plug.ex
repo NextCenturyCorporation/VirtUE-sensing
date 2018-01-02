@@ -13,9 +13,11 @@ defmodule ApiServer.Plugs.Authenticate do
     # 1. hostname verification (not yet done - how do we decide what hostname to compare against?)
     # 2. date bounding verification
     # 3. CRL checking (not yet done) (public_key::pkix_crls_validate, public_key::pkix_dist_points)
+    #     - we'll likely need to make our own sane version of a CRL check, to keep track of a large
+    #     - number of certificates
     # 4. not-self-signed
     # 5. certificate chain validation with Savior CA
-    # 6. algorithmic complexity of signature algo (not yet done)
+    # 6. algorithmic complexity of signature algo
     IO.puts("% authenticating request")
 
     # extract all of the bits and pieces of the certificate
@@ -44,6 +46,7 @@ defmodule ApiServer.Plugs.Authenticate do
       cert_signature
     } = certificate
 
+    # calculate the RSA key size for this certificate
     cert_key_size = key_size_from_modulus(cert_modulus)
 
     # date bounds checks
@@ -90,6 +93,7 @@ defmodule ApiServer.Plugs.Authenticate do
         {:error, {:bad_cert, reason }} = :public_key.pkix_path_validation(ca_root_cert, [certificate], [])
         IO.puts("    ! Verifying the certificate chain raised an error (#{reason})")
         reject_connection(conn, 495, "Certificate validation raised an error (#{reason})")
+
       cert_key_size < 4096 ->
         IO.puts("    ! Certificate key size(#{cert_key_size}) is too small - must be at least 4096 bits")
         reject_connection(conn, 495, "Certificate key too small")

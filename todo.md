@@ -1,12 +1,7 @@
 # In Progress
 
-1. Determine which authentication tasks need to happen now
- 1a. Basic hostname checking	
- 1b. algorithmic complexity
- 1c. chain validation
- 1d. Update virtue-security to use client certificates 
- 1e. use client certs to connect to sensors for actuation
 2. Push other auth tasks to issues
+2a Update virtue-security to use client certificates 
 3. Determine what needs to happen for new sensors
 4. Genericize the sensor wrapper
 5. Create new sensors
