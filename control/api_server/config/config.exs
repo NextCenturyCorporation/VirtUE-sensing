@@ -17,6 +17,9 @@ config :api_server,
   cfssl_default_algo: "rsa",
   cfssl_default_size: 4096
 
+# configure SSL status codes
+config :plug,
+  :statuses, %{495 => "TLS/SSL Certificate Error"}
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,
