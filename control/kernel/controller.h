@@ -136,7 +136,7 @@ struct probe_s {
 	uint8_t *probe_id;
 	spinlock_t probe_lock;
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
-	struct kthread_work *probe_work; /* need this for container_of() */
+	struct kthread_work probe_work;
 	struct list_head probe_list;
 	uint8_t *data;
 };
@@ -147,7 +147,8 @@ struct probe_s {
 #define CONT_CPU_ANY -1
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...);
-void kthread_destroy_worker(struct kthread_worker *worker);
+struct kthread_worker *
+kthread_destroy_worker(struct kthread_worker *worker);
 
 struct probe_s *init_k_probe(struct probe_s *probe);
 void *destroy_probe_work(struct kthread_work *work);

@@ -19,16 +19,6 @@ struct kthread_worker *controller_worker;
 struct probe_s *controller_probe;
 
 
-struct kernel_sensor ks = {.id="kernel-sensor",
-						   .lock=__SPIN_LOCK_UNLOCKED(lock),
-						   .kworker=NULL,
-						   .kwork=NULL,
-						   .probes[0].probe_id="probe-controller",
-						   .probes[0].probe_lock=__SPIN_LOCK_UNLOCKED(lock)};
-
-
-
-/*     struct task_struct *task = get_current); */
 static int kernel_ps(void)
 {
 	int ccode =  0;
@@ -54,6 +44,8 @@ init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
 					void (*function)(struct kthread_work *))
 {
+	return true;
+
 	CONT_INIT_WORK(work, function);
 	return CONT_QUEUE_WORK(worker, work);
 
@@ -73,7 +65,6 @@ void *destroy_probe_work(struct kthread_work *work)
 	return work;
 }
 
-
 /**
  * destroy a struct probe_s, by tearing down
  * its allocated resources.
@@ -88,20 +79,17 @@ void *destroy_probe_work(struct kthread_work *work)
  */
 void *destroy_k_probe(struct probe_s *probe)
 {
-	uint8_t *pid = NULL, *pdata = NULL;
-	struct kthread_work *pwork = probe->probe_work;
-	pid = probe->probe_id;
-	pdata = probe->data;
+	assert(probe);
+
+	if (probe->probe_id) {
+		kfree(probe->probe_id);
+	}
+	if (probe->data) {
+		kfree(probe->data);
+	}
+
+	destroy_probe_work(&probe->probe_work);
 	memset(probe, 0, sizeof(struct probe_s));
-	if (pid) {
-		kfree(pid);
-	}
-	if (pdata) {
-		kfree(pdata);
-	}
-	if (pwork) {
-		destroy_probe_work(pwork);
-	}
 	return probe;
 }
 
@@ -156,20 +144,20 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	return worker;
 }
 
-void kthread_destroy_worker(struct kthread_worker *worker)
+struct kthread_worker *
+kthread_destroy_worker(struct kthread_worker *worker)
 {
 	struct task_struct *task;
 
 	task = worker->task;
-	if (WARN_ON(!task))
-		return;
+	if (WARN_ON(!task)) {
+		return worker;
+	}
 
 	flush_kthread_worker(worker);
 	kthread_stop(task);
 	WARN_ON(!list_empty(&worker->work_list));
-	kfree(worker);
-
-	;
+	return worker;
 }
 
 #endif
@@ -184,6 +172,11 @@ void kthread_destroy_worker(struct kthread_worker *worker)
  * Initialize a kernel probe structure.
  * void *init_k_probe(struct probe_s *p)
  */
+
+/**
+ * note jan 3 2018: don't always zero-out a probe, prepare for
+ * showing persistent data in between probes (in between probe runs)
+ **/
 struct probe_s *init_k_probe(struct probe_s *probe)
 {
 	if (!probe) {
@@ -235,37 +228,24 @@ err_exit:
  **/
 void  k_probe(struct kthread_work *work)
 {
-/* this pragma is necessary until we make more explicit use of probe_struct->data */
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-value"
-#pragma GCC diagnostic ignored "-Wunused-variable"
-
-	uint64_t *count;
+	static uint64_t count;
 	struct kthread_worker *co_worker = work->worker;
+
 	struct probe_s *probe_struct =
-		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
-
-	count = (uint64_t *)probe_struct->data;
-	*count++;
-
+		container_of(work, struct probe_s, probe_work);
 
 	printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
 		   probe_struct->probe_id,
 		   probe_struct->flags,
 		   probe_struct->timeout,
 		   probe_struct->repeat,
-		   *count);
-
-
+		   ++count);
 	kernel_ps();
 
 	if (probe_struct->repeat) {
 		probe_struct->repeat--;
-	}
-
-/* audit this workflow, mdd */
 		init_and_queue_work(work, co_worker, k_probe);
-#pragma GCC diagnostic pop
+	}
 	return;
 }
 
@@ -279,80 +259,68 @@ static int __init __kcontrol_init(void)
 {
 	int ccode = 0;
 	DMSG();
-	controller_work = kzalloc(sizeof(*controller_work), GFP_KERNEL);
-	if (!controller_work) {
+
+	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
+	if (!controller_probe) {
 		DMSG();
 		return -ENOMEM;
 	}
+
+	controller_probe = init_k_probe(controller_probe);
+	if (controller_probe == ERR_PTR(-ENOMEM)) {
+		DMSG();
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+	controller_probe->repeat = 1;
+	controller_work = &controller_probe->probe_work;
+
 	controller_worker = kzalloc(sizeof(struct kthread_worker), GFP_KERNEL);
 	if (!controller_worker) {
 		DMSG();
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
-	if (!controller_probe) {
-		DMSG();
-		ccode = -ENOMEM;
-		goto err_exit;
-	}
 
-	controller_probe = init_k_probe(controller_probe);
-	if (controller_probe == ERR_PTR(-ENOMEM)) {
-		ccode = -ENOMEM;
-		goto err_exit;
-	}
-
-	controller_probe->probe_work = controller_work;
-
-
-/**
- *  using the static struct until it becomes clear how probes will be used
- **/
-	ks.kworker = controller_worker;
-	ks.kwork = controller_work;
+	printk(KERN_ALERT "controller_probe %p, controller_work %p, ->probe_work %p\n",
+		   controller_probe, controller_work, &controller_probe->probe_work);
 
 	init_kthread_work(controller_work, k_probe);
 	init_kthread_worker(controller_worker);
 	queue_kthread_work(controller_worker, controller_work);
 	kthread_run(kthread_worker_fn, controller_worker,
-				"unremarkable-\%p", &ks);
+				"unremarked\%lx", (unsigned long)controller_probe);
 
 	return ccode;
 
 err_exit:
 	DMSG();
-	if (controller_work) {
-		kfree(controller_work);
-		controller_work = NULL;
+	if (controller_probe) {
+		kfree(controller_probe);
+		controller_probe = NULL;
 	}
 	if (controller_worker) {
 		kfree(controller_worker);
 		controller_worker = NULL;
 	}
 
-	if (controller_probe) {
-		kfree(controller_probe);
-		controller_probe = NULL;
-	}
 	return ccode;
 }
 
 static void __exit controller_cleanup(void)
 {
 	printk(KERN_ALERT "controller cleanup\n");
-	if (ks.kworker) {
+	if (controller_probe) {
 		DMSG();
-		kthread_destroy_worker(ks.kworker);
+		kfree(destroy_k_probe(controller_probe));
 	}
 
-	/* work nodes do not get destroyed along with a worker */
-	if (controller_work) {
+	if (controller_worker) {
 		DMSG();
-		kfree(controller_work);
-		controller_work = NULL;
-		DMSG();
+		kfree(kthread_destroy_worker(controller_worker));
 	}
+
+
 }
 
 module_init(__kcontrol_init);
