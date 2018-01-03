@@ -31,13 +31,16 @@ defmodule ApiServer do
     # spin up mnesia
     start_mnesia()
 
-    # spin up kafka connection
-    start_kafkaex()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ApiServer.Supervisor]
-    Supervisor.start_link(children, opts)
+    sup = Supervisor.start_link(children, opts)
+
+    # spin up kafka connection
+    start_kafkaex()
+
+    sup
   end
 
   # Tell Phoenix to update the endpoint configuration

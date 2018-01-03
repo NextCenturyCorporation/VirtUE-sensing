@@ -10,7 +10,7 @@
  
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
- 
+
 # Sensing Architecture
 
  - [ ] stub out BEAM scaling of Sensing API

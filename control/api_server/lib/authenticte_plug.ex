@@ -1,45 +1,149 @@
 defmodule ApiServer.Plugs.Authenticate do
   import Plug.Conn
   import Phoenix.Controller
+  require Logger
 
-  def init(default), do: default
-
-  # put request with userToken auth
-  def call(%Plug.Conn{:method => "PUT", body_params: %{"userToken" => token}} = conn, _default) do
-      IO.puts "user token == #{token}"
-      conn
+  def init(default) do
+    default
   end
 
-  # put request without userToken auth
-  def call(%Plug.Conn{:method => "PUT"} = conn, _default) do
-      conn
-        |> conn_not_authorized()
-        |> Plug.Conn.halt()
+  def call(%Plug.Conn{private: %{client_certificate_common_name: tls_common_name, client_certificate: certificate}} = conn, _opts) do
+
+    ## Verification process
+    # 1. hostname verification (not yet done - how do we decide what hostname to compare against?)
+    # 2. date bounding verification
+    # 3. CRL checking (not yet done) (public_key::pkix_crls_validate, public_key::pkix_dist_points)
+    #     - we'll likely need to make our own sane version of a CRL check, to keep track of a large
+    #     - number of certificates
+    # 4. not-self-signed
+    # 5. certificate chain validation with Savior CA
+    # 6. algorithmic complexity of signature algo
+    IO.puts("% authenticating request")
+
+    # extract all of the bits and pieces of the certificate
+    # See:
+    #   http://erlang.org/doc/apps/public_key/using_public_key.html#id67373
+    {
+      :"OTPCertificate",
+      {
+        :"OTPTBSCertificate", :v3, cert_serial_number,
+        {:"SignatureAlgorithm", _, _},
+        {:rdnSequence, _}, # issuer
+        {:"Validity",
+          cert_not_before,
+          cert_not_after
+        },
+        {:rdnSequence, _}, # subject/CN/etc
+        {:"OTPSubjectPublicKeyInfo",
+          {:"PublicKeyAlgorithm", _, _},
+          {:"RSAPublicKey", cert_modulus, cert_exponent}
+        },
+        :asn1_NOVALUE,
+        :asn1_NOVALUE,
+        _, # extensions
+      },
+      {:"SignatureAlgorithm", _, _},
+      cert_signature
+    } = certificate
+
+    # calculate the RSA key size for this certificate
+    cert_key_size = key_size_from_modulus(cert_modulus)
+
+    # date bounds checks
+    # According to IETF RFC5280 these time will be formatted as:
+    #
+    #   UTCTime(for datetimes through year 2049)
+    #   GeneralizedTime(for datetimes starting in year 2050)
+    #
+    # The UTCTime is based on an ASN.1 time format which looks
+    # roughly like:
+    #
+    #   YYMMDDHHMMSSZ
+    #
+    # Where if YY is >= 50, the year is 19YY and if YY < 50
+    # the year is 20YY. Sigh.
+    #
+    # Can't find a decent parser for these, which is a pain.
+    IO.puts("  ? calculating datetime boundaries")
+    now_dt = Timex.now()
+
+    IO.puts("    @ not_before(#{elem(cert_not_before, 1)})")
+    not_before_dt = cert_time_to_date_time(cert_not_before)
+
+    IO.puts("    @ not_after(#{elem(cert_not_after, 1)})")
+    not_after_dt = cert_time_to_date_time(cert_not_after)
+
+    # we need to grab the CA certificate we'll use for validation
+    {:ok, ca_root_cert} = ApiServer.ConfigurationUtils.load_ca_certificate()
+
+    # let's evaluate everything we've pulled together so far
+    # and decide what to do
+    cond do
+
+      Timex.before?(now_dt, not_before_dt) ->
+        reject_connection(conn, 495, "Certificate isn't yet valid (not_before)")
+
+      Timex.after?(now_dt, not_after_dt) ->
+        reject_connection(conn, 495, "Certificate is not longer valid (not_after)")
+
+      :public_key.pkix_is_self_signed(certificate) ->
+        reject_connection(conn, 495, "Certificate is not valid (self signed certificate)")
+
+      elem(:public_key.pkix_path_validation(ca_root_cert, [certificate], []), 1) == :error ->
+        {:error, {:bad_cert, reason }} = :public_key.pkix_path_validation(ca_root_cert, [certificate], [])
+        IO.puts("    ! Verifying the certificate chain raised an error (#{reason})")
+        reject_connection(conn, 495, "Certificate validation raised an error (#{reason})")
+
+      cert_key_size < 4096 ->
+        IO.puts("    ! Certificate key size(#{cert_key_size}) is too small - must be at least 4096 bits")
+        reject_connection(conn, 495, "Certificate key too small")
+
+      true ->
+        IO.puts("    @ certificate not self-signed")
+        IO.puts("    @ trust chain validates")
+        IO.puts("    @ certificate key size(#{cert_key_size}) large enough")
+        IO.puts("    + certificate constraints met")
+        sig_64 = cert_signature |> Base.encode64()
+        IO.puts("  + authenticated CN(#{tls_common_name}) with certificate(#{sig_64})")
+        conn
+    end
+
   end
 
-  # Get request with userToken param
-  def call(%Plug.Conn{:method => "GET", :params => %{"userToken" => token}} = conn, _params) do
-    IO.puts "user token == #{token}"
+  def call(conn, _opts) do
+    reject_connection(conn, 496, "Client certificate required")
+  end
+
+  # Convert an RSA Key modulus into an RSA Key bit strength/size
+  defp key_size_from_modulus(modint) do
+    (String.length(Integer.to_string(modint, 16))) * 4
+  end
+
+  # Simple function to turn an ASN.1 UTC time into an Elixir DateTime
+  defp cert_time_to_date_time({:utcTime, t}) do
+    # https://hexdocs.pm/timex/Timex.Format.DateTime.Formatters.Strftime.html#content
+    #           Timex.Parse.DateTime.Parser.parse(t, "%y%m%0d%H%M%SZ", :strftime)
+    {:ok, dt} = Timex.Parse.DateTime.Parser.parse(to_string(t), "%y%m%0d%H%M%SZ", :strftime)
+    dt
+  end
+
+  # Simple function to turn an IETF RFC5280 GeneralizedTime into an Elixir DateTime
+  defp cert_time_to_date_time({:generalizedTime, t}) do
+    # TODO: We need to add a method of parsing the generalized time format of RFC5280, which
+    # is used for any certs with not_before or not_after dates beyond year 2049
+    :not_implemented
+  end
+
+  defp reject_connection(conn, code, msg) do
     conn
-  end
-
-  # Get request without userToken param
-  def call(%Plug.Conn{:method => "GET"} = conn, _params) do
-      conn
-        |> conn_not_authorized()
-        |> Plug.Conn.halt()
-  end
-
-
-  defp conn_not_authorized(conn) do
-    conn
-      |> put_status(401)
+      |> put_status(code)
       |> json(
           %{
             error: :true,
-            msg: "user not authorized",
+            msg: msg,
             timestamp: DateTime.to_string(DateTime.utc_now())
           }
          )
   end
+
 end
