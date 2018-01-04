@@ -23,6 +23,9 @@ RUN mix local.rebar --force
 RUN mix deps.get --only-prod
 RUN mix compile
 
+# we've got custom HTTP status code that Plug needs to pickup from our config
+RUN mix deps.compile plug
+
 # setup support tooling
 RUN pip3 install -r ./tools/get_certificates_requirements.txt
 
