@@ -40,10 +40,10 @@ static int kernel_ps(void)
 	struct task_struct *task;
 	uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
 		"STAT START   TIME COMMAND";
-	printk(KERN_ALERT "%s\n", header);
+	printk(KERN_INFO "%s\n", header);
 
 	for_each_process(task) {
-		printk(KERN_ALERT "%s [%d]\n", task->comm, task->pid);
+		printk(KERN_INFO "%s [%d]\n", task->comm, task->pid);
 		ccode++;
 	}
 
@@ -249,12 +249,13 @@ void  k_probe(struct kthread_work *work)
 	struct probe_s *probe_struct =
 		container_of(work, struct probe_s, probe_work);
 
-	printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
+	printk(KERN_INFO "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
 		   probe_struct->probe_id,
 		   probe_struct->flags,
 		   probe_struct->timeout,
 		   probe_struct->repeat,
 		   ++count);
+
 	kernel_ps();
 
 	if (probe_struct->repeat) {
@@ -297,7 +298,7 @@ static int __init __kcontrol_init(void)
 		goto err_exit;
 	}
 
-	printk(KERN_ALERT "controller_probe %p, controller_work %p, ->probe_work %p\n",
+	printk(KERN_INFO  "controller_probe %p, controller_work %p, ->probe_work %p\n",
 		   controller_probe, controller_work, &controller_probe->probe_work);
 
 	init_kthread_work(controller_work, k_probe);
@@ -324,7 +325,6 @@ err_exit:
 
 static void __exit controller_cleanup(void)
 {
-	printk(KERN_ALERT "controller cleanup\n");
 	if (controller_probe) {
 		DMSG();
 		kfree(destroy_k_probe(controller_probe));
