@@ -144,6 +144,7 @@ defmodule ApiServer.Plugs.Authenticate do
             timestamp: DateTime.to_string(DateTime.utc_now())
           }
          )
+      |> Plug.Conn.halt()
   end
 
 end
