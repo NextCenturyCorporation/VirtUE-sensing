@@ -1,13 +1,28 @@
-/**********************************************************
- * in-virtue kernel controller
- * Published under terms of the Gnu Public License v2, 2017
- **********************************************************/
+/*******************************************************************
+ * In-Virtue Kernel Controller
+ *
+ * Copyright (C) 2017-2018  Michael D. Day II
+ * Copyright (C) 2017-2018  Two Six Labs
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
+ *
+ *******************************************************************/
 
 #include "controller-linux.h"
 #include "controller.h"
-
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("In-VirtUE Kernel Controller");
 
 LIST_HEAD(active_sensors);
 struct list_head *probe_queues[0x10];
@@ -325,3 +340,7 @@ static void __exit controller_cleanup(void)
 
 module_init(__kcontrol_init);
 module_exit(controller_cleanup);
+
+MODULE_LICENSE(_MODULE_LICENSE);
+MODULE_AUTHOR(_MODULE_AUTHOR);
+MODULE_DESCRIPTION(_MODULE_INFO);
