@@ -1,0 +1,15 @@
+{
+  "name": "lsof-sensor",
+  "version": "1.0",
+  "target_folder": "lsof",
+  "files": [
+    {
+      "source": "sensor_lsof.py",
+      "dest": "sensor_lsof.py"
+    }
+  ],
+  "startup_script": "run_lsof_sensor.sh",
+  "requirements_files": [],
+  "required_sub_directories": ["certs"]
+
+}
