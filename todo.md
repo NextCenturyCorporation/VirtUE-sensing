@@ -1,12 +1,12 @@
 # In Progress
 
-2a Update virtue-security to use client certificates 
 3. Determine what needs to happen for new sensors
 4. Genericize the sensor wrapper
 5. Create new sensors
 6. Integrate dropper/malware into instrumented container
 7. script demo 
 8. Invalidate a sensor? (can we do run time revocation?)
+9. Add a script for generating and attaching new instrumented hosts during run time (like, add-host name)
  
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world

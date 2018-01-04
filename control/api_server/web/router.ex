@@ -49,8 +49,6 @@ defmodule ApiServer.Router do
     put "/ca/register/public_key/signed", CertificateController, :public_key_signed, name: "ca-private-key-signed"
 
     # unauthenticated calls used during testing
-    get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
-    get "/user/:user/stream", StreamController, :stream, name: "user-stream"
 
   end
 
@@ -242,6 +240,7 @@ defmodule ApiServer.Router do
      get "/user/:user/inspect", InspectController, :inspect, name: "user-inspect"
      get "/user/:user/validate/check", ValidateController, :check, name: "user-validate-check"
      put "/user/:user/validate/:action", ValidateController, :trigger, name: "user-validate-trigger"
+     get "/user/:user/stream", StreamController, :stream, name: "user-stream"
 
      ##############
      # SENSOR API #
@@ -251,6 +250,7 @@ defmodule ApiServer.Router do
      get "/sensor/:sensor/validate/check", ValidateController, :check, name: "sensor-validate-check"
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
      get "/sensor/:sensor/inspect", InspectController, :inspect, name: "sensor-inspect"
+     get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
 
   end
 end
