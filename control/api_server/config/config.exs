@@ -19,7 +19,10 @@ config :api_server,
 
 # configure SSL status codes
 config :plug,
-  :statuses, %{495 => "TLS/SSL Certificate Error"}
+  :statuses, %{
+         495 => "TLS/SSL Certificate Error",
+         496 => "TLS/SSL Certificate Required"
+       }
 
 # Configures the endpoint
 config :api_server, ApiServer.Endpoint,
@@ -42,8 +45,8 @@ config :api_server, ApiServer.Scheduler,
     # heart beat every minute
     {"* * * * *",         {ApiServer, :heartbeat, []}},
 
-    # check on non-responsive sensors every 2 minutes, and clean them out if
-    # they're older than 5 minutes
+    # check on non-responsive sensors every 15 minutes, and clean them out if
+    # they're older than 15 minutes
     {"*/15 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [15]}}
   ]
 
