@@ -27,12 +27,15 @@ defmodule ApiServer.StatsController do
   """
   def ready(conn, _) do
 
-    case Mnesia.wait_for_tables([Sensor], 500) do
-      :ok ->
-        ready_response(conn, true)
-      {:timeout, _} ->
-        ready_response(conn, false)
-      {:error, reason} ->
+    case mnesia_ready?() do
+      :true ->
+        case kakfa_ready?() do
+          :true ->
+            ready_response(conn, true)
+          :false ->
+            ready_response(conn, false)
+        end
+      :false ->
         ready_response(conn, false)
     end
   end
@@ -46,5 +49,33 @@ defmodule ApiServer.StatsController do
             "timestamp": DateTime.to_string(DateTime.utc_now())
           }
          )
+  end
+
+  defp mnesia_ready?() do
+    case Mnesia.wait_for_tables([Sensor], 500) do
+      :ok ->
+        :true
+      {:timeout, _} ->
+        :false
+      {:error, reason} ->
+        :false
+    end
+  end
+
+  defp kakfa_ready?() do
+
+    try do
+      case KafkaEx.latest_offset("asdf", 0) do
+        :topic_not_found ->
+          :true
+        [%KafkaEx.Protocol.Offset.Response{}] ->
+          :true
+        _ ->
+          :false
+      end
+    rescue
+      _ ->
+        :false
+    end
   end
 end

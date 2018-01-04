@@ -31,18 +31,18 @@ def get_ca_certificate(opts):
     :param opts: argparse options
     :return: PEM encoded certificate as string
     """
-    print("  %% Requesting CA public root certificate")
+    log(opts, "  %% Requesting CA public root certificate")
 
     res = requests.post("http://%s:%d/api/v1/cfssl/info" % (opts.cfssl_host, opts.cfssl_port), json={"label": "primary"})
 
     if res.status_code == 200:
-        print("  * Got response from CA")
+        log(opts, "  * Got response from CA")
         payload = res.json()
 
         if payload["success"]:
-            print("  + Retrieved CA root key")
+            log(opts, "  + Retrieved CA root key")
             ca_key = payload["result"]["certificate"]
-            print("    = %d bytes in key" % (len(ca_key),))
+            log(opts, "    = %d bytes in key" % (len(ca_key),))
             return ca_key
         else:
             print("  - Problem retrieving CA root key")
@@ -116,7 +116,7 @@ def get_keys(opts):
 
         return False, None, None
 
-    print("  + Private key retrieved")
+    log(opts, "  + Private key retrieved")
 
     # save the private key and CSR for later use
     private_key = priv_key_json["result"]["private_key"]
@@ -168,7 +168,7 @@ def get_keys(opts):
 
     # ok, we probably have a good response!
     public_key = signing_res_json["result"]["certificate"]
-    print("  + Signed Public key retrieved")
+    log(opts, "  + Signed Public key retrieved")
 
     return True, public_key, private_key
 
@@ -249,7 +249,14 @@ def options():
     # method) that is only run if we're actually requesting new keys
     parser.add_argument("--cfssl-shared-secret", dest="cfssl_secret", default=None, help="Shared secret used to generate HMAC verified requests to CFSSL. Will default to environment variable CFSSL_SHARED_SECRET if not specific")
 
+    parser.add_argument("-q", "--quiet", dest="quiet", default=False, action="store_true", help="Run in quiet mode, which reduces the command logging output")
+
     return parser.parse_args()
+
+
+def log(opts, msg):
+    if not opts.quiet:
+        print(msg)
 
 
 if __name__ == "__main__":
@@ -259,7 +266,7 @@ if __name__ == "__main__":
     # make sure our directory exists for key storage
     cert_path = os.path.realpath(opts.cert_dir)
     if not os.path.exists(cert_path):
-        print("  @ Certificate directory doesn't yet exist - creating")
+        log(opts, "  @ Certificate directory doesn't yet exist - creating")
         os.makedirs(cert_path)
 
     # track which keys we'll write out
@@ -298,11 +305,11 @@ if __name__ == "__main__":
 
     # write out our keys
     for filename, key_data in keys_to_write.items():
-        print("  > writing [%s] to [%s]" % (filename, os.path.join(opts.cert_dir, filename)))
+        log(opts, "  > writing [%s] to [%s]" % (filename, os.path.join(opts.cert_dir, filename)))
         with open(os.path.join(cert_path, filename), "w") as keyfile:
             keyfile.write(key_data)
-        print("    % setting permissions to 0x600")
+            log(opts, "    % setting permissions to 0x600")
         os.chmod(os.path.join(cert_path, filename), 0o600)
 
     ed = datetime.datetime.now()
-    print("  ~ completed CA requests in %s" % (str(ed - st),))
+    log(opts, "  ~ completed CA requests in %s" % (str(ed - st),))

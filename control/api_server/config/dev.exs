@@ -21,7 +21,7 @@ use Mix.Config
 # different ports.
 config :api_server, ApiServer.Endpoint,
   http: [port: 17141],
-  https: [:inet6, port: 17504, keyfile: "/app/certs/cert-key.pem", certfile: "/app/certs/cert.pem"],
+  https: [:inet6, port: 17504, keyfile: "/app/certs/cert-key.pem", certfile: "/app/certs/cert.pem", cacertfile: "/app/certs/ca.pem", secure_renegotiate: true, verify: :verify_peer, reuse_sessions: true],
   url: [host: "api", port: 17504],
   debug_errors: false,
   code_reloader: true,

@@ -9,6 +9,7 @@ import base64
 from contextlib import closing
 from Crypto.PublicKey import RSA
 import datetime
+import http
 import json
 import kafka
 import os
@@ -2005,52 +2006,6 @@ def construct_api_uri(opts, uri_path, secure=True):
 
     # setup the full uri
     return "%s/api/%s%s" % (host, opts.api_version, uri_path)
-
-
-def get_root_ca_pubkey(opts):
-    """
-    Get the public key of the CA root. During development, this is an unauthenticated
-    and insecure connection to the Sensing API.
-
-    Returns look like:
-
-        True, "PEM data"
-        False, "error message"
-
-    The PEM will also be written to the "ca_key_path" directory as ca.pem.
-
-    :param opts: argparse options
-    :return: success boolean, PEM encoded CA public key or error message
-    """
-    print("  @ Retrieving CA Root public key")
-
-    uri = construct_api_uri(opts, "/ca/root/public", secure=False)
-
-    res = requests.get(uri)
-
-
-    if res.status_code == 200:
-        res_json = res.json()
-
-        if not res_json["error"]:
-
-            # make sure the directory exists for our key
-            if not os.path.exists(opts.ca_key_path):
-                print("  + creating certicate directory [%s]" % (opts.ca_key_path,))
-                os.makedirs(opts.ca_key_path)
-
-            print("  + got PEM encoded certificate")
-
-            with open(os.path.join(opts.ca_key_path, "ca.pem"), "w") as ca_pem:
-                ca_pem.write(res_json["certificate"])
-                print("  < PEM written to [%s]" % (os.path.join(opts.ca_key_path, "ca.pem")))
-            return True, res_json["certificate"]
-        else:
-            print("  ! encountered an error retrieving the certificate: %s" % (res_json["message"],))
-            return False, res_json["message"]
-    else:
-        print("  ! Encountered an HTTP error retrieving the certificate: status_code(%d)" % (res.status_code,))
-        return False, "HTTP(%d)" % (res.status_code,)
 
 
 def test_generate_unauthenticated_tests(tests):
@@ -4229,6 +4184,29 @@ def extract_jsonl_line(binary):
         return None, binary
 
 
+def http_code_to_message(code):
+    """
+    Convert an HTTP response status code into a useful message.
+
+    This is a wrapper around the standard HTTP codes as well as the extended
+    4xx CloudFlare TLS/SSL codes used by the Sensing API
+
+    :param code:
+    :return:
+    """
+    custom_codes = {
+        495: "TLS/SSL Certificate Validation Error",
+        496: "TLS/SSL Certificate Required"
+    }
+
+    if code in http.client.responses:
+        return http.client.responses[code]
+    elif code in custom_codes:
+        return custom_codes[code]
+    else:
+        return ""
+
+
 async def api_inspect(opts):
     """
     Query the inspection endpoint.
@@ -4255,13 +4233,13 @@ async def api_inspect(opts):
     get_params = {
         "userToken": test_generate_user_token()
     }
-    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
 
-    res = requests.get(full_uri, params=get_params, verify=ca_path)
+    # connect with our Savior CA certificate and our instance specific client certificate
+    client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    res = requests.get(full_uri, params=get_params, verify=opts.ca_key_path, cert=client_cert_paths)
 
     if res.status_code == 200:
         print(json.dumps(res.json(), indent=4))
-
 
 
 async def api_monitor(opts):
@@ -4273,12 +4251,10 @@ async def api_monitor(opts):
     """
 
     full_uri = construct_api_uri(opts, "/control/c2/channel")
-    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
 
-    get_params = {
-        "userToken": test_generate_user_token()
-    }
-    res = requests.get(full_uri, params=get_params, verify=ca_path)
+    # setup our certificate paths
+    client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    res = requests.get(full_uri, verify=opts.ca_key_path, cert=client_cert_paths)
 
     if res.status_code == 200:
         conf = res.json()
@@ -4288,7 +4264,15 @@ async def api_monitor(opts):
         print("    topic=%s" % (channel,))
         print("    bootstraps=[%s]" % (",".join(bootstraps)),)
 
-        for msg in kafka.KafkaConsumer(channel, bootstrap_servers=bootstraps, value_deserializer=json.loads, ssl_cafile=ca_path, security_protocol="SSL"):
+        # see http://kafka-python.readthedocs.io/en/master/apidoc/KafkaProducer.html for more on using client certificates
+        for msg in kafka.KafkaConsumer(
+                channel,
+                bootstrap_servers=bootstraps,
+                value_deserializer=json.loads,
+                ssl_cafile=opts.ca_key_path,
+                ssl_certfile=opts.public_key_path,
+                ssl_keyfile=opts.private_key_path,
+                security_protocol="SSL"):
 
             # what do we do with this information
             if msg.value["action"] == "heartbeat":
@@ -4312,6 +4296,9 @@ async def api_monitor(opts):
                     msg.value["timestamp"], msg.value["action"]
                 ))
                 print(json.dumps(msg.value, indent=4))
+    else:
+        print("%% error encountered trying to connect to Sensing API to retrieve monitor channel")
+        print("   ! status_code(%d): %s" % (res.status_code, http_code_to_message(res.status_code)))
 
 
 async def api_stream(opts):
@@ -4326,7 +4313,6 @@ async def api_stream(opts):
     since = since_datetime(opts.time_since)
     follow = opts.log_follow
     log_level = opts.log_level
-    ca_path = os.path.join(opts.ca_key_path, "ca.pem")
 
     full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
 
@@ -4344,7 +4330,8 @@ async def api_stream(opts):
 
     # spin up our request and start streaming
     ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    ssl_context.load_verify_locations(cafile=ca_path)
+    ssl_context.load_verify_locations(cafile=opts.ca_key_path)
+    ssl_context.load_cert_chain(os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
 
     async with ClientSession() as session:
         async with session.get(full_uri, params=get_params, ssl_context=ssl_context) as response:
@@ -4447,7 +4434,8 @@ def options():
 
     # key management
     parser.add_argument("--public-key-path", dest="public_key_path", default=None, help="Path to the public key to use")
-    parser.add_argument("--ca-key-path", dest="ca_key_path", default="./cert", help="Where to store the Certificate Authority Root Public Key")
+    parser.add_argument("--private-key-path", dest="private_key_path", default=None, help="Path to the private key to use")
+    parser.add_argument("--ca-key-path", dest="ca_key_path", default=None, help="Where to store the Certificate Authority Root Public Key")
 
     # communications
     parser.add_argument("-a", "--api-host", dest="api_host", default="api", help="API host URI")
@@ -4468,7 +4456,6 @@ def options():
 
 
 if __name__ == "__main__":
-    # print("virtue-security(version=%s)" % (__VERSION__,))
 
     opts = options()
 
@@ -4486,8 +4473,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # let's get the root CA key
-    get_root_ca_pubkey(opts)
-
     loop = asyncio.get_event_loop()
     loop.run_until_complete(dispatch[opts.mode](opts))
 

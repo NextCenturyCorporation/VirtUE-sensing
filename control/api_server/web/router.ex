@@ -10,6 +10,12 @@ defmodule ApiServer.Router do
   pipeline :api do
     plug Plug.SSL
     plug :accepts, ["json"]
+
+    # extract client certificate information
+    plug PhoenixClientSsl.Plug.ExtractClientCertificate
+    plug PhoenixClientSsl.Plug.ExtractCommonName
+
+    # check all of our authentication attributes
     plug ApiServer.Plugs.Authenticate
   end
 
@@ -42,20 +48,18 @@ defmodule ApiServer.Router do
     put "/ca/register/private_key/new", CertificateController, :private_key_new, name: "ca-private-key-new"
     put "/ca/register/public_key/signed", CertificateController, :public_key_signed, name: "ca-private-key-signed"
 
-    # sensor registration/sync/deregistration workflow
-    put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
-    put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
-    put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
-
     # unauthenticated calls used during testing
-    get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
-    get "/user/:user/stream", StreamController, :stream, name: "user-stream"
 
   end
 
   # SECURE AND AUTHENTICATED
    scope "/api/v1", ApiServer do
      pipe_through :api
+
+     # sensor registration/sync/deregistration workflow
+     put "/sensor/:sensor/register", RegistrationController, :register, name: "sensor-register"
+     put "/sensor/:sensor/deregister", RegistrationController, :deregister, name: "sensor-deregister"
+     put "/sensor/:sensor/sync", RegistrationController, :sync, name: "sensor-sync"
 
      # Static data routes
      get "/enum/observation/levels", EnumController, :observation_levels, name: "enum-observation-levels"
@@ -236,6 +240,7 @@ defmodule ApiServer.Router do
      get "/user/:user/inspect", InspectController, :inspect, name: "user-inspect"
      get "/user/:user/validate/check", ValidateController, :check, name: "user-validate-check"
      put "/user/:user/validate/:action", ValidateController, :trigger, name: "user-validate-trigger"
+     get "/user/:user/stream", StreamController, :stream, name: "user-stream"
 
      ##############
      # SENSOR API #
@@ -245,6 +250,7 @@ defmodule ApiServer.Router do
      get "/sensor/:sensor/validate/check", ValidateController, :check, name: "sensor-validate-check"
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
      get "/sensor/:sensor/inspect", InspectController, :inspect, name: "sensor-inspect"
+     get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
 
   end
 end

@@ -1,15 +1,16 @@
 # In Progress
+
+3. Determine what needs to happen for new sensors
+4. Genericize the sensor wrapper
+5. Create new sensors
+6. Integrate dropper/malware into instrumented container
+7. script demo 
+8. Invalidate a sensor? (can we do run time revocation?)
+9. Add a script for generating and attaching new instrumented hosts during run time (like, add-host name)
  
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
- 
- 1. [x] get API to use SSL when connecting to KAFKA
- 2. [x] get sensor to use SSL when connecting to KAFKA
- 3. [x] get client to use SSL when connecting to KAFKA? (c2 channel for monitoring)
- 
- # client certs everywhere
 
- 
 # Sensing Architecture
 
  - [ ] stub out BEAM scaling of Sensing API
