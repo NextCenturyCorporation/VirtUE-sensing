@@ -9,7 +9,8 @@
     }
   ],
   "startup_script": "run_lsof_sensor.sh",
-  "requirements_files": [],
-  "required_sub_directories": ["certs"]
+  "requirements_files": ["lsof_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": ["lsof"]
 
 }

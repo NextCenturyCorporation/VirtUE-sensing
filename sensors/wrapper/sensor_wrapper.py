@@ -7,7 +7,6 @@ import base64
 from Crypto.PublicKey import RSA
 from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl
 import curequests
-import datetime
 import email
 import hashlib
 from io import StringIO
@@ -15,7 +14,6 @@ import json
 from kafka import KafkaProducer
 import os
 import pwd
-import re
 import requests
 from routes import Mapper
 import signal
@@ -439,7 +437,7 @@ class SensorWrapper(object):
 
                 if handler is not None:
                     print("[%(controller)s] > handling request" % handler)
-                    await mapper_funcs[handler["controller"]](opts, s, headers, handler)
+                    await mapper_funcs[handler["controller"]](s, headers, handler)
                 else:
                     # whoops
                     print("   :: No route available for request [%s]" % (path,))
@@ -467,7 +465,7 @@ class SensorWrapper(object):
         :return:
         """
 
-        async def challenge_handler(opts, stream, headers, params):
+        async def challenge_handler(stream, headers, params):
             """
             Handle the HTTP-01/Savior certificate challenge
             :param opts:

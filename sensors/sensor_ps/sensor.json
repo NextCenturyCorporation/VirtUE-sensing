@@ -10,6 +10,6 @@
   ],
   "startup_script": "run_ps_sensor.sh",
   "requirements_files": [],
-  "required_sub_directories": ["certs"]
-
+  "required_sub_directories": ["certs"],
+  "apt-get": []
 }

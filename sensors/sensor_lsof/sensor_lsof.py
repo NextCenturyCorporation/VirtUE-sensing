@@ -1,8 +1,9 @@
 #!/usr/bin/python
 import datetime
 import json
+import os
 import re
-import subprocess
+from curio import subprocess
 
 from sensor_wrapper import SensorWrapper
 
@@ -67,5 +68,6 @@ async def lsof(message_stub, config, message_queue):
         await message_queue.put(json.dumps(logmsg))
 
 if __name__ == "__main__":
-    wrapper = SensorWrapper("ps-sensor", lsof)
+
+    wrapper = SensorWrapper("lsof-sensor", lsof)
     wrapper.start()

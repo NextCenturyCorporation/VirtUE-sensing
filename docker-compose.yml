@@ -50,7 +50,7 @@ services:
     # hostname: dropper1
     # domainname: evil.io
   target_1:
-    build: "./targets/base"
+    build: "./targets/demo-target"
     depends_on:
       - kafka
       - api
