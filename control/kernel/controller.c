@@ -47,17 +47,17 @@ struct kthread_worker *controller_worker;
 struct probe_s *controller_probe;
 
 
-static int kernel_ps(void)
+static int kernel_ps(int count)
 {
 	int ccode =  0;
 	struct task_struct *task;
+/**
 	uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
 		"STAT START   TIME COMMAND";
 	printk(KERN_INFO "%s\n", header);
-
-
+**/
 	for_each_process(task) {
-		printk(KERN_INFO "%s [%d]\n", task->comm, task->pid);
+		printk(KERN_INFO "kernel-ps-%d: %s [%d]\n", count, task->comm, task->pid);
 		ccode++;
 	}
 
@@ -253,21 +253,21 @@ static inline void sleep(unsigned sec)
  **/
 
 /**
- * Sample probe function
+ * ps probe function
  *
- * Called by the "sensor" thread to "probe."
- * This sample keeps track of how many times is has run.
+ * Called by the kernel contoller kmod to "probe" the processes
+ * running on this kernel. Keeps track of how many times is has run.
  * Each time the sample runs it increments its count, prints probe
  * information, and either reschedules itself or dies.
- *
  **/
 void  k_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
 	struct probe_s *probe_struct =
 		container_of(work, struct probe_s, probe_work);
+	static int count;
 
-	kernel_ps();
+	kernel_ps(++count);
 
 	if (probe_struct->repeat) {
 		probe_struct->repeat--;
