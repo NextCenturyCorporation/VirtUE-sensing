@@ -24,6 +24,19 @@
 #include "controller-linux.h"
 #include "controller.h"
 
+
+static unsigned int ps_repeat = 1;
+static unsigned int ps_timeout = 60;
+
+module_param(ps_repeat, uint, 0644);
+module_param(ps_timeout, uint, 0644);
+
+MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
+MODULE_PARM_DESC(ps_timeout,
+				  "How many seconds to sleep in between calls to the kernel " \
+				  "ps function");
+
+
 LIST_HEAD(active_sensors);
 struct list_head *probe_queues[0x10];
 
@@ -42,6 +55,7 @@ static int kernel_ps(void)
 		"STAT START   TIME COMMAND";
 	printk(KERN_INFO "%s\n", header);
 
+
 	for_each_process(task) {
 		printk(KERN_INFO "%s [%d]\n", task->comm, task->pid);
 		ccode++;
@@ -59,7 +73,6 @@ init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
 					void (*function)(struct kthread_work *))
 {
-	return true;
 
 	CONT_INIT_WORK(work, function);
 	return CONT_QUEUE_WORK(worker, work);
@@ -225,6 +238,13 @@ err_exit:
 }
 
 
+static inline void sleep(unsigned sec)
+{
+	__set_current_state(TASK_INTERRUPTIBLE);
+	schedule_timeout(sec * HZ);
+}
+
+
 /**
  * A probe routine is a kthread  worker, called from kernel thread.
  * it needs to execute quickly and can't hold any locks or
@@ -243,23 +263,15 @@ err_exit:
  **/
 void  k_probe(struct kthread_work *work)
 {
-	static uint64_t count;
 	struct kthread_worker *co_worker = work->worker;
-
 	struct probe_s *probe_struct =
 		container_of(work, struct probe_s, probe_work);
-
-	printk(KERN_INFO "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
-		   probe_struct->probe_id,
-		   probe_struct->flags,
-		   probe_struct->timeout,
-		   probe_struct->repeat,
-		   ++count);
 
 	kernel_ps();
 
 	if (probe_struct->repeat) {
 		probe_struct->repeat--;
+		sleep(probe_struct->timeout);
 		init_and_queue_work(work, co_worker, k_probe);
 	}
 	return;
@@ -288,7 +300,9 @@ static int __init __kcontrol_init(void)
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-	controller_probe->repeat = 1;
+	controller_probe->repeat = ps_repeat;
+	controller_probe->timeout = ps_timeout;
+
 	controller_work = &controller_probe->probe_work;
 
 	controller_worker = kzalloc(sizeof(struct kthread_worker), GFP_KERNEL);
@@ -297,9 +311,6 @@ static int __init __kcontrol_init(void)
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-
-	printk(KERN_INFO  "controller_probe %p, controller_work %p, ->probe_work %p\n",
-		   controller_probe, controller_work, &controller_probe->probe_work);
 
 	init_kthread_work(controller_work, k_probe);
 	init_kthread_worker(controller_worker);
