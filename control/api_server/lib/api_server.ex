@@ -9,7 +9,7 @@ defmodule ApiServer do
   end
 
   def version() do
-    "2017.11.1"
+    "2018.01.08"
   end
 
   # See https://hexdocs.pm/elixir/Application.html
