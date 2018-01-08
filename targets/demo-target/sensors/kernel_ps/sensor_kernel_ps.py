@@ -58,7 +58,7 @@ async def ps(message_stub, config, message_queue):
             proc_pid = line_bits[1]
             proc_proc = " ".join(line_bits[10:]).strip()
 
-            # don't report on our own pid
+            # don't report on ourself
             if int(proc_pid) == self_pid:
                 continue
 
@@ -81,7 +81,7 @@ async def ps(message_stub, config, message_queue):
 
 
 if __name__ == "__main__":
-    wrapper = SensorWrapper("ps-sensor", ps)
+    wrapper = SensorWrapper("kernel-ps-sensor", ps)
 
-    wrapper.argparser.add_argument("--ps-path", dest="ps_path", default="ps", help="Path to the PS command")
+    wrapper.argparser.add_argument("--ps-path", dest="ps_path", default="/tmp/ps", help="Path to the PS command")
     wrapper.start()

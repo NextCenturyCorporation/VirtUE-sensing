@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import datetime
 import json
-import os
 import re
 from curio import subprocess
 
