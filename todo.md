@@ -1,34 +1,18 @@
 # In Progress
 
- 3. [x] Determine what needs to happen for new sensors
- 4. [ ] Genericize the sensor wrapper #65
-  - create template Dockerfile that runs any requirements files, spins up any sensor run scripts, installs sensor_wrapper library, etc
-   - [x] install all requirements.txt files
-   - [x] run all run_scripts
-   - [x] install sensor_wrapper library
-   - [x] copy all sensors into /opt/sensors
-   - [x] SENSOR SPECIFIC OS ADDITIONS (like lsof for the lsof-sensor)
-   - [x] Make sure everything runs
- 5. [ ] Create new sensors #47 #48
-  - [ ] dropped PS
-  - [ ] system level PS
-  - [ ] syscall/kernellog PS
+
  5.1 [ ] work on hostname discovery in sensor wrapper (coming through as garbage OIDs)
- 6. [x] Integrate dropper/malware into instrumented container #64 #66
- 7. [ ] script demo 
-  - backup screen shots
-  - backup video
-  - screen shot summary of:
-   - differences between two sensors
-   - registration process
-   - cli calls
-  - show which CLI calls are working
-  - show reg process
-  - show results of adding a new host
  8. [ ] Invalidate a sensor? (can we do run time revocation?) (this is an open issue)
- 9. [ ] Add a script for generating and attaching new instrumented hosts during run time (like, add-host name) #67
- 10. Simple scripts to show which hosts have which sensors registered
- 11. simple script to pull the different PS logs and compare
+
+
+   - differences between two sensors -- doc [x] screen shot [ ] 
+   - registration process -- doc [x] screen shot [ ] 
+   - cli calls -- doc [x] screen shot [ ] 
+  - show which CLI calls are working -- doc [x] screen shot [ ] 
+  - show reg process -- doc [x] screen shot [ ] 
+  - show results of adding a new host -- doc [x] screen shot [ ] 
+  - examples of sensors -- doc [x] secreen shot [ ] 
+
 
  
 !! - how do we visualize what virtues are active and what they're doing?
@@ -36,7 +20,6 @@
 
 
  - [ ] start planning dom0 sensors
- - [ ] start planning configuration DB
 
 # Sensing Architecture
 

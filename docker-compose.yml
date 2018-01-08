@@ -26,23 +26,6 @@ services:
     links:
       - "kafka:kafka"
       - "cfssl:cfssl"
-  sensor_1:
-    build: "./sensors/dummy"
-    ports:
-      - "11000:11000"
-      - "5002:5002"
-    depends_on:
-      - kafka
-      - api
-    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11000 --sensor-hostname sensor_1
-  sensor_2:
-    build: "./sensors/dummy"
-    ports:
-      - "11001:11001"
-    depends_on:
-      - kafka
-      - api
-    command: python lsof_sensor.py --public-key-path ./cert/rsa_key.pub --private-key-path ./cert/rsa_key --api-host api --sensor-port 11001 --sensor-hostname sensor_2
   dropper_callback:
     build: "./external/dropper_callback"
     ports:
