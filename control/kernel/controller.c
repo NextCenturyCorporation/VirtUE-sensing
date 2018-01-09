@@ -1,28 +1,68 @@
-/******************************************************************************
- * in-virtue kernel controller
- * Published under terms of the Gnu Public License v2, 2017
- ******************************************************************************/
+/*******************************************************************
+ * In-Virtue Kernel Controller
+ *
+ * Copyright (C) 2017-2018  Michael D. Day II
+ * Copyright (C) 2017-2018  Two Six Labs
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
+ *
+ *******************************************************************/
 
 #include "controller-linux.h"
 #include "controller.h"
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("In-VirtUE Kernel Controller");
+
+static unsigned int ps_repeat = 1;
+static unsigned int ps_timeout = 60;
+
+module_param(ps_repeat, uint, 0644);
+module_param(ps_timeout, uint, 0644);
+
+MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
+MODULE_PARM_DESC(ps_timeout,
+				 "How many seconds to sleep in between calls to the kernel " \
+				 "ps function");
+
 
 LIST_HEAD(active_sensors);
 struct list_head *probe_queues[0x10];
 
 int probe_socket;
 
-struct kthread_work *co_work;
-struct kthread_worker *co_worker;
+struct kthread_work *controller_work;
+struct kthread_worker *controller_worker;
+struct probe_s *controller_probe;
 
-struct kernel_sensor ks = {.id="kernel-sensor",
-						   .lock=__SPIN_LOCK_UNLOCKED(lock),
-						   .kworker=NULL,
-						   .kwork=NULL,
-						   .probes[0].probe_id="probe-controller",
-						   .probes[0].probe_lock=__SPIN_LOCK_UNLOCKED(lock)};
+
+static int kernel_ps(int count)
+{
+	int ccode =  0;
+	struct task_struct *task;
+/**
+   uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
+   "STAT START   TIME COMMAND";
+   printk(KERN_INFO "%s\n", header);
+**/
+	for_each_process(task) {
+		printk(KERN_INFO "kernel-ps-%d: %s [%d]\n", count, task->comm, task->pid);
+		ccode++;
+	}
+
+    return ccode;
+}
 
 /* ugly but expedient way to support < 4.9 kernels */
 /* todo: convert to macros and move to header */
@@ -33,10 +73,12 @@ init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
 					void (*function)(struct kthread_work *))
 {
+
 	CONT_INIT_WORK(work, function);
 	return CONT_QUEUE_WORK(worker, work);
 
 }
+
 
 /**
  * Flushes this work off any work_list it is on.
@@ -50,7 +92,6 @@ void *destroy_probe_work(struct kthread_work *work)
 	memset(work, 0, sizeof(struct kthread_work));
 	return work;
 }
-
 
 /**
  * destroy a struct probe_s, by tearing down
@@ -66,27 +107,24 @@ void *destroy_probe_work(struct kthread_work *work)
  */
 void *destroy_k_probe(struct probe_s *probe)
 {
-	uint8_t *pid = NULL, *pdata = NULL;
-	struct kthread_work *pwork = probe->probe_work;
-	pid = probe->probe_id;
-	pdata = probe->data;
+	assert(probe);
+
+	if (probe->probe_id) {
+		kfree(probe->probe_id);
+	}
+	if (probe->data) {
+		kfree(probe->data);
+	}
+
+	destroy_probe_work(&probe->probe_work);
 	memset(probe, 0, sizeof(struct probe_s));
-	if (pid) {
-		kfree(pid);
-	}
-	if (pdata) {
-		kfree(pdata);
-	}
-	if (pwork) {
-		destroy_probe_work(pwork);
-	}
 	return probe;
 }
 
 
 struct kthread_worker *
 __cont_create_worker(int cpu, unsigned int flags,
-			const char namefmt[], va_list args)
+					 const char namefmt[], va_list args)
 {
 	struct kthread_worker *worker;
 	struct task_struct *task;
@@ -118,6 +156,9 @@ fail_task:
 	kfree(worker);
 	return ERR_CAST(task);
 }
+
+
+#ifdef OLD_API
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 {
@@ -131,21 +172,21 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	return worker;
 }
 
-#ifdef OLD_API
-void kthread_destroy_worker(struct kthread_worker *worker)
+void
+kthread_destroy_worker(struct kthread_worker *worker)
 {
 	struct task_struct *task;
 
 	task = worker->task;
-	if (WARN_ON(!task))
+	if (WARN_ON(!task)) {
 		return;
+	}
 
 	flush_kthread_worker(worker);
 	kthread_stop(task);
 	WARN_ON(!list_empty(&worker->work_list));
 	kfree(worker);
-
-	;
+	return;
 }
 
 #endif
@@ -160,6 +201,11 @@ void kthread_destroy_worker(struct kthread_worker *worker)
  * Initialize a kernel probe structure.
  * void *init_k_probe(struct probe_s *p)
  */
+
+/**
+ * note jan 3 2018: don't always zero-out a probe, prepare for
+ * showing persistent data in between probes (in between probe runs)
+ **/
 struct probe_s *init_k_probe(struct probe_s *probe)
 {
 	if (!probe) {
@@ -193,92 +239,124 @@ err_exit:
 }
 
 
-/* A probe routine is a kthread  worker, called from kernel thread.
- * it needs to execute quickly and can't hold any locks or
- * blocking objects. Once it runs once, it must be re-initialized
- * and re-queued to run again...see /include/linux/kthread.h
- */
-
-/*
- * Sample probe function
- *
- * Called by the "sensor" thread to "probe."
- * This sample keeps track of how many times is has run.
- * Each time the sample runs it increments its count, prints probe
- * information, and either reschedules itself or dies.
- *
- */
-void  k_probe(struct kthread_work *work)
+static inline void sleep(unsigned sec)
 {
-
-	uint64_t *count;
-	struct kthread_worker *co_worker = work->worker;
-    struct probe_s *probe_struct =
-		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
-
-/* this pragma is necessary until we make more explicit use of probe_struct->data */
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wunused-value"
-	count = (uint64_t *)probe_struct->data;
-	*count++;
-
-	printk(KERN_ALERT "probe: %s; flags: %llx; timeout: %lld; repeat: %lld; count: %lld\n",
-		   probe_struct->probe_id,
-		   probe_struct->flags,
-		   probe_struct->timeout,
-		   probe_struct->repeat,
-		   *count);
-
-	if (probe_struct->repeat) {
-		probe_struct->repeat--;
-		init_and_queue_work(work, co_worker, k_probe);
-	}
-#pragma GCC diagnostic pop
-  return;
+	__set_current_state(TASK_INTERRUPTIBLE);
+	schedule_timeout(sec * HZ);
 }
 
 
-/* init function for the controller, creates a worker
- *  and links a work node into the worker's list, runs the worker. */
-static int __init controller_init(void)
-{
+/**
+ * A probe routine is a kthread  worker, called from kernel thread.
+ * it needs to execute quickly and can't hold any locks or
+ * blocking objects. Once it runs once, it must be re-initialized
+ * and re-queued to run again...see /include/linux/kthread.h
+ **/
 
+/**
+ * ps probe function
+ *
+ * Called by the kernel contoller kmod to "probe" the processes
+ * running on this kernel. Keeps track of how many times is has run.
+ * Each time the sample runs it increments its count, prints probe
+ * information, and either reschedules itself or dies.
+ **/
+void  k_probe(struct kthread_work *work)
+{
+	struct kthread_worker *co_worker = work->worker;
+	struct probe_s *probe_struct =
+		container_of(work, struct probe_s, probe_work);
+	static int count;
+
+	kernel_ps(++count);
+
+	if (probe_struct->repeat) {
+		probe_struct->repeat--;
+		sleep(probe_struct->timeout);
+		init_and_queue_work(work, co_worker, k_probe);
+	}
+	return;
+}
+
+/**
+ * this init reflects the correct workflow - the struct work needs to be
+ * initialized and queued into the worker, before running the worker.
+ * the worker will dequeue the work and run work->func(work),
+ * then someone needs to decide if the work should be requeued.
+ **/
+static int __init __kcontrol_init(void)
+{
 	int ccode = 0;
 	DMSG();
 
-	co_work = kzalloc(sizeof(*co_work), GFP_KERNEL);
-	if (!co_work) {
+	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
+	if (!controller_probe) {
 		DMSG();
 		return -ENOMEM;
 	}
 
-	do {
-	  co_worker = kthread_create_worker(0, "unremarkable-\%p", &ks);
-		schedule();
-		if (ERR_PTR(-ENOMEM) == co_worker) {
-			ccode = -ENOMEM;
-			goto err_exit;
-		}
-	} while (ERR_PTR(-EINTR) == co_worker);
+	controller_probe = init_k_probe(controller_probe);
+	if (controller_probe == ERR_PTR(-ENOMEM)) {
+		DMSG();
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+	controller_probe->repeat = ps_repeat;
+	controller_probe->timeout = ps_timeout;
 
-	printk(KERN_ALERT "co_worker is %p; co_work is %p\n", co_worker, co_work);
-	DMSG();
+	controller_work = &controller_probe->probe_work;
+
+	controller_worker = kzalloc(sizeof(struct kthread_worker), GFP_KERNEL);
+	if (!controller_worker) {
+		DMSG();
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+#ifdef OLD_API /* linux kernel 4.1 */
+	init_kthread_work(controller_work, k_probe);
+	init_kthread_worker(controller_worker);
+	queue_kthread_work(controller_worker, controller_work);
+#else /* more modern kernels */
+	kthread_init_work(controller_work, k_probe);
+	kthread_init_worker(controller_worker);
+	kthread_queue_work(controller_worker, controller_work);
+#endif
+	kthread_run(kthread_worker_fn, controller_worker,
+				"unremarked\%lx", (unsigned long)controller_probe);
+	return ccode;
 
 err_exit:
-	kfree(co_work);
-	co_work = NULL;
+	DMSG();
+	if (controller_probe) {
+		kfree(controller_probe);
+		controller_probe = NULL;
+	}
+	if (controller_worker) {
+		kfree(controller_worker);
+		controller_worker = NULL;
+	}
+
 	return ccode;
 }
 
 static void __exit controller_cleanup(void)
 {
-	printk(KERN_ALERT "controller cleanup\n");
-    kthread_destroy_worker(ks.kworker);
-	/* work nodes do not get destroyed along with a worker */
-	if (co_work) {
-		kfree(co_work);
+	if (controller_probe) {
+		DMSG();
+		destroy_k_probe(controller_probe);
+		kfree(controller_probe);
 	}
+
+	if (controller_worker) {
+		DMSG();
+		kthread_destroy_worker(controller_worker);
+	}
+
 }
 
-module_init(controller_init);
+module_init(__kcontrol_init);
 module_exit(controller_cleanup);
+
+MODULE_LICENSE(_MODULE_LICENSE);
+MODULE_AUTHOR(_MODULE_AUTHOR);
+MODULE_DESCRIPTION(_MODULE_INFO);

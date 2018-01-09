@@ -9,7 +9,10 @@
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/sched.h>
+#include <linux/cred.h>
 #include <linux/init.h>
+#include <linux/init_task.h>
 #include <linux/printk.h>
 #include <linux/spinlock.h>
 /*#include <trace/ftrace.h>*/
@@ -18,5 +21,6 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-
+#include <linux/moduleparam.h>
+#define assert(s) do{if (!(s)) panic(#s);} while(0);
 #endif // CONTROLLER_LINUX_H
