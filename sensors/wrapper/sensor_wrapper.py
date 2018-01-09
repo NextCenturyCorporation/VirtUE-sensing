@@ -323,7 +323,8 @@ class SensorWrapper(object):
 
         # setup our message stub
         msg_stub = {
-            "sensor_id": sensor_id
+            "sensor_id": sensor_id,
+            "sensor_name": "%s-%s" % (self.sensor_name, __VERSION__,)
         }
 
         await self.sensing_method(msg_stub, default_config, self.log_messages)
