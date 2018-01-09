@@ -312,15 +312,11 @@ static int __init __kcontrol_init(void)
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-#ifdef OLD_API /* linux kernel 4.1 */
-	init_kthread_work(controller_work, k_probe);
-	init_kthread_worker(controller_worker);
-	queue_kthread_work(controller_worker, controller_work);
-#else /* more modern kernels */
-	kthread_init_work(controller_work, k_probe);
-	kthread_init_worker(controller_worker);
-	kthread_queue_work(controller_worker, controller_work);
-#endif
+
+	CONT_INIT_WORK(controller_work, k_probe);
+	CONT_INIT_WORKER(controller_worker);
+	CONT_QUEUE_WORK(controller_worker, controller_work);
+
 	kthread_run(kthread_worker_fn, controller_worker,
 				"unremarked\%lx", (unsigned long)controller_probe);
 	return ccode;

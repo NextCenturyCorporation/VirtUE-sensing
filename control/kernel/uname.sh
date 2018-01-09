@@ -44,9 +44,9 @@ if (( $VERSION >= 4 )) ; then
 	API=new
 	echo "#define NEW_API 1" >> $FILENAME
 	echo "#define CONT_INIT_WORK kthread_init_work"  >> $FILENAME
+        echo "#define CONT_INIT_WORKER kthread_init_worker"  >> $FILENAME
 	echo "#define CONT_FLUSH_WORK kthread_flush_work" >> $FILENAME
 	echo "#define CONT_QUEUE_WORK kthread_queue_work"  >> $FILENAME
-        echo "#define CONT_INIT_WORKER kthread_init_worker"  >> $FILENAME
     fi
 fi
 
