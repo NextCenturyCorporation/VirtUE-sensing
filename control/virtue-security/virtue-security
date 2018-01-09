@@ -4333,7 +4333,7 @@ async def api_stream(opts):
     ssl_context.load_verify_locations(cafile=opts.ca_key_path)
     ssl_context.load_cert_chain(os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
 
-    async with ClientSession() as session:
+    async with ClientSession(read_timeout=None) as session:
         async with session.get(full_uri, params=get_params, ssl_context=ssl_context) as response:
 
             # this is an async stream reader, so we pull in byte arrays

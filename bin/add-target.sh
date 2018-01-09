@@ -1,2 +1,5 @@
 #!/bin/bash
-docker run -d --rm  --network=savior_default --name $1 virtue-savior/demo-target
+for var in "$@"
+do
+    docker run -d --rm  --network=savior_default --name $var virtue-savior/demo-target
+done
