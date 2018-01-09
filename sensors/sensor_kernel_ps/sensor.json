@@ -1,0 +1,15 @@
+{
+  "name": "kernel-ps-sensor",
+  "version": "1.0",
+  "target_folder": "kernel_ps",
+  "files": [
+    {
+      "source": "sensor_kernel_ps.py",
+      "dest": "sensor_kernel_ps.py"
+    }
+  ],
+  "startup_script": "run_kernel_ps_sensor.sh",
+  "requirements_files": ["kernel_ps_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": []
+}

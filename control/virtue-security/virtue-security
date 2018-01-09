@@ -4333,7 +4333,7 @@ async def api_stream(opts):
     ssl_context.load_verify_locations(cafile=opts.ca_key_path)
     ssl_context.load_cert_chain(os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
 
-    async with ClientSession() as session:
+    async with ClientSession(read_timeout=None) as session:
         async with session.get(full_uri, params=get_params, ssl_context=ssl_context) as response:
 
             # this is an async stream reader, so we pull in byte arrays
@@ -4343,7 +4343,7 @@ async def api_stream(opts):
                     chunk = await response.content.read(1024)
                     if not chunk:
                         if len(chunked_binary) > 0:
-                            print(chunked_binary.decode("utf-8"))
+                            manage_stream_output(opts, chunked_binary.decode("utf-8"))
                         break
 
                     chunked_binary += chunk
@@ -4353,8 +4353,7 @@ async def api_stream(opts):
 
                     # if we have a message, let's do something with it
                     if msg is not None:
-                        # msg = json.loads(msg)
-                        print(msg.strip())
+                        manage_stream_output(opts, msg)
 
             except ClientConnectionError as cce:
                 # print("caught aiohttp ClientConnectionError")
@@ -4364,6 +4363,27 @@ async def api_stream(opts):
                 # the remote stream (in streaming situations) closes, rather
                 # than just EOF the stream reader. Because WFT.
                 print(cce)
+
+
+def manage_stream_output(opts, stream_line):
+    """
+    Manage the various options we need to apply for output of streaming data.
+
+    :param opts:
+    :param stream_line:
+    :return:
+    """
+
+    # are we grepping?
+    if opts.grep is not None:
+        if opts.grep not in stream_line:
+            return
+
+    # are we pretty printing?
+    if opts.output_pretty_print:
+        print(json.dumps(json.loads(stream_line), indent=4))
+    else:
+        print(stream_line.strip())
 
 
 def since_datetime(since_string):
@@ -4451,6 +4471,10 @@ def options():
     parser.add_argument("--skip-fuzzing-tests", dest="test_fuzzing", default=True, action="store_false", help="Skip the generation of fuzzing tests")
     parser.add_argument("--test-repeat", dest="test_repeat", default=5, type=int, help="How many iterations of each test should run")
     parser.add_argument("--test-sensor-http-port", dest="test_port", default=11111, type=int, help="Port to bind for local async http server used during testing")
+
+    # stream formatting and control
+    parser.add_argument("--grep", dest="grep", default=None, help="String to grep for in stream data")
+    parser.add_argument("--pretty-print", dest="output_pretty_print", default=False, action="store_true", help="Pretty print JSON based outputs")
 
     return parser.parse_args()
 

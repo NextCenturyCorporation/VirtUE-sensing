@@ -1,0 +1,15 @@
+{
+  "name": "ps-sensor",
+  "version": "1.0",
+  "target_folder": "ps",
+  "files": [
+    {
+      "source": "sensor_ps.py",
+      "dest": "sensor_ps.py"
+    }
+  ],
+  "startup_script": "run_ps_sensor.sh",
+  "requirements_files": ["ps_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": []
+}
