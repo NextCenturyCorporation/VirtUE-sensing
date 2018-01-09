@@ -147,15 +147,34 @@ We can see the discrepency easily; two of the three sensors will properly report
 running, while the other won't:
 
 ```bash
-> ./bin/dockerized-stream.sh  | grep dropper 
-{"timestamp":"2018-01-08T15:31:06.955199","sensor_id":"0b43f335-9aef-47e8-a6b6-d13a5f7c5565","message":"bash     10     root  255r   REG                8,1      176 3096842 /tmp/dropper.sh\n","level":"debug"}
-{"timestamp":"2018-01-08T15:31:10.517249","sensor_id":"248a406c-aabd-43c8-835c-a7cd76b11800","message":{"user":"root","process":"/bin/bash /tmp/dropper.sh","pid":"10"},"level":"info"}
+> ./bin/dockerized-stream.sh --grep "dropper.sh" --pretty-print
+[dockerized-run]
+Getting Client Certificate
+Running virtue-security
+{
+    "timestamp": "2018-01-09T16:28:35.851598",
+    "sensor_name": "kernel-ps-sensor-1.20171117",
+    "sensor_id": "983f955a-2a3e-4076-91b1-02e7aaf5dd3d",
+    "message": {
+        "user": "root",
+        "process": "/bin/bash /tmp/dropper.sh",
+        "pid": "11"
+    },
+    "level": "info"
+}
+{
+    "timestamp": "2018-01-09T16:28:38.346031",
+    "sensor_name": "lsof-sensor-1.20171117",
+    "sensor_id": "3d9f4db9-bf52-4450-aab5-75bb90fd2100",
+    "message": "bash      11     root  255r   REG                8,1      176 3480843 /tmp/dropper.sh\n",
+    "level": "debug"
+}
 ```
 
 distilled down to remove extraneous data:
 
 ```bash
-"message": "bash     10     root  255r   REG                8,1      176 3096842 /tmp/dropper.sh"
+"message": "bash     10     root ... /tmp/dropper.sh"
 
 "message": {
 	"user":"root",
