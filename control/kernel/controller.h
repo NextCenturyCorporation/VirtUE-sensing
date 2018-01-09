@@ -170,7 +170,11 @@ struct probe_s {
 #define CONT_CPU_ANY -1
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...);
-struct kthread_worker *
+
+
+void kthread_destroy_worker(struct kthread_worker *worker);
+
+void
 kthread_destroy_worker(struct kthread_worker *worker);
 
 struct probe_s *init_k_probe(struct probe_s *probe);

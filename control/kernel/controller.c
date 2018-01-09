@@ -13,7 +13,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
+
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor,
@@ -33,8 +33,8 @@ module_param(ps_timeout, uint, 0644);
 
 MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
 MODULE_PARM_DESC(ps_timeout,
-				  "How many seconds to sleep in between calls to the kernel " \
-				  "ps function");
+				 "How many seconds to sleep in between calls to the kernel " \
+				 "ps function");
 
 
 LIST_HEAD(active_sensors);
@@ -52,9 +52,9 @@ static int kernel_ps(int count)
 	int ccode =  0;
 	struct task_struct *task;
 /**
-	uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
-		"STAT START   TIME COMMAND";
-	printk(KERN_INFO "%s\n", header);
+   uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
+   "STAT START   TIME COMMAND";
+   printk(KERN_INFO "%s\n", header);
 **/
 	for_each_process(task) {
 		printk(KERN_INFO "kernel-ps-%d: %s [%d]\n", count, task->comm, task->pid);
@@ -172,7 +172,7 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	return worker;
 }
 
-struct kthread_worker *
+void
 kthread_destroy_worker(struct kthread_worker *worker)
 {
 	struct task_struct *task;
@@ -185,7 +185,8 @@ kthread_destroy_worker(struct kthread_worker *worker)
 	flush_kthread_worker(worker);
 	kthread_stop(task);
 	WARN_ON(!list_empty(&worker->work_list));
-	return worker;
+	kfree(worker);
+	return;
 }
 
 #endif
@@ -312,9 +313,9 @@ static int __init __kcontrol_init(void)
 		goto err_exit;
 	}
 
-	init_kthread_work(controller_work, k_probe);
-	init_kthread_worker(controller_worker);
-	queue_kthread_work(controller_worker, controller_work);
+	kthread_init_work(controller_work, k_probe);
+	kthread_init_worker(controller_worker);
+	kthread_queue_work(controller_worker, controller_work);
 	kthread_run(kthread_worker_fn, controller_worker,
 				"unremarked\%lx", (unsigned long)controller_probe);
 
@@ -338,14 +339,14 @@ static void __exit controller_cleanup(void)
 {
 	if (controller_probe) {
 		DMSG();
-		kfree(destroy_k_probe(controller_probe));
+		destroy_k_probe(controller_probe);
+		kfree(controller_probe);
 	}
 
 	if (controller_worker) {
 		DMSG();
-		kfree(kthread_destroy_worker(controller_worker));
+		kthread_destroy_worker(controller_worker);
 	}
-
 
 }
 
