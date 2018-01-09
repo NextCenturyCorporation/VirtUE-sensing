@@ -179,7 +179,7 @@ kthread_destroy_worker(struct kthread_worker *worker)
 
 	task = worker->task;
 	if (WARN_ON(!task)) {
-		return worker;
+		return;
 	}
 
 	flush_kthread_worker(worker);
@@ -312,13 +312,17 @@ static int __init __kcontrol_init(void)
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-
+#ifdef OLD_API /* linux kernel 4.1 */
+	init_kthread_work(controller_work, k_probe);
+	init_kthread_worker(controller_worker);
+	queue_kthread_work(controller_worker, controller_work);
+#else /* more modern kernels */
 	kthread_init_work(controller_work, k_probe);
 	kthread_init_worker(controller_worker);
 	kthread_queue_work(controller_worker, controller_work);
+#endif
 	kthread_run(kthread_worker_fn, controller_worker,
 				"unremarked\%lx", (unsigned long)controller_probe);
-
 	return ccode;
 
 err_exit:
