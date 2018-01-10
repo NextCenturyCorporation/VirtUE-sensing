@@ -1,15 +1,25 @@
 # In Progress
 
-3. Determine what needs to happen for new sensors
-4. Genericize the sensor wrapper
-5. Create new sensors
-6. Integrate dropper/malware into instrumented container
-7. script demo 
-8. Invalidate a sensor? (can we do run time revocation?)
-9. Add a script for generating and attaching new instrumented hosts during run time (like, add-host name)
+
+ 5.1 [ ] work on hostname discovery in sensor wrapper (coming through as garbage OIDs)
+ 8. [ ] Invalidate a sensor? (can we do run time revocation?) (this is an open issue)
+
+
+   - differences between two sensors -- doc [x] screen shot [ ] 
+   - registration process -- doc [x] screen shot [ ] 
+   - cli calls -- doc [x] screen shot [ ] 
+  - show which CLI calls are working -- doc [x] screen shot [ ] 
+  - show reg process -- doc [x] screen shot [ ] 
+  - show results of adding a new host -- doc [x] screen shot [ ] 
+  - examples of sensors -- doc [x] secreen shot [ ] 
+
+
  
 !! - how do we visualize what virtues are active and what they're doing?
     - how are we going to visualize state of the world
+
+
+ - [ ] start planning dom0 sensors
 
 # Sensing Architecture
 

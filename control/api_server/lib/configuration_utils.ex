@@ -149,6 +149,13 @@ defmodule ApiServer.ConfigurationUtils do
     defaults = %{
       "lsof-sensor" => %{
         "repeat-interval" => 5
+      },
+      "ps-sensor" => %{
+        "repeat-interval" => 10
+      },
+      "kernel-ps-sensor" => %{
+        "repeat-interval" => 10,
+        "kernel_log" => ""
       }
     }
 
