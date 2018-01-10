@@ -22,6 +22,38 @@ The process for installing a sensor looks like:
 """
 
 
+def find_kmods(directory):
+    """
+    Find all of the kernel modules within a directory, return a list of
+    mods that looks like:
+
+        [
+            {
+                "root": "kmod root",
+                "kernel_module": { kmod def },
+                "name": <kmod name>
+            }
+        ]
+    :param directory: Root directory to search for kernel modules
+    :return:
+    """
+
+    kmods = []
+
+    # walk the line
+    for root, dirs, files in os.walk(directory):
+        if "kernel_module.json" in files:
+            kmod = json.load(open(os.path.join(root, "kernel_module.json"), "r"))
+            kmods.append(
+                {
+                    "root": root,
+                    "kernel_module": kmod,
+                    "name": kmod["name"]
+                }
+            )
+    return kmods
+
+
 def find_sensors(directory):
     """
     Find all of the sensors defined within a directory, returning a list of
@@ -90,11 +122,57 @@ def find_targets(directory):
     return targets
 
 
-def validate_target(target, sensors):
+def validate_kmod(kmod):
+    """
+    validate the definition of a kernel module:
+
+        Directories:
+            - include
+
+        Files:
+            - install
+
+        Is List:
+            - apt-get
+
+        exists:
+            - name
+            - version
+            - target_folder
+
+    :param kmod:
+    :return:
+    """
+    errors = []
+
+    # validate that the include directories exist
+    for include_dir in kmod["kernel_module"]["include"]:
+        if not os.path.exists(os.path.join(kmod["root"], include_dir)):
+            errors.append("kernel_module.json::include does not point to an existing file or directory")
+
+    # validate that the install files are real
+    for install_file in kmod["kernel_module"]["install"]:
+        if not os.path.isfile(os.path.join(kmod["root"], install_file)):
+            errors.append("kernel_module.json::install entry does not point to an existing file")
+
+    # keys must exist
+    for k in ["apt-get", "name", "version", "target_folder"]:
+        if k not in kmod["kernel_module"]:
+            errors.append("kernel_module.json::%s is a required key" % (k,))
+
+    # the apt-get key needs to be a list
+    if "apt-get" not in kmod["kernel_module"] or type(kmod["kernel_module"]["apt-get"]) != types.ListType:
+        errors.append("kernel_module.json::apt-get needs to be a list")
+
+    return errors
+
+
+def validate_target(target, sensors, kmods):
     """
     Validate a target definition:
 
         - all sensors exist
+        - all kernel_modules exist
         - directories are defined for:
             - sensors_directory
             - requirements_directory
@@ -108,12 +186,17 @@ def validate_target(target, sensors):
 
     # invert sensors into hash index
     sensor_idx = {sensor["name"]: True for sensor in sensors}
+    kmod_idx = {kmod["name"]: True for kmod in kmods}
 
     errors = []
 
     for req_sensor in target["target"]["sensors"]:
         if req_sensor not in sensor_idx:
             errors.append("required sensor [%s] does not exist" % (req_sensor,))
+
+    for req_kmod in target["target"]["kernel_modules"]:
+        if req_kmod not in kmod_idx:
+            errors.append("required kernel module [%s] does not exist" % (req_kmod,))
 
     for dir_key in ["sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory"]:
         if dir_key not in target["target"]:
@@ -184,12 +267,14 @@ def prep_target(target):
         - sensors_directory
         - requirements_directory
         - startup_scripts_directory
+        - kernel_mod_directory
 
     Create
 
         - sensors_directory
         - requirements_directory
         - startup_scripts_directory
+        - kernel_mod_directory
 
     :param target:
     :return:
@@ -197,7 +282,7 @@ def prep_target(target):
 
     print "  ~ Preparing directories"
     root = target["root"]
-    for dir_key in ["sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory"]:
+    for dir_key in ["sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory", "kernel_mod_directory"]:
         dir = target["target"][dir_key]
         path = os.path.join(root, dir)
 
@@ -211,7 +296,7 @@ def prep_target(target):
         os.makedirs(path)
 
 
-def install_sensors_in_target(target, sensors, wrapper_dir):
+def install_sensors_in_target(target, kmods, sensors, wrapper_dir):
     """
     Install all of the required sensors for the target.
 
@@ -222,12 +307,17 @@ def install_sensors_in_target(target, sensors, wrapper_dir):
 
     # build a quick index of sensors
     sensor_idx = {sensor["name"]: sensor for sensor in sensors}
+    kmod_idx = {kmod["name"]: kmod for kmod in kmods}
 
     # run the install
     print "Installing %d sensors in target [%s]" % (len(target["target"]["sensors"]), target["name"])
 
     # directory prep
     prep_target(target)
+
+    # install the kernel module data
+    for kmod_name in target["target"]["kernel_modules"]:
+        install_kernel_module(target, kmod_idx[kmod_name])
 
     # support libraries
     install_sensor_wrapper(target, wrapper_dir)
@@ -242,14 +332,17 @@ def install_sensors_in_target(target, sensors, wrapper_dir):
     # support library install file
     create_support_library_install_script(target)
 
+    # kernel module install file
+    create_kernel_module_install_script(target, kmods)
+
     # single point sensor startup script
     create_sensor_startup_master(target)
 
     # collate apt-get install requirements, and write out to sensor_libraries/apt-get-support.sh
-    create_apt_get_script(target, sensors)
+    create_apt_get_script(target, sensors, kmods)
 
 
-def create_apt_get_script(target, sensors):
+def create_apt_get_script(target, sensors, kmods):
     """
     Collate all of the apt-get requirements, and write them out to a file that
     can be called from the target Dockerfile
@@ -268,9 +361,13 @@ def create_apt_get_script(target, sensors):
 
     # inverted sensor index
     sensor_idx = {sensor["name"]: sensor for sensor in sensors}
+    kmod_idx = {kmod["name"]: kmod for kmod in kmods}
 
     for sensor_name in target["target"]["sensors"]:
         apt_libs += sensor_idx[sensor_name]["sensor"]["apt-get"]
+
+    for kmod_name in target["target"]["kernel_modules"]:
+        apt_libs += kmod_idx[kmod_name]["kernel_module"]["apt-get"]
 
     # normalize the list and remove duplicates
     apt_libs = list(set(apt_libs))
@@ -306,6 +403,57 @@ def create_sensor_startup_master(target):
             master_script.write("/opt/sensor_startup/%s &\n" % (script,))
 
     print "    + %d startup scripts added" % (len(scripts),)
+
+
+def create_kernel_module_install_script(target, kmods):
+    """
+    Create a build script for the kernel modules.
+
+        1. Scan for install script files in the selected kernel modules
+        2. create script to move into directories and build
+
+    :param target:
+    :param kmods:
+    :return:
+    """
+    print "  + Building kernel module install script"
+
+    kmod_root_dir = os.path.abspath(os.path.join(target["root"], target["target"]["kernel_mod_directory"]))
+
+    # find related kernel mods
+    kmod_idx = {kmod["name"]: kmod for kmod in kmods}
+
+    build_steps = []
+
+    for req_kmod in target["target"]["kernel_modules"]:
+        kmod = kmod_idx[req_kmod]["kernel_module"]
+
+        # what's the relative directory
+        mod_dir = os.path.abspath(os.path.join(kmod_root_dir, kmod["target_folder"]))
+
+        # build out the install scripts
+        for inst_file in kmod["install"]:
+
+            # get the install file
+            inst_file = os.path.abspath(os.path.join(mod_dir, inst_file))
+
+            # find the relative file
+            inst_run_file = os.path.basename(inst_file)
+            inst_rel_dir = os.path.relpath(os.path.dirname(inst_file), kmod_root_dir)
+
+            # relative up path
+            up_rel_dir = os.path.relpath(kmod_root_dir, os.path.dirname(inst_file))
+
+            # add the actual build step
+            build_steps.append("cd %s\nbash %s\ncd %s\n" % (inst_rel_dir, inst_run_file, up_rel_dir))
+
+    # write out the install file
+    print "  + Writing install file"
+    with open(os.path.join(kmod_root_dir, "install.sh"), "w") as kmod_installer:
+        kmod_installer.write("#!/bin/bash\n")
+
+        for build_step in build_steps:
+            kmod_installer.write(build_step)
 
 
 def create_support_library_install_script(target):
@@ -361,6 +509,35 @@ def create_requirements_master(target):
     with open(os.path.abspath(os.path.join(req_dir, "requirements_master.txt")), "w") as req_file:
         for file in files:
             req_file.write("-r %s\n" % (file,))
+
+
+def install_kernel_module(target, kmod):
+    """
+    Install a specif kernel module into a target.
+
+        - Create the module directory
+        - Copy included files into place (kernel_module.json::include)
+
+
+    :param target:
+    :param kmod:
+    :return:
+    """
+    root = target["root"]
+    kmod_dir = os.path.abspath(os.path.join(root, target["target"]["kernel_mod_directory"]))
+
+    print "  + installing %s (version %s)" % (kmod["name"], kmod["kernel_module"]["version"])
+
+    kmod_root_dir = os.path.abspath(os.path.join(kmod_dir, kmod["kernel_module"]["target_folder"]))
+
+    # walk through the includes and copy them into place
+    for inc_path in kmod["kernel_module"]["include"]:
+        kmod_src_dir = os.path.abspath(os.path.join(kmod["root"], inc_path))
+        kmod_dst_dir = os.path.abspath(os.path.join(kmod_root_dir, inc_path))
+
+        print "    ~ %s" % (inc_path,)
+        # os.makedirs(kmod_dst_dir)
+        shutil.copytree(kmod_src_dir, kmod_dst_dir)
 
 
 def install_sensor(target, sensor):
@@ -458,11 +635,13 @@ if __name__ == "__main__":
     sensor_dir = "./sensors"
     targets_dir = "./targets"
     wrapper_dir = "./sensors/wrapper"
+    kernel_dir = "./"
 
     print "Running install_sensors"
     print "  wrapper(%s)" % (wrapper_dir,)
     print "  sensors(%s)" % (sensor_dir,)
     print "  targets(%s)" % (targets_dir,)
+    print "  kernel_mods(%s)" % (kernel_dir,)
     print ""
 
     print "Finding Sensors"
@@ -479,13 +658,27 @@ if __name__ == "__main__":
             sys.exit(1)
 
     print ""
+    print "Finding kernel modules"
+
+    kmods = find_kmods(kernel_dir)
+
+    for kmod in kmods:
+        print "  + %s (version %s)" % (kmod["name"], kmod["kernel_module"]["version"])
+        errors = validate_kmod(kmod)
+        if len(errors) != 0:
+            print "    ! errors detected in kernel_module.json"
+            for err in errors:
+                print "      - %s" % (err,)
+            sys.exit(1)
+
+    print ""
     print "Finding Targets"
 
     targets = find_targets(targets_dir)
 
     for target in targets:
         print "  + %s" % (target["name"],)
-        errors = validate_target(target, sensors)
+        errors = validate_target(target, sensors, kmods)
         if len(errors) != 0:
             print "    ! errors detected in target.json"
             for err in errors:
@@ -493,5 +686,6 @@ if __name__ == "__main__":
             sys.exit(1)
 
     print ""
+
     for target in targets:
-        install_sensors_in_target(target, sensors, wrapper_dir)
+        install_sensors_in_target(target, kmods, sensors, wrapper_dir)

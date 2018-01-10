@@ -1,0 +1,12 @@
+{
+  "name": "kernel-ps",
+  "version": "2018-01-09",
+  "target_folder": "kernel_ps",
+  "include": [
+    "./"
+  ],
+  "install": [
+    "install.sh"
+  ],
+  "apt-get": ["build-essential", "linux-source", "kernel-package", "libncurses5-dev", "linux-headers-amd64"]
+}
