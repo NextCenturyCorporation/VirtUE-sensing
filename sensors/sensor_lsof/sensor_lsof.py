@@ -2,13 +2,47 @@
 import datetime
 import json
 import re
-from curio import subprocess
+from curio import subprocess, sleep
 
-from sensor_wrapper import SensorWrapper
+from sensor_wrapper import SensorWrapper, report_on_file, which_file
+
 
 """
-Sensor that wraps the system PS command.
+Sensor that wraps the system lsof command.
 """
+
+
+async def assess_lsof(message_stub, config, message_queue):
+    """
+
+    :param message_stub:
+    :param config:
+    :param message_queue:
+    :return:
+    """
+    repeat_delay = config.get("repeat-interval", 15) * 4
+    print(" ::starting lsof check-summing")
+    print("    $ repeat-interval = %d" % (repeat_delay,))
+
+    ps_canonical_path = which_file("lsof")
+
+    print("    $ canonical path = %s" % (ps_canonical_path,))
+
+    while True:
+
+        # let's profile our ps command
+        ps_profile = await report_on_file(ps_canonical_path)
+        psp_logmsg = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "level": "info",
+            "message": ps_profile
+        }
+        psp_logmsg.update(message_stub)
+
+        await message_queue.put(json.dumps(psp_logmsg))
+
+        # sleep
+        await sleep(repeat_delay)
 
 
 async def lsof(message_stub, config, message_queue):
@@ -68,5 +102,5 @@ async def lsof(message_stub, config, message_queue):
 
 if __name__ == "__main__":
 
-    wrapper = SensorWrapper("lsof-sensor", lsof)
+    wrapper = SensorWrapper("lsof-sensor", [lsof, assess_lsof])
     wrapper.start()

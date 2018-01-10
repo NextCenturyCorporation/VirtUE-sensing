@@ -3,6 +3,7 @@ __VERSION__ = "1.20171117"
 
 
 import argparse
+import asyncio
 import base64
 from Crypto.PublicKey import RSA
 from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl
@@ -37,14 +38,16 @@ from uuid import uuid4
 
 class SensorWrapper(object):
 
-    def __init__(self, name, sensing_method):
+    def __init__(self, name, sensing_methods=[]):
 
         # log message queueing
         self.log_messages = Queue()
         self.sensor_name = name
         self.setup_options()
         self.opts = None
-        self.sensing_method = sensing_method
+        self.sensing_methods = sensing_methods
+        print("Configured with sensing methods:")
+        print(sensing_methods)
 
     async def get_root_ca_pubkey(self):
         """
@@ -309,9 +312,6 @@ class SensorWrapper(object):
 
     async def call_sensing_method(self, sensor_id, default_config):
         """
-
-        TODO: Make this the extension point for custom code to run
-
         We call into our loaded sensor method, passing in the basic message
         stub that needs to be in every message, the configuration for the
         sensor, and the log_message queue.
@@ -326,8 +326,13 @@ class SensorWrapper(object):
             "sensor_id": sensor_id,
             "sensor_name": "%s-%s" % (self.sensor_name, __VERSION__,)
         }
+        # futures = [meth(msg_stub, default_config, self.log_messages) for meth in self.sensing_methods]
+        async with TaskGroup() as g:
+            for lm in self.sensing_methods:
+                await g.spawn(lm, msg_stub, default_config, self.log_messages)
 
-        await self.sensing_method(msg_stub, default_config, self.log_messages)
+
+        # await self.sensing_method(msg_stub, default_config, self.log_messages)
 
     async def log_drain(self, kafka_bootstrap_hosts=None, kafka_channel=None):
         """
@@ -905,6 +910,78 @@ class SensorWrapper(object):
 
         # let's jump right into async land
         run(self.main)
+
+
+def which_file(name):
+    """
+    Find a file on the path.
+
+    :param name:
+    :return:
+    """
+    paths = os.environ["PATH"].split(os.pathsep)
+
+    for path in paths:
+        if os.path.isfile(os.path.join(path, name)):
+            return os.path.join(path, name)
+
+    return None
+
+
+async def report_on_file(filename):
+    """
+    Run a report on a file, and return data about the file. This is effectively the
+    check-summing and file inspection capability of a sensor.
+
+    :param filename: Absolute path to a file resource
+    :return: Dictionary
+    """
+    if not os.path.exists(filename):
+        return None
+
+    # let's do the basics
+    data = {
+        "is_file": os.path.isfile(filename),
+        "is_dir": os.path.isdir(filename),
+        "is_link": os.path.islink(filename),
+        "real_path": os.path.realpath(filename),
+        "exists": os.path.exists(filename)
+    }
+
+    # the remainder of the actions depend on the file existing
+    if data["exists"]:
+
+        # size and time stamps
+        data.update(
+            {
+                "size": os.path.getsize(filename),
+                "atime": os.path.getatime(filename),
+                "mtime": os.path.getmtime(filename),
+                "ctime": os.path.getctime(filename)
+            }
+        )
+
+        # sha512
+        filename_flo = open(filename, 'rb')
+        flo_sha512 = hashlib.sha512()
+        for chunk in iter(lambda: filename_flo.read(4096), b''):
+            flo_sha512.update(chunk)
+
+        data["sha512"] = flo_sha512.hexdigest()
+    else:
+        data.update(
+            {
+                "size": 0,
+                "atime": 0,
+                "mtime": 0,
+                "ctime": 0,
+                "sha512": ""
+            }
+        )
+
+    return data
+
+
 
 
 async def send_json(stream, json_data, status_code=200):
