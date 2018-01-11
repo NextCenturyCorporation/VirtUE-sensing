@@ -21,6 +21,13 @@ RUN ./install.sh
 RUN chmod a+x /usr/src/app/sensor_libraries/apt_get_install.sh
 RUN /bin/bash /usr/src/app/sensor_libraries/apt_get_install.sh
 
+# KERNEL MODULES
+RUN mkdir /usr/src/app/kmods
+COPY kmods/ /usr/src/app/kmods
+WORKDIR /usr/src/app/kmods
+RUN chmod ugo+x install.sh
+RUN ./install.sh
+
 # SENSORS
 RUN mkdir /opt/sensors
 COPY sensors/ /opt/sensors/
