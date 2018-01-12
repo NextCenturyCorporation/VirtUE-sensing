@@ -56,8 +56,8 @@ static struct kernel_ps_data *kps_data(struct task_struct *task)
 		goto err_exit;
 	}
 	kpsd->user_id = task_uid(task);
-	DMSG();
-	printk(KERN_INFO,
+	kpsd->pid_nr = task->pid;
+	memcpy(kpsd->comm, task->comm, TASK_COMM_LEN);
 	return kpsd;
 
 err_exit:
@@ -85,9 +85,15 @@ static int kernel_ps(int count)
 		if (kpsd == NULL) {
 			continue;
 		}
-
-		printk(KERN_INFO "kernel-ps-%d: %s [%d]\n", count, task->comm, task->pid);
+/**
+    kernel_ps_data->user_id is a compound value. the actual uid 
+    is a kernel typedef 32-bit signed int. The printk below shows how to
+    access the user id within the kernel.
+**/
+		printk(KERN_INFO "kernel-ps-%d: %s [%d] [%d]\n",
+			   count, kpsd->comm, kpsd->pid_nr, kpsd->user_id.val);
 		ccode++;
+		kfree(kpsd);
 	}
 
     return ccode;

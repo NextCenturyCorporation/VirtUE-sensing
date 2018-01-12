@@ -152,7 +152,7 @@ struct kernel_ps_data {
 	uint64_t s_time;
 	uint64_t task_time;
 	struct list_head l;
-	uint8_t comm[TASK_COMM_LEN];
+	uint8_t comm[TASK_COMM_LEN+1];
 };
 
 
