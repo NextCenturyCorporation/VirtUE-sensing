@@ -151,6 +151,7 @@ struct kernel_ps_data {
 	uint64_t u_time;
 	uint64_t s_time;
 	uint64_t task_time;
+	struct list_head l;
 	uint8_t comm[TASK_COMM_LEN];
 };
 
@@ -160,7 +161,7 @@ struct probe_s {
 	spinlock_t probe_lock;
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
 	struct kthread_work probe_work;
-	struct list_head probe_list;
+	struct list_head l;
 	uint8_t *data;
 };
 /* probes are run by kernel worker threads (struct kthread_worker)

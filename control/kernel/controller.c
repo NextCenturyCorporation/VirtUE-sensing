@@ -46,9 +46,33 @@ struct kthread_work *controller_work;
 struct kthread_worker *controller_worker;
 struct probe_s *controller_probe;
 
+static struct kernel_ps_data *kps_data(struct task_struct *task)
+{
+
+	struct kernel_ps_data *kpsd;
+	assert(task);
+	kpsd = kzalloc(sizeof(struct kernel_ps_data), GFP_KERNEL);
+	if (kpsd == NULL) {
+		goto err_exit;
+	}
+	kpsd->user_id = task_uid(task);
+	DMSG();
+	printk(KERN_INFO,
+	return kpsd;
+
+err_exit:
+	if (kpsd) {
+		kfree(kpsd);
+	}
+	return NULL;
+}
+
+
+
 
 static int kernel_ps(int count)
 {
+	static LIST_HEAD(kps_l);
 	int ccode =  0;
 	struct task_struct *task;
 /**
@@ -57,6 +81,11 @@ static int kernel_ps(int count)
    printk(KERN_INFO "%s\n", header);
 **/
 	for_each_process(task) {
+		struct kernel_ps_data *kpsd = kps_data(task);
+		if (kpsd == NULL) {
+			continue;
+		}
+
 		printk(KERN_INFO "kernel-ps-%d: %s [%d]\n", count, task->comm, task->pid);
 		ccode++;
 	}
@@ -220,7 +249,7 @@ struct probe_s *init_k_probe(struct probe_s *probe)
 	probe->probe_lock=__SPIN_LOCK_UNLOCKED("probe");
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */
-	INIT_LIST_HEAD(&(probe)->probe_list);
+	INIT_LIST_HEAD(&(probe)->l);
 
 	probe->data = kzalloc(PROBE_DATA_SIZE, GFP_KERNEL);
 	if (!probe->data) {
