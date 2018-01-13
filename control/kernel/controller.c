@@ -55,9 +55,13 @@ static struct kernel_ps_data *kps_data(struct task_struct *task)
 	if (kpsd == NULL) {
 		goto err_exit;
 	}
+	/**
+	   use the provided functions to access task data structures
+	   they use kernel protection mechanisms, locking and rcu
+	**/
 	kpsd->user_id = task_uid(task);
 	kpsd->pid_nr = task->pid;
-	memcpy(kpsd->comm, task->comm, TASK_COMM_LEN);
+	get_task_comm(kpsd->comm, task);
 	return kpsd;
 
 err_exit:
@@ -86,7 +90,7 @@ static int kernel_ps(int count)
 			continue;
 		}
 /**
-    kernel_ps_data->user_id is a compound value. the actual uid 
+    kernel_ps_data->user_id is a compound value. the actual uid
     is a kernel typedef 32-bit signed int. The printk below shows how to
     access the user id within the kernel.
 **/
