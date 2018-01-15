@@ -10,22 +10,19 @@
 
 1. From within a Virtue Kernel, such as a from within unikernel or from within a traditional kernel such as Linux.
    
-         This includes a tradition model of monitoring a user-space executable from within a kernel; also it may include monitoring a process from within a unikernel, when that process may not have a separate memory space (for example a unikernel that shares a single memory space with the process it is running).  
+   This includes a traditional model of monitoring a user-space executable from within a kernel; also it may include monitoring a process from within a unikernel, when that process may not have a separate memory space (for example a unikernel that shares a single memory space with the process it is running).  
          
              
 2. From within a hypervisor, such as from within KVM or Xen, which is running the Virtue kernel in (1) within a virtual machine.
-   
-         This involves reaching into Virtue kernel memory from within the hypervisor. Today on cloud services this is a controversial policy because it sometimes violates the privacy of the virtual machine owner.  
-         
-        Sensing from within the hypervisor is made more difficult because the hypervisor may not know what kernel is running from within the virtual machine. 
-        
+   This involves reaching into Virtue kernel memory from within the hypervisor. Today on cloud services this is a controversial policy because it sometimes violates the privacy of the virtual machine owner.  
+   Sensing from within the hypervisor is made more difficult because the hypervisor may not know what kernel is running from within the virtual machine. 
         Libraries and tools exist to make sensing from within the hyperisor easier to write and maintain: 
 
-		* <http://libvmi.com> 
+	* <http://libvmi.com> 
 	  
-		  Sensing from within the hypervisor could be a single entry point for rootkit penetration of every virtual machine being run by that hypervisor.
+	Sensing from within the hypervisor could be a single entry point for rootkit penetration of every virtual machine being run by that hypervisor.
 		     
-			At the same time, sensing from within the hypervisor can be a powerful vantagepoint for detecting attacks on virtual machines that they otherwise would be unable to detect themselves.
+	At the same time, sensing from within the hypervisor can be a powerful vantagepoint for detecting attacks on virtual machines that they otherwise would be unable to detect themselves.
     
 ## Ideas for Kernel Sensing
 1. From within the hypervisor, monitor changes to the Virtue Kernel’s memory.
@@ -52,7 +49,7 @@
 1. ptrace jailer 
 	2. use PTRACE_SYSCALL to locate sysenter   
 
-			sysenter is used in modern Linux kernels instead of interrupt 0x80 because it is much faster. This can be found in the linux-gate marked as vdso within the map file of a process. In grsec all of the base addresses of memory maps are blank, and therefore getting the address from that file is useless. Here is what we are looking for:
+	sysenter is used in modern Linux kernels instead of interrupt 0x80 because it is much faster. This can be found in the linux-gate marked as vdso within the map file of a process. In grsec all of the base addresses of memory maps are blank, and therefore getting the address from that file is useless. Here is what we are looking for:
 ```assembly
 fffe420 <__kernel_vsyscall>:
 ffffe420: 51 push %ecx
@@ -76,4 +73,4 @@ ffffe425: 0f 34 sysenter
 
 <https://lwn.net/Articles/734765/>   
 
-	* lazy migration of functions
+* lazy migration of functions
