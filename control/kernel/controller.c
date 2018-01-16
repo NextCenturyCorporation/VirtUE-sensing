@@ -45,55 +45,33 @@ int probe_socket;
 struct kthread_work *controller_work;
 struct kthread_worker *controller_worker;
 struct probe_s *controller_probe;
-
-static struct kernel_ps_data *kps_data(struct task_struct *task)
-{
-
-	struct kernel_ps_data *kpsd;
-	assert(task);
-	kpsd = kzalloc(sizeof(struct kernel_ps_data), GFP_KERNEL);
-	if (kpsd == NULL) {
-		goto err_exit;
-	}
-	kpsd->user_id = task_uid(task);
-	kpsd->pid_nr = task->pid;
-	memcpy(kpsd->comm, task->comm, TASK_COMM_LEN);
-	return kpsd;
-
-err_exit:
-	if (kpsd) {
-		kfree(kpsd);
-	}
-	return NULL;
-}
-
-
-
+struct flex_array *kps_data_flex_array;
 
 static int kernel_ps(int count)
 {
 	static LIST_HEAD(kps_l);
-	int ccode =  0;
+	int ccode = 0, index = 0;
 	struct task_struct *task;
-/**
-   uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
-   "STAT START   TIME COMMAND";
-   printk(KERN_INFO "%s\n", header);
-**/
+	struct kernel_ps_data kpsd;
+
 	for_each_process(task) {
-		struct kernel_ps_data *kpsd = kps_data(task);
-		if (kpsd == NULL) {
-			continue;
+		struct kernel_ps_data *kpsd_p;
+		kpsd.index = index;
+		kpsd.user_id = task_uid(task);
+		kpsd.pid_nr = task->pid;
+		memcpy(kpsd.comm, task->comm, TASK_COMM_LEN);
+
+		if (index <  PS_ARRAY_SIZE) {
+			flex_array_put(kps_data_flex_array, index, &kpsd, GFP_ATOMIC);
+			kpsd_p = flex_array_get(kps_data_flex_array, index);
+			printk(KERN_INFO "kernel-ps-%d:%d %s [%d] [%d]\n",
+				   count, index, kpsd_p->comm, kpsd_p->pid_nr,
+				   kpsd_p->user_id.val);
+		} else {
+			printk(KERN_INFO "kernel-ps-%d:%d-not-stored: %s [%d] [%d]\n",
+				   count, index, kpsd.comm, kpsd.pid_nr, kpsd.user_id.val);
 		}
-/**
-    kernel_ps_data->user_id is a compound value. the actual uid 
-    is a kernel typedef 32-bit signed int. The printk below shows how to
-    access the user id within the kernel.
-**/
-		printk(KERN_INFO "kernel-ps-%d: %s [%d] [%d]\n",
-			   count, kpsd->comm, kpsd->pid_nr, kpsd->user_id.val);
-		ccode++;
-		kfree(kpsd);
+		index++;
 	}
 
     return ccode;
@@ -108,6 +86,7 @@ init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
 					void (*function)(struct kthread_work *))
 {
+
 
 	CONT_INIT_WORK(work, function);
 	return CONT_QUEUE_WORK(worker, work);
@@ -322,7 +301,8 @@ void  k_probe(struct kthread_work *work)
 static int __init __kcontrol_init(void)
 {
 	int ccode = 0;
-	DMSG();
+	kps_data_flex_array = flex_array_alloc(PS_DATA_SIZE, PS_ARRAY_SIZE, GFP_KERNEL);
+	assert(kps_data_flex_array);
 
 	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
 	if (!controller_probe) {

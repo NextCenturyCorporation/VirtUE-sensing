@@ -55,9 +55,10 @@
 
 
 
-#define PROBE_ID_SIZE 0x1000
-#define PROBE_DATA_SIZE 0x4000
-#define PS_HEADER_SIZE 0x100
+#define PROBE_ID_SIZE       0x1000
+#define PROBE_DATA_SIZE     0x4000
+#define PS_HEADER_SIZE      0x100
+
 /**
  * __task_cred - Access a task's objective credentials
  * @task: The task to query
@@ -140,7 +141,7 @@ static inline void task_cputime(struct task_struct *t,
 #endif
 
 struct kernel_ps_data {
-	uint8_t header[PS_HEADER_SIZE];
+	int index; /* used for access to using flex_array.h */
 	kuid_t user_id;
 	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
 	uint64_t load_avg;
@@ -154,6 +155,18 @@ struct kernel_ps_data {
 	struct list_head l;
 	uint8_t comm[TASK_COMM_LEN+1];
 };
+#define PS_DATA_SIZE sizeof(struct kernel_ps_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define PS_ARRAY_SIZE ((FLEX_ARRAY_NR_BASE_PTRS *	\
+	FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE)) -	\
+	sizeof(struct flex_array))
 
 
 struct probe_s {
@@ -222,6 +235,6 @@ uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
 
-#define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+#define DMSG() printk(KERN_ALERT "DEBUG: kernel-ps Passed %s %d \n",__FUNCTION__,__LINE__);
 
 #endif // CONTROLLER_H
