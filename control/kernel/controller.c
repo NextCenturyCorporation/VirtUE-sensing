@@ -45,6 +45,7 @@ int probe_socket;
 struct kthread_work *controller_work;
 struct kthread_worker *controller_worker;
 struct probe_s *controller_probe;
+
 struct flex_array *kps_data_flex_array;
 
 static int kernel_ps(int count)
@@ -71,6 +72,7 @@ static int kernel_ps(int count)
 			printk(KERN_INFO "kernel-ps-%d:%d-not-stored: %s [%d] [%d]\n",
 				   count, index, kpsd.comm, kpsd.pid_nr, kpsd.user_id.val);
 		}
+
 		index++;
 	}
 

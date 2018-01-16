@@ -86,9 +86,6 @@
  * #endif
  **/
 
-
-
-
 /**
   * executable name, excluding path.
   * - normally initialized setup_new_exec()
