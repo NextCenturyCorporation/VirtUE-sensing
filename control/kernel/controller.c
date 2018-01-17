@@ -51,7 +51,7 @@ struct flex_array *kps_data_flex_array;
 static int kernel_ps(int count)
 {
 	static LIST_HEAD(kps_l);
-	int ccode = 0, index = 0;
+	int index = 0;
 	struct task_struct *task;
 	struct kernel_ps_data kpsd;
 
@@ -72,11 +72,9 @@ static int kernel_ps(int count)
 			printk(KERN_INFO "kernel-ps-%d:%d-not-stored: %s [%d] [%d]\n",
 				   count, index, kpsd.comm, kpsd.pid_nr, kpsd.user_id.val);
 		}
-
 		index++;
 	}
-
-    return ccode;
+    return index;
 }
 
 /* ugly but expedient way to support < 4.9 kernels */
@@ -302,9 +300,15 @@ void  k_probe(struct kthread_work *work)
  **/
 static int __init __kcontrol_init(void)
 {
-	int ccode = 0;
+	int ccode;
 	kps_data_flex_array = flex_array_alloc(PS_DATA_SIZE, PS_ARRAY_SIZE, GFP_KERNEL);
 	assert(kps_data_flex_array);
+	ccode = flex_array_prealloc(kps_data_flex_array, 0, PS_ARRAY_SIZE, GFP_KERNEL);
+	assert(!ccode);
+
+
+	printk(KERN_INFO "PS_DATA_SIZE %ld PS_ARRAY_SIZE %ld\n",
+		   PS_DATA_SIZE, PS_ARRAY_SIZE);
 
 	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
 	if (!controller_probe) {
@@ -354,17 +358,25 @@ err_exit:
 
 static void __exit controller_cleanup(void)
 {
+#ifdef NOTHING
 	if (controller_probe) {
 		DMSG();
 		destroy_k_probe(controller_probe);
+
 		kfree(controller_probe);
 	}
 
 	if (controller_worker) {
-		DMSG();
 		kthread_destroy_worker(controller_worker);
+		DMSG();
 	}
 
+	if (kps_data_flex_array) {
+		flex_array_free(kps_data_flex_array);
+		DMSG();
+	}
+	#endif
+	DMSG();
 }
 
 module_init(__kcontrol_init);

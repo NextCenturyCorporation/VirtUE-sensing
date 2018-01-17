@@ -161,10 +161,10 @@ struct kernel_ps_data {
  * pre allocate a flex_array with too many elements
  **/
 
-#define PS_ARRAY_SIZE ((FLEX_ARRAY_NR_BASE_PTRS *	\
-	FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE)) -	\
-	sizeof(struct flex_array))
+#define PS_APPARENT_ARRAY_SIZE \
+	FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS\
 
+#define PS_ARRAY_SIZE (PS_APPARENT_ARRAY_SIZE) - 1
 
 struct probe_s {
 	uint8_t *probe_id;
@@ -182,11 +182,7 @@ struct probe_s {
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...);
 
-
 void kthread_destroy_worker(struct kthread_worker *worker);
-
-void
-kthread_destroy_worker(struct kthread_worker *worker);
 
 struct probe_s *init_k_probe(struct probe_s *probe);
 void *destroy_probe_work(struct kthread_work *work);
