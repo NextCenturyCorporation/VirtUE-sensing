@@ -23,6 +23,7 @@ services:
     depends_on:
       - kafka
       - cfssl
+      - api_server_postgres
     links:
       - "kafka:kafka"
       - "cfssl:cfssl"
