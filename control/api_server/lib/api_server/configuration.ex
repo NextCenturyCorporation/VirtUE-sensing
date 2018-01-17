@@ -1,4 +1,25 @@
 defmodule ApiServer.Configuration do
+  @moduledoc """
+
+  See ApiServer.Component for more on the convenience methods for working with Components
+  and configurations.
+
+
+  Get a specific component version:
+
+      ApiServer.Configuration.for_component("kernel-ps")
+      |> Ecto.Query.where(version: "20180117")
+      |> ApiServer.Repo.one
+
+  Use a component object to retrieve a specific version:
+
+      ApiServer.Configuration
+      |> ApiServer.Configuration.for_component(component)
+      |> Ecto.Query.where(version: "20180117")
+      |> ApiServer.Repo.one
+
+  """
+
   use Ecto.Schema
   import Ecto.Query
 
@@ -20,12 +41,48 @@ defmodule ApiServer.Configuration do
     timestamps()
   end
 
-  def for_component(query, component) do
+  @doc """
+  Find configurations linked to a particular component struct as part of a larger
+  or compound query:
+
+    ApiServer.Configuration |> ApiServer.Configuration.for_component(component)
+  """
+  def for_component(query, %ApiServer.Component{} = component) do
      from c in query,
       join: p in assoc(c, :component),
       where: p.id == ^component.id
   end
 
+  @doc """
+  Retrieve configurations linked to a particular component using the component name
+
+    ApiServer.Configuration.for_component("kernel-ps")
+  """
+  def for_component(component_name) do
+    component = ApiServer.Component.get_by_name(component_name)
+
+    ApiServer.Configuration
+    |> ApiServer.Configuration.for_component(component)
+  end
+
+  @doc """
+  Update a configuration, optionally saving it back to the database:
+
+    case ApiServer.Configuration.update_configuration(conf, %{version: "..."}, save: true) do
+      {:ok, configuration} ->
+      {:error, changeset} ->
+    end
+  """
+  def update_configuration(configuration, params, opts \\ []) do
+    changes = ApiServer.Configuration.changeset(configuration, params)
+
+    case Keyword.get(opts, :save, false) do
+      :true ->
+        ApiServer.Repo.update(changes)
+      :false ->
+        changes
+    end
+  end
 
   def changeset(person, params \\ %{}) do
     person
