@@ -227,7 +227,6 @@ struct kernel_sensor {
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
-
-#define DMSG() printk(KERN_ALERT "DEBUG: kernel-ps Passed %s %d \n",__FUNCTION__,__LINE__);
+#define DMSG() printk(KERN_INFO "DEBUG: kernel-ps Passed %s %d \n",__FUNCTION__,__LINE__);
 
 #endif // CONTROLLER_H

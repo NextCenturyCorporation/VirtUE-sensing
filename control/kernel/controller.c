@@ -358,25 +358,19 @@ err_exit:
 
 static void __exit controller_cleanup(void)
 {
-#ifdef NOTHING
-	if (controller_probe) {
-		DMSG();
-		destroy_k_probe(controller_probe);
 
+	if (controller_probe) {
+		destroy_k_probe(controller_probe);
 		kfree(controller_probe);
 	}
 
 	if (controller_worker) {
 		kthread_destroy_worker(controller_worker);
-		DMSG();
 	}
 
 	if (kps_data_flex_array) {
 		flex_array_free(kps_data_flex_array);
-		DMSG();
 	}
-	#endif
-	DMSG();
 }
 
 module_init(__kcontrol_init);
