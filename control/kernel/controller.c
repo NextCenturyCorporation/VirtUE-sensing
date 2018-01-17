@@ -46,7 +46,20 @@ struct kthread_work *controller_work;
 struct kthread_worker *controller_worker;
 struct probe_s *controller_probe;
 
+
+/** locking the kernel-ps flex_array
+ * to write to or read from the pre-allocated flex array parts,
+ * one must hold the kps_spinlock. The kernel_ps function will
+ * execute a trylock and return with -EFAULT if it is unable
+ * to lock the array.
+ *
+ * A reader can decide best how to poll for the array spinlock, but
+ * it should hold the lock while using pointers from the array.
+ **/
+
+
 struct flex_array *kps_data_flex_array;
+DEFINE_SPINLOCK(kps_spinlock);
 
 static int kernel_ps(int count)
 {
@@ -54,6 +67,12 @@ static int kernel_ps(int count)
 	int index = 0;
 	struct task_struct *task;
 	struct kernel_ps_data kpsd;
+	unsigned long flags;
+
+
+	if (! spin_trylock_irqsave(&kps_spinlock, flags)) {
+		return -EFAULT;
+	}
 
 	for_each_process(task) {
 		struct kernel_ps_data *kpsd_p;
@@ -74,6 +93,7 @@ static int kernel_ps(int count)
 		}
 		index++;
 	}
+	spin_unlock_irqrestore(&kps_spinlock, flags);
     return index;
 }
 
@@ -282,7 +302,14 @@ void  k_probe(struct kthread_work *work)
 		container_of(work, struct probe_s, probe_work);
 	static int count;
 
-	kernel_ps(++count);
+	/**
+	 * if another process is reading the ps flex_array, kernel_ps
+	 * will return -EFAULT. therefore, reschedule and try again.
+	 */
+	while( kernel_ps(count) == -EFAULT) {
+		schedule();
+	}
+	count++;
 
 	if (probe_struct->repeat) {
 		probe_struct->repeat--;
