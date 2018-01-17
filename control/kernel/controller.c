@@ -330,10 +330,9 @@ static int __init __kcontrol_init(void)
 	int ccode;
 	kps_data_flex_array = flex_array_alloc(PS_DATA_SIZE, PS_ARRAY_SIZE, GFP_KERNEL);
 	assert(kps_data_flex_array);
-	ccode = flex_array_prealloc(kps_data_flex_array, 0, PS_ARRAY_SIZE, GFP_KERNEL);
+	ccode = flex_array_prealloc(kps_data_flex_array, 0, PS_ARRAY_SIZE,
+								GFP_KERNEL | __GFP_ZERO);
 	assert(!ccode);
-
-
 	printk(KERN_INFO "PS_DATA_SIZE %ld PS_ARRAY_SIZE %ld\n",
 		   PS_DATA_SIZE, PS_ARRAY_SIZE);
 
