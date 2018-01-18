@@ -347,7 +347,7 @@ void  k_probe(struct kthread_work *work)
 	 * if another process is reading the ps flex_array, kernel_ps
 	 * will return -EFAULT. therefore, reschedule and try again.
 	 */
-	while( kernel_ps(count, nonce) == -EFAULT) {
+	while( kernel_ps(count, nonce) == -EAGAIN) {
 		schedule();
 	}
 /**
