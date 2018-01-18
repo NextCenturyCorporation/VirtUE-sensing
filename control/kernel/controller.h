@@ -139,6 +139,7 @@ static inline void task_cputime(struct task_struct *t,
 
 struct kernel_ps_data {
 	int index; /* used for access to using flex_array.h */
+	uint64_t nonce;
 	kuid_t user_id;
 	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
 	uint64_t load_avg;

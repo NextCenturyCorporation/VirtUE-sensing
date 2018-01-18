@@ -24,5 +24,6 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/moduleparam.h>
+#include <linux/random.h>
 #define assert(s) do{if (!(s)) panic(#s);} while(0);
 #endif // CONTROLLER_LINUX_H

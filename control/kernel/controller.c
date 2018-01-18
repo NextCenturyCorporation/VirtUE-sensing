@@ -50,7 +50,7 @@ struct probe_s *controller_probe;
 /** locking the kernel-ps flex_array
  * to write to or read from the pre-allocated flex array parts,
  * one must hold the kps_spinlock. The kernel_ps function will
- * execute a trylock and return with -EFAULT if it is unable
+ * execute a trylock and return with -EAGAIN if it is unable
  * to lock the array.
  *
  * A reader can decide best how to poll for the array spinlock, but
@@ -61,41 +61,80 @@ struct probe_s *controller_probe;
 struct flex_array *kps_data_flex_array;
 DEFINE_SPINLOCK(kps_spinlock);
 
-static int kernel_ps(int count)
+
+/**
+ * output the kernel-ps list to the kernel log
+ *
+ * @param uint8 *tag - tag added to each line, useful for filtering
+ *        log output.
+ * @param count The number of times kernel-ps has been run as a probe
+ * @param nonce Identifies flex_array elements that should be printed,
+ *              also terminates the printing loop
+ * @return -EAGAIN if unable to obtain kernel-ps flex array lock,
+ *         -ENOMEM if the ps flex_array is too small to contain every
+ *                 running process
+ *         The number of kernel-ps records printed if successful
+ **/
+
+static int print_kernel_ps(uint8_t *tag, uint64_t nonce, int count)
 {
-	static LIST_HEAD(kps_l);
+	int index;
+	unsigned long flags;
+	struct kernel_ps_data *kpsd_p;
+
+	if (!spin_trylock_irqsave(&kps_spinlock, flags)) {
+		return -EAGAIN;
+	}
+	for (index = 0; index < PS_ARRAY_SIZE; index++)  {
+		kpsd_p = flex_array_get(kps_data_flex_array, index);
+		if (kpsd_p->nonce != nonce) {
+		    printk(KERN_INFO "print_kernel_ps exiting NONCE %llx KPSD NONCE: %llx\n",
+				   nonce, kpsd_p->nonce);
+			break;
+		}
+
+		printk(KERN_INFO "%s %d:%d %s [%d] [%d] [%llx]\n",
+			   tag, count, index, kpsd_p->comm, kpsd_p->pid_nr,
+			   kpsd_p->user_id.val, nonce);
+	}
+	spin_unlock_irqrestore(&kps_spinlock, flags);
+	if (index == PS_ARRAY_SIZE) {
+		return -ENOMEM;
+	}
+	return index;
+}
+
+static int kernel_ps(int count, uint64_t nonce)
+{
 	int index = 0;
 	struct task_struct *task;
 	struct kernel_ps_data kpsd;
 	unsigned long flags;
 
-
-	if (! spin_trylock_irqsave(&kps_spinlock, flags)) {
-		return -EFAULT;
+	if (!spin_trylock_irqsave(&kps_spinlock, flags)) {
+		return -EAGAIN;
 	}
 
 	for_each_process(task) {
-		struct kernel_ps_data *kpsd_p;
+		kpsd.nonce = nonce;
 		kpsd.index = index;
 		kpsd.user_id = task_uid(task);
 		kpsd.pid_nr = task->pid;
 		memcpy(kpsd.comm, task->comm, TASK_COMM_LEN);
-
 		if (index <  PS_ARRAY_SIZE) {
 			flex_array_put(kps_data_flex_array, index, &kpsd, GFP_ATOMIC);
-			kpsd_p = flex_array_get(kps_data_flex_array, index);
-			printk(KERN_INFO "kernel-ps-%d:%d %s [%d] [%d]\n",
-				   count, index, kpsd_p->comm, kpsd_p->pid_nr,
-				   kpsd_p->user_id.val);
 		} else {
-			printk(KERN_INFO "kernel-ps-%d:%d-not-stored: %s [%d] [%d]\n",
-				   count, index, kpsd.comm, kpsd.pid_nr, kpsd.user_id.val);
+			index = -ENOMEM;
+			goto unlock_out;
 		}
 		index++;
 	}
+
+unlock_out:
 	spin_unlock_irqrestore(&kps_spinlock, flags);
     return index;
 }
+
 
 /* ugly but expedient way to support < 4.9 kernels */
 /* todo: convert to macros and move to header */
@@ -290,7 +329,7 @@ static inline void sleep(unsigned sec)
 /**
  * ps probe function
  *
- * Called by the kernel contoller kmod to "probe" the processes
+ * Called by the kernel contoller kmod t o "probe" the processes
  * running on this kernel. Keeps track of how many times is has run.
  * Each time the sample runs it increments its count, prints probe
  * information, and either reschedules itself or dies.
@@ -301,15 +340,20 @@ void  k_probe(struct kthread_work *work)
 	struct probe_s *probe_struct =
 		container_of(work, struct probe_s, probe_work);
 	static int count;
+	uint64_t nonce;
+	get_random_bytes(&nonce, sizeof(uint64_t));
 
 	/**
 	 * if another process is reading the ps flex_array, kernel_ps
 	 * will return -EFAULT. therefore, reschedule and try again.
 	 */
-	while( kernel_ps(count) == -EFAULT) {
+	while( kernel_ps(count, nonce) == -EFAULT) {
 		schedule();
 	}
-	count++;
+/**
+ *  call print_kernel_ps by default. But, in the future there will be other             *  options, notably outputting in json format to a socket
+ **/
+	print_kernel_ps("kernel-ps", nonce, ++count);
 
 	if (probe_struct->repeat) {
 		probe_struct->repeat--;
