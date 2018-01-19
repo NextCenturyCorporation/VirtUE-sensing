@@ -8,7 +8,7 @@ ENV LC_ALL en_US.UTF-8
 
 # wget for convenience, use curl if you want to
 RUN apt-get update
-RUN apt-get -y -q install wget python3-pip
+RUN apt-get -y -q install wget python3-pip inotify-tools
 
 # add erlang otp
 RUN wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
@@ -30,7 +30,7 @@ RUN mix deps.compile plug
 RUN pip3 install -r ./tools/get_certificates_requirements.txt
 
 # setup directory for certificates
-RUN mkdir /app/certs
+RUN mkdir -p /app/certs
 
 
 CMD ["bash", "/app/run.sh"]
