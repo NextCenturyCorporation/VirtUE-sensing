@@ -8,14 +8,14 @@ defmodule ApiServer.Configuration do
   Get a specific component version:
 
       ApiServer.Configuration.for_component("kernel-ps")
-      |> Ecto.Query.where(version: "20180117")
+      |> Ecto.Query.where(level: "default")
       |> ApiServer.Repo.one
 
   Use a component object to retrieve a specific version:
 
       ApiServer.Configuration
       |> ApiServer.Configuration.for_component(component)
-      |> Ecto.Query.where(version: "20180117")
+      |> Ecto.Query.where(level: "default")
       |> ApiServer.Repo.one
 
   """
@@ -26,14 +26,14 @@ defmodule ApiServer.Configuration do
   schema "configurations" do
 
     # Only required fields are the version and related component
-    field :version, :string
+    field :level, :string, default: "default"
     belongs_to :component, ApiServer.Component
 
     # actual configuration blob
     field :configuration, :string, default: "{}"
 
     # Sane defaults for other fields
-    field :level, :string, default: "default"
+    field :version, :string, default: "latest"
     field :format, :string, default: "json"
     field :description, :string, default: ""
 
@@ -59,7 +59,7 @@ defmodule ApiServer.Configuration do
     ApiServer.Configuration.for_component("kernel-ps")
   """
   def for_component(component_name) do
-    component = ApiServer.Component.get_by_name(component_name)
+    component = ApiServer.Component.get_components(%{name: component_name})
 
     ApiServer.Configuration
     |> ApiServer.Configuration.for_component(component)
@@ -68,7 +68,7 @@ defmodule ApiServer.Configuration do
   @doc """
   Update a configuration, optionally saving it back to the database:
 
-    case ApiServer.Configuration.update_configuration(conf, %{version: "..."}, save: true) do
+    case ApiServer.Configuration.update_configuration(conf, %{level: "..."}, save: true) do
       {:ok, configuration} ->
       {:error, changeset} ->
     end
@@ -88,11 +88,11 @@ defmodule ApiServer.Configuration do
     person
     |> Ecto.Changeset.cast(params, [:component_id, :version, :level, :format, :description, :configuration])
     |> Ecto.Changeset.validate_inclusion(:level, ["off", "default", "low", "high", "adversarial"])
-    |> Ecto.Changeset.validate_required([:component_id, :version])
+    |> Ecto.Changeset.validate_required([:component_id, :level])
   end
 
-  def create(%ApiServer.Component{id: component_id}, version) do
-    ApiServer.Configuration.changeset(%ApiServer.Configuration{}, %{component_id: component_id, version: version})
+  def create(%ApiServer.Component{id: component_id}, level) do
+    ApiServer.Configuration.changeset(%ApiServer.Configuration{}, %{component_id: component_id, level: level})
   end
 
 end

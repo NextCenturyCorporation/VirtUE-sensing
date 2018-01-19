@@ -384,9 +384,157 @@ defmodule ApiServer.ValidationPlug do
     end
   end
 
-  # Set the default *since_datetime* to UTC->NOW
+  # Set the default *since_datetime* to UTC->NOW if not specified in query
   def valid_since(conn, _) do
     conn
       |> assign(:since_datetime, DateTime.utc_now())
+  end
+
+  @doc """
+  Make sure the incoming `os` parameter is valid
+
+  ### Checks
+
+    - os
+
+  ### assigns
+
+    - component_os
+
+  ### default
+
+    - linux
+
+  ### Response
+
+    - Continue if value
+    - Continue with default 'linux' if missing
+    - HTTP 400 / Halt / JSON if invalid
+  """
+  def valid_component_os(%Plug.Conn{params: %{"os" => raw_os}} = conn, _) do
+    os = String.downcase(raw_os)
+    case os do
+      os when os in ["linux", "windows", "rump"] ->
+        conn
+        |> assign(:component_os, os)
+      os when os == nil ->
+        conn
+        |> assign(:component_os, "linux")
+      _ ->
+        conn
+        |> put_status(400)
+        |> json(
+             %{
+               error: :true,
+               msg: "Invalid component os [#{os}]",
+               timestamp: DateTime.to_string(DateTime.utc_now())
+             }
+           )
+        |> Plug.Conn.halt()
+    end
+  end
+
+  def valid_component_os(conn, _) do
+    conn
+    |> assign(:component_os, "linux")
+  end
+
+  @doc """
+  Make sure the incoming context parameter is valid
+
+  ### Checks
+
+    - context
+
+  ### Assigns
+
+    - component_context
+
+  # default
+
+    - virtue
+
+  # Response
+
+    - Continue if value
+    - Continue with default `virtue` if missing
+    - HTTP 400 / Halt / JSON if invalid
+  """
+  def valid_component_context(%Plug.Conn{params: %{"context": raw_context}} = conn, _) do
+    context = String.downcase(raw_context)
+    case context do
+      context when context in ["virtue", "unikernel", "hypervisor"] ->
+        conn
+        |> assign(:component_context, context)
+      context when context == nil ->
+        conn
+        |> assign(:component_context, "virtue")
+      _ ->
+        conn
+        |> put_status(400)
+        |> json(
+             %{
+               error: :true,
+               msg: "Invalid component context [#{context}]",
+               timestamp: DateTime.to_string(DateTime.utc_now())
+             }
+           )
+        |> Plug.Conn.halt()
+    end
+  end
+
+  def valid_component_context(conn, _) do
+    conn
+    |> assign(:component_context, "virtue")
+  end
+
+  @doc """
+  Make sure the incoming configuration level is valid
+
+  ### Checks
+
+    - level
+
+  ### Assigns
+
+    - configuration_level
+
+  ### Default
+
+    - default
+
+  ### Response
+
+    - Continue if valid
+    - Continue with default 'default' if missing
+    - HTTP 400 / Halt / JSON if invalid
+  """
+  def valid_configuration_level(%Plug.Conn{params: %{"level": raw_level}} = conn, _) do
+    level = String.downcase(raw_level)
+
+    case level do
+      level when level in ["off", "default", "low", "high", "adversarial"] ->
+        conn
+        |> assign(:configuration_level, level)
+      level when level == nil ->
+        conn
+        |> assign(:configuration_level, "default")
+      _ ->
+        conn
+        |> put_status(400)
+        |> json(
+             %{
+               error: :true,
+               msg: "Invalid configuration level [#{level}]",
+               timestamp: DateTime.to_string(DateTime.utc_now())
+             }
+           )
+        |> Plug.Conn.halt()
+    end
+  end
+
+  def valid_configuration_level(conn, _) do
+    conn
+    |> assign(:configuration_level, "default")
   end
 end

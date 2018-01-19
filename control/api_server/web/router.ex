@@ -38,6 +38,18 @@ defmodule ApiServer.Router do
 
     get "/ca/root/public", ConfigureController, :ca_root_cert, name: "ca-root-cert"
 
+    # configurations are temporarily in the insecure and unauthed section for development
+    get "/configuration/components/", ConfigurationsController, :list_components, name: "configuration-list-components"
+    get "/configuration/component/", ConfigurationsController, :get_component, name: "configuration-get-component"
+    put "/configuration/component/update/", ConfigurationsController, :update_component, name: "configuration-update-component"
+    put "/configuration/component/create/", ConfigurationsController, :create_component, name: "configuration-create-component"
+    delete "/configuration/component/", ConfigurationsController, :delete_component, name: "configuration-delete-component"
+
+    get "/configuration/component/configurations/", ConfigurationsController, :list_configurations, name: "configuration-list-configurations"
+    get "/configuration/component/configuration/", ConfigurationsController, :get_configuration, name: "configuration-get-configuration"
+    put "/configuration/component/configuration/update/", ConfigurationsController, :update_configuration, name: "configuration-update-configuration"
+    put "/configuration/component/configuration/create/", ConfigurationsController, :create_configuration, name: "configuration-create-configuration"
+    delete "/configuration/component/configuration/", ConfigurationsController, :delete_configuration, name: "configuration-delete-configuration"
   end
 
   # SECURE AND UNAUTHENTICATED

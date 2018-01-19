@@ -48,7 +48,7 @@ defmodule ApiServer.Component do
     |> Ecto.Changeset.cast(params, [:name, :context, :os, :description])
     |> Ecto.Changeset.validate_inclusion(:context, ["virtue", "unikernel", "hypervisor"])
     |> Ecto.Changeset.validate_inclusion(:os, ["linux", "windows", "rump"])
-    |> Ecto.Changeset.validate_required([:name])
+    |> Ecto.Changeset.validate_required([:name, :context, :os])
   end
 
   @doc """
@@ -60,9 +60,22 @@ defmodule ApiServer.Component do
         {:ok, component} ->
         {:error, changeset} ->
       end
+
+  Optionally call with save: true -
+
+    case ApiServer.Component.create(%{name: "kernel-ps"}, save: true) do
+      {:ok, component}
+      {:error, changeset}
+    end
   """
-  def create(params) do
-    ApiServer.Component.changeset(%ApiServer.Component{}, params)
+  def create(params, opts \\ []) do
+
+    case Keyword.get(opts, :save, false) do
+      :true ->
+        ApiServer.Repo.insert(ApiServer.Component.changeset(%ApiServer.Component{}, params))
+      :false ->
+        ApiServer.Component.changeset(%ApiServer.Component{}, params)
+    end
   end
 
   @doc """
@@ -96,25 +109,113 @@ defmodule ApiServer.Component do
   end
 
   @doc """
-  Retrieve a specific configration from a component. We load directly
-  from the database
-  """
-  def get_configuration(%ApiServer.Component{} = component, version, opts \\ []) do
+  Retrieve a specific configration from a component. We load directly from the database. Selectors
+  are used to determine how individual configurations are selected.
 
+  When retrieving a configuration, the following defaults are used:
+
+    - level: default
+    - version: latest
+
+  # Selectors
+
+   - version: find the specific version of a configuration for the component
+   - level: find the most recent configuration at the specific observation level
+
+  #
+  """
+  def get_configuration(component, params \\ %{}, opts \\ [])
+  def get_configuration(%ApiServer.Component{} = component, %{} = params, opts) do
+
+    # setup our keyworld list, with defaults
+    where_keys = Keyword.take(Keyword.merge([level: "default", version: "latest"], Map.to_list(params)), [:version, :level])
+
+    # query away
+    conf = ApiServer.Configuration
+    |> ApiServer.Configuration.for_component(component)
+    |> where(^where_keys)
+    |> ApiServer.Repo.one
+    |> ApiServer.Repo.preload(:component)
+
+    case conf do
+      nil ->
+        :no_such_configuration
+      c ->
+        {:ok, c}
+    end
+  end
+
+  def get_configuration(%{} = component, %{} = params, opts) do
+
+    case ApiServer.Component.get_component(component) do
+      :no_matches ->
+        :no_component_matches
+      :multiple_matches ->
+        :multiple_component_matches
+      {:ok, comp} ->
+        ApiServer.Component.get_configuration(comp, params, opts)
+    end
+  end
+
+
+  @doc """
+  Retrieve all of the available configurations for the given component.
+  """
+  def get_configurations(%ApiServer.Component{} = component, opts \\ []) do
     ApiServer.Configuration
     |> ApiServer.Configuration.for_component(component)
-    |> where(version: ^version)
-    |> ApiServer.Repo.one
+    |> ApiServer.Repo.all
+  end
+
+
+  @doc """
+  Retrieve all components matching the given selectors.
+
+  # Selectors
+
+  One or more of:
+
+    - name
+    - os (linux, windows, rump)
+    - context (virtue, unikernel, hypervisor)
+  """
+  def get_components(%{} = params) do
+    key_list = Map.to_list(params)
+    ApiServer.Component
+    |> where(^key_list)
+    |> ApiServer.Repo.all
   end
 
   @doc """
   Retrieve a component and all of its configurations, by reference to the component
-  name.
+  name and operating system, which should be unique.
   """
-  def get_by_name(name) do
-    ApiServer.Component
-    |> where(name: ^name)
-    |> ApiServer.Repo.one
-    |> ApiServer.Repo.preload(:configurations)
+  def get_component(%{} = params) do
+
+    where_keys = Keyword.take(Map.to_list(params), [:os, :context, :name])
+
+    comps = ApiServer.Component
+    |> where(^where_keys)
+    |> ApiServer.Repo.all
+
+    case comps do
+      [] ->
+        :no_matches
+      [c] ->
+        {:ok, c}
+      [h | t] ->
+        :multiple_matches
+    end
+  end
+
+  def update_component(component, params \\ %{}, opts \\ []) do
+    changes = ApiServer.Component.changeset(component, params)
+
+    case Keyword.get(opts, :save, :false) do
+      :false ->
+        changes
+      :true ->
+        ApiServer.Repo.update(changes)
+    end
   end
 end
