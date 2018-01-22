@@ -30,3 +30,4 @@ pgdata
 .idea
 
 Mnesia*
+certs

@@ -27,6 +27,8 @@ services:
     links:
       - "kafka:kafka"
       - "cfssl:cfssl"
+    volumes:
+      - "./control/api_server/:/app"
   dropper_callback:
     build: "./external/dropper_callback"
     ports:
