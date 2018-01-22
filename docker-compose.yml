@@ -23,6 +23,7 @@ services:
     depends_on:
       - kafka
       - cfssl
+      - api_server_postgres
     links:
       - "kafka:kafka"
       - "cfssl:cfssl"
@@ -39,3 +40,12 @@ services:
       - api
     stdin_open: true
     tty: true
+  api_server_postgres:
+    image: postgres:9.3
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data/pgdata
+    environment:
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_USER: "postgres"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+      POSTGRES_DB: "api_server_postgres"

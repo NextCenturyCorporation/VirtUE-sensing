@@ -1,0 +1,53 @@
+version: '2'
+services:
+  kafka:
+    build: "./control/logging"
+    ports:
+      - "2181:2181"
+      - "9092:9092"
+    environment:
+      ADVERTISED_HOST: kafka
+      ADVERTISED_PORT: "9092"
+      CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
+  cfssl:
+    build: "./control/savior-ca"
+    ports:
+      - "3030:3030"
+  api:
+    build: "./control/api_server"
+    ports:
+      - "17141:17141"
+      - "17504:17504"
+    environment:
+      CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
+    depends_on:
+      - kafka
+      - cfssl
+      - api_server_postgres
+    links:
+      - "kafka:kafka"
+      - "cfssl:cfssl"
+    volumes:
+      - "./control/api_server/:/app"
+  dropper_callback:
+    build: "./external/dropper_callback"
+    ports:
+      - "8080:8080"
+    # hostname: dropper1
+    # domainname: evil.io
+  target_1:
+    build: "./targets/demo-target"
+    depends_on:
+      - kafka
+      - api
+    stdin_open: true
+    tty: true
+  api_server_postgres:
+    image: postgres:9.3
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data/pgdata
+    environment:
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_USER: "postgres"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+      POSTGRES_DB: "api_server_postgres"

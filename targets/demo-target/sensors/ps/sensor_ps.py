@@ -4,11 +4,44 @@ import json
 from curio import subprocess, sleep
 import os
 
-from sensor_wrapper import SensorWrapper
+from sensor_wrapper import SensorWrapper, which_file, report_on_file
 
 """
 Sensor that wraps the system PS command.
 """
+
+
+async def assess_ps(message_stub, config, message_queue):
+    """
+
+    :param message_stub:
+    :param config:
+    :param message_queue:
+    :return:
+    """
+    repeat_delay = config.get("repeat-interval", 15) * 4
+    print(" ::starting ps check-summing")
+    print("    $ repeat-interval = %d" % (repeat_delay,))
+
+    ps_canonical_path = which_file(wrapper.opts.ps_path)
+
+    print("    $ canonical path = %s" % (ps_canonical_path,))
+
+    while True:
+
+        # let's profile our ps command
+        ps_profile = await report_on_file(ps_canonical_path)
+        psp_logmsg = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "level": "info",
+            "message": ps_profile
+        }
+        psp_logmsg.update(message_stub)
+
+        await message_queue.put(json.dumps(psp_logmsg))
+
+        # sleep
+        await sleep(repeat_delay)
 
 
 async def ps(message_stub, config, message_queue):
@@ -27,6 +60,9 @@ async def ps(message_stub, config, message_queue):
 
     print(" ::starting ps (%s) (pid=%d)" % (ps_path, self_pid))
     print("    $ repeat-interval = %d" % (repeat_delay,))
+
+    ps_canonical_path = which_file(ps_path)
+    print("    $ canonical path = %s" % (ps_canonical_path,))
 
     full_ps_command = [ps_path] + ps_args
 
@@ -62,7 +98,7 @@ async def ps(message_stub, config, message_queue):
             if int(proc_pid) == self_pid:
                 continue
 
-            # report
+            # report on the ps results
             logmsg = {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "level": "info",
@@ -81,7 +117,7 @@ async def ps(message_stub, config, message_queue):
 
 
 if __name__ == "__main__":
-    wrapper = SensorWrapper("ps-sensor", ps)
+    wrapper = SensorWrapper("ps-sensor", [ps, assess_ps])
 
     wrapper.argparser.add_argument("--ps-path", dest="ps_path", default="ps", help="Path to the PS command")
     wrapper.start()
