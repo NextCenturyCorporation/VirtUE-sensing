@@ -5,6 +5,7 @@ defmodule ApiServer.Sensor do
   """
   use Ecto.Schema
   import Ecto.Query
+  import UUID, only: [uuid4: 0]
 
   schema "sensors" do
 
@@ -35,7 +36,7 @@ defmodule ApiServer.Sensor do
 
   def changeset(sensor, params \\ %{}) do
     sensor
-    |> Ecto.Changeset.cast(params, [:sensor_id, :virtue_id, :username, :address, :port, :public_key, :kafka_topic])
+    |> Ecto.Changeset.cast(params, [:sensor_id, :virtue_id, :username, :address, :port, :public_key, :kafka_topic, :last_sync_at, :has_registered, :has_certificates])
     |> Ecto.Changeset.validate_required([:sensor_id, :virtue_id, :username, :address, :port])
     |> Ecto.Changeset.validate_number(:port, greater_than: 0)
     |> Ecto.Changeset.validate_number(:port, less_than: 65536)
@@ -53,9 +54,12 @@ defmodule ApiServer.Sensor do
   """
   def create(params, opts \\ []) do
 
+    # add some possible auto-generated fields
+    create_params = Map.merge(%{last_sync_at: DateTime.utc_now(), kakfa_topic: uuid4()}, params)
+
     case Keyword.get(opts, :save, false) do
       :true ->
-        ApiServer.Repo.insert(ApiServer.Sensor.changeset(%ApiServer.Sensor{}, params))
+        ApiServer.Repo.insert(ApiServer.Sensor.changeset(%ApiServer.Sensor{}, create_params))
       :false ->
         ApiServer.Sensor.changeset(%ApiServer.Sensor{}, params)
     end
@@ -96,7 +100,15 @@ defmodule ApiServer.Sensor do
   is set.
   """
   def mark_as_registered(%ApiServer.Sensor{} = sensor, opts \\ []) do
-    changes = ApiServer.Sensor.changeset(sensor, %{has_registered: true})
+    changes = ApiServer.Sensor.changeset(sensor, %{has_registered: true, last_sync_at: DateTime.utc_now()})
+    optional_db_update(changes, opts)
+  end
+
+  @doc """
+  Set the authenticated/has certificates field for the sensor to true, and optionally save
+  """
+  def mark_has_certificates(%ApiServer.Sensor{} = sensor, opts \\ []) do
+    changes = ApiServer.Sensor.changeset(sensor, %{has_certificates: true})
     optional_db_update(changes, opts)
   end
 
@@ -220,4 +232,7 @@ defmodule ApiServer.Sensor do
     end
   end
 
+  def clean_json(%ApiServer.Sensor{} = sensor) do
+    Map.drop(Map.from_struct(sensor), [:"__meta__", :configuration, :component, :id])
+  end
 end

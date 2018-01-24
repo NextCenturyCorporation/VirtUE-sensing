@@ -30,13 +30,13 @@ defmodule ApiServer.ControlUtils do
       %{
         error: false,
         action: "sensor-registration",
-        sensor: sensor_struct_data,
+        sensor: ApiServer.Sensor.clean_json(sensor_struct_data),
         topic: sensor_struct_data.kafka_topic,
         timestamp: DateTime.to_string(DateTime.utc_now())
       }
     )) do
       :ok ->
-        IO.puts("announced new sensor(id=#{sensor_struct_data.sensor}) (topic=#{sensor_struct_data.kafka_topic})")
+        IO.puts("announced new sensor(id=#{sensor_struct_data.sensor_id}) (topic=#{sensor_struct_data.kafka_topic})")
       {:error, reason} ->
         IO.puts("got some kinda error announcing a new sensor: #{reason}")
     end

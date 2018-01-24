@@ -211,6 +211,26 @@ defmodule ApiServer.Component do
     end
   end
 
+  @doc """
+  Verify if the sensor with the given parameters has a default configuration.
+  """
+  def has_default_configuration?(%{name: sensor_name, os: sensor_os, context: sensor_context})
+      when is_binary(sensor_name)
+    and is_binary(sensor_os)
+    and is_binary(sensor_context) do
+
+    case ApiServer.Component.get_configuration(%{os: sensor_os, name: sensor_name, context: sensor_context}) do
+      :no_component_matches ->
+        false
+      :multiple_component_matches ->
+        false
+      :no_such_configuration ->
+        false
+      {:ok, config} ->
+        true
+    end
+  end
+
   def update_component(component, params \\ %{}, opts \\ []) do
     changes = ApiServer.Component.changeset(component, params)
 

@@ -217,7 +217,7 @@ defmodule ApiServer.RegistrationController do
             "public_key" => public_key_b64,
             "hostname" => hostname,
             "port" => port,
-            "name" => sensor_name
+            "name" => sensor_name_version
           }
         } = conn, _) do
 
@@ -226,6 +226,12 @@ defmodule ApiServer.RegistrationController do
 
     # basic logging
     IO.puts("Registering sensor(id=#{sensor})")
+
+    # strip down our sensor name into a useful string, without the trailing version portion
+    sensor_name = sensor_name_version
+      |> String.split("-")
+      |> List.delete_at(-1)
+      |> Enum.join("-")
 
     cond do
 
@@ -243,7 +249,7 @@ defmodule ApiServer.RegistrationController do
       ! is_sensor_port(port) ->
         IO.puts IEx.Info.info(port)
         invalid_registration(conn, sensor, "port", port)
-      ! ApiServer.ConfigurationUtils.have_default_sensor_config_by_name(sensor_name, %{match_prefix: true}) ->
+      ! ApiServer.Component.has_default_configuration?(%{name: sensor_name, context: "virtue", os: "linux"}) ->
         invalid_registration(conn, sensor, "default configuration", "Cannot locate default configuration for #{sensor_name}")
 
       # now we have a valid registration
@@ -254,23 +260,43 @@ defmodule ApiServer.RegistrationController do
 
           # remote is listening, let's register it
           :ok ->
-            case ApiServer.DatabaseUtils.register_sensor(
-                   Sensor.sensor(sensor, virtue, username, hostname, DateTime.to_string(DateTime.utc_now()), port, public_key, sensor_name)
-                   |> Sensor.randomize_kafka_topic()
-                 ) do
 
-              # sensor recorded, we're good to go
-              {:ok, sensor_blob} ->
+            # our registration process is multi-step, and we'll catch the error conditions at the
+            # end of the with/1 block. For registration we need to:
+            #
+            #   1. Get our sensor component
+            #   2. Create our sensor object
+            #   3. Assign the component to the sensor
+            #   4. Assign a default configuration
+            #   5. Retrieve the configuration
+            #   6. Mark the sensor as registered
+            #   ?. Verify public key against the PKIKey record in mnesia
+            with {:ok, component} <- ApiServer.Component.get_component(%{name: sensor_name, context: "virtue", os: "linux"}),
+              {:ok, sensor_create} <- ApiServer.Sensor.create(
+                %{
+                  sensor_id: sensor,
+                  virtue_id: virtue,
+                  username: username,
+                  address: hostname,
+                  port: port,
+                  public_key: public_key
+                }, save: true),
+              {:ok, sensor_comp} <- ApiServer.Sensor.assign_component(sensor_create, component, save: true),
+              {:ok, sensor_conf} <- ApiServer.Sensor.assign_configuration(sensor_comp, %{}, save: true),
+              {:ok, configuration} <- ApiServer.Sensor.get_configuration_content(sensor_conf),
+              {:ok, sensor_reg} <- ApiServer.Sensor.mark_as_registered(sensor_conf, save: true),
+              {:ok, sensor_cert} <- ApiServer.Sensor.mark_has_certificates(sensor_reg, save: true)
+              do
+                # in theory everything worked, so we can build out our response, but we should still preload
+                # our configuration data
+                sensor_record = ApiServer.Repo.preload(sensor_cert, [:configuration, :component])
 
-                # broadcast a control topic alert message
-                ApiServer.ControlUtils.announce_new_sensor(sensor_blob)
+                # send out an alert on the C2 channel about a new sensor
+                ApiServer.ControlUtils.announce_new_sensor(sensor_record)
 
                 # record some registration metadata to the log
                 IO.puts("  @ sensor(id=#{sensor}, name=#{sensor_name}) registered at #{DateTime.to_string(DateTime.utc_now())}")
-                IO.puts("  <> sensor(id=#{sensor}) assigned kafka topic(id=#{sensor_blob.kafka_topic})")
-
-                scount = Mnesia.table_info(Sensor, :size)
-                IO.puts("  #{scount} sensors currently registered.")
+                IO.puts("  <> sensor(id=#{sensor}) assigned kafka topic(id=#{sensor_record.kafka_topic})")
 
                 # send out the registration response
                 conn
@@ -282,23 +308,19 @@ defmodule ApiServer.RegistrationController do
                        sensor: sensor,
                        registered: :true,
                        kafka_bootstrap_hosts: Application.get_env(:api_server, :sensor_kafka_bootstrap),
-                       sensor_topic: sensor_blob.kafka_topic,
-                       default_configuration: elem(ApiServer.ConfigurationUtils.default_sensor_config_by_name(sensor_name, %{match_prefix: true}), 1)
+                       sensor_topic: sensor_record.kafka_topic,
+                       default_configuration: sensor_record.configuration.configuration
                      }
                    )
 
-              # couldn't record the sensor for some reason, this is a problem
-              {:error, reason} ->
-                IO.puts("  error registering sensor: #{reason}")
-                conn
-                |> put_status(500)
-                |> json(
-                     %{
-                       error: :true,
-                       timestamp: DateTime.to_string(DateTime.utc_now()),
-                       msg: "Error registering sensor: #{reason}"
-                     }
-                   )
+            else
+
+              # quite a few of our error conditions involve changeset data
+              {:error, changeset} ->
+                IO.puts("  error registering sensor")
+                IO.puts(changeset_errors_json(changeset))
+                conn |> error_response_changeset(400, changeset_errors_json(changeset))
+
             end
 
           # remote isn't responding, this is a problem
@@ -423,6 +445,29 @@ defmodule ApiServer.RegistrationController do
          }
        )
     |> Plug.Conn.halt()
+  end
+
+  # Generate an error message in JSON from an Ecto changeset featuring error data,
+  # using Ecto.Changeset.traverse_errors
+  defp error_response_changeset(conn, code, changeset) do
+    conn
+    |> put_status(code)
+    |> json(
+         %{
+           error: true,
+           timestamp: DateTime.to_string(DateTime.utc_now()),
+           errors: changeset_errors_json(changeset)
+         }
+       )
+    |> Plug.Conn.halt()
+  end
+
+  defp changeset_errors_json(c) do
+    Ecto.Changeset.traverse_errors(c, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
   end
 
 end

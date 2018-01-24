@@ -551,11 +551,11 @@ defmodule ApiServer.ConfigurationsController do
   end
 
   defp clean_component(component) do
-    Map.drop(Map.from_struct(component), [:"__meta__", :configurations, :id])
+    Map.drop(Map.from_struct(component), [:"__meta__", :configurations, :id, :sensors])
   end
 
   defp clean_configuration(config) do
-    Map.drop(Map.from_struct(config), [:"__meta__", :component, :id, :component_id])
+    Map.drop(Map.from_struct(config), [:"__meta__", :component, :id, :component_id, :sensors])
   end
 
   defp error_response(conn, code, msg) do
