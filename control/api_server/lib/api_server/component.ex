@@ -39,6 +39,9 @@ defmodule ApiServer.Component do
     # related configurations
     has_many :configurations, ApiServer.Configuration
 
+    # related sensors
+    has_many :sensors, ApiServer.Sensor
+
     # autogen timestamp data
     timestamps()
   end
