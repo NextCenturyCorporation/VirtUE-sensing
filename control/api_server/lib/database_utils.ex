@@ -34,6 +34,7 @@ defmodule ApiServer.DatabaseUtils do
     {:error, reason}
 
   """
+  @deprecated "Use ApiServer.Sensor.sync/2 instead"
   def sync_sensor(%Sensor{:sensor => sensor, :public_key => public_key}) do
     case Mnesia.transaction(
            fn ->
@@ -77,6 +78,7 @@ defmodule ApiServer.DatabaseUtils do
 
   end
 
+  @deprecated "Use ApiServer.Sensor.update/3 instead"
   def update_pkikey(%PKIKey{:private_key_hash => private_key_hash} = pkikey) do
     case Mnesia.transaction(
       fn ->
@@ -125,67 +127,36 @@ defmodule ApiServer.DatabaseUtils do
     nil
 
   """
+  @deprecated "Functionality moving to ApiServer.Sensor methods"
   def prune_old_sensors(prune_age) do
 
     IO.puts("DatabaseUtils::prune_old_sensors/0 - #{DateTime.to_string(DateTime.utc_now())}")
-    IO.puts("  = #{Mnesia.table_info(Sensor, :size)} sensor registrations")
+    IO.puts("  = #{ApiServer.Sensor.count()} sensor registrations")
     IO.puts("  = pruning sensors with checkins older than #{prune_age} minutes")
 
-    # determine our record key
-    case Mnesia.transaction(
-      fn ->
-        case Mnesia.select(Sensor,
-          [
-            {
-              # match
-              {
-                Sensor,
-                :"$1", :"$2", :"$3", :"$4", :"$5", :"$6", :"$7", :"$8", :"$9", :"$10"
-              },
 
-              # guard (timestamp older than 15 minutes
-              [
-                {
-                  :<,
-                  :"$6",
-                  DateTime.to_string(datetime_minutes_ago(prune_age))
-                }
-              ],
+    # Grab all of our records
+    case ApiServer.Sensor.sensors_older_than(prune_age) do
+      [] ->
+        IO.puts("  * no sensor checkins older than #{prune_age} minutes")
 
-              # result (full record)
-              [
-                :"$$"
-              ]
-            }
-          ]
-        ) do
+      sensors ->
+        IO.puts("  * #{length(sensors)} sensor checkins older than #{prune_age} minutes")
+        Enum.map(sensors,
+          fn (sensor) ->
 
-          # nuthin'
-          [] ->
-            IO.puts("  * no sensor checkins older than #{prune_age} minutes")
-            {:ok, 0}
-          # we've got some old records! Let's prune 'em out!
-          records ->
-            IO.puts("  * #{length(records)} sensor checkins older than #{prune_age} minutes")
-            Enum.map(records,
-              fn (rec) ->
+            # prune out the old sensor
+            ApiServer.Repo.delete(sensor)
 
-                # prune out the old sensor
-                rec_t = List.to_tuple([Sensor] ++ rec)
-                IO.puts("  - pruning sensor(id=#{elem(rec_t, 2)})")
-                Mnesia.delete_object(rec_t)
+            # various c2 and log announcements
+            IO.puts("  - pruning sensor_id(#{sensor.sensor_id}})")
+            ApiServer.ControlUtils.announce_deregistered_sensor(sensor)
 
-                # announce the pruning on the C2 channel
-                Sensor.from_mnesia_record(rec_t)
-                  |> ApiServer.ControlUtils.announce_deregistered_sensor(elem(rec_t, index_for_key(:sensor_id) + 1))
-              end
-            )
-            {:ok, length(records)}
-        end
-      end
-    ) do
-      {:atomic, {:ok, remove_count}} ->
-        IO.puts("  - #{remove_count} sensor entries removed")
+          end
+        )
+
+        IO.puts("  - #{length(sensors)} sensor entries removed")
+
     end
   end
 
@@ -209,6 +180,7 @@ defmodule ApiServer.DatabaseUtils do
     :true
     :false
   """
+  @deprecated "Use ApiServer.Sensor methods instead"
   def is_registered?(%Sensor{:sensor => sensor, :public_key => public_key}) do
     case Mnesia.transaction(
            fn ->
@@ -251,6 +223,7 @@ defmodule ApiServer.DatabaseUtils do
     {:ok, record}
     {:error, reason}
   """
+  @deprecated "Use ApiServer.Sensor methods instead"
   def record_for_sensor(%Sensor{:sensor => sensor}) when sensor != nil do
     case Mnesia.transaction(
            fn ->
@@ -295,6 +268,7 @@ defmodule ApiServer.DatabaseUtils do
     {:ok, [%Sensor{},...]}
     {:error, reason}
   """
+  @deprecated "Use ApiServer.Sensor methods instead"
   def record_for_virtue(virtue) when virtue != nil do
 
     case Mnesia.transaction(
@@ -330,6 +304,7 @@ defmodule ApiServer.DatabaseUtils do
     {:ok, number_of_removed_records}
     {:error, reason}
   """
+  @deprecated "use ApiServer.Sensor method instead"
   def deregister_sensor(
         %Sensor{
           :sensor => sensor,
@@ -443,6 +418,7 @@ defmodule ApiServer.DatabaseUtils do
     {:ok}
     {:error, reason}
   """
+  @deprecated "Use ApiServer.Sensor method instead"
   def register_sensor(
         %Sensor{
           :sensor => sensor,
@@ -484,6 +460,7 @@ defmodule ApiServer.DatabaseUtils do
     end
   end
 
+  @deprecated "Use ApiServer.Sensor methods instead"
   def register_sensor(
         %Sensor{
           :sensor => sensor,
@@ -536,6 +513,7 @@ defmodule ApiServer.DatabaseUtils do
     {:ok, {:sensor => sensor_id, :addresss => hostname, :port => host port}
     {:error, reason}
   """
+  @deprecated "Use ApiServer.Sensor methods instead"
   def address_for_sensor(%{:sensor => sensor}) do
 
     Mnesia.transaction(
@@ -565,14 +543,17 @@ defmodule ApiServer.DatabaseUtils do
     {:ok, [{:sensor => "id", :address => "hostname", :port => "port"}, ...]}
     {:error, reason}
   """
+  @deprecated "Use ApiServer.Sensor methods instead"
   def addresses_for_sensor(%{:virtue => virtue}) do
     addresses_for_key(:virtue_id, virtue)
   end
 
+  @deprecated "Use ApiServer.Sensor methods instead"
   def addresses_for_sensor(%{:username => username}) do
     addresses_for_key(:username, username)
   end
 
+  @deprecated "Use ApiServer.Sensor methods instead"
   def addresses_for_sensor(%{:address => address}) do
     addresses_for_key(:address, address)
   end

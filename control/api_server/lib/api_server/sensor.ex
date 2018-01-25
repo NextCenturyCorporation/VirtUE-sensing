@@ -192,6 +192,21 @@ defmodule ApiServer.Sensor do
   end
 
   @doc """
+  Simple wrapper for counting sensors.
+  """
+  def count() do
+    ApiServer.Repo.aggregate(ApiServer.Sensor, :count, :id)
+  end
+
+  @doc """
+  Grab sensors older than N minutes.
+
+  """
+  def sensors_older_than(minutes) do
+    from(s in ApiServer.Sensor, where: s.last_sync_at < ago(^minutes, "minute")) |> ApiServer.Repo.all()
+  end
+
+  @doc """
   Method included for terminal state in piped calls. Directly calls ApiServer.Repo.update/1
   """
   def save(%ApiServer.Sensor{} = sensor) do
