@@ -80,132 +80,13 @@ defmodule ApiServer do
     end
 
     IO.puts("  :: Waiting for Mnesia to sync tables from disc")
-    case Mnesia.wait_for_tables([Sensor], 10000) do
+    case Mnesia.wait_for_tables([PKIKey], 10000) do
       :ok ->
         IO.puts("    + tables ready")
       {:timeout, _} ->
         IO.puts("    - synchronization timeout")
       {:error, reason} ->
         IO.puts("    - encountered an error while table syncing: #{reason}")
-    end
-
-    # When updates to the data model for sensors are done, they
-    # need to be reflected in a number of places. See the API Server
-    # README for more info:
-    #
-    #   https://github.com/twosixlabs/savior/tree/master/control/api_server#data-models
-    #
-    # Setup our Sensor tracking in Mnesia. Our database is versioned
-    # with table transforms. A copy of the database is persisted to
-    # disc via ETS.
-    #
-    #   Version 01
-    #     - add id as default key
-    #     - add sensor_id (indexed)
-    #     - add virtue_id (indexed)
-    #     - add username (indexed)
-    #     - add address (indexed)
-    #   Version 02
-    #     - add registered_at timestamp
-    #   Version 03
-    #     - add port as companion to address
-    #   Version 04
-    #     - add public_key
-    #   Version 05
-    #     - add sensor name
-    #   Version 06
-    #     - add kafka topic
-    case Mnesia.create_table(Sensor, [
-      attributes: [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic],
-      disc_copies: [node()]
-    ]) do
-
-      {:atomic, :ok} ->
-
-        IO.puts("  :: Sensor table created.")
-
-        # normal table create / table did not yet exist
-        Mnesia.add_table_index(Sensor, :sensor_id)
-        Mnesia.add_table_index(Sensor, :virtue_id)
-        Mnesia.add_table_index(Sensor, :username)
-        Mnesia.add_table_index(Sensor, :address)
-
-        IO.puts("  :: indexes added")
-
-      {:aborted, {:already_exists, Sensor}} ->
-
-        # table already exists, let's check the version
-        case Mnesia.table_info(Sensor, :attributes) do
-
-          # Version 06
-          [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic] ->
-            IO.puts("  :: Sensor table Version 06 ready.")
-
-          # Version 05
-          [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name] ->
-            IO.puts("  :: Updating Sensor table: Version 05 => Version 06.")
-            {:atomic, :ok} = Mnesia.transform_table(
-              Sensor,
-              fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, pub_key, sensor_name}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, pub_key, sensor_name, sensor_id}
-              end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic]
-            )
-            IO.puts("  :: Sensor table updated.")
-
-          # Version 04
-          [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key] ->
-            IO.puts("  :: Updating Sensor table: Version 04 => Version 06")
-            {:atomic, :ok} = Mnesia.transform_table(
-              Sensor,
-              fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, pub_key}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, pub_key, "", sensor_id}
-              end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic]
-            )
-            IO.puts("  :: Sensor table updated.")
-
-          # Version 03
-          [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port] ->
-            IO.puts("  :: Updating Sensor table: Version 03 => Version 06")
-            {:atomic, :ok} = Mnesia.transform_table(
-              Sensor,
-              fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp, port}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, port, "", "", sensor_id}
-              end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic]
-            )
-            IO.puts("  :: Sensor table updated.")
-
-
-          # Version 02
-          [:id, :sensor_id, :virtue_id, :username, :address, :timestamp] ->
-            IO.puts("  :: Updating Sensor table: Version 02 => Version 06")
-            {:atomic, :ok} = Mnesia.transform_table(
-              Sensor,
-              fn ({Sensor, id, sensor_id, virtue_id, username, address, timestamp}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, timestamp, 4000, "", "", sensor_id}
-              end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic]
-            )
-            IO.puts("  :: Sensor table updated.")
-
-          # Version 01
-          [:id, :sensor_id, :virtue_id, :username, :address] ->
-            IO.puts("  :: Updating Sensor table: Version 01 => Version 06")
-            {:atomic, :ok} = Mnesia.transform_table(
-              Sensor,
-              fn ({Sensor, id, sensor_id, virtue_id, username, address}) ->
-                {Sensor, id, sensor_id, virtue_id, username, address, DateTime.to_string(DateTime.utc_now()), 4000, "", "", sensor_id}
-              end,
-              [:id, :sensor_id, :virtue_id, :username, :address, :timestamp, :port, :public_key, :sensor_name, :kafka_topic]
-            )
-            IO.puts("  :: Sensor table updated.")
-
-          other ->
-            IO.puts("  :: Sensor table error #{other}")
-            {:error, other}
-        end
     end
 
 

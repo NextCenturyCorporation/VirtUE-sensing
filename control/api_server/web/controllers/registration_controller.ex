@@ -15,7 +15,6 @@ defmodule ApiServer.RegistrationController do
 
   use ApiServer.Web, :controller
   import ApiServer.ExtractionPlug, only: [extract_sensor_id: 2, is_virtue_id: 1, is_sensor_id: 1, is_hostname: 1, is_username: 1, is_public_key: 1, is_sensor_port: 1]
-  alias :mnesia, as: Mnesia
 
   # get our Sensor ID into conn::sensor_id
   plug :extract_sensor_id when action in [:review, :configure]

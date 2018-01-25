@@ -247,6 +247,22 @@ defmodule ApiServer.Sensor do
     end
   end
 
+  def get_many(%{} = params) do
+    where_keys = Keyword.take(Map.to_list(params), [:sensor_id, :virtue_id, :public_key, :address, :port, :username])
+
+    comps = ApiServer.Sensor
+            |> where(^where_keys)
+            |> ApiServer.Repo.all
+
+    case comps do
+      [] ->
+        :no_matches
+      records ->
+        records
+    end
+
+  end
+
   def clean_json(%ApiServer.Sensor{} = sensor) do
     Map.drop(Map.from_struct(sensor), [:"__meta__", :configuration, :component, :id])
   end
