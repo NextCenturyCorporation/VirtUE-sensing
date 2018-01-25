@@ -55,7 +55,7 @@ defmodule ApiServer.Sensor do
   def create(params, opts \\ []) do
 
     # add some possible auto-generated fields
-    create_params = Map.merge(%{last_sync_at: DateTime.utc_now(), kakfa_topic: uuid4()}, params)
+    create_params = Map.merge(%{last_sync_at: DateTime.utc_now(), kafka_topic: uuid4()}, params)
 
     case Keyword.get(opts, :save, false) do
       :true ->
