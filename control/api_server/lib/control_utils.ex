@@ -62,18 +62,18 @@ defmodule ApiServer.ControlUtils do
 
     {:ok, %Sensor{}}
   """
-  def announce_deregistered_sensor(sensor_struct_data, topic) do
+  def announce_deregistered_sensor(sensor_struct_data) do
     case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
       %{
         error: false,
         action: "sensor-deregistration",
-        sensor: sensor_struct_data,
-        topic: topic,
+        sensor: ApiServer.Sensor.clean_json(sensor_struct_data),
+        topic: sensor_struct_data.kafka_topic,
         timestamp: DateTime.to_string(DateTime.utc_now())
       }
     )) do
       :ok ->
-        IO.puts("announced sensor deregistration (topic=#{topic})")
+        IO.puts("announced sensor deregistration (topic=#{sensor_struct_data.kafka_topic})")
       {:error, reason} ->
         IO.puts("got some kinda error announcing a sensor deregistration: #{reason}")
     end

@@ -6,8 +6,9 @@
  - [ ] migrate sensor authentication
  - [ ] migrate sensor registration
   - [x] ApiServer.ControlUtils.announce_new_sensor/1
-  - [ ] deregistration
-  - [ ] sync
+  - [x] deregistration
+   - [x] ApiServer.ControlUtils.announce_deregistered_sensor/2
+  - [x] sync
   - [ ] auto-sync check
 2. add configuration JSON for all existing sensors ( #112 )
 3. add config load command/script ( #113 )
@@ -17,6 +18,7 @@
 6. API needs to pin certificates for call to sensor ( #114 )
 7. Set observe level via `virtue-security` ( #92 )
 
+8. we need a way to check that any actions in registration match the pubkey used in auth
 
  - [ ] start planning dom0 sensors
 

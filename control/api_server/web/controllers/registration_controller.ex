@@ -44,7 +44,7 @@ defmodule ApiServer.RegistrationController do
         %Plug.Conn{
           method: "PUT",
           body_params: %{
-            "sensor" => sensor,
+            "sensor" => sensor_id,
             "public_key" => public_key_b64
           }
         } = conn, _) do
@@ -52,68 +52,53 @@ defmodule ApiServer.RegistrationController do
     # let's decode the public key from urlsafe base64
     {:ok, public_key} = Base.url_decode64(public_key_b64)
 
-    IO.puts("Deregistering sensor(id=#{sensor})")
 
-    cond do
+    # de-registration consists of a few steps:
+    #
+    # 1. sensor_id validation
+    # 2. public_key validation
+    # 3. record deregistration
+    # 4. c2 announcement
 
-      # make sure we have a valid sensor id
-      ! is_sensor_id(sensor) ->
-        invalid_deregistration(conn, "-", "sensor", sensor)
-      ! is_public_key(public_key) ->
-        invalid_deregistration(conn, sensor, "public_key", public_key)
+    IO.puts("Deregistering sensor(id=#{sensor_id})")
 
-      # now we have a valid deregistration to work with
-      :true ->
-        case ApiServer.DatabaseUtils.deregister_sensor(
-          Sensor.with_public_key(Sensor.sensor(sensor), public_key)
-        ) do
-          {:error, :no_such_sensor} ->
-            IO.puts("  error deregistering sensor(id=#{sensor}) - no such sensor ")
-            conn
-            |> put_status(400)
-            |> json(
-                %{
-                  error: :true,
-                  timestamp: DateTime.to_string(DateTime.utc_now()),
-                  msg: "Error deregistering sensor: no such sensor registered"
-                }
-               )
-          {:ok, sensor_structs} ->
-            IO.puts("  #{length(sensor_structs)} sensor(s) deregistered")
-            scount = Mnesia.table_info(Sensor, :size)
-            IO.puts("  #{scount} sensors currently registered.")
+    with true <- is_sensor_id(sensor_id),
+      true <- is_public_key(public_key),
+         {:ok, sensor} <- ApiServer.Sensor.get(%{public_key: public_key}),
+         {:ok, sensor_d} <- ApiServer.Sensor.delete(sensor)
+      do
 
-            # run all of the structs through the deregistration announcement
-            Enum.map(sensor_structs,
-              fn (sensor_struct) ->
-                ApiServer.ControlUtils.announce_deregistered_sensor(sensor_struct, sensor_struct.sensor)
-              end
-            )
+        IO.puts("Deregistration successful sensor_id(#{sensor_id})")
+        # let's announce the deletion on c2
+        ApiServer.ControlUtils.announce_deregistered_sensor(sensor)
 
-            # spit out the results
-            conn
-            |> put_status(200)
-            |> json(
-                 %{
-                   error: :false,
-                   timestamp: DateTime.to_string(DateTime.utc_now()),
-                   sensor: sensor,
-                   deregistered: :true
-                 }
-               )
-          {:error, reason} ->
-            IO.puts("  error deregistering sensor: #{reason}")
-            conn
-            |> put_status(500)
-            |> json(
-                 %{
-                   error: :true,
-                   timestamp: DateTime.to_string(DateTime.utc_now()),
-                   msg: "Error deregistering sensor: #{reason}"
-                 }
-               )
-        end
+        # ok - send our response, we're good
+        conn
+        |> put_status(200)
+        |> json(
+          %{
+            error: false,
+            timestamp: DateTime.to_string(DateTime.utc_now()),
+            sensor: sensor_id,
+            deregistered: true
+          }
+           )
+
+      else
+
+        false ->
+          IO.puts("Sensor validation error in deregistration sensor_id(#{sensor_id})")
+          conn |> invalid_deregistration(sensor_id, "Sensor validation error")
+
+        :no_matches ->
+          IO.puts("Couldn't find sensor_id(#{sensor_id}) by public key lookup")
+          conn |> invalid_deregistration(sensor_id, "Couldn't find sensor_id(#{sensor_id}) by public key lookup")
+
+        :multiple_matches ->
+          IO.puts("Found multiple sensors matching public key in deregistration (this shouldn't happen)")
+          conn |> invalid_deregistration(sensor_id, "Found multiple sensors matching public key in deregistration (this shouldn't happen)")
     end
+
   end
 
   @doc """
@@ -442,15 +427,15 @@ defmodule ApiServer.RegistrationController do
 
   # Build the HTTP/400 JSON response to an invalid deregistration request. This call will
   # halt the connection.
-  defp invalid_deregistration(conn, sensor_id, fieldname, value) do
-    IO.puts("! sensor(id=#{sensor_id}) failed deregistration with invalid field (#{fieldname} = #{value})")
+  defp invalid_deregistration(conn, sensor_id, message) do
+    IO.puts("! sensor(id=#{sensor_id}) failed deregistration: #{message}")
     conn
     |> put_status(400)
     |> json(
          %{
            error: :true,
            timestamp: DateTime.to_string(DateTime.utc_now()),
-           msg: "sensor(id=#{sensor_id}) failed deregistration with invalid field (#{fieldname} = #{value})"
+           msg: "sensor(id=#{sensor_id}) failed deregistration: #{message}"
          }
        )
     |> Plug.Conn.halt()

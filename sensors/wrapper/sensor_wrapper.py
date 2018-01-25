@@ -284,7 +284,7 @@ class SensorWrapper(object):
             print(reg_res.text)
             sys.exit(1)
 
-    def deregister_sensor(self):
+    def deregister_sensor(self, pub_key):
         """
         Deregister this sensor from the sensing API.
 
@@ -292,7 +292,7 @@ class SensorWrapper(object):
         :return:
         """
         uri = self.construct_api_uri("/sensor/%s/deregister" % (self.opts.sensor_id,))
-        pubkey_b64 = str(base64.urlsafe_b64encode(self.load_public_key()[1].encode()), encoding="iso-8859-1")
+        pubkey_b64 = str(base64.urlsafe_b64encode(pub_key.encode()), encoding="iso-8859-1")
 
         payload = {
             "sensor": self.opts.sensor_id,
@@ -649,7 +649,7 @@ class SensorWrapper(object):
             await g.cancel_remaining()
 
             # don't run this async - we're happy to block on deregistration
-            self.deregister_sensor()
+            self.deregister_sensor(pub_key)
 
             print("Stopping.")
 
