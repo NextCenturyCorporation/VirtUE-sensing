@@ -135,59 +135,68 @@ defmodule ApiServer.RegistrationController do
     - HTTP 400 / Invalid or missing sync parameters in payload
     - HTTP 410 / Sensor not currently registered or already deregistered
   """
-  def sync(%Plug.Conn{method: "PUT", body_params: %{"sensor" => sensor, "public_key" => public_key_b64}} = conn, _) do
+  def sync(%Plug.Conn{method: "PUT", body_params: %{"sensor" => sensor_id, "public_key" => public_key_b64}} = conn, _) do
 
     # let's decode the public key from urlsafe base64
     {:ok, public_key} = Base.url_decode64(public_key_b64)
 
     # basic logging
-    IO.puts("Syncing sensor(id=#{sensor})")
+    IO.puts("Syncing sensor(id=#{sensor_id})")
 
-    # construct the sensor struct
-    sensor_blob = Sensor.sensor(sensor) |> Sensor.with_public_key(public_key)
+    # we'll walk through a few validations, culminating in the sync action, from which
+    # we an choose which response to generate. We identify our sensor record based on
+    # it's public key.
+    with true <- is_sensor_id(sensor_id),
+      true <- is_public_key(public_key),
+         {:ok, sensor} <- ApiServer.Sensor.get(%{public_key: public_key}),
+         {:ok, sensor_synced} <- ApiServer.Sensor.sync(sensor, save: true)
+      do
+        # we're good
+        conn
+        |> put_status(200)
+        |> json(
+            %{
+              error: false,
+              timestamp: DateTime.to_string(DateTime.utc_now()),
+              sensor: sensor_id,
+              synchronized: true
+            }
+           )
+      else
+        # ruhroh
+        false ->
+          # something didn't validate in our is_* clauses
+          IO.puts("Sensor validation error sensor_id(#{sensor_id})")
+          conn |> sync_error(410, "Sensor validation error sensor_id(#{sensor_id})")
 
-    cond do
+        :no_matches ->
+          IO.puts("No sensor matching public key for sensor_id(#{sensor_id})")
+          conn |> sync_error(410, "No sensor matching public key for sensor_id(#{sensor_id})")
 
-      # we have a bunch of failure cases up front
-      ! is_sensor_id(sensor) ->
-        invalid_sync(conn, "-", "sensor", sensor)
+        :multiple_matches ->
+          IO.puts("Multiple matching sensors for public key (this shouldn't be possible)")
+          conn |> sync_error(410, "Multiple matching sensors for public key (this shouldn't be possible)")
 
-      ! is_public_key(public_key) ->
-        invalid_sync(conn, sensor, "public_key", public_key)
+        {:error, changeset} ->
+          IO.puts("Error updating sync in database for sensor_id(#{sensor_id})")
+          IO.puts(Poison.encode!(changeset_errors_json(changeset)))
+          conn |> sync_error(410, "Error updating sync in database for sensor_id(#{sensor_id})")
 
-      ! ApiServer.DatabaseUtils.is_registered?(sensor_blob)
-        invalid_sync(conn, sensor, "is registered", :false)
-
-      # now we have a valid sync we can do
-      :true ->
-
-        # sync
-        case ApiServer.DatabaseUtils.sync_sensor(sensor_blob) do
-
-          :ok ->
-            IO.puts("Synced sensor(id=#{sensor})")
-            conn
-              |> put_status(200)
-              |> json(
-                  %{
-                    error: false,
-                    timestamp: DateTime.to_string(DateTime.utc_now()),
-                    sensor: sensor,
-                    synchronized: true
-                 }
-                 )
-          {:error, reason} ->
-            IO.puts("Sync error sensor(id=#{sensor}): #{reason}")
-            conn
-              |> put_status(410)
-              |> json(%{
-                error: true,
-                timestamp: DateTime.to_string(DateTime.utc_now()),
-                synchronized: false,
-                msg: reason
-            })
-        end
     end
+
+  end
+
+  defp sync_error(conn, status, reason) do
+    conn
+    |> put_status(status)
+    |> json(
+        %{
+          error: true,
+          timestamp: DateTime.to_string(DateTime.utc_now()),
+          synchronized: false,
+          msg: reason
+        }
+       )
   end
 
   @doc """

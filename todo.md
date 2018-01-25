@@ -5,7 +5,10 @@
  - [x] create schema methods (changeset, etc)
  - [ ] migrate sensor authentication
  - [ ] migrate sensor registration
-  - [ ] ApiServer.ControlUtils.announce_new_sensor/1
+  - [x] ApiServer.ControlUtils.announce_new_sensor/1
+  - [ ] deregistration
+  - [ ] sync
+  - [ ] auto-sync check
 2. add configuration JSON for all existing sensors ( #112 )
 3. add config load command/script ( #113 )
 4. add actuation callback to sensor wrapper ( #91 )
