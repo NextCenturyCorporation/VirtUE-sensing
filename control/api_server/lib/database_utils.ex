@@ -7,9 +7,6 @@ defmodule ApiServer.DatabaseUtils do
 
   The database being used is defined in `web/models/database.ex`,
   and is a disk backed :mnesia database.
-
-  A utility Struct for Sensor objects is defined in:
-  `web/models/sensor.ex`.
   """
   import UUID, only: [uuid4: 0]
   alias :mnesia, as: Mnesia

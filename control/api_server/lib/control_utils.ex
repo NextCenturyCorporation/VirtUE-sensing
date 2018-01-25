@@ -9,7 +9,7 @@ defmodule ApiServer.ControlUtils do
 
   ### Parameters
 
-    - sensor_struct_data : a Sensor struct (see `sensor.ex`)
+    - sensor_struct_data: an ApiServer.Sensor instance
     - topic : Kafka channel created for the sensor
 
   ### Configuration
