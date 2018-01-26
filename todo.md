@@ -1,9 +1,10 @@
 # In Progress
 
-1. migrate sensor db to postgres ( #111 )
+0. [x] Use config db ( #115 )
+1. [x] migrate sensor db to postgres ( #111 )
  - [x] create schema and migrations
  - [x] create schema methods (changeset, etc)
- - [ ] migrate sensor authentication
+ - [x] migrate sensor authentication
  - [x] migrate sensor registration
   - [x] ApiServer.ControlUtils.announce_new_sensor/1
   - [x] deregistration
@@ -11,7 +12,7 @@
   - [x] sync
   - [x] auto-sync check
 2. add configuration JSON for all existing sensors ( #112 )
-3. add config load command/script ( #113 )
+3. [x] add config load command/script ( #113 )
 4. add actuation callback to sensor wrapper ( #91 )
 5. add actuation routing in API ( #90 )
  1. push new config via observe targeting in API
