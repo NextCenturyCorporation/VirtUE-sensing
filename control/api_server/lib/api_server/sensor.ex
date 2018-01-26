@@ -26,6 +26,9 @@ defmodule ApiServer.Sensor do
     belongs_to :component, ApiServer.Component
     belongs_to :configuration, ApiServer.Configuration
 
+    # has many possible authchallenges that have been completed for certs
+    has_many :authchallenges, ApiServer.AuthChallenge
+
     # timestamp tracking (the default value doesn't do what you think:
     # this is called at compile time, so the default will be static,
     # which is enough for now - we just want a valid value to start)
@@ -264,6 +267,20 @@ defmodule ApiServer.Sensor do
   end
 
   def clean_json(%ApiServer.Sensor{} = sensor) do
-    Map.drop(Map.from_struct(sensor), [:"__meta__", :configuration, :component, :id])
+    Map.drop(Map.from_struct(sensor), [:"__meta__", :configuration, :component, :id, :authchallenges])
+  end
+
+  @doc """
+  Add a relationship to an auth challenge.
+  """
+  def add(%ApiServer.Sensor{} = sensor, %ApiServer.AuthChallenge{} = challenge, opts \\ []) do
+
+    # we'll push the change to the auth challenge entry, sort of inverse of what
+    # you'd first think
+    p_challenge = ApiServer.Repo.preload(challenge, :sensor)
+    base_changes = ApiServer.AuthChallenge.changeset(p_challenge , %{})
+    changes = Ecto.Changeset.put_assoc(base_changes, :sensor, sensor)
+    optional_db_update(changes, opts)
+
   end
 end

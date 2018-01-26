@@ -1,6 +1,5 @@
 defmodule ApiServer do
   use Application
-  alias :mnesia, as: Mnesia
   use Retry
 
   def heartbeat() do
@@ -28,9 +27,6 @@ defmodule ApiServer do
       # worker(ApiServer.Worker, [arg1, arg2, arg3]),
       worker(ApiServer.Scheduler, [])
     ]
-
-    # spin up mnesia
-    start_mnesia()
 
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -68,83 +64,5 @@ defmodule ApiServer do
 
   end
 
-  defp start_mnesia() do
 
-    Mnesia.create_schema([node()])
-
-    case Mnesia.start() do
-      :ok ->
-        IO.puts("Starting :mnesia on node(#{node()})")
-      _ ->
-        IO.puts("Encountered a problem starting :mnesia on node(#{node()})")
-    end
-
-    IO.puts("  :: Waiting for Mnesia to sync tables from disc")
-    case Mnesia.wait_for_tables([PKIKey], 10000) do
-      :ok ->
-        IO.puts("    + tables ready")
-      {:timeout, _} ->
-        IO.puts("    - synchronization timeout")
-      {:error, reason} ->
-        IO.puts("    - encountered an error while table syncing: #{reason}")
-    end
-
-
-
-
-    # When updates to the data model for sensors are done, they
-    # need to be reflected in a number of places. See the API Server
-    # README for more info:
-    #
-    #   https://github.com/twosixlabs/savior/tree/master/control/api_server#data-models
-    #
-    # Setup our Public/Private key tracking in Mnesia. Our database is versioned
-    # with table transforms. A copy of the database is persisted to
-    # disc via ETS.
-    #
-    #   Version 01
-    #     - add hostname
-    #     - add port
-    #     - add challenge JSON
-    #     - add pub/priv key algorithm
-    #     - add pub/priv key size
-    #     - add CSR
-    #     - add private key hash
-    #     - add public key
-    case Mnesia.create_table(PKIKey, [
-      attributes: [:id, :hostname, :port, :challenge, :algo, :size, :csr, :private_key_hash, :public_key],
-      disc_copies: [node()]
-    ]) do
-
-      {:atomic, :ok} ->
-
-        IO.puts("  :: PKIKey table created.")
-
-        # normal table create / table did not yet exist
-        Mnesia.add_table_index(PKIKey, :csr)
-        Mnesia.add_table_index(PKIKey, :public_key)
-        Mnesia.add_table_index(PKIKey, :private_key_hash)
-
-        IO.puts("  :: indexes added")
-
-      {:aborted, {:already_exists, PKIKey}} ->
-
-        # table already exists, let's check the version
-        case Mnesia.table_info(PKIKey, :attributes) do
-
-          # Version 01
-          [:id, :hostname, :port, :challenge, :algo, :size, :csr, :private_key_hash, :public_key] ->
-            IO.puts("  :: PKIKey table Version 01 ready.")
-
-
-          other ->
-            IO.puts("  :: PKIKey table error #{other}")
-            {:error, other}
-        end
-    end
-
-    pki_keys_rec_count = Mnesia.table_info(PKIKey, :size)
-    IO.puts("  :: #{pki_keys_rec_count } PKI Keys currently registered")
-
-  end
 end

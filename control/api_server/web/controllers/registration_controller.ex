@@ -278,11 +278,13 @@ defmodule ApiServer.RegistrationController do
               {:ok, sensor_conf} <- ApiServer.Sensor.assign_configuration(sensor_comp, %{}, save: true),
               {:ok, configuration} <- ApiServer.Sensor.get_configuration_content(sensor_conf),
               {:ok, sensor_reg} <- ApiServer.Sensor.mark_as_registered(sensor_conf, save: true),
-              {:ok, sensor_cert} <- ApiServer.Sensor.mark_has_certificates(sensor_reg, save: true)
+              {:ok, sensor_cert} <- ApiServer.Sensor.mark_has_certificates(sensor_reg, save: true),
+              {:ok, authchallenge} <- ApiServer.AuthChallenge.get(%{public_key: public_key}),
+              {:ok, linked_authchallenge} <- ApiServer.Sensor.add(sensor_cert, authchallenge, save: true)
               do
                 # in theory everything worked, so we can build out our response, but we should still preload
                 # our configuration data
-                sensor_record = ApiServer.Repo.preload(sensor_cert, [:configuration, :component])
+                sensor_record = ApiServer.Repo.preload(sensor_cert, [:configuration, :component, :authchallenges])
 
                 # send out an alert on the C2 channel about a new sensor
                 ApiServer.ControlUtils.announce_new_sensor(sensor_record)
