@@ -1,23 +1,25 @@
 # In Progress
 
+0. [x] Use config db ( #115 )
+1. [x] migrate sensor db to postgres ( #111 )
+ - [x] create schema and migrations
+ - [x] create schema methods (changeset, etc)
+ - [x] migrate sensor authentication
+ - [x] migrate sensor registration
+  - [x] ApiServer.ControlUtils.announce_new_sensor/1
+  - [x] deregistration
+   - [x] ApiServer.ControlUtils.announce_deregistered_sensor/2
+  - [x] sync
+  - [x] auto-sync check
+2. add configuration JSON for all existing sensors ( #112 )
+3. [x] add config load command/script ( #113 )
+4. add actuation callback to sensor wrapper ( #91 )
+5. add actuation routing in API ( #90 )
+ 1. push new config via observe targeting in API
+6. API needs to pin certificates for call to sensor ( #114 )
+7. Set observe level via `virtue-security` ( #92 )
 
- 5.1 [ ] work on hostname discovery in sensor wrapper (coming through as garbage OIDs)
- 8. [ ] Invalidate a sensor? (can we do run time revocation?) (this is an open issue)
-
-
-   - differences between two sensors -- doc [x] screen shot [ ] 
-   - registration process -- doc [x] screen shot [ ] 
-   - cli calls -- doc [x] screen shot [ ] 
-  - show which CLI calls are working -- doc [x] screen shot [ ] 
-  - show reg process -- doc [x] screen shot [ ] 
-  - show results of adding a new host -- doc [x] screen shot [ ] 
-  - examples of sensors -- doc [x] secreen shot [ ] 
-
-
- 
-!! - how do we visualize what virtues are active and what they're doing?
-    - how are we going to visualize state of the world
-
+8. we need a way to check that any actions in registration match the pubkey used in auth
 
  - [ ] start planning dom0 sensors
 

@@ -27,17 +27,12 @@ defmodule ApiServer.StatsController do
   """
   def ready(conn, _) do
 
-    case mnesia_ready?() do
-      :true ->
-        case kakfa_ready?() do
-          :true ->
-            ready_response(conn, true)
-          :false ->
-            ready_response(conn, false)
-        end
-      :false ->
-        ready_response(conn, false)
-    end
+      case kakfa_ready?() do
+        :true ->
+          ready_response(conn, true)
+        :false ->
+          ready_response(conn, false)
+      end
   end
 
   defp ready_response(conn, ready) do
@@ -49,17 +44,6 @@ defmodule ApiServer.StatsController do
             "timestamp": DateTime.to_string(DateTime.utc_now())
           }
          )
-  end
-
-  defp mnesia_ready?() do
-    case Mnesia.wait_for_tables([Sensor], 500) do
-      :ok ->
-        :true
-      {:timeout, _} ->
-        :false
-      {:error, reason} ->
-        :false
-    end
   end
 
   defp kakfa_ready?() do
