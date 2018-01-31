@@ -144,6 +144,7 @@ struct kernel_ps_data {
 	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
 	uint64_t load_avg;
 	uint64_t util_avg; /* see struct sched_avg in linux/sched.h */
+	struct files_struct *files;
 #define TASK_STATE_LEN 24
 	uint8_t state[TASK_STATE_LEN];
 	uint64_t start_time; /* task->start_time */
