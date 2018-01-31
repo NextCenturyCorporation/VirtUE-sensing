@@ -66,7 +66,7 @@ defmodule ApiServer.InspectController do
             %{
               "error": :false,
               "timestamp": DateTime.to_string(DateTime.utc_now()),
-              "sensors": Enum.map(sensors, fn (s) -> Sensor.sanitize(s) end)
+              "sensors": Enum.map(sensors, fn (s) -> ApiServer.Sensor.clean_json(s) end)
             },
             summarize_targeting(conn.assigns)
           )

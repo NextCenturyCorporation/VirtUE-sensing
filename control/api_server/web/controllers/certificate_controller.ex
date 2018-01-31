@@ -165,25 +165,21 @@ defmodule ApiServer.CertificateController do
 
                   # We had a successful key request, let's pull it apart, store a record, and respond
                   :true ->
-
-                    # let's build up a PKIKey struct
-                    key = PKIKey.create(hostname, port, algo, size)
-                      |> PKIKey.with_private_key(priv_key_data["result"]["private_key"])
-                      |> PKIKey.with_csr(priv_key_data["result"]["certificate_request"])
-                      |> PKIKey.generate_challenge()
-
-                    # let's record this to the database
-                    case ApiServer.DatabaseUtils.record_private_key_request(key) do
-
-                      # now we can return the data for the requester
-                      {:ok, _} ->
-                        {:ok, priv_key_data["result"]["private_key"], priv_key_data["result"]["certificate_request"], key.challenge}
-
-                      # for some reason we had a problem recording this to the database...
-                      {:error, reason} ->
-                        {:error, [reason]}
+                    auth_fields = %{
+                      hostname: hostname,
+                      port: port,
+                      algo: algo,
+                      size: size,
+                      csr: priv_key_data["result"]["certificate_request"],
+                      private_key_hash: Base.encode16(:crypto.hash(:sha256, priv_key_data["result"]["private_key"]))
+                    }
+                    IO.puts("   == auth_fields(#{Poison.encode!(auth_fields)})")
+                    case ApiServer.AuthChallenge.create(auth_fields, save: true, create_challenge: true) do
+                      {:ok, ac} ->
+                        {:ok, priv_key_data["result"]["private_key"], ac.csr, ac.challenge}
+                      {:error, changeset} ->
+                        {:error, [Poison.encode!(changeset_errors_json(changeset))]}
                     end
-
 
                   # something was wrong with our request (could be algorithm choice, size, naming info, etc
                   :false ->
@@ -226,10 +222,10 @@ defmodule ApiServer.CertificateController do
     IO.puts("  % Received request for signed public key - initiating verification")
 
     # lookup our PKIKey record based on csr
-    case ApiServer.DatabaseUtils.record_for_csr(csr) do
+    case ApiServer.AuthChallenge.get(%{csr: csr}) do
 
       # ok - it's a CSR we've seen before, and we don't yet have a public key
-      {:ok, %PKIKey{challenge: challenge_raw, hostname: hostname, port: port, public_key: nil}=pkikey} ->
+      {:ok, %ApiServer.AuthChallenge{challenge: challenge_raw, hostname: hostname, port: port, public_key: nil} = pkikey} ->
 
         IO.puts("  < issuing verification challenge for hostname(#{hostname}) port(#{port})")
         # issue a challenge request
@@ -288,23 +284,23 @@ defmodule ApiServer.CertificateController do
                         :ok
 
                         # record the public key in our data structure
-                        case ApiServer.DatabaseUtils.update_pkikey(PKIKey.with_public_key(pkikey, public_key_data["result"]["certificate"])) do
+                        case ApiServer.AuthChallenge.update(pkikey, %{public_key: public_key_data["result"]["certificate"]}, save: true) do
 
                           # return the public key to the requester
-                          :ok ->
+                          {:ok, u_pkikey} ->
                             conn
                               |> put_status(200)
                               |> json(
                                   %{
                                     error: :false,
                                     timestamp: DateTime.to_string(DateTime.utc_now()),
-                                    certificate: public_key_data["result"]["certificate"]
+                                    certificate: u_pkikey.public_key
                                   }
                                  )
 
-                          {:error, :no_such_record} ->
-                            IO.puts("  ! Couldn't record the updated public key data - no record found")
-                            conn |> req_error(500, "There was a problem recording the public key to API storage, aborting")
+                          {:error, changeset} ->
+                            IO.puts("  ! Couldn't record the updated public key data - error recording to the database")
+                            conn |> req_error(500, Poison.encode!(changeset_errors_json(changeset)))
 
                         end
 
@@ -339,14 +335,18 @@ defmodule ApiServer.CertificateController do
 
       # weird - someone/thing is trying to get a new/duplicate public key using a CSR that's already been
       # issued a signed public certificate.
-      {:ok, %PKIKey{hostname: hostname, port: port, public_key: pubkey}} ->
+      {:ok, %ApiServer.AuthChallenge{hostname: hostname, port: port, public_key: pubkey}} ->
         IO.puts("  ! CSR for sensor hostname(#{hostname}) port(#{port}) was used to try to reissue a signed public key")
         conn |> req_error(400, "Cannot generate a new public key for a CSR that has already been issued a signed public key")
 
       # no record of this CSR in the database
-      {:error, :no_such_pkikey} ->
+      :no_matches ->
         IO.puts("  - CSR does not match any recorded private key requests")
         conn |> req_error(400, "CSR does not correspond to any recorded key requests")
+
+      :multiple_matches ->
+        IO.puts("  - CSR matches multiple records - this is a problem")
+        conn |> req_error(400, "CSR corresponds to multiple key requests")
 
     end
 
@@ -463,5 +463,14 @@ defmodule ApiServer.CertificateController do
          }
        )
   end
+
+  defp changeset_errors_json(c) do
+    Ecto.Changeset.traverse_errors(c, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
+  end
+
 
 end

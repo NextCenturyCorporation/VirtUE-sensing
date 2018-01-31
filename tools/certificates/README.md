@@ -68,3 +68,9 @@ Create a 2048bit RSA key pair, placing the keys into `/etc/certificates`:
 
  - `CFSSL_SHARED_SECRET`: If the `--cfssl-shared-secret` CLI option is not used, this environment variable is checked
   for a shared secret value
+  
+# Installing Certificate Tools
+
+You can either manually copy the certificate tools content to your working directory, or add 
+your working directory to the [update_tools.sh](https://github.com/twosixlabs/savior/blob/master/bin/update_tools.sh) script
+which can be invoked from the SAVIOR project root to update the tools in multiple places.

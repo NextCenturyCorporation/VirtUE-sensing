@@ -37,6 +37,9 @@ defmodule ApiServer.Configuration do
     field :format, :string, default: "json"
     field :description, :string, default: ""
 
+    # related sensors
+    has_many :sensors, ApiServer.Sensor
+
     # auto gen timestamp fields
     timestamps()
   end

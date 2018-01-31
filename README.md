@@ -1,6 +1,9 @@
 # virtue
 VirtUE Program
 
+# Integrating Sensors - Certificate and Registration Cycles
+
+Sensors that connect to the Sensing API must go through two workflows; the [Certificate Cycle](CERTIFICATES.md) and the [Registration Cycle](SENSORARCH.md). The Certificate Cycle is used to retrieve a public/private key pair from the Sensing API, which is required for all further interactions with the Sensing infrastructure. The Registration Cycle is how individual sensors register with the API and retrieve run time configuration.
 
 # Running the Sensing Architecture - Docker
 

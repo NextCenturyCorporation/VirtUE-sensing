@@ -46,8 +46,8 @@ config :api_server, ApiServer.Scheduler,
     {"* * * * *",         {ApiServer, :heartbeat, []}},
 
     # check on non-responsive sensors every 15 minutes, and clean them out if
-    # they're older than 15 minutes
-    {"*/15 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [15]}}
+    # they're older than 5 minutes
+    {"*/15 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [5]}}
   ]
 
 # Kafka connections

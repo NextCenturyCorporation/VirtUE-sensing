@@ -39,6 +39,9 @@ defmodule ApiServer.Component do
     # related configurations
     has_many :configurations, ApiServer.Configuration
 
+    # related sensors
+    has_many :sensors, ApiServer.Sensor
+
     # autogen timestamp data
     timestamps()
   end
@@ -205,6 +208,26 @@ defmodule ApiServer.Component do
         {:ok, c}
       [h | t] ->
         :multiple_matches
+    end
+  end
+
+  @doc """
+  Verify if the sensor with the given parameters has a default configuration.
+  """
+  def has_default_configuration?(%{name: sensor_name, os: sensor_os, context: sensor_context})
+      when is_binary(sensor_name)
+    and is_binary(sensor_os)
+    and is_binary(sensor_context) do
+
+    case ApiServer.Component.get_configuration(%{os: sensor_os, name: sensor_name, context: sensor_context}) do
+      :no_component_matches ->
+        false
+      :multiple_component_matches ->
+        false
+      :no_such_configuration ->
+        false
+      {:ok, config} ->
+        true
     end
   end
 

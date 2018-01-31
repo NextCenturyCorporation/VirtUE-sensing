@@ -102,5 +102,5 @@ async def lsof(message_stub, config, message_queue):
 
 if __name__ == "__main__":
 
-    wrapper = SensorWrapper("lsof-sensor", [lsof, assess_lsof])
+    wrapper = SensorWrapper("lsof", [lsof, assess_lsof])
     wrapper.start()
