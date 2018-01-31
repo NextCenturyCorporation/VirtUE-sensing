@@ -24,7 +24,7 @@ defmodule ApiServer.Sensor do
 
     # relationships
     belongs_to :component, ApiServer.Component
-    belongs_to :configuration, ApiServer.Configuration
+    belongs_to :configuration, ApiServer.Configuration, on_replace: :update
 
     # has many possible authchallenges that have been completed for certs
     has_many :authchallenges, ApiServer.AuthChallenge
@@ -159,9 +159,21 @@ defmodule ApiServer.Sensor do
         :no_such_configuration
       {:ok, config} ->
 
-        base_changes = ApiServer.Sensor.changeset(loaded_sensor, %{})
-        changes = Ecto.Changeset.put_assoc(base_changes, :configuration, config)
-        optional_db_update(changes, opts)
+        case sensor.configuration_id do
+          nil ->
+
+            # no relation to a config yet - we can do a simple put
+            base_changes = ApiServer.Sensor.changeset(loaded_sensor, %{})
+            changes = Ecto.Changeset.put_assoc(base_changes, :configuration, config)
+            optional_db_update(changes, opts)
+          _ ->
+            # a relation to a config already exists, we need to do direct manipulation of
+            # the config id
+            changes = ApiServer.Sensor.changeset(loaded_sensor, %{configuration_id: config.id})
+            optional_db_update(changes, opts)
+
+        end
+
     end
   end
 

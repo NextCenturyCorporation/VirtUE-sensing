@@ -506,6 +506,24 @@ class SensorWrapper(object):
             print("  | sensor ID is NOT A MATCH")
             await send_json(stream, {"error": True, "msg": "Sensor ID does not match registration ID"}, status_code=401)
 
+    async def route_sensor_actuate(self, stream, headers, params):
+        """
+        Handle an actuation request. Depending on the value of the "actuation" parameter,
+        this wil be handled in different ways.
+
+        :param stream:
+        :param headers:
+        :param params:
+        :return:
+        """
+        body = await self.wait_for_json(stream)
+
+        print("=> Sensor actuation received action(%s)" % (body["actuation"]))
+        print(params)
+        print(body)
+
+        await send_json(stream, {"error": False})
+
     async def route_sensor_status(self, stream, headers, params):
         """
         Handle a request for:
@@ -527,6 +545,37 @@ class SensorWrapper(object):
                             "user": self.opts.username
                         }
                         )
+
+    async def wait_for_json(self, stream):
+        """
+        Because everything is broken, nothing works, and the internet only stays up
+        because everything is coded to assume everyone else is a brain-dead mole rat
+        with ADHD.
+
+        Fuh.
+
+        If we try and do a normal read of the request body from a stream, curio will
+        let us happily block until the connection is timed out by the client. So, we
+        need to detect when we've reached the end of the request body. In this case,
+        that means repeatedly checking to see if our results are JSON parse-able. If
+        we can parse it, return the decoded JSON data.
+
+        :param stream: Curio SocketStream
+        :return: decoded JSON data
+        """
+
+        body = ""
+        decoded = None
+        while True:
+            line = await stream.read(1024)
+            body += line.decode("utf-8")
+            print(body)
+            try:
+                decoded = json.loads(body)
+                break
+            except json.decoder.JSONDecodeError as jde:
+                pass
+        return decoded
 
     async def main(self):
         """
@@ -621,7 +670,8 @@ class SensorWrapper(object):
             # layout the routes we'll be serving persistently for actuation/inspection over HTTPS
             https_routes = [
                 {"path": "/sensor/{uuid}/registered", "name": "route_registration_ping", "handler": self.route_registration_ping},
-                {"path": "/sensor/status", "name": "route_sensor_status", "handler": self.route_sensor_status}
+                {"path": "/sensor/status", "name": "route_sensor_status", "handler": self.route_sensor_status},
+                {"path": "/actuation", "name": "route_sensor_actuate", "handler": self.route_sensor_actuate}
             ]
             await g.spawn(
                 tcp_server(
