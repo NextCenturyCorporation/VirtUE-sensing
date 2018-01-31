@@ -169,6 +169,28 @@ struct kernel_ps_data {
 
 #define PS_ARRAY_SIZE (PS_APPARENT_ARRAY_SIZE) - 1
 
+
+/**
+ * workspace for kernel-lsof probe data
+ * line numbers from kernel version 4.1.3
+ * struct file in include/linux/fs.h:828
+ * struct path in include/linux/path.h:7
+ * struct file_operations in include/linux/fs.h:1573
+ * count, flags, mode
+ * struct fown_struct f_owner in include/linux/fs.h:797
+ * struct cred f_cred in include/linux/cred.h
+ * typedef unsigned __bitwise__ fmode_t in include/linux/types.h
+ *
+ **/
+struct kernel_lsof_data {
+	struct file f;
+	struct path p;
+	struct fown_struct owner;
+	atomic_long_t count;
+	unsigned int flags;
+	fmode_t mode;
+};
+
 struct probe_s {
 	uint8_t *probe_id;
 	spinlock_t probe_lock;
