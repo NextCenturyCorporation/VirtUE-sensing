@@ -6,7 +6,7 @@ import argparse
 import asyncio
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl
+from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl, spawn
 import curequests
 import email
 import hashlib
@@ -46,6 +46,9 @@ class SensorWrapper(object):
         self.setup_options()
         self.opts = None
         self.sensing_methods = sensing_methods
+        self.sensing_method_task_group = None
+        self.wrapper_task_group = None
+
         print("Configured with sensing methods:")
         print(sensing_methods)
 
@@ -321,18 +324,23 @@ class SensorWrapper(object):
         :return: -
         """
 
+        if self.sensing_method_task_group is not None:
+            try:
+                await self.sensing_method_task_group.cancel_remaining()
+            except CancelledError as ce:
+                print("  ^ ate CancelledError when cancelling stale sensing_method task group")
+                self.sensing_method_task_group = None
+
         # setup our message stub
         msg_stub = {
             "sensor_id": sensor_id,
             "sensor_name": "%s-%s" % (self.sensor_name, __VERSION__,)
         }
-        # futures = [meth(msg_stub, default_config, self.log_messages) for meth in self.sensing_methods]
-        async with TaskGroup() as g:
+
+        self.sensing_method_task_group = TaskGroup()
+        async with self.sensing_method_task_group as g:
             for lm in self.sensing_methods:
                 await g.spawn(lm, msg_stub, default_config, self.log_messages)
-
-
-        # await self.sensing_method(msg_stub, default_config, self.log_messages)
 
     async def log_drain(self, kafka_bootstrap_hosts=None, kafka_channel=None):
         """
@@ -519,10 +527,22 @@ class SensorWrapper(object):
         body = await self.wait_for_json(stream)
 
         print("=> Sensor actuation received action(%s)" % (body["actuation"]))
-        print(params)
-        print(body)
+        print("   config=<%s>" % (body["payload"]["configuration"],))
 
-        await send_json(stream, {"error": False})
+        if body["actuation"] == "observe":
+            # async with self.wrapper_task_group as g:
+            t = await spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(body["payload"]["configuration"]))
+            self.wrapper_task_group.add_task(t)
+            print("  = observe actuation triggered")
+
+            # respond
+            await send_json(stream, {"error": False})
+        else:
+
+            # if we don't know what it is, we can't really do anything. Respond
+            # to the API with an error, and carry on
+            print("  ! unknown actuation(%s) - dropping" % (body["actuation"],))
+            await send_json(stream, {"error": True, "msg": "Unknown actuation"})
 
     async def route_sensor_status(self, stream, headers, params):
         """
@@ -586,7 +606,8 @@ class SensorWrapper(object):
         """
         Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
-        async with TaskGroup() as g:
+        self.wrapper_task_group = TaskGroup()
+        async with self.wrapper_task_group as g:
 
             # first thing first - let's make sure the Sensing API is ready for us
             api_ready = await g.spawn(self.wait_for_sensor_api)

@@ -34,7 +34,7 @@ defmodule ApiServer.Actuation do
     # 3. determine our results
     with {:ok, c_sensor} <- ApiServer.Sensor.assign_configuration(sensor, %{level: level}, save: true),
          {:ok, configuration} <- ApiServer.Sensor.get_configuration_content(c_sensor),
-         {:ok, %{status_code: 200}} <- put_sensor(c_sensor, "/actuation", actuation_payload(level, configuration))
+         {:ok, %{status_code: 200}} <- put_sensor(c_sensor, "/actuation", actuation_payload(c_sensor, level, configuration))
     do
 
       {:ok, c_sensor, level, configuration}
@@ -46,7 +46,7 @@ defmodule ApiServer.Actuation do
 
       {:error, :nxdomain} ->
         IO.puts("NXDOMAIN lookup error for sensor")
-        {:error, "NXDOMAIN lookup error for sensor"}
+        {:error, :nxdomain}
       {:error, %{status_code: 500}} ->
         IO.puts("Sensor responded with a status_code(500)")
         {:error, "sensor https endpoint responded with a status_code(500) error"}
@@ -59,12 +59,17 @@ defmodule ApiServer.Actuation do
 
   end
 
-  defp actuation_payload(level, data) do
+  defp actuation_payload(%ApiServer.Sensor{} = sensor, level, data) do
     %{
       timestamp: DateTime.to_string(DateTime.utc_now()),
       actuation: "observe",
       level: level,
-      configuration: data
+      payload: %{
+        configuration: data,
+        sensor: sensor.sensor_id,
+        kafka_bootstrap_hosts: Application.get_env(:api_server, :sensor_kafka_bootstrap),
+        sensor_topic: sensor.kafka_topic
+      }
     }
   end
 

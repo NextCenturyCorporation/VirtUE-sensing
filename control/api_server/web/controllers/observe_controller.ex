@@ -80,6 +80,12 @@ defmodule ApiServer.ObserveController do
     case ApiServer.Actuation.sensor(sensor, action, level) do
       {:ok, c_sensor, c_level, config} ->
         {:ok, c_sensor}
+      {:error, :nxdomain} ->
+        IO.puts("Sensor(#{sensor.id}) hostname cannot be resolved")
+        {:error, "Sensor(#{sensor.id}) hostname cannot be resolved"}
+      {:error, %{status_code: code}} ->
+        IO.puts("Sensor(#{sensor.id}) returned status_code(#{code})")
+        {:error, "Sensor(#{sensor.id}) returned status_code(#{code})"}
       {:error, reason} ->
         IO.puts("sensor(#{sensor.id}) actuation error: #{reason}")
         {:error, reason}
