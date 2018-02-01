@@ -42,8 +42,6 @@ struct list_head *probe_queues[0x10];
 
 int probe_socket;
 
-struct kthread_work *controller_work = NULL;
-struct kthread_worker *controller_worker = NULL;
 struct probe_s *controller_probe = NULL;
 
 /** locking the kernel-ps flex_array
@@ -397,14 +395,12 @@ static int __init __kcontrol_init(void)
 	controller_probe->repeat = ps_repeat;
 	controller_probe->timeout = ps_timeout;
 
-	controller_work = &controller_probe->probe_work;
-	controller_worker = &controller_probe->probe_worker;
+	CONT_INIT_WORK(&controller_probe->probe_work, k_probe);
+	CONT_INIT_WORKER(&controller_probe->probe_worker);
+	CONT_QUEUE_WORK(&controller_probe->probe_worker,
+					&controller_probe->probe_work);
 
-	CONT_INIT_WORK(controller_work, k_probe);
-	CONT_INIT_WORKER(controller_worker);
-	CONT_QUEUE_WORK(controller_worker, controller_work);
-
-	kthread_run(kthread_worker_fn, controller_worker,
+	kthread_run(kthread_worker_fn, &controller_probe->probe_worker,
 				"unremarked\%lx", (unsigned long)controller_probe);
 	return ccode;
 
@@ -420,10 +416,8 @@ err_exit:
 static void __exit controller_cleanup(void)
 {
 
-	if (controller_worker) {
-		/* no longer frees memory */
-		kthread_destroy_worker(controller_worker);
-	}
+
+	kthread_destroy_worker(&controller_probe->probe_worker);
 
 	if (controller_probe) {
         /* no longer frees memory */
