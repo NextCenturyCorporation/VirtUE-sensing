@@ -196,8 +196,10 @@ struct probe_s {
 	uint8_t *probe_id;
 	spinlock_t probe_lock;
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
+	struct kthread_worker probe_worker;
 	struct kthread_work probe_work;
 	struct list_head l;
+	struct unix_sock s;
 	uint8_t *data;
 };
 /* probes are run by kernel worker threads (struct kthread_worker)
@@ -240,13 +242,22 @@ uint64_t update_probe(uint8_t *probe_id,
 					  uint8_t *update,
 					  int update_size);
 
+
+/**
+ * The kernel sensor is the parent of one or more probes
+ * It is similar to its child probes in the sense it uses
+ * kernel threads (kthreads) to run.
+ * It is responsible for the socket interface, initializing
+ * and managing its child probes.
+**/
+
 struct kernel_sensor {
 	uint8_t *id;
 	spinlock_t lock;
 	uint64_t flags;
 	struct list_head *l;
-	struct kthread_worker *kworker; /* plan to move */
-	struct kthread_work *kwork;    /* plan to move */
+	struct kthread_worker *kworker;
+	struct kthread_work *kwork;
 	struct probe_s probes[1]; /* use it as a pointer */
 };
 

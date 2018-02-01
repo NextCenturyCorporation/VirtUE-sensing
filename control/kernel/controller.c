@@ -42,10 +42,9 @@ struct list_head *probe_queues[0x10];
 
 int probe_socket;
 
-struct kthread_work *controller_work;
-struct kthread_worker *controller_worker;
-struct probe_s *controller_probe;
-
+struct kthread_work *controller_work = NULL;
+struct kthread_worker *controller_worker = NULL;
+struct probe_s *controller_probe = NULL;
 
 /** locking the kernel-ps flex_array
  * to write to or read from the pre-allocated flex array parts,
@@ -245,6 +244,11 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	return worker;
 }
 
+/**
+ * shuts down a kthread worker, but does not free the
+ * memory - part of the transisiton to the worker belonging
+ * inside the probe struct.
+ **/
 void
 kthread_destroy_worker(struct kthread_worker *worker)
 {
@@ -258,7 +262,6 @@ kthread_destroy_worker(struct kthread_worker *worker)
 	flush_kthread_worker(worker);
 	kthread_stop(task);
 	WARN_ON(!list_empty(&worker->work_list));
-	kfree(worker);
 	return;
 }
 
@@ -321,15 +324,14 @@ static inline void sleep(unsigned sec)
 
 /**
  * A probe routine is a kthread  worker, called from kernel thread.
- * it needs to execute quickly and can't hold any locks or
- * blocking objects. Once it runs once, it must be re-initialized
+ * Once it runs once, it must be re-initialized
  * and re-queued to run again...see /include/linux/kthread.h
  **/
 
 /**
  * ps probe function
  *
- * Called by the kernel contoller kmod t o "probe" the processes
+ * Called by the kernel contoller kmod to "probe" the processes
  * running on this kernel. Keeps track of how many times is has run.
  * Each time the sample runs it increments its count, prints probe
  * information, and either reschedules itself or dies.
@@ -396,13 +398,7 @@ static int __init __kcontrol_init(void)
 	controller_probe->timeout = ps_timeout;
 
 	controller_work = &controller_probe->probe_work;
-
-	controller_worker = kzalloc(sizeof(struct kthread_worker), GFP_KERNEL);
-	if (!controller_worker) {
-		DMSG();
-		ccode = -ENOMEM;
-		goto err_exit;
-	}
+	controller_worker = &controller_probe->probe_worker;
 
 	CONT_INIT_WORK(controller_work, k_probe);
 	CONT_INIT_WORKER(controller_worker);
@@ -418,25 +414,24 @@ err_exit:
 		kfree(controller_probe);
 		controller_probe = NULL;
 	}
-	if (controller_worker) {
-		kfree(controller_worker);
-		controller_worker = NULL;
-	}
-
 	return ccode;
 }
 
 static void __exit controller_cleanup(void)
 {
 
+	if (controller_worker) {
+		/* no longer frees memory */
+		kthread_destroy_worker(controller_worker);
+	}
+
 	if (controller_probe) {
+        /* no longer frees memory */
 		destroy_k_probe(controller_probe);
 		kfree(controller_probe);
 	}
 
-	if (controller_worker) {
-		kthread_destroy_worker(controller_worker);
-	}
+
 
 	if (kps_data_flex_array) {
 		flex_array_free(kps_data_flex_array);
