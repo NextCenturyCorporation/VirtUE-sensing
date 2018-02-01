@@ -49,6 +49,8 @@ class SensorWrapper(object):
         self.sensing_method_task_group = None
         self.wrapper_task_group = None
 
+        self.log_drain_task = None
+
         print("Configured with sensing methods:")
         print(sensing_methods)
 
@@ -369,17 +371,22 @@ class SensorWrapper(object):
         msg_count = 0
         msg_bytes = 0
 
-        # just read messages as they become available in the message queue
-        async for message in self.log_messages:
+        try:
 
-            msg_count += 1
-            msg_bytes += len(message)
+            # just read messages as they become available in the message queue
+            async for message in self.log_messages:
 
-            producer.send(kafka_channel, message)
+                msg_count += 1
+                msg_bytes += len(message)
 
-            # progress reporting
-            if msg_count % 5000 == 0:
-                print("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
+                producer.send(kafka_channel, message)
+
+                # progress reporting
+                if msg_count % 5000 == 0:
+                    print("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
+
+        except CancelledError as ce:
+            print(" () stopping log-drain")
 
     def configure_http_handler(self, routes, secure=False):
         """
@@ -530,9 +537,17 @@ class SensorWrapper(object):
         print("   config=<%s>" % (body["payload"]["configuration"],))
 
         if body["actuation"] == "observe":
-            # async with self.wrapper_task_group as g:
-            t = await spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(body["payload"]["configuration"]))
-            self.wrapper_task_group.add_task(t)
+
+            # rebuild our sensing method
+            csm_t = await spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(body["payload"]["configuration"]))
+            await self.wrapper_task_group.add_task(csm_t)
+
+            # bounce the log drain
+            await self.log_drain_task.cancel()
+            ld_t = await spawn(self.log_drain, body["payload"]["kafka_bootstrap_hosts"], body["payload"]["sensor_topic"])
+            await self.wrapper_task_group.add_task(ld_t)
+            self.log_drain_task = ld_t
+
             print("  = observe actuation triggered")
 
             # respond
@@ -711,7 +726,7 @@ class SensorWrapper(object):
             print(reg_data)
             print("  = got registration")
 
-            await g.spawn(self.log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
+            self.log_drain_task = await g.spawn(self.log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
             await g.spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(reg_data["default_configuration"]))
             await g.spawn(self.sync_sensor, pub_key)
 
