@@ -192,10 +192,53 @@ struct kernel_lsof_data {
 	fmode_t mode;
 };
 
+
+/**
+   @brief struct probe is a child of a struct kernel_sensor and provides
+          a specific kernel instrumentation
+
+   struct probe it may have peers, which are organized as nodes on
+   the kernel_sensor's probe list. struct probe t is initialized and
+   destroyed by its parent kernel_sensor.
+
+   members:
+   probe_lock is available a mutex object if needed
+   probe_id is meant to uniqueily identify the probe,
+            it should point to allocated memory passed to the
+            probe in the init call.
+   struct probe *(*init)(struct probe *probe, uint_t *id) points to
+            an initializing function that will prepare the probe to run.
+            It takes a pointer to probe memory that has already been allocated,
+            and a pointer to allocated memory that identifies the probe. The
+            id is copied into a newly allocated memory buffer.
+   void *(*destroy)(struct probe *probe) points to a destructor function that stops
+            kernel threads and tears down probe resources, but does not free
+            probe memory.
+   int (*send_msg_to_probe)(struct probe *probe, int length, void *buf)
+            causes the probe to copy length bytes of memory from buf. If
+            successful, it returns the number of bytes copied, or a negative
+            error code.
+   int (*rcv_msg_from_probe)(struct probe *, void **ptr) causes the probe to
+            allocate buffer and assign it to *ptr. It returns the length of
+            the buffer at *ptr, or a negative number if an error occured.
+            if the probe does not have any messages to copy to the caller, it
+            will return -EAGAIN.
+   struct kthread_worker probe_worker, and
+   struct kthread_work probe_work are both used to schedule the probe as a
+            kernel thread.
+   struct llist_node l_node is the lockless linked list node pointer. It
+            is used by the parent sensor to manage the probes.
+   uint8 *data is a generic pointer whose use will be to store probe data
+            structures such as flexible arrays.
+
+ **/
 struct probe {
 	spinlock_t probe_lock;
 	uint8_t *probe_id;
+	struct probe *(*init)(struct probe *, uint8_t *);
 	void *(*destroy)(struct probe *);
+	int (*send_msg_to_probe)(struct probe *, int, void *);
+	int (*rcv_msg_from_probe)(struct probe *, int, void **);
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
 	struct kthread_worker probe_worker;
 	struct kthread_work probe_work;
@@ -244,7 +287,8 @@ uint64_t update_probe(uint8_t *probe_id,
 
 
 /**
- * The kernel sensor is the parent of one or more probes
+ * @brief The kernel sensor is the parent of one or more probes
+ *
  * It is similar to its child probes in the sense it uses
  * kernel threads (kthreads) to run.
  * It is responsible for the socket interface, initializing
@@ -255,6 +299,7 @@ struct kernel_sensor {
 	uint8_t *id;
 	spinlock_t lock;
 	uint64_t flags;
+	struct kernel_sensor *(*init)(struct kernel_sensor *, uint8_t *);
 	void *(*destroy)(struct kernel_sensor *);
 	struct kthread_worker kworker;
 	struct kthread_work kwork;
