@@ -192,10 +192,10 @@ struct kernel_lsof_data {
 	fmode_t mode;
 };
 
-struct probe_s {
+struct probe {
 	spinlock_t probe_lock;
 	uint8_t *probe_id;
-	void *(*destroy)(struct probe_s *);
+	void *(*destroy)(struct probe *);
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
 	struct kthread_worker probe_worker;
 	struct kthread_work probe_work;
@@ -212,9 +212,9 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...);
 
 void kthread_destroy_worker(struct kthread_worker *worker);
 
-struct probe_s *init_k_probe(struct probe_s *probe);
+struct probe *init_k_probe(struct probe *probe);
 void *destroy_probe_work(struct kthread_work *work);
-void *destroy_k_probe(struct probe_s *probe);
+void *destroy_k_probe(struct probe *probe);
 
 
 

@@ -159,7 +159,7 @@ void *destroy_probe_work(struct kthread_work *work)
 	return work;
 }
 /**
- * destroy a struct probe_s, by tearing down
+ * destroy a struct probe, by tearing down
  * its allocated resources.
  * To free a dynamically allocated probe, you
  * could call it like this:
@@ -170,7 +170,7 @@ void *destroy_probe_work(struct kthread_work *work)
  *   and probe data, destroys a probe work node if it is there,
  *  and returns a zero'ed out memory buffer to the outer call.
  */
-void *destroy_k_probe(struct probe_s *probe)
+void *destroy_k_probe(struct probe *probe)
 {
 	assert(probe);
 
@@ -182,7 +182,7 @@ void *destroy_k_probe(struct probe_s *probe)
 	}
 
 	destroy_probe_work(&probe->probe_work);
-	memset(probe, 0, sizeof(struct probe_s));
+	memset(probe, 0, sizeof(struct probe));
 	return probe;
 }
 
@@ -313,21 +313,21 @@ struct kernel_sensor * init_k_sensor(struct kernel_sensor *sensor)
  *  - does not initialize probe->probe_work with a work node,
  *    which does need to get done by the kthreads library.
  * Initialize a kernel probe structure.
- * void *init_k_probe(struct probe_s *p)
+ * void *init_k_probe(struct probe *p)
  */
 
 /**
  * note jan 3 2018: don't always zero-out a probe, prepare for
  * showing persistent data in between probes (in between probe runs)
  **/
-struct probe_s *init_k_probe(struct probe_s *probe)
+struct probe *init_k_probe(struct probe *probe)
 {
 	if (!probe) {
 		return ERR_PTR(-ENOMEM);
 	}
 	probe->destroy = destroy_k_probe;
 
-	memset(probe, 0, sizeof(struct probe_s));
+	memset(probe, 0, sizeof(struct probe));
 	probe->probe_id = kzalloc(PROBE_ID_SIZE, GFP_KERNEL);
 	if (!probe->probe_id) {
 		return ERR_PTR(-ENOMEM);
@@ -377,8 +377,8 @@ static inline void sleep(unsigned sec)
 void  k_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
-	struct probe_s *probe_struct =
-		container_of(work, struct probe_s, probe_work);
+	struct probe *probe_struct =
+		container_of(work, struct probe, probe_work);
 	static int count;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
@@ -412,7 +412,7 @@ void  k_probe(struct kthread_work *work)
 static int __init __kcontrol_init(void)
 {
 	int ccode;
-	struct probe_s *controller_probe = NULL;
+	struct probe *controller_probe = NULL;
 
 	kps_data_flex_array = flex_array_alloc(PS_DATA_SIZE, PS_ARRAY_SIZE, GFP_KERNEL);
 	assert(kps_data_flex_array);
@@ -426,7 +426,7 @@ static int __init __kcontrol_init(void)
 	if (&k_sensor != init_k_sensor(&k_sensor)) {
 		return -ENOMEM;
 	}
-	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
+	controller_probe = kzalloc(sizeof(struct probe), GFP_KERNEL);
 	if (!controller_probe) {
 		DMSG();
 		ccode = -ENOMEM;
@@ -474,7 +474,7 @@ err_exit:
  **/
 static void __exit controller_cleanup(void)
 {
-    struct probe_s *probe, *tmp;
+    struct probe *probe, *tmp;
 	struct llist_node *llnode ;
 
 	/* k_sensor is the parent of all probes */
