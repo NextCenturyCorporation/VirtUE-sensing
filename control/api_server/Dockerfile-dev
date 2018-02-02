@@ -8,14 +8,14 @@ ENV LC_ALL en_US.UTF-8
 
 # wget for convenience, use curl if you want to
 RUN apt-get update
-RUN apt-get -y -q install wget python3-pip
+RUN apt-get -y -q install wget python3-pip inotify-tools
 
 # add erlang otp
 RUN wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
 RUN dpkg -i erlang-solutions_1.0_all.deb
 RUN apt-get update
 RUN apt-get install -y -q esl-erlang elixir
-COPY . /app
+ADD . /app
 WORKDIR /app
 RUN chmod ugo+x /app/run.sh
 RUN mix local.hex --force

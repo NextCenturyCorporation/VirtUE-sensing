@@ -4230,15 +4230,43 @@ async def api_inspect(opts):
     elif opts.var_sensor is not None:
         full_uri = construct_api_uri(opts, "/sensor/%s/inspect" % (opts.var_sensor,))
 
-    get_params = {
-        "userToken": test_generate_user_token()
-    }
-
     # connect with our Savior CA certificate and our instance specific client certificate
     client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
-    res = requests.get(full_uri, params=get_params, verify=opts.ca_key_path, cert=client_cert_paths)
+    res = requests.get(full_uri, verify=opts.ca_key_path, cert=client_cert_paths)
 
     if res.status_code == 200:
+        print(json.dumps(res.json(), indent=4))
+
+
+async def api_observe(opts):
+    """
+    Set the observation level of a sensor or group of sensors, based on targeting.
+
+    :param opts:
+    :return:
+    """
+
+    if opts.var_virtue is not None and opts.var_username is not None:
+        full_uri = construct_api_uri(opts, "/resource/virtue/%s/user/%s/observe/%s" % (opts.var_virtue, opts.var_username, opts.observation_level))
+
+    elif opts.var_virtue is not None:
+        full_uri = construct_api_uri(opts, "/virtue/%s/observe/%s" % (opts.var_virtue, opts.observation_level))
+
+    elif opts.var_username is not None:
+        full_uri = construct_api_uri(opts, "/user/%s/observe/%s" % (opts.var_username, opts.observation_level))
+
+    elif opts.var_address is not None:
+        full_uri = construct_api_uri(opts, "/vm/address/%s/observe/%s" % (opts.var_address, opts.observation_level))
+
+    # send a PUT observe request to the API
+    client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    res = requests.put(full_uri, verify=opts.ca_key_path, cert=client_cert_paths)
+
+
+    if res.status_code == 200:
+        print(json.dumps(res.json(), indent=4))
+    else:
+        print("Error: status_code(%d)" % (res.status_code,))
         print(json.dumps(res.json(), indent=4))
 
 
@@ -4431,7 +4459,7 @@ def options():
     parser = argparse.ArgumentParser(description="Interact with the SAVIOR VirtUE security API")
 
     # top level control
-    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream", "monitor", "inspect"])
+    parser.add_argument("mode", metavar="M", help="Top level interaction", choices=["test", "version", "stream", "monitor", "inspect", "observe"])
     #parser.add_argument("sub_mode", metavar="S", help="Next level interaction", choices=[""])
 
     # identification variables
@@ -4489,7 +4517,8 @@ if __name__ == "__main__":
         "version": api_version,
         "stream": api_stream,
         "monitor": api_monitor,
-        "inspect": api_inspect
+        "inspect": api_inspect,
+        "observe": api_observe
     }
 
     if opts.mode not in dispatch:
