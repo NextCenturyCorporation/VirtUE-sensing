@@ -289,16 +289,37 @@ uint64_t update_probe(uint8_t *probe_id,
 /**
  * @brief The kernel sensor is the parent of one or more probes
  *
- * It is similar to its child probes in the sense it uses
- * kernel threads (kthreads) to run.
- * It is responsible for the socket interface, initializing
- * and managing its child probes.
+ * The Kernel Sensor  is similar to its child probes in the sense
+ * it uses kernel threads (kthreads) to run tasks. However, rather than
+ * probe kernel instrumentation, it runs tasks to manage and service
+ * its child probes. For example, presenting a socket interface
+ * to user space.
+ *
+ * members:
+ *
+ * lock is a resource available to manage exclusive
+ *      access to the kernel_sensor
+ * flags is a bit mask that will hold information for the
+ *       kernel sensor
+ * id is meant to uniqueily identify the sensor,
+ *     it should point to allocated memory passed to the
+ *     kernel sensor in the init call.
+ * struct kernel_sensor *(*init)(struct kernel_sensor *sensor, uint8_t *id)
+ *     initializes memory that has already been allocated to have working
+ *     semsor resources.
+ * void *(*destroy)(struct kernel_sensor *sensor) will tear down resources,
+ *      destroy child probes, de-schedule kernel threads, and zero-out sensor
+ *      memory. It does not free sensor memory.
+ * kwork and kworker are kernel structures to run sensor tasks.
+ * l_head is the head of the lockless probe list. Each child probe is
+ *      linked to this list
+ * s is a unix domain socket used to communicate with user space.
 **/
 
 struct kernel_sensor {
-	uint8_t *id;
 	spinlock_t lock;
 	uint64_t flags;
+	uint8_t *id;
 	struct kernel_sensor *(*init)(struct kernel_sensor *, uint8_t *);
 	void *(*destroy)(struct kernel_sensor *);
 	struct kthread_worker kworker;
