@@ -121,7 +121,7 @@ def install_component(opts, comp):
     uri = construct_api_url(opts, "/configuration/component")
     res = requests.get(uri, params=component)
 
-    if res.status_code != 200:
+    if res.status_code not in [200, 400]:
         print "    Encountered an error checking for a component status_code(%d)" % (res.status_code,)
         print "    ", res.text
         return "error"
