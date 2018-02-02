@@ -18,7 +18,7 @@
 #include <linux/printk.h>
 #include <linux/spinlock.h>
 /*#include <trace/ftrace.h>*/
-#include <linux/list.h>
+#include <linux/llist.h>
 #include <linux/flex_array.h>
 #include <linux/socket.h>
 #include <linux/kthread.h>

@@ -135,14 +135,13 @@ int listen_controller_sock(struct listen **l, uint8_t *name)
 	 */
 	ccode  = sock_create(AF_UNIX, SOCK_STREAM, 0, &ll->sock);
 /* check the return code, add some linux-specific error handling
- */  ccode = listen(
-
+ *  ccode = listen(
+ */
 
 
 
 	return ccode;
 }
-
 
 /*******************
  *   Error handling (accept man page)

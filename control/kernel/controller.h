@@ -193,13 +193,13 @@ struct kernel_lsof_data {
 };
 
 struct probe_s {
-	uint8_t *probe_id;
 	spinlock_t probe_lock;
+	uint8_t *probe_id;
+	void *(*destroy)(struct probe_s *);
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
 	struct kthread_worker probe_worker;
 	struct kthread_work probe_work;
-	struct list_head l;
-	struct unix_sock s;
+	struct llist_node l_node;
 	uint8_t *data;
 };
 /* probes are run by kernel worker threads (struct kthread_worker)
@@ -255,10 +255,12 @@ struct kernel_sensor {
 	uint8_t *id;
 	spinlock_t lock;
 	uint64_t flags;
-	struct list_head *l;
-	struct kthread_worker *kworker;
-	struct kthread_work *kwork;
-	struct probe_s probes[1]; /* use it as a pointer */
+	void *(*destroy)(struct kernel_sensor *);
+	struct kthread_worker kworker;
+	struct kthread_work kwork;
+	struct llist_head l_head;
+	struct llist_head probes;
+	struct unix_sock s;
 };
 
 uint8_t *register_sensor(struct kernel_sensor *s);
