@@ -233,15 +233,20 @@ struct kernel_lsof_data {
 
  **/
 struct probe {
-	spinlock_t probe_lock;
-	uint8_t *probe_id;
+	/** always keep the lock as the first member of struct probe,
+        we use it to take the address of the struct probe when it
+        is an anonymous struct element of a parent.
+	**/
+	spinlock_t lock;
+	uint8_t *id;
 	struct probe *(*init)(struct probe *, uint8_t *);
 	void *(*destroy)(struct probe *);
-	int (*send_msg_to_probe)(struct probe *, int, void *);
-	int (*rcv_msg_from_probe)(struct probe *, int, void **);
+	int (*send_msg)(struct probe *, int, void *);
+	int (*rcv_msg)(struct probe *, int, void **);
+	int (*start_stop)(struct probe *, uint64_t flags);
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
-	struct kthread_worker probe_worker;
-	struct kthread_work probe_work;
+	struct kthread_worker worker;
+	struct kthread_work work;
 	struct llist_node l_node;
 	uint8_t *data;
 };
@@ -317,13 +322,9 @@ uint64_t update_probe(uint8_t *probe_id,
 **/
 
 struct kernel_sensor {
-	spinlock_t lock;
-	uint64_t flags;
-	uint8_t *id;
-	struct kernel_sensor *(*init)(struct kernel_sensor *, uint8_t *);
-	void *(*destroy)(struct kernel_sensor *);
-	struct kthread_worker kworker;
-	struct kthread_work kwork;
+	struct kernel_sensor (*_init)(struct kernel_sensor *, uint8_t *);
+	void *(*_destroy)(struct kernel_sensor *);
+	struct probe;
 	struct llist_head l_head;
 	struct llist_head probes;
 	struct unix_sock s;

@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-MY_CCFLAGS += -g -DDEBUG
+MY_CCFLAGS += -std=gnu99 -fms-extensions -g -DDEBUG
 ccflags-y += ${MY_CCFLAGS}
 CC += ${MY_CCFLAGS}
 obj-m += controller.o controller-interface.o
