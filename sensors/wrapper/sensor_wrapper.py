@@ -6,7 +6,7 @@ import argparse
 import asyncio
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl
+from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl, spawn
 import curequests
 import email
 import hashlib
@@ -46,6 +46,11 @@ class SensorWrapper(object):
         self.setup_options()
         self.opts = None
         self.sensing_methods = sensing_methods
+        self.sensing_method_task_group = None
+        self.wrapper_task_group = None
+
+        self.log_drain_task = None
+
         print("Configured with sensing methods:")
         print(sensing_methods)
 
@@ -321,18 +326,23 @@ class SensorWrapper(object):
         :return: -
         """
 
+        if self.sensing_method_task_group is not None:
+            try:
+                await self.sensing_method_task_group.cancel_remaining()
+            except CancelledError as ce:
+                print("  ^ ate CancelledError when cancelling stale sensing_method task group")
+                self.sensing_method_task_group = None
+
         # setup our message stub
         msg_stub = {
             "sensor_id": sensor_id,
             "sensor_name": "%s-%s" % (self.sensor_name, __VERSION__,)
         }
-        # futures = [meth(msg_stub, default_config, self.log_messages) for meth in self.sensing_methods]
-        async with TaskGroup() as g:
+
+        self.sensing_method_task_group = TaskGroup()
+        async with self.sensing_method_task_group as g:
             for lm in self.sensing_methods:
                 await g.spawn(lm, msg_stub, default_config, self.log_messages)
-
-
-        # await self.sensing_method(msg_stub, default_config, self.log_messages)
 
     async def log_drain(self, kafka_bootstrap_hosts=None, kafka_channel=None):
         """
@@ -361,17 +371,22 @@ class SensorWrapper(object):
         msg_count = 0
         msg_bytes = 0
 
-        # just read messages as they become available in the message queue
-        async for message in self.log_messages:
+        try:
 
-            msg_count += 1
-            msg_bytes += len(message)
+            # just read messages as they become available in the message queue
+            async for message in self.log_messages:
 
-            producer.send(kafka_channel, message)
+                msg_count += 1
+                msg_bytes += len(message)
 
-            # progress reporting
-            if msg_count % 5000 == 0:
-                print("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
+                producer.send(kafka_channel, message)
+
+                # progress reporting
+                if msg_count % 5000 == 0:
+                    print("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
+
+        except CancelledError as ce:
+            print(" () stopping log-drain")
 
     def configure_http_handler(self, routes, secure=False):
         """
@@ -506,6 +521,44 @@ class SensorWrapper(object):
             print("  | sensor ID is NOT A MATCH")
             await send_json(stream, {"error": True, "msg": "Sensor ID does not match registration ID"}, status_code=401)
 
+    async def route_sensor_actuate(self, stream, headers, params):
+        """
+        Handle an actuation request. Depending on the value of the "actuation" parameter,
+        this wil be handled in different ways.
+
+        :param stream:
+        :param headers:
+        :param params:
+        :return:
+        """
+        body = await self.wait_for_json(stream)
+
+        print("=> Sensor actuation received action(%s)" % (body["actuation"]))
+        print("   config=<%s>" % (body["payload"]["configuration"],))
+
+        if body["actuation"] == "observe":
+
+            # rebuild our sensing method
+            csm_t = await spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(body["payload"]["configuration"]))
+            await self.wrapper_task_group.add_task(csm_t)
+
+            # bounce the log drain
+            await self.log_drain_task.cancel()
+            ld_t = await spawn(self.log_drain, body["payload"]["kafka_bootstrap_hosts"], body["payload"]["sensor_topic"])
+            await self.wrapper_task_group.add_task(ld_t)
+            self.log_drain_task = ld_t
+
+            print("  = observe actuation triggered")
+
+            # respond
+            await send_json(stream, {"error": False})
+        else:
+
+            # if we don't know what it is, we can't really do anything. Respond
+            # to the API with an error, and carry on
+            print("  ! unknown actuation(%s) - dropping" % (body["actuation"],))
+            await send_json(stream, {"error": True, "msg": "Unknown actuation"})
+
     async def route_sensor_status(self, stream, headers, params):
         """
         Handle a request for:
@@ -528,6 +581,37 @@ class SensorWrapper(object):
                         }
                         )
 
+    async def wait_for_json(self, stream):
+        """
+        Because everything is broken, nothing works, and the internet only stays up
+        because everything is coded to assume everyone else is a brain-dead mole rat
+        with ADHD.
+
+        Fuh.
+
+        If we try and do a normal read of the request body from a stream, curio will
+        let us happily block until the connection is timed out by the client. So, we
+        need to detect when we've reached the end of the request body. In this case,
+        that means repeatedly checking to see if our results are JSON parse-able. If
+        we can parse it, return the decoded JSON data.
+
+        :param stream: Curio SocketStream
+        :return: decoded JSON data
+        """
+
+        body = ""
+        decoded = None
+        while True:
+            line = await stream.read(1024)
+            body += line.decode("utf-8")
+            print(body)
+            try:
+                decoded = json.loads(body)
+                break
+            except json.decoder.JSONDecodeError as jde:
+                pass
+        return decoded
+
     async def main(self):
         """
         Primary task spin-up. we're going to coordinate and launch all of
@@ -537,7 +621,8 @@ class SensorWrapper(object):
         """
         Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
-        async with TaskGroup() as g:
+        self.wrapper_task_group = TaskGroup()
+        async with self.wrapper_task_group as g:
 
             # first thing first - let's make sure the Sensing API is ready for us
             api_ready = await g.spawn(self.wait_for_sensor_api)
@@ -621,7 +706,8 @@ class SensorWrapper(object):
             # layout the routes we'll be serving persistently for actuation/inspection over HTTPS
             https_routes = [
                 {"path": "/sensor/{uuid}/registered", "name": "route_registration_ping", "handler": self.route_registration_ping},
-                {"path": "/sensor/status", "name": "route_sensor_status", "handler": self.route_sensor_status}
+                {"path": "/sensor/status", "name": "route_sensor_status", "handler": self.route_sensor_status},
+                {"path": "/actuation", "name": "route_sensor_actuate", "handler": self.route_sensor_actuate}
             ]
             await g.spawn(
                 tcp_server(
@@ -640,7 +726,7 @@ class SensorWrapper(object):
             print(reg_data)
             print("  = got registration")
 
-            await g.spawn(self.log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
+            self.log_drain_task = await g.spawn(self.log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
             await g.spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(reg_data["default_configuration"]))
             await g.spawn(self.sync_sensor, pub_key)
 

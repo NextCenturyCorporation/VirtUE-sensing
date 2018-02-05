@@ -24,7 +24,7 @@ defmodule ApiServer.Sensor do
 
     # relationships
     belongs_to :component, ApiServer.Component
-    belongs_to :configuration, ApiServer.Configuration
+    belongs_to :configuration, ApiServer.Configuration, on_replace: :nilify
 
     # has many possible authchallenges that have been completed for certs
     has_many :authchallenges, ApiServer.AuthChallenge
@@ -39,7 +39,7 @@ defmodule ApiServer.Sensor do
 
   def changeset(sensor, params \\ %{}) do
     sensor
-    |> Ecto.Changeset.cast(params, [:sensor_id, :virtue_id, :username, :address, :port, :public_key, :kafka_topic, :last_sync_at, :has_registered, :has_certificates])
+    |> Ecto.Changeset.cast(params, [:sensor_id, :virtue_id, :username, :address, :port, :public_key, :kafka_topic, :last_sync_at, :has_registered, :has_certificates, :configuration_id])
     |> Ecto.Changeset.validate_required([:sensor_id, :virtue_id, :username, :address, :port])
     |> Ecto.Changeset.validate_number(:port, greater_than: 0)
     |> Ecto.Changeset.validate_number(:port, less_than: 65536)
@@ -159,9 +159,26 @@ defmodule ApiServer.Sensor do
         :no_such_configuration
       {:ok, config} ->
 
-        base_changes = ApiServer.Sensor.changeset(loaded_sensor, %{})
-        changes = Ecto.Changeset.put_assoc(base_changes, :configuration, config)
-        optional_db_update(changes, opts)
+        IO.puts("Assigning configuration to sensor(#{loaded_sensor.id}) with configuration payload <#{config.configuration}>")
+        IO.puts("  sensor.configuration_id(#{loaded_sensor.configuration_id}), configuration.id(#{config.id})")
+        case loaded_sensor.configuration_id do
+          nil ->
+
+            # no relation to a config yet - we can do a simple put
+            base_changes = ApiServer.Sensor.changeset(loaded_sensor, %{})
+            changes = Ecto.Changeset.put_assoc(base_changes, :configuration, config)
+            optional_db_update(changes, opts)
+          _ ->
+            # a relation to a config already exists, we need to do direct manipulation of
+            # the config id
+            IO.puts("Overwriting an existing config relationship")
+            changes = ApiServer.Sensor.changeset(loaded_sensor, %{})
+                      |> Ecto.Changeset.put_assoc(:configuration, config)
+
+            optional_db_update(changes, opts)
+
+        end
+
     end
   end
 
@@ -190,6 +207,7 @@ defmodule ApiServer.Sensor do
       nil ->
         {:error, "no configuration currently assigned"}
       %ApiServer.Configuration{configuration: config_data} ->
+        IO.puts("loaded sensor config data has payload <#{config_data}>")
         {:ok, config_data}
     end
   end
