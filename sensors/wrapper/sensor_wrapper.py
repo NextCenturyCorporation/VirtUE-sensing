@@ -24,6 +24,49 @@ import time
 from urllib.parse import urlparse
 from uuid import uuid4
 
+
+#
+# Crazy monkey-patching so we can get access to the peer cert when we
+# initiate an HTTPS connection somewhere. Because the peer certificate
+# is attached at the SSLSocket level, which is transient in the HTTP Pool
+# for requests and curequests, this is the best we can really do.
+#
+# Cribbed from: https://stackoverflow.com/questions/16903528/how-to-get-response-ssl-certificate-from-requests-in-python
+#
+# We're going to patch the curequests lib directly so we can access
+# the peer cert during any of our async connections.
+
+
+# HTTPResponse = curequests.packages.urllib3.response.HTTPResponse
+# orig_HTTPResponse__init__ = HTTPResponse.__init__
+#
+#
+# def new_HTTPResponse__init__(self, *args, **kwargs):
+#     orig_HTTPResponse__init__(self, *args, **kwargs)
+#     try:
+#         print("trying to get peercert")
+#         self.peercert = self._connection.sock.getpeercert()
+#     except AttributeError:
+#         print("attribute error getting peer cert")
+#         pass
+#
+#
+# HTTPResponse.__init__ = new_HTTPResponse__init__
+
+HTTPAdapter = curequests.adapters.CuHTTPAdapter
+orig_HTTPAdapter_build_response = HTTPAdapter.build_response
+
+
+def new_HTTPAdapter_build_response(self, request, resp, conn):
+    response = orig_HTTPAdapter_build_response(self, request, resp, conn)
+    try:
+        response.peercert = conn.sock.getpeercert(binary_form=True)
+    except AttributeError:
+        pass
+    return response
+HTTPAdapter.build_response = new_HTTPAdapter_build_response
+
+
 #
 # A dummy sensor that streams log messages based off of following the
 # `lsof` command.
@@ -281,6 +324,8 @@ class SensorWrapper(object):
 
         if reg_res.status_code == 200:
             print("Registered sensor with Sensing API")
+            print("Peer certificate is:")
+            print(reg_res.peercert)
             print(reg_res.json())
             return reg_res.json()
         else:
