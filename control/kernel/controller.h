@@ -65,6 +65,7 @@
 #define PROBE_DESTROYED         0x02
 #define PROBE_KPS               0x04
 #define PROBE_HAS_DATA_FIELD    0x08
+#define PROBE_HAS_ID_FIELD      0x10
 
 /**
  * __task_cred - Access a task's objective credentials
@@ -201,52 +202,58 @@ struct kernel_lsof_data {
 
 
 /**
-   @brief struct probe is a child of a struct kernel_sensor and provides
-   a specific kernel instrumentation
+   @brief struct probe is an a generic struct that is designed to be
+   incorporated into a more specific type of probe.
 
-   struct probe it may have peers, which are organized as nodes on
-   the kernel_sensor's probe list. struct probe t is initialized and
-   destroyed by its parent kernel_sensor.
+   struct probe is initialized and destroyed by its incorporating
+   data structure. It has function pointers for init and destroy
+   methods.
 
    members:
-   probe_lock is available a mutex object if needed
-   probe_id is meant to uniqueily identify the probe,
-   it should point to allocated memory passed to the
+   - probe_lock is available as a mutex object if needed
+
+   - probe_id is meant to uniqueily identify the probe,
+   it contains a copy of memory passed to the
    probe in the init call.
-   struct probe *(*init)(struct probe *probe, uint_t *id) points to
+
+   - struct probe *(*init)(struct probe *probe,
+   uint8_t *id, int id_size,
+   uint8_t *data, int data_size) points to
    an initializing function that will prepare the probe to run.
    It takes a pointer to probe memory that has already been allocated,
    and a pointer to allocated memory that identifies the probe. The
-   id is copied into a newly allocated memory buffer.
-   void *(*destroy)(struct probe *probe) points to a destructor function that stops
-   kernel threads and tears down probe resources, but does not free
-   probe memory.
-   int (*send_msg_to_probe)(struct probe *probe, int length, void *buf)
+   id and data are copied into a newly allocated memory buffer.
+
+   - void *(*destroy)(struct probe *probe) points to a destructor function
+   that stops kernel threads and tears down probe resources, frees id and
+   data memory but does not free probe memory.
+
+   - int (*send_msg_to_probe)(struct probe *probe, int length, void *buf)
    causes the probe to copy length bytes of memory from buf. If
    successful, it returns the number of bytes copied, or a negative
    error code.
-   int (*rcv_msg_from_probe)(struct probe *, void **ptr) causes the probe to
+
+   - int (*rcv_msg_from_probe)(struct probe *, void **ptr) causes the probe to
    allocate buffer and assign it to *ptr. It returns the length of
    the buffer at *ptr, or a negative number if an error occured.
    if the probe does not have any messages to copy to the caller, it
    will return -EAGAIN.
-   struct kthread_worker probe_worker, and
-   struct kthread_work probe_work are both used to schedule the probe as a
-   kernel thread.
-   struct llist_node l_node is the lockless linked list node pointer. It
-   is used by the parent sensor to manage the probes.
-   uint8 *data is a generic pointer whose use will be to store probe data
-   structures such as flexible arrays.
+
+   - struct kthread_worker probe_worker, and struct kthread_work probe_work
+   are both used to schedule the probe as a kernel thread.
+
+   - struct llist_node l_node is the lockless linked list node pointer. It
+   is used by the parent sensor to manage the probe as a peer of more than
+   one siblings.
+
+   - uint8 *data is a generic pointer whose use may be to store probe data
+   structures.
 
 **/
 struct probe {
-	/** always keep the lock as the first member of struct probe,
-        in order to take the address of the struct probe when it
-        is an anonymous struct element of a parent.
-	**/
 	spinlock_t lock;
 	uint8_t *id;
-	struct probe *(*init)(struct probe *, uint8_t *);
+	struct probe *(*init)(struct probe *, uint8_t *, int, uint8_t *, int);
 	void *(*destroy)(struct probe *);
 	int (*send_msg)(struct probe *, int, void *);
 	int (*rcv_msg)(struct probe *, int, void **);
@@ -258,6 +265,34 @@ struct probe {
 	uint8_t *data;
 };
 
+
+/**
+ * @brief a probe that produces a list of kernel processes similar to the
+ *        ps command.
+ *
+ *  members:
+ *
+ *  - probe is an anonymous struct probe (see above)
+ *
+ *  - flex_array is a kernel flex_array, which will be pre-allocated
+ *    to hold data from the kernel's process list
+ *
+ *  - print is a function pointer - it may be initialized with custom
+ *    output functions. The default is to printk kernel process data
+ *    to /var/log/messages using printk
+ *
+ *  - ps is a function pointer - it may be initialized with a custom
+ *    process probe function. The default is to collect process information
+ *    from the kernel's scheduler.
+ *
+ *  - _init is a function pointer, it points to a function to initialize
+ *    the ps probe. It calls a struct probe->init function to initialize
+ *    the probe anonymous structure.
+ *
+ *  - _destroy is a function pointer, it points to a function for destroying
+ *    the ps probe. It calls probe->destroy to tear down the anonymous
+ *    struct probe.
+ **/
 struct kernel_ps_probe {
 	struct probe;
 	struct flex_array *kps_data_flex_array;
@@ -282,7 +317,9 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...);
 
 void kthread_destroy_worker(struct kthread_worker *worker);
 
-struct probe *init_probe(struct probe *probe, uint8_t *id);
+struct probe *init_probe(struct probe *probe,
+						 uint8_t *id,  int id_size,
+						 uint8_t *data, int data_size);
 void *destroy_probe_work(struct kthread_work *work);
 void *destroy_k_probe(struct probe *probe);
 
@@ -293,8 +330,8 @@ void *destroy_k_probe(struct probe *probe);
  * "more stable" api from here onward
  */
 uint8_t *register_probe(uint64_t flags,
-				   int (*probe)(uint64_t, uint8_t *),
-				   int delay, int timeout, int repeat);
+						int (*probe)(uint64_t, uint8_t *),
+						int delay, int timeout, int repeat);
 int unregister_probe(uint8_t *probe_id);
 
 /* allocates and returns a buffer with probe data */

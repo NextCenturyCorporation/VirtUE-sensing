@@ -174,11 +174,13 @@ void *destroy_probe(struct probe *probe)
 {
 	assert(probe && (probe->flags & PROBE_INITIALIZED));
 
-	if (probe->id) {
+	if (probe->id && (probe->flags & PROBE_HAS_ID_FIELD)) {
 		kfree(probe->id);
+		probe->id = NULL;
 	}
-	if (probe->flags & PROBE_HAS_DATA_FIELD) {
+	if (probe->data && (probe->flags & PROBE_HAS_DATA_FIELD)) {
 		kfree(probe->data);
+		probe->data = NULL;
 	}
 
 	destroy_probe_work(&probe->work);
@@ -296,7 +298,9 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 /* we have an anonymous struct probe, need to initialize it.
  * the anonymous struct is the first member of this structure.
  */
-	init_probe((struct probe *)sensor, "Kernel Sensor");
+	init_probe((struct probe *)sensor,
+			   "Kernel Sensor", strlen("Kernel Sensor") + 1,
+			   NULL, -1);
 	init_llist_head(&sensor->l_head);
 	init_llist_head(&sensor->probes);
 	sensor->_destroy = destroy_kernel_sensor;
@@ -359,20 +363,23 @@ void  k_probe(struct kthread_work *work)
 
 
 /**
- * init_k_probe - initialize a kprobe that has already been allocated.
+ * init_probe - initialize a probe that has already been allocated.
+ * struct probe is usually used as an anonymoust structure in a more
+ * specialized type of probe, for example kernel-ps or kernel-lsof
+ *  - probe memory is already allocated and should be zero'd by the
+ *    caller
  *  - initialize the probe's spinlock and list head
- *  - allocates memory for the probe's ID and data
+ *  - possibly allocates memory for the probe's ID and data
  *  - does not initialize probe->probe_work with a work node,
  *    which does need to get done by the kthreads library.
- * Initialize a kernel probe structure.
- * void *init_k_probe(struct probe *p)
- */
+ * Initialize a probe structure.
+ * void *init_probe(struct probe *p, uint8_t *id, uint8_t *data)
+ *
+**/
 
-/**
- * TODO: note jan 3 2018: don't always zero-out a probe, prepare for
- * showing persistent data in between probes (in between probe runs)
- **/
-struct probe *init_probe(struct probe *probe, uint8_t *id)
+struct probe *init_probe(struct probe *probe,
+						 uint8_t *id, int id_size,
+						 uint8_t *data, int data_size)
 {
 	if (!probe) {
 		return ERR_PTR(-ENOMEM);
@@ -380,29 +387,33 @@ struct probe *init_probe(struct probe *probe, uint8_t *id)
 
 	probe->init =  init_probe;
 	probe->destroy = destroy_probe;
-	probe->id = kzalloc(PROBE_ID_SIZE, GFP_KERNEL);
-	if (!probe->id) {
-		return ERR_PTR(-ENOMEM);
+	if (id && id_size > 0) {
+		probe->id = kzalloc(id_size, GFP_KERNEL);
+		if (!probe->id) {
+			return ERR_PTR(-ENOMEM);
+		}
+		probe->flags |= PROBE_HAS_ID_FIELD;
+		memcpy(probe->id, id, id_size);
 	}
-	if (id) {
-		memcpy(probe->id, id, PROBE_ID_SIZE);
+
+	if (data && data_size > 0) {
+		probe->data = kzalloc(data_size, GFP_KERNEL);
+		if (!probe->data) {
+			goto err_exit;
+		}
+		probe->flags |= PROBE_HAS_DATA_FIELD;
+		memcpy(probe->data, data, data_size);
 	}
 
 	probe->lock=__SPIN_LOCK_UNLOCKED("probe");
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */
-	probe->data = kzalloc(PROBE_DATA_SIZE, GFP_KERNEL);
-	if (!probe->data) {
-		goto err_exit;
-	}
-/** note - data field needs to be optional, so use a flag, and later
- *  change the init_probe signature to include a data initializer
- **/
-	probe->flags = PROBE_INITIALIZED | PROBE_HAS_DATA_FIELD;
+
+	probe->flags |= PROBE_INITIALIZED;
 	return probe;
 
 err_exit:
-	if (probe->id) {
+	if (probe->id && (probe->flags & PROBE_HAS_ID_FIELD)) {
 		kfree(probe->id);
 	}
 	return ERR_PTR(-ENOMEM);
@@ -426,7 +437,9 @@ static void *destroy_kernel_ps_probe(struct probe *probe)
 	return ps_p;
 }
 
-
+/**
+ * TODO: eliminate use of PROBE_ID_SIZE and PROBE_DATA_SIZE
+ **/
 struct kernel_ps_probe *
 init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 					 uint8_t *id,
@@ -441,7 +454,10 @@ init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
 	/* init the anonymous struct probe */
 
-	if (ps_p != (struct kernel_ps_probe *) init_probe((struct probe *)ps_p, id)) {
+	if (ps_p !=
+		(struct kernel_ps_probe *)
+		init_probe((struct probe *)ps_p, id, PROBE_ID_SIZE,
+				   NULL, -1)) {
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -488,7 +504,9 @@ static int __init __kcontrol_init(void)
 		goto err_exit;
 	}
 
-	init_probe((struct probe *)ps_probe, "Kernel PS Probe");
+	init_probe((struct probe *)ps_probe,
+			   "Kernel PS Probe", strlen("Kernel PS Probe") + 1,
+			   NULL,  -1);
 	if (ps_probe == ERR_PTR(-ENOMEM)) {
 		DMSG();
 		ccode = -ENOMEM;
