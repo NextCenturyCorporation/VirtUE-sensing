@@ -153,7 +153,6 @@ init_and_queue_work(struct kthread_work *work,
  */
 void *destroy_probe_work(struct kthread_work *work)
 {
-
 	CONT_FLUSH_WORK(work);
 	memset(work, 0, sizeof(struct kthread_work));
 	return work;
@@ -182,8 +181,10 @@ void *destroy_probe(struct probe *probe)
 		kfree(probe->data);
 		probe->data = NULL;
 	}
+	if (probe->flags & PROBE_HAS_WORK) {
+		destroy_probe_work(&probe->work);
+	}
 
-	destroy_probe_work(&probe->work);
 	return probe;
 }
 
@@ -364,7 +365,7 @@ void  k_probe(struct kthread_work *work)
 
 /**
  * init_probe - initialize a probe that has already been allocated.
- * struct probe is usually used as an anonymoust structure in a more
+ * struct probe is usually used as an anonymous structure in a more
  * specialized type of probe, for example kernel-ps or kernel-lsof
  *  - probe memory is already allocated and should be zero'd by the
  *    caller
@@ -375,7 +376,7 @@ void  k_probe(struct kthread_work *work)
  * Initialize a probe structure.
  * void *init_probe(struct probe *p, uint8_t *id, uint8_t *data)
  *
-**/
+ **/
 
 struct probe *init_probe(struct probe *probe,
 						 uint8_t *id, int id_size,
@@ -437,16 +438,13 @@ static void *destroy_kernel_ps_probe(struct probe *probe)
 	return ps_p;
 }
 
-/**
- * TODO: eliminate use of PROBE_ID_SIZE and PROBE_DATA_SIZE
- **/
-struct kernel_ps_probe *
-init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
-					 uint8_t *id,
-					 int (*print)(struct kernel_ps_probe *,
-								  uint8_t *, uint64_t, int))
+struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+											 uint8_t *id, int id_len,
+											 int (*print)(struct kernel_ps_probe *,
+														  uint8_t *, uint64_t, int))
 {
-	int ccode;
+	int ccode = 0;
+	struct probe *tmp;
 
 	if (!ps_p) {
 		return ERR_PTR(-ENOMEM);
@@ -454,12 +452,20 @@ init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
 	/* init the anonymous struct probe */
 
-	if (ps_p !=
-		(struct kernel_ps_probe *)
-		init_probe((struct probe *)ps_p, id, PROBE_ID_SIZE,
-				   NULL, -1)) {
-		return ERR_PTR(-ENOMEM);
+	tmp = init_probe((struct probe *)ps_p, id, id_len, NULL, -1);
+	/* tmp will be a good pointer if init returned successfully,
+	   an error pointer otherwise */
+	if (ps_p != (struct kernel_ps_probe *)tmp) {
+		ccode = -ENOMEM;
+		goto err_exit;
 	}
+
+	/** init timeout and repeat
+	 * they are passed on the command line, or (eventually) read
+	 * from sysfs
+     **/
+	ps_p->timeout = ps_timeout;
+	ps_p->repeat = ps_repeat;
 
 	ps_p->_init = init_kernel_ps_probe;
 	ps_p->_destroy = destroy_kernel_ps_probe;
@@ -471,14 +477,38 @@ init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 
 	ps_p->kps_data_flex_array =
 		flex_array_alloc(PS_DATA_SIZE, PS_ARRAY_SIZE, GFP_KERNEL);
-	assert(ps_p->kps_data_flex_array);
+
+	if (!ps_p->kps_data_flex_array) {
+/* flex_array_alloc will return NULL upon failure, a valid pointer otherwise */
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
 	ccode = flex_array_prealloc(ps_p->kps_data_flex_array, 0, PS_ARRAY_SIZE,
 								GFP_KERNEL | __GFP_ZERO);
-	assert(!ccode);
+	if(ccode) {
+		/* ccode will be zero for success, -ENOMEM otherwise */
+		goto err_free_flex_array;
+	}
+
 	printk(KERN_INFO "PS_DATA_SIZE %ld PS_ARRAY_SIZE %ld\n",
 		   PS_DATA_SIZE, PS_ARRAY_SIZE);
 
+
+/* now queue the kernel thread work structures */
+	CONT_INIT_WORK(&ps_p->work, k_probe);
+	ps_p->flags |= PROBE_HAS_WORK;
+	CONT_INIT_WORKER(&ps_p->worker);
+	CONT_QUEUE_WORK(&ps_p->worker,
+					&ps_p->work);
+	kthread_run(kthread_worker_fn, &ps_p->worker,
+				"kernel-ps\%lx", (unsigned long)ps_p);
 	return ps_p;
+
+err_free_flex_array:
+	flex_array_free(ps_p->kps_data_flex_array);
+err_exit:
+	/* if the probe has been initialized, need to destroy it */
+	return ERR_PTR(ccode);
 }
 
 
@@ -504,28 +534,23 @@ static int __init __kcontrol_init(void)
 		goto err_exit;
 	}
 
-	init_probe((struct probe *)ps_probe,
-			   "Kernel PS Probe", strlen("Kernel PS Probe") + 1,
-			   NULL,  -1);
+	ps_probe = init_kernel_ps_probe(ps_probe,
+						 "Kernel PS Probe",
+						 strlen("Kernel PS Probe") + 1,
+						 print_kernel_ps);
+
 	if (ps_probe == ERR_PTR(-ENOMEM)) {
 		DMSG();
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-	ps_probe->repeat = ps_repeat;
-	ps_probe->timeout = ps_timeout;
+
 	/* link this probe to the sensor struct */
 	if (! llist_add(&ps_probe->l_node, &k_sensor.l_head)) {
 		ccode = -EINVAL;
 		goto err_exit;
 	}
 
-	CONT_INIT_WORK(&ps_probe->work, k_probe);
-	CONT_INIT_WORKER(&ps_probe->worker);
-	CONT_QUEUE_WORK(&ps_probe->worker,
-					&ps_probe->work);
-	kthread_run(kthread_worker_fn, &ps_probe->worker,
-				"kernel-ps\%lx", (unsigned long)ps_probe);
 	return ccode;
 
 err_exit:

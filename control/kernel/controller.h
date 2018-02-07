@@ -55,8 +55,8 @@
 
 
 
-#define PROBE_ID_SIZE       0x1000
-#define PROBE_DATA_SIZE     0x4000
+//#define PROBE_ID_SIZE       0x1000
+//#define PROBE_DATA_SIZE     0x4000
 #define PS_HEADER_SIZE      0x100
 
 /* probe flag defines - need to make this into a bitmap */
@@ -66,7 +66,7 @@
 #define PROBE_KPS               0x04
 #define PROBE_HAS_DATA_FIELD    0x08
 #define PROBE_HAS_ID_FIELD      0x10
-
+#define PROBE_HAS_WORK          0x20
 /**
  * __task_cred - Access a task's objective credentials
  * @task: The task to query
@@ -299,7 +299,7 @@ struct kernel_ps_probe {
 	int (*print)(struct kernel_ps_probe *, uint8_t *, uint64_t, int);
 	int (*ps)(struct kernel_ps_probe *, int, uint64_t);
 	struct kernel_ps_probe *(*_init)(struct kernel_ps_probe *,
-									 uint8_t *,
+									 uint8_t *, int,
 		                             int (*print)(struct kernel_ps_probe *,
 												  uint8_t *, uint64_t, int));
 	void *(*_destroy)(struct probe *);
