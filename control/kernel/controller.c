@@ -1,5 +1,5 @@
 /*******************************************************************
- * In-Virtue Kernel Controller
+ * in-Virtue Kernel Controller
  *
  * Copyright (C) 2017-2018  Michael D. Day II
  * Copyright (C) 2017-2018  Two Six Labs
@@ -164,36 +164,35 @@ void *destroy_probe_work(struct kthread_work *work)
  * To free a dynamically allocated probe, you
  * could call it like this:
  *
- *   kfree(destroy_k_probe(probe));
+ *   kfree(destroy_probe(probe));
  *
  *  The inside call frees memory allocated for the probe id
  *   and probe data, destroys a probe work node if it is there,
  *  and returns a zero'ed out memory buffer to the outer call.
  */
-void *destroy_k_probe(struct probe *probe)
+void *destroy_probe(struct probe *probe)
 {
-	assert(probe);
+	assert(probe && (probe->flags & PROBE_INITIALIZED));
 
 	if (probe->id) {
 		kfree(probe->id);
 	}
-	if (probe->data) {
+	if (probe->flags & PROBE_HAS_DATA_FIELD) {
 		kfree(probe->data);
 	}
 
 	destroy_probe_work(&probe->work);
-/** leave memset to the parent caller **/
-	memset(probe, 0, sizeof(struct probe));
 	return probe;
 }
 
-void *destroy_k_sensor(struct kernel_sensor *sensor)
+void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
 
 	struct probe *p;
 	assert(sensor);
-    p = (struct probe *)&sensor->lock;
-	destroy_k_probe(p);
+    p = (struct probe *)sensor;
+	destroy_probe(p);
+	/* TODO: need to tear down lockless lists sensor->_lhead & sensor->probes */
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
 }
@@ -287,7 +286,7 @@ kthread_destroy_worker(struct kthread_worker *worker)
  * - does not initialize kwork work node, which is done by the
  *   kthreads library.
  **/
-struct kernel_sensor * init_k_sensor(struct kernel_sensor *sensor)
+struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 {
     if (!sensor) {
 		return ERR_PTR(-ENOMEM);
@@ -295,12 +294,12 @@ struct kernel_sensor * init_k_sensor(struct kernel_sensor *sensor)
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 
 /* we have an anonymous struct probe, need to initialize it.
- * the anonymous struct is the first memboer of this structure.
+ * the anonymous struct is the first member of this structure.
  */
 	init_probe((struct probe *)sensor, "Kernel Sensor");
 	init_llist_head(&sensor->l_head);
 	init_llist_head(&sensor->probes);
-	sensor->_destroy = destroy_k_sensor;
+	sensor->_destroy = destroy_kernel_sensor;
 	/* initialize the socket later when we listen*/
 	return(sensor);
 }
@@ -361,7 +360,6 @@ void  k_probe(struct kthread_work *work)
 
 /**
  * init_k_probe - initialize a kprobe that has already been allocated.
- *  - clear the kprobe memory
  *  - initialize the probe's spinlock and list head
  *  - allocates memory for the probe's ID and data
  *  - does not initialize probe->probe_work with a work node,
@@ -371,7 +369,7 @@ void  k_probe(struct kthread_work *work)
  */
 
 /**
- * note jan 3 2018: don't always zero-out a probe, prepare for
+ * TODO: note jan 3 2018: don't always zero-out a probe, prepare for
  * showing persistent data in between probes (in between probe runs)
  **/
 struct probe *init_probe(struct probe *probe, uint8_t *id)
@@ -381,7 +379,7 @@ struct probe *init_probe(struct probe *probe, uint8_t *id)
 	}
 
 	probe->init =  init_probe;
-	probe->destroy = destroy_k_probe;
+	probe->destroy = destroy_probe;
 	probe->id = kzalloc(PROBE_ID_SIZE, GFP_KERNEL);
 	if (!probe->id) {
 		return ERR_PTR(-ENOMEM);
@@ -397,8 +395,10 @@ struct probe *init_probe(struct probe *probe, uint8_t *id)
 	if (!probe->data) {
 		goto err_exit;
 	}
-
-	probe->flags = PROBE_INITIALIZED;
+/** note - data field needs to be optional, so use a flag, and later
+ *  change the init_probe signature to include a data initializer
+ **/
+	probe->flags = PROBE_INITIALIZED | PROBE_HAS_DATA_FIELD;
 	return probe;
 
 err_exit:
@@ -415,7 +415,7 @@ static void *destroy_kernel_ps_probe(struct probe *probe)
 	assert(ps_p);
 
 	if (probe->flags & PROBE_INITIALIZED) {
-		destroy_k_probe(probe);
+		destroy_probe(probe);
 	}
 
 	if (ps_p->kps_data_flex_array) {
@@ -478,7 +478,7 @@ static int __init __kcontrol_init(void)
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
 
-	if (&k_sensor != init_k_sensor(&k_sensor)) {
+	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
 	}
 	ps_probe = kzalloc(sizeof(struct kernel_ps_probe), GFP_KERNEL);

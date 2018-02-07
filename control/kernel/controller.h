@@ -61,9 +61,10 @@
 
 /* probe flag defines - need to make this into a bitmap */
 
-#define PROBE_INITIALIZED    0x01
-#define PROBE_DESTROYED      0x02
-#define PROBE_KPS            0x04
+#define PROBE_INITIALIZED       0x01
+#define PROBE_DESTROYED         0x02
+#define PROBE_KPS               0x04
+#define PROBE_HAS_DATA_FIELD    0x08
 
 /**
  * __task_cred - Access a task's objective credentials
