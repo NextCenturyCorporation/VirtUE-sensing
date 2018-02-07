@@ -182,6 +182,7 @@ void *destroy_probe(struct probe *probe)
 		probe->data = NULL;
 	}
 	if (probe->flags & PROBE_HAS_WORK) {
+		kthread_destroy_worker(&probe->worker);
 		destroy_probe_work(&probe->work);
 	}
 
@@ -191,11 +192,25 @@ void *destroy_probe(struct probe *probe)
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
 
-	struct probe *p;
+	struct probe *probe, *tmp;
+	struct llist_node *llnode ;
 	assert(sensor);
-    p = (struct probe *)sensor;
-	destroy_probe(p);
-	/* TODO: need to tear down lockless lists sensor->_lhead & sensor->probes */
+
+	/* sensor is the parent of all probes */
+	if (!llist_empty(&sensor->l_head)) {
+		llnode = llist_del_all(&sensor->l_head);
+		llist_for_each_entry_safe(probe, tmp, llnode, l_node) {
+			if (probe->flags & PROBE_KPS) {
+				((struct kernel_ps_probe *)probe)->_destroy(probe);
+			} else {
+				probe->destroy(probe);
+			}
+			kfree(probe);
+		}
+	}
+	/* now destroy the sensor's anonymous probe struct */
+    probe = (struct probe *)sensor;
+	destroy_probe(probe);
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
 }
@@ -571,24 +586,8 @@ err_exit:
  **/
 static void __exit controller_cleanup(void)
 {
-    struct probe *probe, *tmp;
-	struct llist_node *llnode ;
-
-	/* k_sensor is the parent of all probes */
-	if (!llist_empty(&k_sensor.l_head)) {
-		llnode = llist_del_all(&k_sensor.l_head);
-		llist_for_each_entry_safe(probe, tmp, llnode, l_node) {
-			kthread_destroy_worker(&probe->worker);
-			if (probe->flags & PROBE_KPS) {
-				((struct kernel_ps_probe *)probe)->_destroy(probe);
-			} else {
-				probe->destroy(probe);
-			}
-			kfree(probe);
-		}
-	}
-
 	/* destroy, but do not free the sensor */
+	/* sensor is statically allocated, no need to free it. */
 	k_sensor._destroy(&k_sensor);
 
 }
