@@ -33,39 +33,49 @@ from uuid import uuid4
 #
 # Cribbed from: https://stackoverflow.com/questions/16903528/how-to-get-response-ssl-certificate-from-requests-in-python
 #
-# We're going to patch the curequests lib directly so we can access
+# We're going to patch the curequests and requests libs directly so we can access
 # the peer cert during any of our async connections.
 
-
-# HTTPResponse = curequests.packages.urllib3.response.HTTPResponse
-# orig_HTTPResponse__init__ = HTTPResponse.__init__
-#
-#
-# def new_HTTPResponse__init__(self, *args, **kwargs):
-#     orig_HTTPResponse__init__(self, *args, **kwargs)
-#     try:
-#         print("trying to get peercert")
-#         self.peercert = self._connection.sock.getpeercert()
-#     except AttributeError:
-#         print("attribute error getting peer cert")
-#         pass
-#
-#
-# HTTPResponse.__init__ = new_HTTPResponse__init__
-
-HTTPAdapter = curequests.adapters.CuHTTPAdapter
-orig_HTTPAdapter_build_response = HTTPAdapter.build_response
+## curequests - peercert acquisition
+cuHTTPAdapter = curequests.adapters.CuHTTPAdapter
+cu_orig_HTTPAdapter_build_response = cuHTTPAdapter.build_response
 
 
-def new_HTTPAdapter_build_response(self, request, resp, conn):
-    response = orig_HTTPAdapter_build_response(self, request, resp, conn)
+def cu_new_HTTPAdapter_build_response(self, request, resp, conn):
+    response = cu_orig_HTTPAdapter_build_response(self, request, resp, conn)
     try:
         response.peercert = conn.sock.getpeercert(binary_form=True)
     except AttributeError:
         pass
     return response
-HTTPAdapter.build_response = new_HTTPAdapter_build_response
+cuHTTPAdapter.build_response = cu_new_HTTPAdapter_build_response
 
+
+## requests - peercert acquisition
+HTTPResponse = requests.packages.urllib3.response.HTTPResponse
+orig_HTTPResponse__init__ = HTTPResponse.__init__
+
+
+def new_HTTPResponse__init__(self, *args, **kwargs):
+    orig_HTTPResponse__init__(self, *args, **kwargs)
+    try:
+        self.peercert = self._connection.sock.getpeercert()
+    except AttributeError:
+        pass
+HTTPResponse.__init__ = new_HTTPResponse__init__
+
+HTTPAdapter = requests.adapters.HTTPAdapter
+orig_HTTPAdapter_build_response = HTTPAdapter.build_response
+
+
+def new_HTTPAdapter_build_response(self, request, resp):
+    response = orig_HTTPAdapter_build_response(self, request, resp)
+    try:
+        response.peercert = resp.peercert
+    except AttributeError:
+        pass
+    return response
+HTTPAdapter.build_response = new_HTTPAdapter_build_response
 
 #
 # A dummy sensor that streams log messages based off of following the
@@ -88,11 +98,21 @@ class SensorWrapper(object):
         self.sensor_name = name
         self.setup_options()
         self.opts = None
+
+        # all of our sensing methods that are called - this is the
+        # sensor specific implementation
         self.sensing_methods = sensing_methods
+
+        # track the different task groups and async tasks that
+        # we need to interact with throughout the sensor life cycle.
+        # Because we start/stop/restart multiple tasks in these
+        # groups, we can't just use anonymous or Context task groups
         self.sensing_method_task_group = None
         self.wrapper_task_group = None
-
         self.log_drain_task = None
+
+        # Keep track of the public certificate of the API server
+        self.api_public_certificate = None
 
         print("Configured with sensing methods:")
         print(sensing_methods)
@@ -210,6 +230,8 @@ class SensorWrapper(object):
             reg_res = await curequests.put(uri, json=payload, verify=ca_path, cert=(self.opts.public_key_path, self.opts.private_key_path))
 
             if reg_res.status_code == 200:
+                if not self.is_pinned_api(reg_res):
+                    sys.exit(1)
                 print("Synced sensor with Sensing API")
             else:
                 print("Couldn't sync sensor with Sensing API")
@@ -248,6 +270,9 @@ class SensorWrapper(object):
             print("  + got private key response from Sensing API")
             pki_priv_json = pki_priv_res.json()
 
+            self.api_public_certificate = pki_priv_res.peercert
+            print("  + storing API public certificate for pinning (%d bytes)" % (len(self.api_public_certificate),))
+
             return True, pki_priv_json["private_key"], pki_priv_json["certificate_request"], pki_priv_json["challenge"]
         else:
             print("  ! got status_code(%d) from the Sensing API" % (pki_priv_res.status_code,))
@@ -282,6 +307,11 @@ class SensorWrapper(object):
         pub_key_res = await curequests.put(uri, json=payload, verify=ca_path)
 
         if pub_key_res.status_code == 200:
+
+            # verify the API public key
+            if not self.is_pinned_api(pub_key_res):
+                return False, ""
+
             print("  + got a signed public key from the Sensing API")
             pub_key_json = pub_key_res.json()
 
@@ -294,6 +324,21 @@ class SensorWrapper(object):
                 for msg in res_json["messages"]:
                     print("    - %s" % (msg,))
             return False, ""
+
+    def is_pinned_api(self, response):
+        """
+        Verify the public key of the HTTPS response against the pinned API public key.
+
+        :param response:
+        :return:
+        """
+
+        if response.peercert == self.api_public_certificate:
+            print("  + pinned API certificate match")
+            return True
+        else:
+            print("  - pinned API certificate mismatch")
+            return False
 
     async def register_sensor(self, pub_key):
         """
@@ -323,9 +368,9 @@ class SensorWrapper(object):
         reg_res = await curequests.put(uri, json=payload, verify=ca_path, cert=client_cert_paths)
 
         if reg_res.status_code == 200:
-            print("Registered sensor with Sensing API")
-            print("Peer certificate is:")
-            print(reg_res.peercert)
+            if not self.is_pinned_api(reg_res):
+                sys.exit(1)
+            print("  = Got registration data: ")
             print(reg_res.json())
             return reg_res.json()
         else:
@@ -354,6 +399,9 @@ class SensorWrapper(object):
         res = requests.put(uri, data=payload, verify=ca_path, cert=(self.opts.public_key_path, self.opts.private_key_path))
 
         if res.status_code == 200:
+
+            if not self.is_pinned_api(res):
+                print("  !!! API cert pinning failed during deregistration")
             print("Deregistered sensor with Sensing API")
         else:
             print("Couldn't deregister sensor with Sensing API")
