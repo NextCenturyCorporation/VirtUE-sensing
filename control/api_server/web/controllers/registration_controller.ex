@@ -63,7 +63,7 @@ defmodule ApiServer.RegistrationController do
 
     with true <- is_sensor_id(sensor_id),
       true <- is_public_key(public_key),
-      true <- matches_client_certificate(conn, public_key),
+      true <- ApiServer.AuthenticationUtils.matches_client_certificate(conn, public_key),
          {:ok, sensor} <- ApiServer.Sensor.get(%{public_key: public_key}),
          {:ok, sensor_d} <- ApiServer.Sensor.delete(sensor)
       do
@@ -133,7 +133,7 @@ defmodule ApiServer.RegistrationController do
     # it's public key.
     with true <- is_sensor_id(sensor_id),
       true <- is_public_key(public_key),
-      true <- matches_client_certificate(conn, public_key),
+      true <- ApiServer.AuthenticationUtils.matches_client_certificate(conn, public_key),
          {:ok, sensor} <- ApiServer.Sensor.get(%{public_key: public_key}),
          {:ok, sensor_synced} <- ApiServer.Sensor.sync(sensor, save: true)
       do
@@ -241,7 +241,7 @@ defmodule ApiServer.RegistrationController do
         invalid_registration(conn, sensor, "username", username)
       ! is_public_key(public_key) ->
         invalid_registration(conn, sensor, "public_key", public_key)
-      ! matches_client_certificate(conn, public_key) ->
+      ! ApiServer.AuthenticationUtils.matches_client_certificate(conn, public_key) ->
         invalid_registration(conn, sensor, "public_key", "Client certificate and provided public key don't match")
       ! is_sensor_port(port) ->
         IO.puts IEx.Info.info(port)
@@ -253,7 +253,7 @@ defmodule ApiServer.RegistrationController do
       :true ->
 
         # can we verify that this remote sensor is actually listening for actuation?
-        case verify_remote_sensor(hostname, port, sensor) do
+        case verify_remote_sensor(hostname, port, sensor, public_key) do
 
           # remote is listening, let's register it
           :ok ->
@@ -352,29 +352,6 @@ defmodule ApiServer.RegistrationController do
        )
   end
 
-  # given the decoded certificate on the connection (the client certificate) and a provided
-  # public key, verify that they are one and the same
-  defp matches_client_certificate(%Plug.Conn{private: %{client_certificate: certificate}}, pub_key) do
-
-    IO.puts("  == verifying client certificate and provided public key match")
-
-    # convert the pubkey (in PEM form) into a DER encoding
-    [{_, der_cert, _}] = :public_key.pem_decode(pub_key)
-
-    # convert the client certificate into the proper encoding
-    client_der_cert = :public_key.pkix_encode(:"OTPCertificate", certificate, :otp)
-
-    # are they the same?
-    case client_der_cert == der_cert do
-      true ->
-        IO.puts("    == True")
-        true
-      false ->
-        IO.puts("    == False")
-        false
-    end
-  end
-
   @doc """
   Send a verification ping to a remote sensor.
 
@@ -394,7 +371,7 @@ defmodule ApiServer.RegistrationController do
     - :ok - sensor verified
     - :error - verification failed
   """
-  def verify_remote_sensor(hostname, port, sensor) do
+  def verify_remote_sensor(hostname, port, sensor, pinned_key) do
 
     # root CA to the HTTPoison hackney instance, with something like:
     #
@@ -405,7 +382,7 @@ defmodule ApiServer.RegistrationController do
     # let's send out our verification ping
     verification_url = "https://#{hostname}:#{port}/sensor/#{sensor}/registered"
     IO.puts("  = remote verifcation uri(#{verification_url})")
-    case HTTPoison.get(verification_url, [], [ssl: [cacertfile: Application.get_env(:api_server, :ca_cert_file)], timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
+    case HTTPoison.get(verification_url, [], [ssl: [{:cacertfile, Application.get_env(:api_server, :ca_cert_file)}, {:verify_fun, {&ApiServer.AuthenticationUtils.pin_verify/3, {:pin, pinned_key}}}, {:verify, :verify_none}], timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
 
       {:ok, %HTTPoison.Response{status_code: 200, body: _}} ->
         IO.puts("  + sensor(id=#{sensor}) verified with direct ping")
