@@ -63,6 +63,7 @@ defmodule ApiServer.RegistrationController do
 
     with true <- is_sensor_id(sensor_id),
       true <- is_public_key(public_key),
+      true <- matches_client_certificate(conn, public_key),
          {:ok, sensor} <- ApiServer.Sensor.get(%{public_key: public_key}),
          {:ok, sensor_d} <- ApiServer.Sensor.delete(sensor)
       do
@@ -132,6 +133,7 @@ defmodule ApiServer.RegistrationController do
     # it's public key.
     with true <- is_sensor_id(sensor_id),
       true <- is_public_key(public_key),
+      true <- matches_client_certificate(conn, public_key),
          {:ok, sensor} <- ApiServer.Sensor.get(%{public_key: public_key}),
          {:ok, sensor_synced} <- ApiServer.Sensor.sync(sensor, save: true)
       do
@@ -239,6 +241,8 @@ defmodule ApiServer.RegistrationController do
         invalid_registration(conn, sensor, "username", username)
       ! is_public_key(public_key) ->
         invalid_registration(conn, sensor, "public_key", public_key)
+      ! matches_client_certificate(conn, public_key) ->
+        invalid_registration(conn, sensor, "public_key", "Client certificate and provided public key don't match")
       ! is_sensor_port(port) ->
         IO.puts IEx.Info.info(port)
         invalid_registration(conn, sensor, "port", port)
@@ -346,6 +350,29 @@ defmodule ApiServer.RegistrationController do
            msg: "One or more missing fields in the registration payload"
          }
        )
+  end
+
+  # given the decoded certificate on the connection (the client certificate) and a provided
+  # public key, verify that they are one and the same
+  defp matches_client_certificate(%Plug.Conn{private: %{client_certificate: certificate}}, pub_key) do
+
+    IO.puts("  == verifying client certificate and provided public key match")
+
+    # convert the pubkey (in PEM form) into a DER encoding
+    [{_, der_cert, _}] = :public_key.pem_decode(pub_key)
+
+    # convert the client certificate into the proper encoding
+    client_der_cert = :public_key.pkix_encode(:"OTPCertificate", certificate, :otp)
+
+    # are they the same?
+    case client_der_cert == der_cert do
+      true ->
+        IO.puts("    == True")
+        true
+      false ->
+        IO.puts("    == False")
+        false
+    end
   end
 
   @doc """
