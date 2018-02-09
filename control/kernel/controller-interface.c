@@ -21,7 +21,7 @@
  * 3) struct probe_s probe_struct *probe_work  using container_of()
  */
 
-void  k_probe(struct kthread_work *work)
+void  __k_probe(struct kthread_work *work)
 {
 #ifdef NOTHING
     struct kernel_sensor *ks =

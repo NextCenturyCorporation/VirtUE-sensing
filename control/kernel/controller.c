@@ -489,6 +489,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 		ps_p->print = print_kernel_ps;
 	}
 
+	ps_p->ps = kernel_ps;
 	ps_p->kps_data_flex_array =
 		flex_array_alloc(PS_DATA_SIZE, PS_ARRAY_SIZE, GFP_KERNEL);
 
@@ -515,7 +516,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	CONT_QUEUE_WORK(&ps_p->worker,
 					&ps_p->work);
 	kthread_run(kthread_worker_fn, &ps_p->worker,
-				"kernel-ps\%lx", (unsigned long)ps_p);
+				"kernel-ps");
 	return ps_p;
 
 err_free_flex_array:
@@ -533,7 +534,7 @@ err_exit:
  * the worker will dequeue the work and run work->func(work),
  * then someone needs to decide if the work should be requeued.
  **/
-static int __init __kcontrol_init(void)
+static int __init kcontrol_init(void)
 {
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
@@ -541,9 +542,9 @@ static int __init __kcontrol_init(void)
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
 	}
+
 	ps_probe = kzalloc(sizeof(struct kernel_ps_probe), GFP_KERNEL);
 	if (!ps_probe) {
-		DMSG();
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
@@ -554,7 +555,6 @@ static int __init __kcontrol_init(void)
 						 print_kernel_ps);
 
 	if (ps_probe == ERR_PTR(-ENOMEM)) {
-		DMSG();
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
@@ -587,11 +587,12 @@ static void __exit controller_cleanup(void)
 {
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
+
 	k_sensor._destroy(&k_sensor);
 
 }
 
-module_init(__kcontrol_init);
+module_init(kcontrol_init);
 module_exit(controller_cleanup);
 
 MODULE_LICENSE(_MODULE_LICENSE);
