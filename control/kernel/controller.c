@@ -181,11 +181,8 @@ void *destroy_probe(struct probe *probe)
 		kfree(probe->data);
 		probe->data = NULL;
 	}
-/* TODO: audit kernel/kthread.c to make sure we are not double-dequeueing
-   work- e...g. is flush_kthread_worker sufficient */
 	if (probe->flags & PROBE_HAS_WORK) {
 		kthread_destroy_worker(&probe->worker);
-		destroy_probe_work(&probe->work);
 	}
 
 	return probe;
