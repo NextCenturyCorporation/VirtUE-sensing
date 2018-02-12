@@ -24,9 +24,10 @@
 #include "controller-linux.h"
 #include "controller.h"
 
-/**
- * move these into struct kernel_ps_probe
- **/
+
+struct kernel_sensor k_sensor;
+struct kernel_ps_probe kps_probe;
+
 static unsigned int ps_repeat = 1;
 static unsigned int ps_timeout = 60;
 
@@ -38,9 +39,6 @@ MODULE_PARM_DESC(ps_timeout,
 				 "How many seconds to sleep in between calls to the kernel " \
 				 "ps function");
 
-LLIST_HEAD(sensors);
-
-struct kernel_sensor k_sensor;
 
 /** locking the kernel-ps flex_array
  * to write to or read from the pre-allocated flex array parts,
@@ -204,7 +202,10 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			} else {
 				probe->destroy(probe);
 			}
-			kfree(probe);
+			/**
+			 * we want probes to be statically allocated, no need
+			 * to free them here
+			 **/
 		}
 	}
 	/* now destroy the sensor's anonymous probe struct */
@@ -543,13 +544,7 @@ static int __init kcontrol_init(void)
 		return -ENOMEM;
 	}
 
-	ps_probe = kzalloc(sizeof(struct kernel_ps_probe), GFP_KERNEL);
-	if (!ps_probe) {
-		ccode = -ENOMEM;
-		goto err_exit;
-	}
-
-	ps_probe = init_kernel_ps_probe(ps_probe,
+	ps_probe = init_kernel_ps_probe(&kps_probe,
 						 "Kernel PS Probe",
 						 strlen("Kernel PS Probe") + 1,
 						 print_kernel_ps);
