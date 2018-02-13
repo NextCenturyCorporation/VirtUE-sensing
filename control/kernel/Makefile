@@ -20,3 +20,18 @@ clean:
 		rm uname.h &>/dev/null
 
 
+.PHONY: lint
+lint:
+	find . -name "*.c"  -exec cppcheck --force {} \;
+	find . -name "*.h"  -exec cppcheck --force {} \;
+
+.PHONY: pretty
+pretty:
+	find . -name "*.c"  -exec indent -bsd {} \;
+	find . -name "*.h"  -exec indent -bsd {} \;
+
+.PHONY: trim
+trim:
+	find ./ -name "*.c" | xargs ttws.sh
+	find ./ -name "*.h" | xargs ttws.sh
+	find ./ -name "Makefile" | xargs ttws.sh
