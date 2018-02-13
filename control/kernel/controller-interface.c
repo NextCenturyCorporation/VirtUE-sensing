@@ -21,17 +21,21 @@
  * 3) struct probe_s probe_struct *probe_work  using container_of()
  */
 
-void  __k_probe(struct kthread_work *work)
+void  k_sensor_sock(struct kthread_work *work)
 {
-#ifdef NOTHING
-    struct kernel_sensor *ks =
+	struct kthread_worker *worker = work->worker;
+
+
+
+
+	struct kernel_sensor *ks =
 		(struct kernel_sensor *)container_of(&work, struct kernel_sensor, kwork);
 	struct probe_s *k_probe =
 		(struct probe_s *)container_of(&work, struct probe_s, probe_work);
 
 	do
 	{
-		if (l->sock == accept_controller_sock(    );
+		if (l->sock == accept_controller_sock();
 			if (l->sock < 0)
 			{
 				printk (KERN_ALERT "accept on %p failed with code %d\n",
@@ -81,7 +85,7 @@ void  __k_probe(struct kthread_work *work)
 	} while (! l_probe->quit );
 	if (l_probe->client_fd >= 0)
 		close (l_probe->client_fd);
-#endif
+
 	return;
 }
 

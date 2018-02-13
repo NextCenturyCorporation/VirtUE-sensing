@@ -307,6 +307,87 @@ struct kernel_ps_probe {
 
 
 
+/**
+ * @brief The kernel sensor is the parent of one or more probes
+ *
+ * The Kernel Sensor  is similar to its child probes in the sense
+ * it uses kernel threads (kthreads) to run tasks. However, rather than
+ * probe kernel instrumentation, it runs tasks to manage and service
+ * its child probes. For example, presenting a socket interface
+ * to user space.
+ *
+ * members:
+ *
+ * lock is a resource available to manage exclusive
+ *      access to the kernel_sensor
+ * flags is a bit mask that will hold information for the
+ *       kernel sensor
+ * id is meant to uniqueily identify the sensor,
+ *     it should point to allocated memory passed to the
+ *     kernel sensor in the init call.
+ * struct kernel_sensor *(*init)(struct kernel_sensor *sensor, uint8_t *id)
+ *     initializes memory that has already been allocated to have working
+ *     semsor resources.
+ * void *(*destroy)(struct kernel_sensor *sensor) will tear down resources,
+ *      destroy child probes, de-schedule kernel threads, and zero-out sensor
+ *      memory. It does not free sensor memory.
+ * kwork and kworker are kernel structures to run sensor tasks.
+ * l_head is the head of the lockless probe list. Each child probe is
+ *      linked to this list
+ * s is a unix domain socket used to communicate with user space.
+ **/
+
+
+
+/**
+ * struct socket: include/linux/net.h: 110
+ **/
+struct listen {
+	struct socket l;
+	void *arg;
+};
+
+struct accepted
+{
+	struct socket a;
+	void *arg;
+	struct kthread_worker worker;
+	struct kthread_work work;
+	struct llist_node l_node;
+};
+
+
+/**
+ * kthread runs in a loop listening on listen.l
+ * accepted sockets are in struct accepted.a and then
+ * linked into list accepted as nodes.
+ * each accepted also runs as a kthread
+ * normally there will be one listener and one accepted sock,
+ * because this is a domain socket.
+ **/
+struct listener
+{
+	struct listen listen;
+	struct kthread_worker worker;
+	struct kthread_work work;
+	struct llist_node l_node;
+	struct llist_head accepted;
+};
+
+
+
+
+
+
+struct kernel_sensor {
+	struct probe;
+	struct kernel_sensor (*_init)(struct kernel_sensor *, uint8_t *);
+	void *(*_destroy)(struct kernel_sensor *);
+	struct llist_head l_head;
+	struct llist_head probes;;
+};
+
+
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
  */
@@ -348,46 +429,6 @@ int retrieve_probe(uint8_t *probe_id,
 uint64_t update_probe(uint8_t *probe_id,
 					  uint8_t *update,
 					  int update_size);
-
-
-/**
- * @brief The kernel sensor is the parent of one or more probes
- *
- * The Kernel Sensor  is similar to its child probes in the sense
- * it uses kernel threads (kthreads) to run tasks. However, rather than
- * probe kernel instrumentation, it runs tasks to manage and service
- * its child probes. For example, presenting a socket interface
- * to user space.
- *
- * members:
- *
- * lock is a resource available to manage exclusive
- *      access to the kernel_sensor
- * flags is a bit mask that will hold information for the
- *       kernel sensor
- * id is meant to uniqueily identify the sensor,
- *     it should point to allocated memory passed to the
- *     kernel sensor in the init call.
- * struct kernel_sensor *(*init)(struct kernel_sensor *sensor, uint8_t *id)
- *     initializes memory that has already been allocated to have working
- *     semsor resources.
- * void *(*destroy)(struct kernel_sensor *sensor) will tear down resources,
- *      destroy child probes, de-schedule kernel threads, and zero-out sensor
- *      memory. It does not free sensor memory.
- * kwork and kworker are kernel structures to run sensor tasks.
- * l_head is the head of the lockless probe list. Each child probe is
- *      linked to this list
- * s is a unix domain socket used to communicate with user space.
-**/
-
-struct kernel_sensor {
-	struct probe;
-	struct kernel_sensor (*_init)(struct kernel_sensor *, uint8_t *);
-	void *(*_destroy)(struct kernel_sensor *);
-	struct llist_head l_head;
-	struct llist_head probes;
-	struct unix_sock s;
-};
 
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
