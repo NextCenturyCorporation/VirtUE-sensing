@@ -29,7 +29,7 @@ struct kernel_sensor k_sensor;
 struct kernel_ps_probe kps_probe;
 
 static unsigned int ps_repeat = 1;
-static unsigned int ps_timeout = 60;
+static unsigned int ps_timeout = 1;
 
 module_param(ps_repeat, uint, 0644);
 module_param(ps_timeout, uint, 0644);
@@ -79,11 +79,8 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 	for (index = 0; index < PS_ARRAY_SIZE; index++)  {
 		kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
 		if (kpsd_p->nonce != nonce) {
-		    printk(KERN_INFO "print_kernel_ps exiting NONCE %llx KPSD NONCE: %llx\n",
-				   nonce, kpsd_p->nonce);
 			break;
 		}
-
 		printk(KERN_INFO "%s %d:%d %s [%d] [%d] [%llx]\n",
 			   tag, count, index, kpsd_p->comm, kpsd_p->pid_nr,
 			   kpsd_p->user_id.val, nonce);
@@ -170,18 +167,23 @@ void *destroy_probe_work(struct kthread_work *work)
 void *destroy_probe(struct probe *probe)
 {
 	assert(probe && (probe->flags & PROBE_INITIALIZED));
-
+	probe->flags &= ~PROBE_INITIALIZED;
 	if (probe->id && (probe->flags & PROBE_HAS_ID_FIELD)) {
 		kfree(probe->id);
 		probe->id = NULL;
+		probe->flags &= ~PROBE_HAS_ID_FIELD;
 	}
 	if (probe->data && (probe->flags & PROBE_HAS_DATA_FIELD)) {
 		kfree(probe->data);
 		probe->data = NULL;
+		probe->flags &= ~PROBE_HAS_DATA_FIELD;
+
 	}
 	if (probe->flags & PROBE_HAS_WORK) {
 		kthread_destroy_worker(&probe->worker);
+		probe->flags &= ~PROBE_HAS_WORK;
 	}
+	probe->flags &= ~PROBE_INITIALIZED;
 
 	return probe;
 }
@@ -194,8 +196,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
-	if (!llist_empty(&sensor->l_head)) {
-		llnode = llist_del_all(&sensor->l_head);
+	if (!llist_empty(&sensor->probes)) {
+		llnode = llist_del_all(&sensor->probes);
 		llist_for_each_entry_safe(probe, tmp, llnode, l_node) {
 			if (probe->flags & PROBE_KPS) {
 				((struct kernel_ps_probe *)probe)->_destroy(probe);
@@ -317,7 +319,6 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 	init_probe((struct probe *)sensor,
 			   "Kernel Sensor", strlen("Kernel Sensor") + 1,
 			   NULL, -1);
-	init_llist_head(&sensor->l_head);
 	init_llist_head(&sensor->probes);
 	sensor->_destroy = destroy_kernel_sensor;
 	/* initialize the socket later when we listen*/
@@ -431,6 +432,7 @@ struct probe *init_probe(struct probe *probe,
 err_exit:
 	if (probe->id && (probe->flags & PROBE_HAS_ID_FIELD)) {
 		kfree(probe->id);
+		probe->flags &= ~PROBE_HAS_ID_FIELD;
 	}
 	return ERR_PTR(-ENOMEM);
 }
@@ -440,6 +442,7 @@ static void *destroy_kernel_ps_probe(struct probe *probe)
 {
 	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)probe;
 	assert(ps_p);
+	assert(ps_p->flags & PROBE_KPS);
 
 	if (probe->flags & PROBE_INITIALIZED) {
 		destroy_probe(probe);
@@ -475,10 +478,13 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 		goto err_exit;
 	}
 
+
 	/** init timeout and repeat
 	 * they are passed on the command line, or (eventually) read
 	 * from sysfs
      **/
+	ps_p->flags |= PROBE_KPS;
+
 	ps_p->timeout = ps_timeout;
 	ps_p->repeat = ps_repeat;
 
@@ -506,7 +512,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 		goto err_free_flex_array;
 	}
 
-	printk(KERN_INFO "PS_DATA_SIZE %ld PS_ARRAY_SIZE %ld\n",
+	printk(KERN_INFO "kernel-ps PS_DATA_SIZE %ld PS_ARRAY_SIZE %ld\n",
 		   PS_DATA_SIZE, PS_ARRAY_SIZE);
 
 
@@ -555,7 +561,7 @@ static int __init kcontrol_init(void)
 	}
 
 	/* link this probe to the sensor struct */
-	if (! llist_add(&ps_probe->l_node, &k_sensor.l_head)) {
+	if (! llist_add(&ps_probe->l_node, &k_sensor.probes)) {
 		ccode = -EINVAL;
 		goto err_exit;
 	}
@@ -563,7 +569,6 @@ static int __init kcontrol_init(void)
 	return ccode;
 
 err_exit:
-	DMSG();
 	if (ps_probe != ERR_PTR(-ENOMEM)) {
 		if (ps_probe->flags & PROBE_INITIALIZED) {
 			ps_probe->_destroy((struct probe *)ps_probe);

@@ -347,8 +347,7 @@ struct listen {
 	void *arg;
 };
 
-struct accepted
-{
+struct accepted {
 	struct socket a;
 	void *arg;
 	struct kthread_worker worker;
@@ -375,16 +374,12 @@ struct listener
 };
 
 
-
-
-
-
 struct kernel_sensor {
 	struct probe;
 	struct kernel_sensor (*_init)(struct kernel_sensor *, uint8_t *);
 	void *(*_destroy)(struct kernel_sensor *);
-	struct llist_head l_head;
-	struct llist_head probes;;
+	struct llist_head probes;
+	struct llist_head listeners;
 };
 
 

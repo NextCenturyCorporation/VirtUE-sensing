@@ -20,6 +20,7 @@
 /*#include <trace/ftrace.h>*/
 #include <linux/llist.h>
 #include <linux/flex_array.h>
+#include <linux/net.h>
 #include <linux/socket.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>

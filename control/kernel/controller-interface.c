@@ -20,7 +20,7 @@
  * 2) struct kthread_worker work->worker
  * 3) struct probe_s probe_struct *probe_work  using container_of()
  */
-
+#ifdef NOTHING
 void  k_sensor_sock(struct kthread_work *work)
 {
 	struct kthread_worker *worker = work->worker;
@@ -88,7 +88,7 @@ void  k_sensor_sock(struct kthread_work *work)
 
 	return;
 }
-
+#endif
 #ifdef NOTHING
 /* Returns a linux kernel soket strukture that is listening and capable
  * of reproducing
