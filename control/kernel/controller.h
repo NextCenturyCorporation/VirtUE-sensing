@@ -331,31 +331,10 @@ struct kernel_ps_probe {
 /**
  * struct socket: include/linux/net.h: 110
  **/
-struct listen {
-	struct socket l;
-	void *arg;
-};
-
-struct accepted {
+struct connection {
 	struct probe;
-	struct socket accepted;
+	struct socket connected;
 };
-
-
-/**
- * kthread runs in a loop listening on listen.l
- * accepted sockets are in struct accepted.a and then
- * linked into list accepted as nodes.
- * each accepted also runs as a kthread
- * normally there will be one listener and one accepted sock,
- * because this is a domain socket.
- **/
-struct listener
-{
-	struct probe;
-	struct socket listener;
-};
-
 
 struct kernel_sensor {
 	struct probe;
@@ -363,6 +342,7 @@ struct kernel_sensor {
 	void *(*_destroy)(struct kernel_sensor *);
 	struct llist_head probes;
 	struct llist_head listeners;
+	struct llist_head connections;
 };
 
 

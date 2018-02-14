@@ -191,14 +191,15 @@ void *destroy_probe(struct probe *probe)
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
 
-	struct probe *probe, *tmp;
+	struct probe *probe, *tmp_p;
+	struct connection *connection, *tmp_c;
 	struct llist_node *llnode ;
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
 	if (!llist_empty(&sensor->probes)) {
 		llnode = llist_del_all(&sensor->probes);
-		llist_for_each_entry_safe(probe, tmp, llnode, l_node) {
+		llist_for_each_entry_safe(probe, tmp_p, llnode, l_node) {
 			if (__FLAG_IS_SET(probe->flags, PROBE_KPS)) {
 				((struct kernel_ps_probe *)probe)->_destroy(probe);
 			} else {
@@ -210,7 +211,26 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 **/
 		}
 	}
-	/* now destroy the sensor's anonymous probe struct */
+
+	if (!llist_empty(&sensor->listeners)) {
+		llnode = llist_del_all(&sensor->listeners);
+		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_LISTENER)) {
+				;
+			}
+		}
+	}
+
+	if (!llist_empty(&sensor->connections)) {
+		llnode = llist_del_all(&sensor->connections);
+		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_CONNECTED)) {
+				;
+			}
+		}
+	}
+
+/* now destroy the sensor's anonymous probe struct */
     probe = (struct probe *)sensor;
 	destroy_probe(probe);
 	memset(sensor, 0, sizeof(struct kernel_sensor));
@@ -320,6 +340,8 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 			   "Kernel Sensor", strlen("Kernel Sensor") + 1,
 			   NULL, -1);
 	init_llist_head(&sensor->probes);
+	init_llist_head(&sensor->listeners);
+	init_llist_head(&sensor->connections);
 	sensor->_destroy = destroy_kernel_sensor;
 	/* initialize the socket later when we listen*/
 	return(sensor);
