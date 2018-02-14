@@ -22,6 +22,9 @@
  *******************************************************************/
 #ifndef _CONTROLLER_H
 #define _CONTROLLER_H
+#include "controller-linux.h"
+#include "uname.h"
+#include "controller-flags.h"
 
 #define _MODULE_LICENSE "GPL v2"
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
@@ -30,8 +33,6 @@
 /* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
  */
-
-#include "uname.h"
 
 /* - - probe - -
  *
@@ -55,18 +56,6 @@
 
 
 
-//#define PROBE_ID_SIZE       0x1000
-//#define PROBE_DATA_SIZE     0x4000
-#define PS_HEADER_SIZE      0x100
-
-/* probe flag defines - need to make this into a bitmap */
-
-#define PROBE_INITIALIZED       0x01
-#define PROBE_DESTROYED         0x02
-#define PROBE_KPS               0x04
-#define PROBE_HAS_DATA_FIELD    0x08
-#define PROBE_HAS_ID_FIELD      0x10
-#define PROBE_HAS_WORK          0x20
 /**
  * __task_cred - Access a task's objective credentials
  * @task: The task to query
@@ -348,11 +337,8 @@ struct listen {
 };
 
 struct accepted {
-	struct socket a;
-	void *arg;
-	struct kthread_worker worker;
-	struct kthread_work work;
-	struct llist_node l_node;
+	struct probe;
+	struct socket accepted;
 };
 
 
@@ -366,11 +352,8 @@ struct accepted {
  **/
 struct listener
 {
-	struct listen listen;
-	struct kthread_worker worker;
-	struct kthread_work work;
-	struct llist_node l_node;
-	struct llist_head accepted;
+	struct probe;
+	struct socket listener;
 };
 
 

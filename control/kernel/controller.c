@@ -166,25 +166,25 @@ void *destroy_probe_work(struct kthread_work *work)
  */
 void *destroy_probe(struct probe *probe)
 {
-	assert(probe && (probe->flags & PROBE_INITIALIZED));
-	probe->flags &= ~PROBE_INITIALIZED;
-	if (probe->id && (probe->flags & PROBE_HAS_ID_FIELD)) {
+	assert(probe && __FLAG_IS_SET(probe->flags, PROBE_INITIALIZED));
+	__CLEAR_FLAG(probe->flags, PROBE_INITIALIZED);
+
+	if (probe->id &&
+		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
 		kfree(probe->id);
 		probe->id = NULL;
-		probe->flags &= ~PROBE_HAS_ID_FIELD;
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
 	}
-	if (probe->data && (probe->flags & PROBE_HAS_DATA_FIELD)) {
+		if (probe->data &&
+			__FLAG_IS_SET(probe->flags, PROBE_HAS_DATA_FIELD)) {
 		kfree(probe->data);
 		probe->data = NULL;
-		probe->flags &= ~PROBE_HAS_DATA_FIELD;
-
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_DATA_FIELD);
 	}
-	if (probe->flags & PROBE_HAS_WORK) {
+		if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
 		kthread_destroy_worker(&probe->worker);
-		probe->flags &= ~PROBE_HAS_WORK;
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
 	}
-	probe->flags &= ~PROBE_INITIALIZED;
-
 	return probe;
 }
 
@@ -199,7 +199,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	if (!llist_empty(&sensor->probes)) {
 		llnode = llist_del_all(&sensor->probes);
 		llist_for_each_entry_safe(probe, tmp, llnode, l_node) {
-			if (probe->flags & PROBE_KPS) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_KPS)) {
 				((struct kernel_ps_probe *)probe)->_destroy(probe);
 			} else {
 				probe->destroy(probe);
@@ -409,7 +409,7 @@ struct probe *init_probe(struct probe *probe,
 		if (!probe->id) {
 			return ERR_PTR(-ENOMEM);
 		}
-		probe->flags |= PROBE_HAS_ID_FIELD;
+		__SET_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
 		memcpy(probe->id, id, id_size);
 	}
 
@@ -418,7 +418,7 @@ struct probe *init_probe(struct probe *probe,
 		if (!probe->data) {
 			goto err_exit;
 		}
-		probe->flags |= PROBE_HAS_DATA_FIELD;
+		__SET_FLAG(probe->flags, PROBE_HAS_DATA_FIELD);
 		memcpy(probe->data, data, data_size);
 	}
 
@@ -426,13 +426,13 @@ struct probe *init_probe(struct probe *probe,
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */
 
-	probe->flags |= PROBE_INITIALIZED;
+	__SET_FLAG(probe->flags, PROBE_INITIALIZED);
 	return probe;
 
 err_exit:
-	if (probe->id && (probe->flags & PROBE_HAS_ID_FIELD)) {
+	if (probe->id && __FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
 		kfree(probe->id);
-		probe->flags &= ~PROBE_HAS_ID_FIELD;
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
 	}
 	return ERR_PTR(-ENOMEM);
 }
@@ -441,10 +441,9 @@ err_exit:
 static void *destroy_kernel_ps_probe(struct probe *probe)
 {
 	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)probe;
-	assert(ps_p);
-	assert(ps_p->flags & PROBE_KPS);
+	assert(ps_p && __FLAG_IS_SET(ps_p->flags, PROBE_KPS));
 
-	if (probe->flags & PROBE_INITIALIZED) {
+	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
 		destroy_probe(probe);
 	}
 
@@ -483,7 +482,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	 * they are passed on the command line, or (eventually) read
 	 * from sysfs
      **/
-	ps_p->flags |= PROBE_KPS;
+	__SET_FLAG(ps_p->flags, PROBE_KPS);
 
 	ps_p->timeout = ps_timeout;
 	ps_p->repeat = ps_repeat;
@@ -518,7 +517,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 
 /* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&ps_p->work, k_probe);
-	ps_p->flags |= PROBE_HAS_WORK;
+	__SET_FLAG(ps_p->flags, PROBE_HAS_WORK);
 	CONT_INIT_WORKER(&ps_p->worker);
 	CONT_QUEUE_WORK(&ps_p->worker,
 					&ps_p->work);
@@ -570,7 +569,7 @@ static int __init kcontrol_init(void)
 
 err_exit:
 	if (ps_probe != ERR_PTR(-ENOMEM)) {
-		if (ps_probe->flags & PROBE_INITIALIZED) {
+		if (__FLAG_IS_SET(ps_probe->flags, PROBE_INITIALIZED)) {
 			ps_probe->_destroy((struct probe *)ps_probe);
 		}
 		kfree(ps_probe);
