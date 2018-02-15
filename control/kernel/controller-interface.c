@@ -8,18 +8,21 @@
 
 /* hold socket JSON probe interface */
 
+struct connection *
+init_connection(struct connection *c, uint64_t flags, void *p)
+{
+	assert(c);
+	assert(__FLAG_IS_SET(flags, PROBE_LISTEN) ||
+		   __FLAG_IS_SET(flags, PROBE_CONNECT));
 
-/* A probe routine is a kthread  worker, called from kernel thread.
- * it needs to execute quickly and can't hold any locks or
- * blocking objects. Once it runs once, it must be re-initialized
- * and re-queued to run again...see /include/linux/kthread.h
+	memset(c, 0x00, sizeof(struct connection));
+	c = (struct connection *)init_probe((struct probe *)c,
+										"connection", strlen("connection") + 1);
+	return c;
+}
 
- * The probe is the low-level struct that we want to get into, it has
- * the keys to the other state information. We want to get:
- * 1) struct kthread_work *work.
- * 2) struct kthread_worker work->worker
- * 3) struct probe_s probe_struct *probe_work  using container_of()
- */
+
+
 #ifdef NOTHING
 void  k_sensor_sock(struct kthread_work *work)
 {

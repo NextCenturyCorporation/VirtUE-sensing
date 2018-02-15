@@ -242,7 +242,7 @@ struct kernel_lsof_data {
 struct probe {
 	spinlock_t lock;
 	uint8_t *id;
-	struct probe *(*init)(struct probe *, uint8_t *, int, uint8_t *, int);
+	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
 	int (*send_msg)(struct probe *, int, void *);
 	int (*rcv_msg)(struct probe *, int, void **);
@@ -251,7 +251,6 @@ struct probe {
 	struct kthread_worker worker;
 	struct kthread_work work;
 	struct llist_node l_node;
-	uint8_t *data;
 };
 
 
@@ -331,14 +330,27 @@ struct kernel_ps_probe {
 /**
  * struct socket: include/linux/net.h: 110
  **/
+/* connection struct is used for both listening and connected sockets */
+/* function pointers for listen, accept, close */
 struct connection {
 	struct probe;
+	/**
+	 * _init parameters:
+	 * uint64_t flags - will have the PROBE_LISTENER or PROBE_CONNECTED bit set
+	 * void * data depends on the value of flags:
+	 *    if __FLAG_IS_SET(flags, PROBE_LISTENER), then data points to a
+	 *    string in the form of "/var/run/socket-name".
+	 *    if __FLAG_IS_SET(flags, PROBE_CONNECTED, then data points to a
+	 *    struct socket
+	 **/
+	struct connection *(*_init)(struct connection *, uint64_t, void *);
+	void *(*_destroy)(struct connection *);
 	struct socket connected;
 };
 
 struct kernel_sensor {
 	struct probe;
-	struct kernel_sensor (*_init)(struct kernel_sensor *, uint8_t *);
+	struct kernel_sensor *(*_init)(struct kernel_sensor *);
 	void *(*_destroy)(struct kernel_sensor *);
 	struct llist_head probes;
 	struct llist_head listeners;
@@ -357,8 +369,7 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...);
 void kthread_destroy_worker(struct kthread_worker *worker);
 
 struct probe *init_probe(struct probe *probe,
-						 uint8_t *id,  int id_size,
-						 uint8_t *data, int data_size);
+						 uint8_t *id,  int id_size);
 void *destroy_probe_work(struct kthread_work *work);
 void *destroy_k_probe(struct probe *probe);
 

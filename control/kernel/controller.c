@@ -175,13 +175,8 @@ void *destroy_probe(struct probe *probe)
 		probe->id = NULL;
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
 	}
-		if (probe->data &&
-			__FLAG_IS_SET(probe->flags, PROBE_HAS_DATA_FIELD)) {
-		kfree(probe->data);
-		probe->data = NULL;
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_DATA_FIELD);
-	}
-		if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
+
+	if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
 		kthread_destroy_worker(&probe->worker);
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
 	}
@@ -215,7 +210,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	if (!llist_empty(&sensor->listeners)) {
 		llnode = llist_del_all(&sensor->listeners);
 		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_LISTENER)) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_LISTEN)) {
 				;
 			}
 		}
@@ -224,7 +219,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	if (!llist_empty(&sensor->connections)) {
 		llnode = llist_del_all(&sensor->connections);
 		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_CONNECTED)) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_CONNECT)) {
 				;
 			}
 		}
@@ -337,8 +332,8 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
  * the anonymous struct is the first member of this structure.
  */
 	init_probe((struct probe *)sensor,
-			   "Kernel Sensor", strlen("Kernel Sensor") + 1,
-			   NULL, -1);
+			   "Kernel Sensor", strlen("Kernel Sensor") + 1);
+	sensor->_init = init_kernel_sensor;
 	init_llist_head(&sensor->probes);
 	init_llist_head(&sensor->listeners);
 	init_llist_head(&sensor->connections);
@@ -417,8 +412,7 @@ void  k_probe(struct kthread_work *work)
  **/
 
 struct probe *init_probe(struct probe *probe,
-						 uint8_t *id, int id_size,
-						 uint8_t *data, int data_size)
+						 uint8_t *id, int id_size)
 {
 	if (!probe) {
 		return ERR_PTR(-ENOMEM);
@@ -432,16 +426,12 @@ struct probe *init_probe(struct probe *probe,
 			return ERR_PTR(-ENOMEM);
 		}
 		__SET_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
-		memcpy(probe->id, id, id_size);
-	}
-
-	if (data && data_size > 0) {
-		probe->data = kzalloc(data_size, GFP_KERNEL);
-		if (!probe->data) {
-			goto err_exit;
-		}
-		__SET_FLAG(probe->flags, PROBE_HAS_DATA_FIELD);
-		memcpy(probe->data, data, data_size);
+/**
+ * memcpy the number of chars minus the null terminator,
+ * which is already NULL. make sure to call this with
+ * stlen(id) + 1 as the length of the id field.
+ **/
+		memcpy(probe->id, id, id_size - 1);
 	}
 
 	probe->lock=__SPIN_LOCK_UNLOCKED("probe");
@@ -450,14 +440,8 @@ struct probe *init_probe(struct probe *probe,
 
 	__SET_FLAG(probe->flags, PROBE_INITIALIZED);
 	return probe;
-
-err_exit:
-	if (probe->id && __FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
-		kfree(probe->id);
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
-	}
-	return ERR_PTR(-ENOMEM);
 }
+
 
 
 static void *destroy_kernel_ps_probe(struct probe *probe)
@@ -491,7 +475,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
 	/* init the anonymous struct probe */
 
-	tmp = init_probe((struct probe *)ps_p, id, id_len, NULL, -1);
+	tmp = init_probe((struct probe *)ps_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
 	if (ps_p != (struct kernel_ps_probe *)tmp) {
