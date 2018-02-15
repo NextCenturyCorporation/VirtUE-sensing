@@ -7,17 +7,33 @@
 #include "jsmn/jsmn.h"
 
 /* hold socket JSON probe interface */
-
 struct connection *
 init_connection(struct connection *c, uint64_t flags, void *p)
 {
 	assert(c);
+	assert(p);
 	assert(__FLAG_IS_SET(flags, PROBE_LISTEN) ||
 		   __FLAG_IS_SET(flags, PROBE_CONNECT));
+	assert(! (__FLAG_IS_SET(flags, PROBE_LISTEN) &&
+			  __FLAG_IS_SET(flags, PROBE_CONNECT)));
+
 
 	memset(c, 0x00, sizeof(struct connection));
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
+	if (__FLAG_IS_SET(flags, PROBE_LISTEN)) {
+		/**
+		 * p is a pointer to a string holding the socket name
+		 **/
+		uint8_t *path = p;
+
+	} else {
+         /**
+		 * p is a pointer to a connected socket
+		 **/
+		struct sock *sock = p;
+
+	}
 	return c;
 }
 

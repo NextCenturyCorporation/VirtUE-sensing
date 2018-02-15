@@ -441,6 +441,7 @@ struct probe *init_probe(struct probe *probe,
 	__SET_FLAG(probe->flags, PROBE_INITIALIZED);
 	return probe;
 }
+EXPORT_SYMBOL(init_probe);
 
 
 
