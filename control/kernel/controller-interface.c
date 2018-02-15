@@ -7,6 +7,51 @@
 #include "jsmn/jsmn.h"
 
 /* hold socket JSON probe interface */
+
+static struct connection listener;
+static char *socket_name = "/var/run/kernel_sensor";
+
+module_param(socket_name, charp, 0644);
+
+struct connection *
+init_connection(struct connection *, uint64_t, void *);
+
+/**
+ * sock refers to struct socket,
+ * sk refers to struct sock
+ * http://haifux.org/hebrew/lectures/217/netLec5.pdf
+ **/
+struct socket *new_unix_sock(void)
+{
+	int ccode, type = SOCK_STREAM, protocol = 0;
+	struct socket *sock;
+
+	ccode = sock_create(AF_UNIX, type, protocol, &sock);
+	if (ccode) {
+		return ERR_PTR(ccode);
+	}
+
+	return sock;
+}
+
+
+struct connection *
+allocate_connected_socket(struct sock *s)
+{
+	struct connection *connected;
+
+	assert(s);
+
+	connected = kzalloc(sizeof(struct connection), GFP_KERNEL);
+
+	if (!connected) {
+		return ERR_PTR(-ENOMEM);
+	}
+
+	return init_connection(connected, PROBE_CONNECT, s);
+}
+
+
 struct connection *
 init_connection(struct connection *c, uint64_t flags, void *p)
 {
@@ -26,18 +71,43 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		 * p is a pointer to a string holding the socket name
 		 **/
 		uint8_t *path = p;
+		struct socket * sock = new_unix_sock();
+
+
+		printk(KERN_INFO "initializing socket name %s, %p\n", path, sock);
+
 
 	} else {
          /**
 		 * p is a pointer to a connected socket
 		 **/
-		struct sock *sock = p;
+		struct socket *sock = p;
+		printk(KERN_INFO "socket at %p\n", sock);
+
 
 	}
 	return c;
 }
 
 
+static int __init socket_interface_init(void)
+{
+	init_connection(&listener, PROBE_LISTEN, socket_name);
+
+	return 1;
+}
+
+static void __exit socket_interface_exit(void)
+{
+	return;
+}
+
+module_init(socket_interface_init);
+module_exit(socket_interface_exit);
+
+MODULE_LICENSE(_MODULE_LICENSE);
+MODULE_AUTHOR(_MODULE_AUTHOR);
+MODULE_DESCRIPTION(_MODULE_INFO "interface");
 
 #ifdef NOTHING
 void  k_sensor_sock(struct kthread_work *work)
