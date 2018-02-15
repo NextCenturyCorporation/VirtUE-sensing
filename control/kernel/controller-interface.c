@@ -70,8 +70,14 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		/**
 		 * p is a pointer to a string holding the socket name
 		 **/
+		struct file *f;
 		uint8_t *path = p;
-		struct socket * sock = new_unix_sock();
+		struct socket *sock = new_unix_sock();
+		if ((int64_t)sock < 0) {
+			goto err_exit;
+		}
+		c->connected = sock;
+		f = sock_alloc_file(c->connected, 0, p);
 
 
 		printk(KERN_INFO "initializing socket name %s, %p\n", path, sock);
@@ -87,6 +93,14 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 
 	}
 	return c;
+
+err_exit:
+	if (c->connected) {
+		kfree(c->connected);
+		c->connected = NULL;
+	}
+
+	return ERR_PTR(-ENFILE);
 }
 
 

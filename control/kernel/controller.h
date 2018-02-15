@@ -345,7 +345,7 @@ struct connection {
 	 **/
 	struct connection *(*_init)(struct connection *, uint64_t, void *);
 	void *(*_destroy)(struct connection *);
-	struct socket connected;
+	struct socket *connected;
 };
 
 struct kernel_sensor {
