@@ -24,13 +24,13 @@ init_connection(struct connection *, uint64_t, void *);
 struct socket *new_unix_sock(void)
 {
 	int ccode, type = SOCK_STREAM, protocol = 0;
-	struct socket *sock;
+	struct socket *sock = NULL;
 
 	ccode = sock_create(AF_UNIX, type, protocol, &sock);
 	if (ccode) {
-		return ERR_PTR(ccode);
+		return NULL;
 	}
-
+	printk( KERN_INFO "sock_create %p\n", sock);
 	return sock;
 }
 
@@ -66,6 +66,7 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	memset(c, 0x00, sizeof(struct connection));
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
+
 	if (__FLAG_IS_SET(flags, PROBE_LISTEN)) {
 		/**
 		 * p is a pointer to a string holding the socket name
@@ -73,15 +74,12 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		struct file *f;
 		uint8_t *path = p;
 		struct socket *sock = new_unix_sock();
-		if ((int64_t)sock < 0) {
+        if (!sock) {
 			goto err_exit;
 		}
 		c->connected = sock;
 		f = sock_alloc_file(c->connected, 0, p);
-
-
-		printk(KERN_INFO "initializing socket name %s, %p\n", path, sock);
-
+		printk(KERN_INFO "kernel-ps initializing socket name %s, %p\n", path, sock);
 
 	} else {
          /**
@@ -95,6 +93,7 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	return c;
 
 err_exit:
+
 	if (c->connected) {
 		kfree(c->connected);
 		c->connected = NULL;
@@ -106,6 +105,8 @@ err_exit:
 
 static int __init socket_interface_init(void)
 {
+	DMSG();
+
 	init_connection(&listener, PROBE_LISTEN, socket_name);
 
 	return 1;
