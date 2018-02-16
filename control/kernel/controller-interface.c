@@ -21,19 +21,6 @@ init_connection(struct connection *, uint64_t, void *);
  * sk refers to struct sock
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
-struct socket *new_unix_sock(void)
-{
-	int ccode, type = SOCK_STREAM, protocol = 0;
-	struct socket *sock = NULL;
-
-	ccode = sock_create(AF_UNIX, type, protocol, &sock);
-	if (ccode) {
-		return NULL;
-	}
-	printk( KERN_INFO "sock_create %p\n", sock);
-	return sock;
-}
-
 
 struct connection *
 allocate_connected_socket(struct sock *s)
@@ -71,15 +58,26 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		/**
 		 * p is a pointer to a string holding the socket name
 		 **/
-		struct file *f;
+		int ccode;
 		uint8_t *path = p;
-		struct socket *sock = new_unix_sock();
+		struct sockaddr_un addr;
+		struct msghdr msg;
+		struct iovec iov;
+		mm_segment_t oldfs;
+
+		struct socket *sock = NULL;
+
+		ccode = sock_create(AF_UNIX, SOCK_STREAM, 0, &sock);
         if (!sock) {
 			goto err_exit;
 		}
 		c->connected = sock;
-		f = sock_alloc_file(c->connected, 0, p);
-		printk(KERN_INFO "kernel-ps initializing socket name %s, %p\n", path, sock);
+		memset(&addr, 0, sizeof(addr));
+		addr.sun_family = AF_UNIX;
+		strncpy(addr.sun_path, path, UNIX_PATH_MAX - 1);
+
+		ccode = c->connected->ops->bind(sock,(struct sockaddr *)&addr,
+										sizeof(addr) -1);
 
 	} else {
          /**
@@ -109,7 +107,7 @@ static int __init socket_interface_init(void)
 
 	init_connection(&listener, PROBE_LISTEN, socket_name);
 
-	return 1;
+	return 0;
 }
 
 static void __exit socket_interface_exit(void)
