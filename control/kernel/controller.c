@@ -26,6 +26,8 @@
 
 
 struct kernel_sensor k_sensor;
+EXPORT_SYMBOL(k_sensor);
+
 struct kernel_ps_probe kps_probe;
 
 static unsigned int ps_repeat = 1;
@@ -128,7 +130,7 @@ unlock_out:
 /* todo: convert to macros and move to header */
 /* CONT_INIT_AND_QUEUE, CONT_INIT_WORK, CONT_QUEUE_WORK */
 
-static bool
+bool
 init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
 					void (*function)(struct kthread_work *))
@@ -139,7 +141,7 @@ init_and_queue_work(struct kthread_work *work,
 	return CONT_QUEUE_WORK(worker, work);
 
 }
-
+EXPORT_SYMBOL(init_and_queue_work);
 
 /**
  * Flushes this work off any work_list it is on.
@@ -345,13 +347,6 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 
 
 
-static inline void sleep(unsigned sec)
-{
-	__set_current_state(TASK_INTERRUPTIBLE);
-	schedule_timeout(sec * HZ);
-}
-
-
 /**
  * A probe routine is a kthread  worker, called from kernel thread.
  * Once it runs once, it must be re-initialized
@@ -387,7 +382,7 @@ void  k_probe(struct kthread_work *work)
  **/
 	probe_struct->print(probe_struct, "kernel-ps", nonce, ++count);
 
-	if (probe_struct->repeat) {
+	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
 		probe_struct->repeat--;
 		sleep(probe_struct->timeout);
 		init_and_queue_work(work, co_worker, k_probe);
@@ -593,7 +588,7 @@ static void __exit controller_cleanup(void)
 {
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
-
+	SHOULD_SHUTDOWN = 1;
 	k_sensor._destroy(&k_sensor);
 
 }

@@ -47,7 +47,31 @@ if (( $VERSION >= 4 )) ; then
     fi
 fi
 
+
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 7 )); then
+	SOCKAPI=old
+	echo "#define OLD_SOCK_API 1" >> $FILENAME
+	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (z), (f))" >> $FILENAME
+    else
+	SOCKAPI=new
+	echo "#define NEW_SOCK_API 1" >> $FILENAME
+	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (f))" >> $FILENAME
+    fi
+fi
+
+
+#socket interface changes:
+# version 4.1.13:
+
+#int sock_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
+#		 int flags);
+
+# version 4.7:
+#int sock_recvmsg(struct socket *sock, struct msghdr *msg, int flags);
+
 echo "const char *cont_api = \"$API\";" >> $FILENAME
 echo "#endif /* _UNAME_CONTROLLER_H */" >> $FILENAME
 
-echo $API
+echo "kthreads api: $API"
+echo "sock api: $SOCKAPI"

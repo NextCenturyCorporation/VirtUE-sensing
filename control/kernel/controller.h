@@ -30,6 +30,17 @@
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
 
+static int SHOULD_SHUTDOWN;
+
+
+static inline void sleep(unsigned sec)
+{
+	if (! SHOULD_SHUTDOWN) {
+	__set_current_state(TASK_INTERRUPTIBLE);
+	schedule_timeout(sec * HZ);
+	}
+}
+
 /* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
  */
@@ -330,6 +341,10 @@ struct kernel_ps_probe {
 /**
  * struct socket: include/linux/net.h: 110
  **/
+
+/* max message header size */
+#define CONNECTION_MAX_HEADER 0x400
+
 /* connection struct is used for both listening and connected sockets */
 /* function pointers for listen, accept, close */
 struct connection {
@@ -346,6 +361,7 @@ struct connection {
 	struct connection *(*_init)(struct connection *, uint64_t, void *);
 	void *(*_destroy)(struct connection *);
 	struct socket *connected;
+	uint8_t path[UNIX_PATH_MAX];
 };
 
 struct kernel_sensor {
@@ -373,6 +389,9 @@ struct probe *init_probe(struct probe *probe,
 void *destroy_probe_work(struct kthread_work *work);
 void *destroy_k_probe(struct probe *probe);
 
+bool init_and_queue_work(struct kthread_work *work,
+					struct kthread_worker *worker,
+					void (*function)(struct kthread_work *));
 
 
 /**
