@@ -77,7 +77,8 @@ defmodule ApiServer.Actuation do
 
     actuation_url = "https://#{sensor.address}:#{sensor.port}#{path}"
     IO.puts("  = actuation uri(#{actuation_url})")
-    case HTTPoison.put(actuation_url, Poison.encode!(payload), [], [ssl: [cacertfile: Application.get_env(:api_server, :ca_cert_file)], timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
+
+    case HTTPoison.put(actuation_url, Poison.encode!(payload), [], [ssl: [{:cacertfile, Application.get_env(:api_server, :ca_cert_file)}, {:verify_fun, {&ApiServer.AuthenticationUtils.pin_verify/3, {:pin, sensor.public_key}}}, {:verify, :verify_peer}], timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
 
       {:ok, %HTTPoison.Response{status_code: 200, body: _}} ->
         IO.puts("  - sensor actuated")
