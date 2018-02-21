@@ -80,6 +80,7 @@ where _result_ is one of:
 Each probe will reply with its records differently. The most common format is for each record to be one JSONL message:
 
 "{Virtue protocol version: 0.1, reply: [nonce, [record 1]] }\n"
+
 "{Virtue protocol version: 0.1, reply: [nonce, [record 2]] }\n"
 
 ...
@@ -87,6 +88,7 @@ Each probe will reply with its records differently. The most common format is fo
 "{Virtue protocol version: 0.1, reply: [nonce, [record n]] }\n"
 
 and finally:
+
 "{Virtue protocol version: 0.1, reply: [nonce] }\n"
 
 A reply with only the nonce, and no record, will terminate the original records request.
