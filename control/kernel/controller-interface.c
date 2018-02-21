@@ -26,8 +26,8 @@ init_connection(struct connection *, uint64_t, void *);
 
 /**
  * JSON tokens are limited to TOKEN_ARRAY_SIZE, defined in
- * controller.h: 190, which is approximately PAGE_SIZE / sizeof(jsmntok_t),
- * usually equal to
+ * controller.h: 190, which is approximately PAGE_SIZE / sizeof(jsmntok_t) * 2,
+ * usually equal to 1024 tokens per JSON object
  **/
 static struct flex_array *token_storage;
 /* pre-allocate tokens */
