@@ -1,4 +1,4 @@
-#Sensing Message Protocol
+# Sensing Message Protocol
 
 The initial implementation of the Sensing Message Protocol runs over an AF_UNIX socket. This implies that the two parties are connected and in agreement over how to send and receive messages.
 
@@ -9,20 +9,20 @@ The protocol requires Client and Server roles. The Server "listens" for a connec
 Our initial implementation uses AF_UNIX and SOCK_STREAM for this connection agreement. The kernel sensor acts as the server, listens on the AF_UNIX socket for connection requests from clients. There may be multiple clients concurrently engaging with the server.
 
 
-##Request/Response
+## Request/Response
 
 Messages are related to each other. Each message is either a request message or a response message. Each request is expected to be followed by at least one response. Some requests may cause multiple responses, such as a request to dump log records.
 
-##JSONL
+## JSONL
 Messages are in the JSONLines format: http://jsonlines.org, JSONL is a variant of JSON http://json.org, that uses line characters to deliminate records.
 
-##Message Header
+## Message Header
 Each message must begin with a protocol header that includes a version value, followed by an array of zero or more records:
 "{Virtue protocol version: 0.1, [...]}\n"
 
-##Protocol
+## Protocol
 
-###Session Request and Protocol version
+### Session Request and Protocol version
 After establishing a connection medium (see above) the client makes a request containing only the protocol header and version (represented by 0.1) by writing to the connected socket:
 
 "{Virtue protocol version: 0.1}\n"
@@ -36,7 +36,7 @@ Now the Client and Server are in agreement over the protocol version, and ready 
 If the server refuses the session request, it responds with:
 "{}\n" and the client closes the connection.
 
-###Discovery Request and Response
+### Discovery Request and Response
 At any time the client may make a discovery request:
 
 "{Virtue protocol version: 0.1, request: [nonce, discovery] }\n"
@@ -51,7 +51,7 @@ Where _nonce_ is idendical to the value from the request. The _probe ids_ array 
 
 The client then knows the identifying string of each probe that is registered with the server.
 
-###Probe Commands
+### Probe Commands
 The client may issue commands to the probe:
 
 "{Virtue protocol version: 0.1, request: [nonce, command [probe ids]] }\n"
