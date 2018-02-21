@@ -4,7 +4,7 @@
  ******************************************************************************/
 
 #include "controller.h"
-#include "jsmn/jsmn.h"
+
 
 
 /* hold socket JSON probe interface */
@@ -23,14 +23,6 @@ init_connection(struct connection *, uint64_t, void *);
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
 
-/**
- * definitions for token storage allocation
- **/
-#define TOKEN_DATA_SIZE (sizeof(jsmntok_t))
-#define TOKEN_APPARENT_ARRAY_SIZE \
-	FLEX_ARRAY_ELEMENTS_PER_PART(TOKEN_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS
-
-#define TOKEN_ARRAY_SIZE (TOKEN_APPARENT_ARRAY_SIZE) - 1
 
 static struct flex_array *token_storage;
 

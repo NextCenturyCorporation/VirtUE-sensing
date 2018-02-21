@@ -25,7 +25,7 @@
 #include "controller-linux.h"
 #include "uname.h"
 #include "controller-flags.h"
-
+#include "jsmn/jsmn.h"
 #define _MODULE_LICENSE "GPL v2"
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
@@ -177,6 +177,17 @@ struct kernel_ps_data {
 	FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS \
 
 #define PS_ARRAY_SIZE (PS_APPARENT_ARRAY_SIZE) - 1
+
+
+/**
+ * definitions for token storage allocation
+ * using flex_array also
+ **/
+#define TOKEN_DATA_SIZE (sizeof(jsmntok_t))
+#define TOKEN_APPARENT_ARRAY_SIZE \
+	FLEX_ARRAY_ELEMENTS_PER_PART(TOKEN_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS
+
+#define TOKEN_ARRAY_SIZE (TOKEN_APPARENT_ARRAY_SIZE) - 1
 
 
 /**
