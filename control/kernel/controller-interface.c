@@ -89,6 +89,10 @@ static int k_socket_write(struct socket *s, int n, void *out)
 
 static void k_read_write(struct kthread_work *work)
 {
+	int ccode = 0;
+	uint8_t buf [CONNECTION_MAX_HEADER + 1];
+	
+	
 	struct socket *sock = NULL;
 	struct kthread_worker *worker = work->worker;
 	struct connection *connection =
@@ -101,6 +105,8 @@ static void k_read_write(struct kthread_work *work)
 
 	sock = connection->connected;
 
+	ccode = k_socket_write(sock, 1, buf);
+	ccode = k_socket_read(sock, 1, buf);
 
 	if (! SHOULD_SHUTDOWN ) {
 		init_and_queue_work(work, worker, k_read_write);
@@ -110,7 +116,6 @@ static void k_read_write(struct kthread_work *work)
 
 static void k_accept(struct kthread_work *work)
 {
-	int ccode = 0;
 	struct connection *new_connection = NULL;
 	struct socket *newsock = NULL, *sock = NULL;
 	struct kthread_worker *worker = work->worker;
@@ -123,28 +128,24 @@ static void k_accept(struct kthread_work *work)
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 
 	sock = connection->connected;
-	ccode = sock->ops->accept(sock, newsock, 0);
-	if (ccode < 0) {
+	if ((sock->ops->accept(sock, newsock, 0)) < 0) {
 		SHOULD_SHUTDOWN = 1;
 	}
 
 /**
  * create a new struct connection, link it to the kernel sensor
  **/
-	new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
-	if (new_connection) {
-		init_connection(new_connection, PROBE_CONNECT, newsock);
-
-	} else {
-		SHOULD_SHUTDOWN = 1;
+	if (newsock != NULL && (! SHOULD_SHUTDOWN)) {
+		new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
+		if (new_connection) {
+			init_connection(new_connection, PROBE_CONNECT, newsock);
+		} else {
+			SHOULD_SHUTDOWN = 1;
+		}
 	}
-
-
-
 	if (! SHOULD_SHUTDOWN ) {
 		init_and_queue_work(work, worker, k_accept);
 	}
-
 	return;
 }
 
@@ -184,6 +185,24 @@ err_exit:
 	return -ENFILE;
 }
 
+
+static inline void
+link_new_connection_work(struct connection *c,
+						 void (*f)(struct kthread_work *),
+						 uint8_t *d)
+{
+	if (!SHOULD_SHUTDOWN) {
+		llist_add(&c->l_node, &k_sensor.probes);
+		CONT_INIT_WORK(&c->work, f);
+		__SET_FLAG(c->flags, PROBE_HAS_WORK);
+		CONT_INIT_WORKER(&c->worker);
+		CONT_QUEUE_WORK(&c->worker, &c->work);
+		kthread_run(kthread_worker_fn, &c->worker, d);
+	}
+}
+
+						 
+
 /**
  * return a newly initialized connnection struct,
  * socket will either be bound and listening, or
@@ -222,22 +241,22 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		 * it as work
 		 **/
 
-		if (!SHOULD_SHUTDOWN) {
-			llist_add(&c->l_node, &k_sensor.probes);
-			CONT_INIT_WORK(&c->work, k_accept);
-			__SET_FLAG(c->flags, PROBE_HAS_WORK);
-			CONT_INIT_WORKER(&c->worker);
-			CONT_QUEUE_WORK(&c->worker, &c->work);
-			kthread_run(kthread_worker_fn, &c->worker, "kcontrol accept");
-		}
-
-
-	} else { /* bound and listening, accept and create a new connection */
-         /**
+		link_new_connection_work(c, k_accept, "kcontrol accept");
+		
+	
+	} else { /** 
+			  * new sock is accepted and a new 
+			  * connection is created, allocated and its probe 
+			  * elements are initialfized 
+			  **/
+		/**
 		 * p is a pointer to a connected socket
 		 **/
 		struct socket *sock = p;
-		printk(KERN_INFO "socket at %p\n", sock);
+		printk(KERN_INFO "connected socket at %p\n", sock);
+		/** now we need to read and write messages **/
+
+		link_new_connection_work(c, k_read_write, "kcontrol read & write");
 	}
 	return c;
 
