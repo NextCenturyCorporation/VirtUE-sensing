@@ -24,9 +24,12 @@ init_connection(struct connection *, uint64_t, void *);
  **/
 
 
+/**
+ * JSON tokens are limited to TOKEN_ARRAY_SIZE, defined in
+ * controller.h: 190, which is approximately PAGE_SIZE / sizeof(jsmntok_t),
+ * usually equal to
+ **/
 static struct flex_array *token_storage;
-
-
 /* pre-allocate tokens */
 static inline int
 pre_alloc_tokens(struct flex_array *ts, int data_size, int array_size)
@@ -34,6 +37,12 @@ pre_alloc_tokens(struct flex_array *ts, int data_size, int array_size)
 	ts = flex_array_alloc(data_size, array_size, GFP_KERNEL);
 	if (!ts)
 		return -ENOMEM;
+
+	if (flex_array_prealloc(ts, 0, TOKEN_ARRAY_SIZE, GFP_KERNEL | __GFP_ZERO)) {
+		flex_array_free(ts);
+		ts = NULL;
+		return -ENOMEM;
+	}
 	return 0;
 }
 
