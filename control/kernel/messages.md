@@ -143,6 +143,6 @@ If a probe creates a sensing record that has newline characters as data, it shou
 
 For example, a reply record that containes an embedded new line could be similar to:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id, record 1 \\n data]] }\n"
+"{Virtue protocol version: 0.1, reply: [nonce, [id, record 1 \\\n data]] }\n"
 
 The server will escape the newline characters when forming the reply, and the client is responsible for un-escaping the newline characters when it parses the reply message.
