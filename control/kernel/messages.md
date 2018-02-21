@@ -14,7 +14,13 @@ Our initial implementation uses AF_UNIX and SOCK_STREAM for this connection agre
 Messages are related to each other. Each message is either a request message or a response message. Each request is expected to be followed by at least one response. Some requests may cause multiple responses, such as a request to dump log records.
 
 ## JSONL
-Messages are in the JSONLines format: http://jsonlines.org, JSONL is a variant of JSON http://json.org, that uses line characters to deliminate records.
+Messages are in the JSONLines format: http://jsonlines.org, JSONL is a variant of JSON http://json.org, that uses new line characters (0x0a and 0x0d) to deliminate records.
+
+### Parsing of JSONL in the Sensing Protocol
+
+While it is possible with JSON to embed multiple messages in a single string buffer, we do not support this message format. Each message is terminated by the server with a newline or carriage return character. _(Hence the JSONL designation)_.
+
+The server will seek the newline character and use it to terminate the message _before_ it submits the message to the JSON parsing library.
 
 ## Message Header
 Each message must begin with a protocol header that includes a version value, followed by an array of zero or more records:
