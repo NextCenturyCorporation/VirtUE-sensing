@@ -92,3 +92,38 @@ and finally:
 "{Virtue protocol version: 0.1, reply: [nonce, [id]] }\n"
 
 A reply with only the nonce, and no record, will terminate the original records request.
+
+
+### Probe Record Retention
+
+Each probe may have a different policy for retaining records. The default policy is for a probe to retain a record until that record has been read by a client or until the probe runs out of memory for record storage.
+
+This means, for example, that serial _records_ requests will not result in duplicate records responses. For example, the first _records_ request will result in records responses containing records 1...n. The next _records_ request will result in records n+1...n+n.
+
+A probe may have a different policy for record retention and reporting. For example, a probe may retain records indefinitely and may respond to a request for specific records.
+
+"{Virtue protocol version: 0.1, request: [nonce, [id, record 2048]] }\n"
+
+Is a request for _record number 2048_ from probe _id_. The response would be:
+
+"{Virtue protocol version: 0.1, reply: [nonce, [id, record 2048]] }\n"
+
+if that record existed and was retained by the probe, or:
+
+"{Virtue protocol version: 0.1, reply: [nonce, [id]] }\n"
+
+if that record did not exist or was not retained by the probe.
+
+The client must have prior knowledge of a particular probe's policy for record retention. If a probe has a particular way of indexing records, the client must have prior knowledge also of that fact.
+
+### Probe Record Filters
+
+A client may include a _filter_ in a records request:
+
+"{Virtue protocol version: 0.1, request: [nonce, [id, filter 'filter']] }\n"
+
+The server would respond with any records that passed the filter:
+
+"{Virtue protocol version: 0.1, reply: [nonce, [id, record ]] }\n"
+
+the protocol makes no assumption regarding the contents or interpretation of a _filter. The client and probe must have a prior knowledge of the filter and its interpretaion.
