@@ -22,6 +22,9 @@ While it is possible with JSON to embed multiple messages in a single string buf
 
 The server will seek the newline character and use it to terminate the message _before_ it submits the message to the JSON parsing library.
 
+#### Escaping Newline Characters
+See _Escaping Newlines in Response Record Data_ below.
+
 ## Message Header
 Each message must begin with a protocol header that includes a version value, followed by an array of zero or more records:
 "{Virtue protocol version: 0.1, [...]}\n"
@@ -42,7 +45,7 @@ Now the Client and Server are in agreement over the protocol version, and ready 
 If the server refuses the session request, it responds with:
 "{}\n" and the client closes the connection.
 
-### Discovery Request and Response
+### Discovery Request and Resply
 At any time the client may make a discovery request:
 
 "{Virtue protocol version: 0.1, request: [nonce, discovery] }\n"
@@ -133,3 +136,13 @@ The server would respond with any records that passed the filter:
 "{Virtue protocol version: 0.1, reply: [nonce, [id, record ]] }\n"
 
 the protocol makes no assumption regarding the contents or interpretation of a _filter_. The client and probe must have a prior knowledge of the filter and its interpretaion.
+
+### Escaping Newlines in Response Record Data
+
+If a probe creates a sensing record that has newline characters as data, it should escape the newline characters with a '\' character when it forms a reply message containing the record.
+
+For example, a reply record that containes an embedded new line could be similar to:
+
+"{Virtue protocol version: 0.1, reply: [nonce, [id, record 1 \\n data]] }\n"
+
+The server will escape the newline characters when forming the reply, and the client is responsible for un-escaping the newline characters when it parses the reply message.
