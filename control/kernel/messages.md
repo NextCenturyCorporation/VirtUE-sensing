@@ -126,4 +126,4 @@ The server would respond with any records that passed the filter:
 
 "{Virtue protocol version: 0.1, reply: [nonce, [id, record ]] }\n"
 
-the protocol makes no assumption regarding the contents or interpretation of a _filter. The client and probe must have a prior knowledge of the filter and its interpretaion.
+the protocol makes no assumption regarding the contents or interpretation of a _filter_. The client and probe must have a prior knowledge of the filter and its interpretaion.
