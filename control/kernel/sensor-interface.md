@@ -63,6 +63,9 @@ printk(KERN_INFO "connected socket at %p\n", sock);
 /** now we need to read and write messages **/
 
 link_new_connection_work(c, k_read_write, "kcontrol read & write");
+```
+The call to `link_new_connection_work` scheduled a new kernel thread that calls `k_read_write`
+
 
 ### The Sensor Protocol
 
