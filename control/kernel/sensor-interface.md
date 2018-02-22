@@ -42,17 +42,16 @@ The listening socket is serviced by a kernel thread that runs the `k_accept` fun
 
 * calls `init_connection` using the `PROBE_CONNECT` flag.
 
-The call to init_connect seems to be re-entrant, but technically it is not because the caller is a new, different kernel thread that is servicing the `accepted` socket. The flow is re-entrant but the second entry is by a new, different kernel thread. The original caller, which used the `PROBE_LISTEN` flag, is still listening on the original socket and being regularly scheduled by the kernel.
+The call to `init_connection` seems to be re-entrant, but technically it is not because the caller is a new, different kernel thread that is servicing the `accepted` socket. The flow is re-entrant but the second entry is by a new, different kernel thread. The original caller, which used the `PROBE_LISTEN` flag, is still listening on the original socket and being regularly scheduled by the kernel.
 
 ### `init_connection PROBE_CONNECT`
 
-The new accepted connection is a `struct connection` and contains an anymnous `struct probe`, so technically it is running as a probe, although it exists to read and write the connected socket rather than to probe the kernel. But it uses the same resources as a probe uses - kernel threads, linked lists, and spinlocks, etc.
+The new accepted socket connection is embodied in a `struct connection` and contains an anymnous `struct probe`, so technically it is running as a probe, although it exists to read and write the connected socket rather than to probe the kernel. But it uses the same resources as a probe uses - kernel threads, linked lists, and spinlocks, etc.
 
-The new accepted connection:
+`init_connection PROBE_CONNECT` takes the new accepted connection and:
 
 * links the new connection to the parent `struct kernel sensor` using the parents lockless linked list.
 
-* calls `init_connection` with the `PROBE_CONNECT` flag:
 
 ```c
 /**
