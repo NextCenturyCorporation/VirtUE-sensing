@@ -69,3 +69,34 @@ The call to `link_new_connection_work` scheduled a new kernel thread that calls 
 ### The Sensor Protocol
 
 The accepted connection engages in the Sensor Protocol as a _server_. When the client closes the protocol, the connection kills itself.
+
+### `k_read_write`
+
+`k_read_write` engages in the JSONL Probe protocol.
+
+```c
+static void k_read_write(struct kthread_work *work)
+{
+	int ccode = 0;
+	uint8_t buf [CONNECTION_MAX_HEADER + 1];
+
+
+	struct socket *sock = NULL;
+	struct kthread_worker *worker = work->worker;
+	struct connection *connection =
+		container_of(work, struct connection, work);
+
+	assert(connection &&
+		   connection->flags);
+	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
+	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
+
+	sock = connection->connected;
+
+	ccode = k_socket_read(sock, 1, buf);
+	ccode = k_socket_write(sock, 1, buf);
+
+	if (! SHOULD_SHUTDOWN ) {
+		init_and_queue_work(work, worker, k_read_write);
+	}
+};```
