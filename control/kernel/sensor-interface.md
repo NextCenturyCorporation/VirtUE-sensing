@@ -42,7 +42,7 @@ The listening socket is serviced by a kernel thread that runs the `k_accept` fun
 
 * calls `init_connection` using the `PROBE_CONNECT` flag.
 
-The call to init_connect seems to re-entrant, but technically it is not because the caller is a new, different kernel thread that is servicing the `accepted` socket.
+The call to init_connect seems to be re-entrant, but technically it is not because the caller is a new, different kernel thread that is servicing the `accepted` socket. The flow is re-entrant but the second entry is by a new, different kernel thread. The original caller, which used the `PROBE_LISTEN` flag, is still listening on the original socket and being regularly scheduled by the kernel.
 
 ### `init_connection PROBE_CONNECT`
 
@@ -63,3 +63,7 @@ printk(KERN_INFO "connected socket at %p\n", sock);
 /** now we need to read and write messages **/
 
 link_new_connection_work(c, k_read_write, "kcontrol read & write");
+
+### The Sensor Protocol
+
+The accepted connection engages in the Sensor Protocol as a _server_. When the client closes the protocol, the connection kills itself.
