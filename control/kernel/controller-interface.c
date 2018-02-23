@@ -310,6 +310,51 @@ static void __exit socket_interface_exit(void)
 }
 
 /**
+ * @brief add an un-escaped newline to the end of a string
+ * allocates a new, longer string.
+ *
+ * @return the length of the new string, longer by one
+ * character
+ **/
+
+int add_nl_at_end(uint8_t *in, uint8_t **out, int len)
+{
+	uint8_t *end = in + len;
+	assert(*end == 0);
+	*out = kzalloc(len + 1, GFP_KERNEL);
+	memcpy(*out, in, len);
+	*(*out + len) = 0x0a;
+	return len + 1;
+}
+
+
+/**
+ * @brief trim the string to first un-escaped newline,
+ * if trimmed, allocate a new shorter string with a null
+ * in place of the first newline.
+ **/
+int trim_to_nl(uint8_t *in, uint8_t **out, int len)
+{
+	int count = 0;
+	uint8_t *c, *end = in + len;
+	assert(*end == 0);
+	c = strchr(in, 0x0a);
+	while (c && c > in) {
+		if ( *(c - 1) == 0x5c) {
+			c++;
+			c = strchr(c, 0x0a);
+		} else {
+			*c = 0;
+			count = (c - in) + 1;
+			*out = kzalloc(count, GFP_KERNEL);
+			strncpy(*out, in, count);
+			return count;
+		}
+	}
+	return 0;
+}
+
+/**
  * @brief if there are escaped newline characters in a JSON
  * object, unescape them in place by removing the preceding '\'
  * and shifting the remaining characters to the left
