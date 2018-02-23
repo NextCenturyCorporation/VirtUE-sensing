@@ -46,7 +46,6 @@ pre_alloc_tokens(struct flex_array *ts, int data_size, int array_size)
 	return 0;
 }
 
-
 static int k_socket_read(struct socket *s, int n, void *in)
 {
 	struct msghdr msg;
@@ -310,10 +309,81 @@ static void __exit socket_interface_exit(void)
 	return;
 }
 
+char *unescape_newlines(uint8_t *in, int len)
+{
+	const uint8_t escape [] = {0x5c, 0x00};
+	uint8_t *save = in;
+	uint8_t *end = in + len;
+	assert(*end == 0);
+
+	/* assumes: in is null-terminated */
+	do {
+		in = strpbrk(in, escape);
+		if (in) {
+			if ( (in + 1) != NULL) {
+				if ( *(in + 1) == 0x0a || *(in + 1) == 0x0d ) {
+                    /* shorten the string */
+					uint8_t *p = in + 1;
+					uint8_t *s = in;
+					while (*p) {
+						*s = *p;
+						p++;
+						s++;
+					}
+					/* re-terminate the shorter string */
+					*s = *p;
+				}
+			}
+			in++;
+		}
+	} while (in);
+	return save;
+}
+
+/**
+ * really slow and crude, but let's only allocate new memory
+ * if we need to
+ **/
+
+int escape_newlines(uint8_t *in, uint8_t **out, int len)
+{
+	int count = 0, ccode = 0;
+	uint8_t *c, *p, *end = in + len;
+	assert(*end == 0);
+	c = strchr(in, 0x0d);
+	while (c) {
+		count++;
+		c = strchr(++c, 0x0d);
+	}
+
+	/* now again for 0x0a */
+	c = strchr(in, 0x0a);
+	while (c) {
+		count++;
+		c = strchr(++c, 0x0a);
+	}
+
+	if (count) {
+		ccode = count;
+		c = *out = kzalloc (len + count, GFP_KERNEL);
+		p = in;
+		while (*p && count) {
+			if (*p != 0x0a && *p != 0x0d) {
+				*c++ = *p++;
+			} else {
+				*c++ = 0x5c;
+				*c++ = *p++;
+				count--;
+			}
+		}
+	} else {
+		*out = NULL;
+	}
+	return ccode;
+}
 
 
-/*****************************************************************/
-/*****************************************************************/
+
 
 
 /**
