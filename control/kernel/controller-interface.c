@@ -309,6 +309,17 @@ static void __exit socket_interface_exit(void)
 	return;
 }
 
+/**
+ * @brief if there are escaped newline characters in a JSON
+ * object, unescape them in place by removing the preceding '\'
+ * and shifting the remaining characters to the left
+ *
+ * @param uint8_t *in input string, must be null-terminated
+ * @param int len - length of the string, redundant but makes
+ *        things simpler
+ * @return unescaped string, or no change
+ *
+ **/
 char *unescape_newlines(uint8_t *in, int len)
 {
 	const uint8_t escape [] = {0x5c, 0x00};
@@ -341,6 +352,21 @@ char *unescape_newlines(uint8_t *in, int len)
 }
 
 /**
+ * @brief escape newline characters by inserting a '\'
+ * into the string in front of each newline character.
+ *
+ * @param uint8_t *in input string to be escaped
+ * @param uint8_t **out double pointer to output string, which
+ *        may be moved to a new memory buffer
+ * @param int len length of the unescaped input string
+ *
+ * @return int: zero if the string is unchanged
+ *              positive if the string is escaped, and the string
+ *              will be in a new memory buffer equal to (*out).
+ *              the return value will be equal to the number of
+ *              escape characters that were inserted into the output
+ *              string
+ *
  * really slow and crude, but let's only allocate new memory
  * if we need to
  **/
