@@ -319,6 +319,8 @@ static void __exit socket_interface_exit(void)
  *        things simpler
  * @return unescaped string, or no change
  *
+ * assumes utf-8 (ascii) escape character is 0x5c '\', and only
+ * looks for 0x0a '\n' and 0x0d '\r' as new line characters
  **/
 char *unescape_newlines(uint8_t *in, int len)
 {
@@ -366,6 +368,9 @@ char *unescape_newlines(uint8_t *in, int len)
  *              the return value will be equal to the number of
  *              escape characters that were inserted into the output
  *              string
+ *
+ * assumes utf-8 (ascii) escape character is 0x5c '\', and only
+ * looks for 0x0a '\n' and 0x0d '\r' as new line characters
  *
  * really slow and crude, but let's only allocate new memory
  * if we need to
