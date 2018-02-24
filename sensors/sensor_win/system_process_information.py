@@ -17,7 +17,12 @@ PARAMFLAG_COMBINED = PARAMFLAG_FIN | PARAMFLAG_FOUT | PARAMFLAG_FLCID
 PROCESS_DUP_HANDLE = 0x0040
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-                           
+   
+SystemHandleInformation = 16
+ObjectBasicInformation = 0
+ObjectNameInformation = 1
+ObjectTypeInformation = 2                           
+
 class CtypesEnum(IntEnum):
     """A ctypes-compatible IntEnum superclass."""
     @classmethod
@@ -25,15 +30,8 @@ class CtypesEnum(IntEnum):
         return int(obj)
 
 
-class UNICODE_STRING(Structure):
-    _fields_ = [ 
-        ("Length", c_ushort),
-        ("MaximumLength", c_ushort),
-        ("Buffer", c_wchar_p)
-        ]
-
 class SmartStructure(Structure):
-    
+        
     def __init__(self):
         '''
         Initialize this instance
@@ -57,6 +55,13 @@ class SmartStructure(Structure):
     __repr__ = __str__
     
     
+class UNICODE_STRING(SmartStructure):
+    _fields_ = [ 
+        ("Length", c_ushort),
+        ("MaximumLength", c_ushort),
+        ("Buffer", c_wchar_p)
+        ]
+
 class SYSTEM_INFORMATION_CLASS(CtypesEnum):
     SystemBasicInformation=0x0000,
     SystemProcessorInformation=0x0001
@@ -292,7 +297,7 @@ class GENERIC_MAPPING(SmartStructure):
                 ]               
     
 class OBJECT_TYPE_INFORMATION(SmartStructure):
-    _fields_ = [("TypeName", UNICODE_STRING ),
+    _fields_ = [("Name", UNICODE_STRING ),
                 ("TotalNumberOfObjects", ULONG),
                 ("TotalNumberOfHandles", ULONG),
                 ("TotalNonPagedPoolUsage", ULONG),                
@@ -314,8 +319,12 @@ class OBJECT_TYPE_INFORMATION(SmartStructure):
                 ("DefaultNonPagedPoolCharge", ULONG)
                 ] 
     
+
 STATUS_SUCCESS=0x0
 STATUS_INFO_LENGTH_MISMATCH=0xc0000004
+STATUS_INVALID_PARAMETER=0xC000000D
+STATUS_BUFFER_TOO_SMALL=0xC0000023
+STATUS_BUFFER_OVERFLOW=0x80000005
     
 prototype = WINFUNCTYPE(LONG, SYSTEM_INFORMATION_CLASS, c_void_p, ULONG, PULONG, use_last_error=True)
 paramflags = (PARAMFLAG_FIN, "SystemInformationClass"), (PARAMFLAG_FIN, "SystemInformation"), (PARAMFLAG_FIN, "SystemInformationLength"), (PARAMFLAG_FOUT, "ReturnLength")
@@ -336,10 +345,7 @@ def GetSystemBasicInformation():
 def GetSystemProcessInformation(pid=None):
     '''
     System Process Information
-    '''    
-    if not pid or not isinstance(pid, int) or 0 != pid % 4:
-        return None
-    
+    '''        
     return_length = ULONG()            
     sysprocinfo = SYSTEM_PROCESS_INFORMATION()
     res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
@@ -481,26 +487,87 @@ def GetHandleInformation(pid=None):
 
     return duped_handle_list
         
-        
-if __name__ == "__main__":    
+def GetNtObjectTypeInfo(handle):
+    '''
+    '''
+    return_length = ULONG()            
+    objectTypeInfo = OBJECT_TYPE_INFORMATION()
+    res = windll.ntdll.NtQueryObject(handle.handle,
+                                     ObjectTypeInformation,
+                                     objectTypeInfo,
+                                     sizeof(objectTypeInfo),
+                                     byref(return_length))
+    if STATUS_SUCCESS != res:
+        objectTypeInfo = create_string_buffer(return_length.value)
+        res = windll.ntdll.NtQueryObject(handle.handle,
+                                         ObjectTypeInformation,
+                                         objectTypeInfo,
+                                         sizeof(objectTypeInfo),
+                                         byref(return_length))
     
-    duped_handle_list = GetHandleInformation(1408)            
-    if not not duped_handle_list:            
-        for ndx in range(0, len(duped_handle_list)):
-            handle_to_be_closed = duped_handle_list[ndx]
-            handle_to_be_closed.Close()
-    sys.exit(0)
-            
+    if STATUS_SUCCESS != res:
+        return None   
+    
+    ObjTypNfo = POINTER(OBJECT_TYPE_INFORMATION)
+    sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
+    array_of_oti = bytearray(memoryview(objectTypeInfo))    
+    buf = (BYTE * sz_oti).from_buffer_copy(array_of_oti)
+    objectTypeInfo = cast(buf, ObjTypNfo) 
+    object_type = objectTypeInfo.contents.Name.Buffer
+    return object_type
+
+def GetNtObjectNameInfo(handle):
+    '''
+    '''
+    return_length = ULONG()            
+    objectNameInfo = OBJECT_TYPE_INFORMATION()
+    res = windll.ntdll.NtQueryObject(handle.handle,
+                                     ObjectNameInformation,
+                                     objectNameInfo,
+                                     sizeof(objectNameInfo),
+                                     byref(return_length))
+    if STATUS_SUCCESS != res:
+        objectNameInfo = create_string_buffer(return_length.value)
+        res = windll.ntdll.NtQueryObject(handle.handle,
+                                         ObjectNameInformation,
+                                         objectNameInfo,
+                                         sizeof(objectNameInfo),
+                                         byref(return_length))
+    
+    if STATUS_SUCCESS != res:
+        return None   
+    
+    ObjTypNfo = POINTER(OBJECT_TYPE_INFORMATION)
+    sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
+    array_of_oti = bytearray(memoryview(objectNameInfo))    
+    buf = (BYTE * sz_oti).from_buffer_copy(array_of_oti)
+    objectNameInfo = cast(buf, ObjTypNfo)   
+    object_name = objectNameInfo.contents.Name.Buffer    
+    return object_name
+
+if __name__ == "__main__": 
     sbi = GetSystemBasicInformation()
     print("System Basic Info = {0}\n".format(sbi,))
     
+    dupHandle = None    
     spi = GetSystemProcessInformation()
     for ndx in range(0, len(spi)):
-        print("Process Information {0} = {1}\n".format(ndx, spi[ndx]),)
-    
-    shi = GetSystemHandleInformation(4)        
-    for ndx in range(0, len(spi)):
-        print("Handle Information {0} = {1}\n".format(ndx, shi[ndx]),)    
+        pid = spi[ndx].UniqueProcessId
+        if 4 == pid or not pid:   # don't bother, it's system
+            continue
+        try:
+            dupHandle = GetHandleInformation(pid)  
+        except pywintypes.error as err:
+            print("Unable to get handle information from pid {0} - {1}\n"
+                  .format(pid, err,))
+        else:                                                
+            type_name = GetNtObjectTypeInfo(dupHandle)
+            object_name = GetNtObjectNameInfo(dupHandle)            
+            print("\ttype_name={0},object_name={1}\n".format(type_name,object_name,))           
+            dupHandle.Close()
+        
+
+      
     
    
     
