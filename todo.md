@@ -1,27 +1,34 @@
 # In Progress
 
-0. [x] Use config db ( #115 )
-1. [x] migrate sensor db to postgres ( #111 )
- - [x] create schema and migrations
- - [x] create schema methods (changeset, etc)
- - [x] migrate sensor authentication
- - [x] migrate sensor registration
-  - [x] ApiServer.ControlUtils.announce_new_sensor/1
-  - [x] deregistration
-   - [x] ApiServer.ControlUtils.announce_deregistered_sensor/2
-  - [x] sync
-  - [x] auto-sync check
-2. add configuration JSON for all existing sensors ( #112 )
-3. [x] add config load command/script ( #113 )
-4. add actuation callback to sensor wrapper ( #91 )
-5. add actuation routing in API ( #90 )
- 1. push new config via observe targeting in API
-6. API needs to pin certificates for call to sensor ( #114 )
-7. Set observe level via `virtue-security` ( #92 )
-
-8. we need a way to check that any actions in registration match the pubkey used in auth
-
- - [ ] start planning dom0 sensors
+ - [ ] PR for pinned actuation after verifying that everything works
+ - [ ] documentation update for API
+  - [ ] How to start everything
+   - what are normal errors
+   - what should you see if things work?
+   - what if things don't work?
+  - [ ] installing sensor configurations
+  - [ ] interacting with sensors
+   - [ ] dockerized-inspect
+   - [ ] dockerized-stream
+   - [ ] dockerized-run
+   - [ ] dockerized-observe ( ./bin/dockerized-run.sh observe --username root --level adversarial)
+  - [ ] toggling sensors
+  - [ ] installing sensors
+  - [ ] defining a target virtue
+  - [ ] adding targets with ./bin/add-target.sh
+  - [ ] creating a new target
+  - [ ] defining a sensor
+  - [ ] defining sensor configurations
+  - [ ] listing sensor configurations
+  - [ ] adding a sensor
+  - [ ] developing sensors
+   - [ ] update_tools.sh
+  - [ ] readme for ./bin/*
+ - [ ] Next documentation update
+  - [ ] configuring the various services
+   - [ ] sensor pruning
+   - [ ] kafka
+   - [ ] postgres
 
 # Sensing Architecture
 
