@@ -425,23 +425,17 @@ int escape_newlines(uint8_t *in, uint8_t **out, int len)
 {
 	int count = 0, ccode = 0;
 	uint8_t *c, *p, *end = in + len;
+	static const uint8_t nl [] = {0x0d, 0x0a, 0x00};
 	assert(*end == 0);
-	c = strchr(in, 0x0d);
+
+	c = strpbrk(in, nl);
 	while (c) {
 		count++;
-		c = strchr(++c, 0x0d);
+		c = strpbrk(++c, nl);
 	}
-
-	/* now again for 0x0a */
-	c = strchr(in, 0x0a);
-	while (c) {
-		count++;
-		c = strchr(++c, 0x0a);
-	}
-
 	if (count) {
 		ccode = count;
-		c = *out = kzalloc (len + count, GFP_KERNEL);
+		c = *out = kzalloc((len + count), GFP_KERNEL);
 		p = in;
 		while (*p && count) {
 			if (*p != 0x0a && *p != 0x0d) {
@@ -457,7 +451,6 @@ int escape_newlines(uint8_t *in, uint8_t **out, int len)
 	}
 	return ccode;
 }
-
 
 
 
