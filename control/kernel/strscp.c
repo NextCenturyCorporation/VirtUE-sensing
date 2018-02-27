@@ -121,88 +121,47 @@ void usage(void)
 }
 
 
-enum type { ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL };
-int add_flag, trim_flag, uxp_flag, xp_flag;
-
-
-static inline void
+enum type { ADD_NL = 0, TRIM_TO_NL, UXP_NL, XP_NL, USAGE };
+uint8_t *input_string = NULL;
+enum type option_index = USAGE;
+static inline int
 get_options (int argc, char **argv)
 {
-	while (1)
-    {
-		if (argc < 2)
-			usage ();
+	if (argc < 2)
+		usage ();
 
-		int c;
-		static struct option long_options[] = {
-			{"dummy-for-short-option", no_argument, NULL, 0},
-			{"add-nl", required_argument, &add_flag, 1},
-			{"trim-to-nl", no_argument, &trim_flag, 1},
-			{"unescape-nl", required_argument, &uxp_flag, 1},
-			{"escape-nl", required_argument, &xp_flag, 1},
-			{"help", no_argument, NULL, 0},
-			{0, 0, 0, 0}
-		};
-		int option_index = 0;
-		c = getopt_long_only (argc, argv, "ila:f:u:s:dh",
-							  long_options, &option_index);
-		if (c == -1)
-		{
-			usage();
-		}
+	int c;
+	static struct option long_options[] = {
+		{"add-nl", required_argument, 0, 'a'},
+		{"trim-to-nl", required_argument, 0, 't'},
+		{"unescape-nl", required_argument, 0, 'u'},
+		{"escape-nl", required_argument, 0, 'x'},
+		{"help", no_argument, NULL, 0},
+		{0, 0, 0, 0}
+	};
 
-    restart_long:
-		switch (option_index)
-		{
-			DMSG("selected option %s\n", long_options[option_index].name);
-		case 0:
-			switch (c)
-			{
-			case 'a':
-				option_index = 1;
-				add_flag = 1;
-				goto restart_long;
-			case 't':
-				option_index = 2;
-				trim_flag = 1;
-				goto restart_long;
-			case 'u':
-				option_index = 3;
-				uxp_flag = 1;
-				goto restart_long;
-			case 'e':
-				option_index = 4;
-				xp_flag = 1;
-				goto restart_long;
-			default:
-				option_index = 5;
-				usage ();
-			}
-		case 1:		/* info */
-		{
+	c = getopt_long_only (argc, argv, "a:t:u:e:h",
+						  long_options, (int *)&option_index);
+	if (c == -1)
+		usage();
 
-		}
+	switch(option_index) {
+
+	case ADD_NL:		/* add a newline */
+	case TRIM_TO_NL:		/* trim to the first newline */
+	case UXP_NL:		/* un-escape escaped newlines */
+	case XP_NL:		/* escape newlines  */
+		input_string = strdup(optarg);
+		return option_index;
 		break;
-
-		case 2:		/* list */
-
-			break;
-		case 3:		/* find */
-		{
-			break;
-		}
-		case 4:		/* apply */
-		{
-			break;
-		}
-		case 5:		/* remove */
-		default:
-			usage();
-		}
-    }
+	case USAGE:		/* help */
+	default:
+		usage();
+	}
 }
+
 
 int main(int argc, uint8_t **argv)
 {
-	enum type test;
+	return get_options(argc, argv);
 }
