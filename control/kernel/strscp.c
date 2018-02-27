@@ -117,6 +117,7 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 void usage(void)
 {
 	DMSG("help\n");
+	exit(1);
 }
 
 
@@ -147,14 +148,13 @@ get_options (int argc, char **argv)
 							  long_options, &option_index);
 		if (c == -1)
 		{
-			break;
+			usage();
 		}
 
     restart_long:
 		switch (option_index)
 		{
 			DMSG("selected option %s\n", long_options[option_index].name);
-
 		case 0:
 			switch (c)
 			{
@@ -197,7 +197,7 @@ get_options (int argc, char **argv)
 		}
 		case 5:		/* remove */
 		default:
-			break;
+			usage();
 		}
     }
 }
