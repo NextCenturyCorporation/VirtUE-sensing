@@ -10,7 +10,7 @@ Two Six Labs is responsible for the Sensing and Response in the SAVIOR archirtec
  - Unikernel Sensing
  - Linux User Space Sensors
 
-Refer to the individual readmes linked above, or use the **Getting Started** section below.
+Refer to the individual readmes linked above, or use the **Getting Started** section below. For more information on the run time tools for interacting with a running Sensing environment, see the [bin tools](bin/readme.md) readme.
 
 # Getting Started with the Sensing API
 
@@ -118,7 +118,7 @@ Installing os(linux) context(virtue) name(ps)
     = created
 ```
 
-We used the default command line options of `load_sensor_configurations.py` to target our local API instance, and scanned all of the repository for configurations. See the documentation for [loading sensor configurations](sensors/readme.md#installing-sensor-configurations) for more command line options.
+We used the default command line options of `load_sensor_configurations.py` to target our local API instance, and scanned all of the repository for configurations. See the documentation for [loading sensor configurations](bin/readme.md#load_sensor_configurationspy) for more command line options.
 
 We can verify that our configurations loaded with the `list` option:
 
@@ -174,7 +174,7 @@ target_1_1             | Synced sensor with Sensing API
 
 Until the entire environent is up and responding, different containers will report warnings and errors. So long as the sensors get to the point of logging a `Synced sensor with Sensing API`, everything is functioning normally.
 
-To interact with the API we'll use the `virtue-security` command line interface, which we can build with the `dockerized-build.sh` command from the `bin` directory:
+To interact with the API we'll use the `virtue-security` command line interface, which we can build with the [dockerized-build.sh](bin/readme.md#dockerized-buildsh) command from the `bin` directory:
 
 ```bash
 > ./bin/dockerized-build.sh 
@@ -192,7 +192,7 @@ Successfully tagged virtue-savior/demo-target:latest
 
 With that we've successfully built two containers - the `virtue-security` container, which provides all of the run time dependencies and libraries for the `virtue-security` command, and the container for the `demo-target` Virtue.
 
-Now our Virtue is running, and the API and infrastructure are running, so let's interact with the API. Switch to a new terminal, where we'll work from the root of the repository. Start by inspecting the running Virtues with the pre-built command `dockerized-inspect.sh`:
+Now our Virtue is running, and the API and infrastructure are running, so let's interact with the API. Switch to a new terminal, where we'll work from the root of the repository. Start by inspecting the running Virtues with the pre-built command [dockerized-inspect.sh](bin/readme.md#dockerized-inspectsh):
 
 ```bash
 > ./bin/dockerized-inspect.sh 
@@ -235,7 +235,7 @@ virtue-security inspect --username root
 
 With the `--username` flag we're asking the Sensing API to scope our action to any Virtue's used by the user with username `root`. 
 
-Sensors within Virtues send their logs to a Kafka instance in the Sensing infrastructure - let's make sure that the sensors we have active are really logging by using the `dockerized-stream.sh` command (again, pruned for brevity):
+Sensors within Virtues send their logs to a Kafka instance in the Sensing infrastructure - let's make sure that the sensors we have active are really logging by using the [dockerized-stream.sh](bin/readme.md#dockerized-streamsh) command (again, pruned for brevity):
 
 ```bash
 > ./bin/dockerized-stream.sh 
