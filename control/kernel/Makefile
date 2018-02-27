@@ -13,6 +13,10 @@ clean:
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
 		rm uname.h &>/dev/null
 
+strscp: strscp.c jsmn/jsmn.c
+	  gcc -g -c strscp.c jsmn/jsmn.c
+		gcc -g -o strscp strscp.o jsmn.o
+
 .PHONY: lint
 lint:
 	find . -name "*.c"  -exec cppcheck --force {} \;
