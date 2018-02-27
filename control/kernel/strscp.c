@@ -135,14 +135,14 @@ void usage(void)
 	printf (" where <test> is one of:\n");
 	printf ("\t --add-nl <string> --trim-to-nl <string> " \
 			"--unescape-nl <string> --escape-nl <string>\n");
+	printf ("\t --file <filename>\n");
 	exit(0);
 }
 
 
-enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, USAGE };
-uint8_t *input_string = NULL, *output_string = NULL;
+enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
+uint8_t *input_string = NULL, *output_string = NULL, *in_file_name  = NULL;
 enum type option_index = USAGE;
-
 static inline int
 get_options (int argc, char **argv)
 {
@@ -156,6 +156,7 @@ get_options (int argc, char **argv)
 			{"trim-to-nl", required_argument, 0, 't'},
 			{"unescape-nl", required_argument, 0, 'u'},
 			{"escape-nl", required_argument, 0, 'x'},
+			{"in-file", required_argument, 0, 'i'},
 			{"help", no_argument, NULL, 0},
 			{0, 0, 0, 0}
 		};
@@ -189,7 +190,29 @@ get_options (int argc, char **argv)
 			}
 			break;
 		}
+		case IN_FILE:
+		{
+			FILE *in_file;
+			ssize_t nread, len = 0;
+			uint8_t *line;
 
+			in_file_name = strdup(optarg);
+			in_file = fopen(in_file_name, "r");
+			if (in_file == NULL) {
+				perror("fopen");
+				exit(EXIT_FAILURE);
+			}
+
+			while((nread = getline( &line, &len, in_file)) != -1) {
+				if (verbose_flag) {
+					fwrite(line, nread, 1, stdout);
+				}
+			}
+			free(line);
+			fclose(in_file);
+			exit(EXIT_SUCCESS);
+			break;
+		}
 		case USAGE:		/* help */
 		default:
 			usage();
