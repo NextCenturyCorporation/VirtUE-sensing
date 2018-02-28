@@ -9,20 +9,10 @@ from win32con import SE_PRIVILEGE_ENABLED
 from win32api import OpenProcess, DuplicateHandle, GetCurrentProcess
 from win32security import LookupPrivilegeValue, OpenProcessToken, AdjustTokenPrivileges, TOKEN_ALL_ACCESS
 
-PARAMFLAG_FIN   = 0x1
-PARAMFLAG_FOUT  = 0x2
-PARAMFLAG_FLCID = 0x4
-PARAMFLAG_COMBINED = PARAMFLAG_FIN | PARAMFLAG_FOUT | PARAMFLAG_FLCID
-
 PROCESS_DUP_HANDLE = 0x0040
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
    
-SystemHandleInformation = 16
-ObjectBasicInformation = 0
-ObjectNameInformation = 1
-ObjectTypeInformation = 2                           
-
 class CtypesEnum(IntEnum):
     """A ctypes-compatible IntEnum superclass."""
     @classmethod
@@ -62,6 +52,23 @@ class UNICODE_STRING(SmartStructure):
         ("Buffer", c_wchar_p)
         ]
 
+class PARAM_FLAG(CtypesEnum):
+    '''
+    Parameter Flag Enumerations
+    '''
+    FIN   = (1 << 0)
+    FOUT  = (1 << 1)
+    FLCID = (1 << 2)
+    COMBINED = FIN | FOUT | FLCID
+    
+class OBJECT_INFORMATION(CtypesEnum):
+    '''
+    Object Information Enumeration
+    '''
+    ObjectBasicInformation = 0x0000
+    ObjectNameInformation = 0x0001
+    ObjectTypeInformation = 0x0002 
+    
 class SYSTEM_INFORMATION_CLASS(CtypesEnum):
     SystemBasicInformation=0x0000,
     SystemProcessorInformation=0x0001
@@ -319,7 +326,6 @@ class OBJECT_TYPE_INFORMATION(SmartStructure):
                 ("DefaultNonPagedPoolCharge", ULONG)
                 ] 
     
-
 STATUS_SUCCESS=0x0
 STATUS_INFO_LENGTH_MISMATCH=0xc0000004
 STATUS_INVALID_PARAMETER=0xC000000D
@@ -327,13 +333,66 @@ STATUS_BUFFER_TOO_SMALL=0xC0000023
 STATUS_BUFFER_OVERFLOW=0x80000005
     
 prototype = WINFUNCTYPE(LONG, SYSTEM_INFORMATION_CLASS, c_void_p, ULONG, PULONG, use_last_error=True)
-paramflags = (PARAMFLAG_FIN, "SystemInformationClass"), (PARAMFLAG_FIN, "SystemInformation"), (PARAMFLAG_FIN, "SystemInformationLength"), (PARAMFLAG_FOUT, "ReturnLength")
+paramflags = (PARAM_FLAG.FIN, "SystemInformationClass"), (PARAM_FLAG.FIN, "SystemInformation"), (PARAM_FLAG.FIN, "SystemInformationLength"), (PARAM_FLAG.FOUT, "ReturnLength")
 NtQuerySystemInformation = prototype(("NtQuerySystemInformation", windll.ntdll), paramflags)
 
-'''
-iterator versions
-'''
-  
+def _change_privileges(disable_privilege, privs):
+    '''
+    change privilges common code
+    '''
+    bSuccess = False
+    hProcToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS)
+    try:
+        if not hProcToken:
+            return None            
+        bSuccess = AdjustTokenPrivileges(hProcToken,  disable_privilege , privs)    
+    finally:
+        if not not hProcToken:
+            hProcToken.Close()
+    return bSuccess        
+
+def acquire_privileges(privs):
+    '''
+    attempt to acquire privileges
+    '''
+    bSuccess = _change_privileges(False, privs)
+    return bSuccess
+
+def release_privileges(privs):
+    '''
+    attempt to release previously acquired privileges
+    '''
+    bSuccess = _change_privileges(True, privs)
+    return bSuccess
+
+def _get_process_handle(pid):
+    '''
+    Given a PID return its process handle
+    '''
+    if not pid or not isinstance(pid, int) or 0 != pid % 4:
+        return None    
+                   
+    process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
+    if not process_handle:    
+        return None               
+    
+    IsCritical = BOOLEAN()
+    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
+    process_handle.close()
+    del process_handle
+    if not success:        
+        return None            
+    if True == IsCritical:        
+        return None  
+    
+    try:
+        process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
+    except pywintypes.error as err:
+        lasterr = GetLastError()
+        print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
+        process_handle = None
+               
+    return process_handle  
 def get_process_ids():
     '''
     process id iterator
@@ -377,7 +436,7 @@ def get_process_ids():
 
 def get_system_handle_information(pid=None):
     '''
-    System Handle Information
+    System Handle Iterator with pid filter
     '''
     
     if not pid or not isinstance(pid, int) or 0 != pid % 4:
@@ -423,8 +482,9 @@ def get_system_handle_information(pid=None):
 
 def get_handle_information(pid=None):
     '''
+    syste handle iterator with a pid filter
     '''    
-    process_handle = _GetProcessHandle(pid)
+    process_handle = _get_process_handle(pid)
     if not process_handle:
         return []
     
@@ -440,12 +500,57 @@ def get_handle_information(pid=None):
                 #print("Handle {0} Caught a pywintypes.err Error {1}\n".format(shi ,err,))                
     finally:
         process_handle.close()
-    
-'''
-Non iterator Versions
-'''
 
-def GetSystemBasicInformation():
+def _get_object_info(handle, obj_info_enum):
+    '''
+    common code to retrieve either object type or object information
+    '''
+    if (not handle 
+        or not hasattr(handle, "handle") 
+        or not isinstance(obj_info_enum, OBJECT_INFORMATION)):
+        return None
+    
+    return_length = ULONG()            
+    object_information = OBJECT_TYPE_INFORMATION()
+    res = windll.ntdll.NtQueryObject(handle.handle,
+                                     obj_info_enum,
+                                     object_information,
+                                     sizeof(object_information),
+                                     byref(return_length))
+    if STATUS_SUCCESS != res:
+        object_information = create_string_buffer(return_length.value)
+        res = windll.ntdll.NtQueryObject(handle.handle,
+                                         obj_info_enum,
+                                         object_information,
+                                         sizeof(object_information),
+                                         byref(return_length))
+    
+    if STATUS_SUCCESS != res:
+        return None   
+    
+    ObjTypNfo = POINTER(OBJECT_TYPE_INFORMATION)
+    sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
+    array_of_oti = bytearray(memoryview(object_information))    
+    buf = (BYTE * sz_oti).from_buffer_copy(array_of_oti)
+    object_information = cast(buf, ObjTypNfo)   
+    object_name = object_information.contents.Name.Buffer    
+    return object_name
+
+def get_nt_object_name_info(handle):
+    '''
+    given a handle return the objects name
+    '''
+    object_value = _get_object_info(handle, OBJECT_INFORMATION.ObjectNameInformation)
+    return object_value
+
+def get_nt_object_type_info(handle):
+    '''
+    given a handle return the objects type
+    '''
+    object_value = _get_object_info(handle, OBJECT_INFORMATION.ObjectTypeInformation)
+    return object_value
+
+def get_basic_system_information():
     '''
     System Basic Information
     '''   
@@ -457,233 +562,6 @@ def GetSystemBasicInformation():
                                                 byref(return_length))
     return sbi
 
-def GetSystemProcessInformation(pid=None):
-    '''
-    System Process Information
-    '''        
-    return_length = ULONG()            
-    sysprocinfo = SYSTEM_PROCESS_INFORMATION()
-    res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
-                                                byref(sysprocinfo),
-                                                sizeof(sysprocinfo),
-                                                byref(return_length))
-    
-    buf = create_string_buffer(return_length.value)
-    res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
-                                                buf,
-                                                sizeof(buf),
-                                                byref(return_length))
-    if STATUS_SUCCESS != res:
-        return None
-    
-    SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
-    sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)
-    array_of_spi = bytearray(memoryview(buf))
-    
-    begin = 0
-    end = sz_spi
-    sys_proc_info_list = []
-    while True:
-        buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
-        spi = cast(buf, SystemProcInfo)
-        if not not pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:
-            sys_proc_info_list.append(spi.contents)
-            return sys_proc_info_list
-        elif not pid:
-            sys_proc_info_list.append(spi.contents)        
-        
-        next_entry_offset = spi.contents.NextEntryOffset
-        if(0 == next_entry_offset):
-            break
-        
-        begin = begin + next_entry_offset
-        end = begin + sz_spi        
-    
-    return sys_proc_info_list
-
-def GetSystemHandleInformation(pid=None):
-    '''
-    System Handle Information
-    '''
-    
-    if not pid or not isinstance(pid, int) or 0 != pid % 4:
-        return None
-    
-    return_length = ULONG()            
-    syshdnfo = SYSTEM_HANDLE_INFORMATION()
-    res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemHandleInformation,
-                                                byref(syshdnfo),
-                                                sizeof(syshdnfo),
-                                                byref(return_length))
-    
-    buf = create_string_buffer(return_length.value)
-    res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemHandleInformation,
-                                                buf,
-                                                sizeof(buf),
-                                                byref(return_length))
-    if STATUS_SUCCESS != res:
-        return None
-
-    SysHdlNfo = POINTER(SYSTEM_HANDLE_INFORMATION)
-    HdlEntry = POINTER(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
-
-    SystemHandleInfo = cast(buf, SysHdlNfo)
-    
-    sz_shtei = sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
-    initial_offset = addressof(SystemHandleInfo.contents.Handles) - addressof(SystemHandleInfo.contents) 
-    array_of_shtei = bytearray(memoryview(buf)[initial_offset:])
-    system_handle_information_list = []
-
-    for ndx in range(0, SystemHandleInfo.contents.NumberOfHandles): 
-        begin = sz_shtei * ndx
-        end = begin + sz_shtei
-        buf = (BYTE * sz_shtei).from_buffer_copy(array_of_shtei[begin:end])
-        shi = cast(buf, HdlEntry)
-        if not not pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:
-            system_handle_information_list.append(shi.contents)
-        elif not pid:
-            system_handle_information_list.append(shi.contents)
-                
-    return system_handle_information_list
-
-def AcquirePrivileges(privs):
-    '''
-    '''
-    bDisableAllPrivileges = False
-    
-    hProcToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS)
-    if not hProcToken:
-        return None
-        
-    bSuccess = AdjustTokenPrivileges(hProcToken,  bDisableAllPrivileges , new_privs)    
-    hProcToken.Close()                
-    return bSuccess
-    
-def ReleasePrivileges(privs):
-    '''
-    '''
-    bDisableAllPrivileges = True
-    
-    hProcToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS)
-    if not hProcToken:
-        return None
-        
-    bSuccess = AdjustTokenPrivileges(hProcToken,  bDisableAllPrivileges , new_privs)
-    hProcToken.Close()            
-    return bSuccess   
-
-def _GetProcessHandle(pid):
-    '''
-    '''
-    if not pid or not isinstance(pid, int) or 0 != pid % 4:
-        return None    
-                   
-    process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
-    if not process_handle:    
-        return None               
-    
-    IsCritical = BOOLEAN()
-    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
-    process_handle.close()
-    del process_handle
-    if not success:        
-        return None            
-    if True == IsCritical:        
-        return None  
-    
-    try:
-        process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
-    except pywintypes.error as err:
-        lasterr = GetLastError()
-        print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
-        process_handle = None
-               
-    return process_handle
-
-def GetHandleInformation(pid=None):
-    '''
-    '''    
-    process_handle = _GetProcessHandle(pid)
-    if not process_handle:
-        return []
-    
-    current_process_handle = GetCurrentProcess()
-        
-    shi = GetSystemHandleInformation(pid)
-    if not shi:
-        return []
-    
-    duped_handle_list = []
-    for ndx in range(0, len(shi)):
-        try:            
-            duped_handle = DuplicateHandle(process_handle, shi[ndx].HandleValue, current_process_handle, PROCESS_DUP_HANDLE, False, 0)
-        except pywintypes.error as err:
-            print("Handle {0}@{1} Caught a pywintypes.err Error {2}\n".format(shi[ndx],ndx,err,))            
-        else:
-            duped_handle_list.append(duped_handle)
-
-    process_handle.close()
-
-    return duped_handle_list
-        
-def GetNtObjectTypeInfo(handle):
-    '''
-    '''
-    return_length = ULONG()            
-    objectTypeInfo = OBJECT_TYPE_INFORMATION()
-    res = windll.ntdll.NtQueryObject(handle.handle,
-                                     ObjectTypeInformation,
-                                     objectTypeInfo,
-                                     sizeof(objectTypeInfo),
-                                     byref(return_length))
-    if STATUS_SUCCESS != res:
-        objectTypeInfo = create_string_buffer(return_length.value)
-        res = windll.ntdll.NtQueryObject(handle.handle,
-                                         ObjectTypeInformation,
-                                         objectTypeInfo,
-                                         sizeof(objectTypeInfo),
-                                         byref(return_length))
-    
-    if STATUS_SUCCESS != res:
-        return None   
-    
-    ObjTypNfo = POINTER(OBJECT_TYPE_INFORMATION)
-    sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
-    array_of_oti = bytearray(memoryview(objectTypeInfo))    
-    buf = (BYTE * sz_oti).from_buffer_copy(array_of_oti)
-    objectTypeInfo = cast(buf, ObjTypNfo) 
-    object_type = objectTypeInfo.contents.Name.Buffer
-    return object_type
-
-def GetNtObjectNameInfo(handle):
-    '''
-    '''
-    return_length = ULONG()            
-    objectNameInfo = OBJECT_TYPE_INFORMATION()
-    res = windll.ntdll.NtQueryObject(handle.handle,
-                                     ObjectNameInformation,
-                                     objectNameInfo,
-                                     sizeof(objectNameInfo),
-                                     byref(return_length))
-    if STATUS_SUCCESS != res:
-        objectNameInfo = create_string_buffer(return_length.value)
-        res = windll.ntdll.NtQueryObject(handle.handle,
-                                         ObjectNameInformation,
-                                         objectNameInfo,
-                                         sizeof(objectNameInfo),
-                                         byref(return_length))
-    
-    if STATUS_SUCCESS != res:
-        return None   
-    
-    ObjTypNfo = POINTER(OBJECT_TYPE_INFORMATION)
-    sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
-    array_of_oti = bytearray(memoryview(objectNameInfo))    
-    buf = (BYTE * sz_oti).from_buffer_copy(array_of_oti)
-    objectNameInfo = cast(buf, ObjTypNfo)   
-    object_name = objectNameInfo.contents.Name.Buffer    
-    return object_name
-
 if __name__ == "__main__": 
     
     new_privs = (
@@ -692,27 +570,27 @@ if __name__ == "__main__":
         (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
     )  
     
-    success = AcquirePrivileges(new_privs)
+    success = acquire_privileges(new_privs)
     if not success:
         print("Failed to acquire privs!\n")
         sys.exit(-1)
     try:        
-        sbi = GetSystemBasicInformation()
+        sbi = get_basic_system_information()
         print("System Basic Info = {0}\n".format(sbi,))
     
         for pid in get_process_ids():        
             try:
                 print("Process ID {0} Handle Information:\n".format(pid,))
                 for dupHandle in get_handle_information(pid):
-                    type_name = GetNtObjectTypeInfo(dupHandle)
-                    object_name = GetNtObjectNameInfo(dupHandle)            
-                    print("\ttype_name={0},object_name={1}\n".format(type_name,object_name,))           
+                    type_name = get_nt_object_type_info(dupHandle)
+                    object_name = get_nt_object_name_info(dupHandle)            
+                    print("\tHandle={0},type_name={1},object_name={2}\n".format(dupHandle, type_name,object_name,))           
                     dupHandle.Close()            
             except pywintypes.error as err:
                 print("Unable to get handle information from pid {0} - {1}\n"
                       .format(pid, err,))
     finally:
-        success = ReleasePrivileges(new_privs)        
+        success = release_privileges(new_privs)        
       
     
    
