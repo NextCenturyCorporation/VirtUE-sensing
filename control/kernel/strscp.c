@@ -4,23 +4,43 @@
 #include <string.h>
 #include <assert.h>
 #include <getopt.h>
+#include <errno.h>
 #include "jsmn/jsmn.h"
 
-#define GFP_KERNEL 1
-#define krealloc(p, t, f)					\
-				 realloc((p), (t))
 typedef char uint8_t;
-const uint8_t escape [] = {0x5c, 0x00};
+#define GFP_KERNEL 1
+#define krealloc(p, t, f)						\
+	realloc((p), (t))
+#define kzalloc(s, f) calloc((s), sizeof(uint8_t))
 
+const uint8_t escape [] = {0x5c, 0x00};
 int verbose_flag = 0;
+
+/**
+ * read in for jsonl to parse
+ * assuming that in and out are both open.
+ **/
+
+int read_jsonl(FILE *in, FILE *out)
+{
+
+
+	return 3;
+
+}
+
+
+
+
 
 uint8_t *add_nl_at_end(uint8_t *in, int len)
 {
 	uint8_t *c, *end = in + len;
 	assert(*end == 0);
-	c = krealloc(in, len + 1, GFP_KERNEL);
+	c = krealloc(in, len + (2 * sizeof(uint8_t)), GFP_KERNEL);
 	assert(c);
 	*(c + len) = 0x0a;
+	*(c + len + 1) = 0x00;
 	return c;
 }
 
@@ -40,9 +60,7 @@ uint8_t *trim_to_nl(uint8_t *in, int len)
 			c = strchr(c, 0x0a);
 		} else {
 			*c = 0;
-			count = (c - in) + 1;
-			out = krealloc(in, count, GFP_KERNEL);
-			return out;
+			return krealloc(in, c - in, GFP_KERNEL);
 		}
 	}
 	return in;
@@ -51,6 +69,7 @@ uint8_t *trim_to_nl(uint8_t *in, int len)
 
 uint8_t *unescape_newlines(uint8_t *in, int len)
 {
+	int count = 0;
 	uint8_t *save = in;
 	uint8_t *end = in + len;
 	assert(*end == 0);
@@ -71,11 +90,15 @@ uint8_t *unescape_newlines(uint8_t *in, int len)
 					}
 					/* re-terminate the shorter string */
 					*s = *p;
+					count++;
 				}
 			}
 			in++;
 		}
 	} while (in);
+	if (count) {
+		return krealloc(save, len - count, GFP_KERNEL);
+	}
 	return save;
 }
 
@@ -92,23 +115,24 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 	assert(*end == 0);
 
 	c = strpbrk(in, nl);
-	while (c) {
+	while (c && c < end) {
 		count++;
 		c = strpbrk(++c, nl);
 	}
 	if (count) {
-		c = krealloc (in,  len + count, GFP_KERNEL);
-        if (c) {
-			*(c + (len + count)) = 0x00;
-			p = c;
-			while (*p && count) {
-				if (*p != 0x0a && *p != 0x0d) {
-					*c++ = *p++;
-				} else {
-					*c++ = 0x5c;
-					*c++ = *p++;
-					count--;
-				}
+		c = in = krealloc (in,  len + count + 1, GFP_KERNEL);
+        assert(c);
+		*(c + len + count) = 0x00;
+		p = c;
+		while (*p && count) {
+			if (*p != 0x0a && *p != 0x0d) {
+				*c++ = *p++;
+			} else {
+				*(p + 1) = *p;
+				p += 2;
+				*c = 0x5c;
+				c += 2;
+				count--;
 			}
 		}
 	}
@@ -181,6 +205,7 @@ get_options (int argc, char **argv)
 			input_len = strlen(input_string);
 			output_string = function_table[option_index](input_string,
 														 input_len);
+
 			output_len = strlen(output_string);
 			if (verbose_flag) {
 				printf("option: %d\ninput %d: %s\noutput %d:%s\n",
@@ -194,8 +219,17 @@ get_options (int argc, char **argv)
 		{
 			FILE *in_file;
 			ssize_t nread, len = 0;
-			uint8_t *line;
+			uint8_t *line = NULL;
+			jsmn_parser p;
+			jsmntok_t *tok;
+			size_t tokcount = 0x10;
 
+			jsmn_init(&p);
+			tok = kzalloc(sizeof(jsmntok_t) * tokcount, GFP_KERNEL);
+			if (tok == NULL) {
+				fprintf(stderr, "kzalloc(): errno %d\n", errno);
+				exit(EXIT_FAILURE);
+			}
 			in_file_name = strdup(optarg);
 			in_file = fopen(in_file_name, "r");
 			if (in_file == NULL) {
@@ -203,12 +237,18 @@ get_options (int argc, char **argv)
 				exit(EXIT_FAILURE);
 			}
 
-			while((nread = getline( &line, &len, in_file)) != -1) {
+			while((nread = getline(&line, &len, in_file)) != -1) {
+				line = trim_to_nl(line, strlen(line));
+				line = add_nl_at_end(line, strlen(line));
+				line = escape_newlines(line, strlen(line));
+				line = unescape_newlines(line, strlen(line));
 				if (verbose_flag) {
-					fwrite(line, nread, 1, stdout);
+					fwrite(line, strlen(line), 1, stdout);
 				}
+				free(line);
+				line = NULL;
+				len = 0;
 			}
-			free(line);
 			fclose(in_file);
 			exit(EXIT_SUCCESS);
 			break;
