@@ -21,6 +21,14 @@ jsonl: strscp.c jsmn/jsmn.c
 	  gcc -g -c strscp.c jsmn/jsmn.c
 		gcc -g -o jsonl strscp.o jsmn.o
 
+.PHONY: jsonl-test
+jsonl-test: jsonl
+	./jsonl --verbose --in-file test.jsonl
+
+.PHONY: jsonl-debug
+jsonl-debug: jsonl-clean jsonl
+	gdb jsonl -x jsonl.gdb
+
 .PHONY: lint
 lint:
 	find . -name "*.c"  -exec cppcheck --force {} \;
