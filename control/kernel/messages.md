@@ -27,18 +27,18 @@ See _Escaping Newlines in Response Record Data_ below.
 
 ## Message Header
 Each message must begin with a protocol header that includes a version value, followed by an array of zero or more records:
-"{Virtue protocol version: 0.1, [...]}\n"
+"{Virtue-protocol-verion: 0.1, [...]}\n"
 
 ## Protocol
 
 ### Session Request and Protocol version
 After establishing a connection medium (see above) the client makes a request containing only the protocol header and version (represented by 0.1) by writing to the connected socket:
 
-"{Virtue protocol version: 0.1}\n"
+"{Virtue-protocol-verion: 0.1}\n"
 
 The server reads this and, if it agrees to serve the client it responds with:
 
-"{Virtue protocol version: 0.1}\n"
+"{Virtue-protocol-verion: 0.1}\n"
 
 Now the Client and Server are in agreement over the protocol version, and ready to engage in the protocol.
 
@@ -48,13 +48,13 @@ If the server refuses the session request, it responds with:
 ### Discovery Request and Resply
 At any time the client may make a discovery request:
 
-"{Virtue protocol version: 0.1, request: [nonce, discovery] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, discovery] }\n"
 
 Where _nonce_ is a unique value that identifies a specific request and response.
 
 The server is expected to respond with:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [probe ids]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [probe ids]] }\n"
 
 Where _nonce_ is idendical to the value from the request. The _probe ids_ array contains the Id String of each probe that is registered with the server. For example, "kernel-ps", "kernel-lsof", and so on.
 
@@ -63,7 +63,7 @@ The client then knows the identifying string of each probe that is registered wi
 ### Probe Commands
 The client may issue commands to the probe:
 
-"{Virtue protocol version: 0.1, request: [nonce, command [probe ids]] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, command [probe ids]] }\n"
 where _command_ is one of:
 
 * off: turn probe sensing off
@@ -76,7 +76,7 @@ where _command_ is one of:
 
 The server will respond with:
 
-"{Virtue protocol version: 0.1, reply: [nonce, command [probe ids], [id, result]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, command [probe ids], [id, result]] }\n"
 
 where _result_ is one of:
 
@@ -88,17 +88,17 @@ where _result_ is one of:
 
 Each probe will reply with its records differently. The most common format is for each record to be one JSONL message:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id, record 1]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 1]] }\n"
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id, record 2]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 2]] }\n"
 
 ...
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id, record n]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record n]] }\n"
 
 and finally:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id]] }\n"
 
 A reply with only the nonce, and no record, will terminate the original records request.
 
@@ -111,15 +111,15 @@ This means, for example, that serial _records_ requests will not result in dupli
 
 A probe may have a different policy for record retention and reporting. For example, a probe may retain records indefinitely and may respond to a request for specific records.
 
-"{Virtue protocol version: 0.1, request: [nonce, [id, record 2048]] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, [id, record 2048]] }\n"
 
 Is a request for _record number 2048_ from probe _id_. The response would be:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id, record 2048]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 2048]] }\n"
 
 if that record existed and was retained by the probe, or:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id]] }\n"
 
 if that record did not exist or was not retained by the probe.
 
@@ -129,11 +129,11 @@ The client must have prior knowledge of a particular probe's policy for record r
 
 A client may include a _filter_ in a records request:
 
-"{Virtue protocol version: 0.1, request: [nonce, [id, filter 'filter']] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, [id, filter 'filter']] }\n"
 
 The server would respond with any records that passed the filter:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id, record ]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record ]] }\n"
 
 the protocol makes no assumption regarding the contents or interpretation of a _filter_. The client and probe must have a prior knowledge of the filter and its interpretaion.
 
@@ -143,6 +143,6 @@ If a probe creates a sensing record that has newline characters as data, it shou
 
 For example, a reply record that containes an embedded new line could be similar to:
 
-"{Virtue protocol version: 0.1, reply: [nonce, [id, record 1 \\\n data]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 1 \\\n data]] }\n"
 
 The server will escape the newline characters when forming the reply, and the client is responsible for un-escaping the newline characters when it parses the reply message.
