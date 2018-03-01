@@ -2,26 +2,38 @@ import sys
 import pywintypes
 
 from enum import Enum, IntEnum
-from ctypes import cdll, byref, sizeof, Structure, c_void_p, c_ushort, c_wchar_p, c_size_t, WINFUNCTYPE, pointer, windll, c_ubyte, c_int32, c_ulonglong, cast, create_string_buffer, addressof, POINTER, GetLastError
+from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar
+from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
+from ctypes import c_float, c_double, c_longdouble
+from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, pointer, windll
 from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, SHORT, BOOLEAN
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
 from win32api import OpenProcess, DuplicateHandle, GetCurrentProcess
 from win32security import LookupPrivilegeValue, OpenProcessToken, AdjustTokenPrivileges, TOKEN_ALL_ACCESS
+from json import JSONEncoder, JSONDecoder, JSONDecodeError, dumps
 
 PROCESS_DUP_HANDLE = 0x0040
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-   
+     
 class CtypesEnum(IntEnum):
     """A ctypes-compatible IntEnum superclass."""
     @classmethod
     def from_param(cls, obj):
         return int(obj)
 
-
 class SmartStructure(Structure):
-        
+    '''
+    Implement a base class that takes care of JSON serialization/deserialization, 
+    internal object instance state and other housekeeping chores
+    '''
+    pointer_types = [c_void_p]
+    string_types = [c_char_p, c_wchar_p]
+    integer_types = [c_bool, c_byte, c_ubyte, c_short,  c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar,
+                    c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong]
+    float_types = [c_float, c_double, c_longdouble]
+    
     def __init__(self):
         '''
         Initialize this instance
@@ -30,20 +42,71 @@ class SmartStructure(Structure):
     
     def __str__(self):
         '''
-        create a string that shows this instances internal state
+        returns a string that shows this instances internal state
         '''
         szfields = len(type(self)._fields_)
-        state = ""
+        state = "{0}@{1}: ".format(type(self),hex(id(self)),)
         for ndx in range(0, szfields):            
             this_name = type(self)._fields_[ndx][0];
             this_value = getattr(self, this_name)                           
-            state += "{0}={1},".format( this_name, this_value,)
-            
+            state += "{0}={1},".format( this_name, this_value,)            
         state = state[:len(state)-1]
         return state
-        
+    
     __repr__ = __str__
     
+    def Serialize(self):
+        '''
+        Serialize an instance of this class into a JSON representation
+        '''
+        encoder = SaviorJSONEncoder()
+        result = {}
+        anonymous = getattr(self, '_anonymous_', [])        
+        clazz = getattr(self, '__class__', None)        
+        result['__class__'] = clazz.__name__
+        for _name, _type in getattr(self, '_fields_', []):
+            value = getattr(self, _name)            
+            # don't serialize private fields
+            if _name.startswith('_'):
+                continue
+            if _name in anonymous:
+                result.update(encoder.encode(value))
+            else:
+                result[_name] = encoder.encode(value)
+        encoded_data = dumps(result)
+        return encoded_data
+    
+    @classmethod                  
+    def DeSerialize(clz, obj):
+        '''
+        DeSerialize a JSON representation into an instance of this class
+        '''
+        if not issubclass(clz, SmartStructure) or not isinstance(obj, str):
+            return None
+        
+        decoder = JSONDecoder()
+        data = decoder.decode(obj)
+        clazzname = data["__class__"]
+        if clazzname != clz.__name__:
+            raise TypeError("{0} != {1} - class or type mismatch on deserialization!"
+                            .format(clazzname, clz.__name__,))
+        clazz = clz()
+        for _name, _type in clazz._fields_:            
+            value_as_a_string = data[_name]
+            if _type in SmartStructure.integer_types:              
+                value = _type(int(value_as_a_string))
+            elif _type in SmartStructure.float_types:
+                value = _type(float(value_as_a_string))
+            elif _type in SmartStructure.pointer_types:
+                if value_as_a_string in ["null","None"]:
+                    value = _type(int(0))
+                else:
+                    value = _type(int(value_as_a_string))                
+            elif _type in SmartStructure.string_types:
+                value = value_as_a_string                                                          
+            setattr(clazz, _name, value)
+            value = getattr(clazz, _name)        
+        return clazz    
     
 class UNICODE_STRING(SmartStructure):
     _fields_ = [ 
@@ -324,8 +387,19 @@ class OBJECT_TYPE_INFORMATION(SmartStructure):
                 ("PoolType", ULONG),
                 ("DefaultPagedPoolCharge", ULONG),
                 ("DefaultNonPagedPoolCharge", ULONG)
-                ] 
-    
+                ]     
+class SaviorJSONEncoder(JSONEncoder):
+    '''
+    Encode Savior Objects in JSON
+    '''
+    def default(self, obj):
+        '''
+        Handles non-standard object types for Savior
+        '''
+        if isinstance(obj, UNICODE_STRING):
+            return [obj.Length, obj.MaximumLength, obj.Buffer]
+        # Let the base class default method raise the TypeError
+        return JSONEncoder.default(self, obj)   
 STATUS_SUCCESS=0x0
 STATUS_INFO_LENGTH_MISMATCH=0xc0000004
 STATUS_INVALID_PARAMETER=0xC000000D
@@ -364,6 +438,76 @@ def release_privileges(privs):
     '''
     bSuccess = _change_privileges(True, privs)
     return bSuccess
+
+def _get_process_handle(pid):
+    '''
+    Given a PID return its process handle
+    '''
+    if not pid or not isinstance(pid, int) or 0 != pid % 4:
+        return None    
+                   
+    process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
+    if not process_handle:    
+        return None               
+    
+    IsCritical = BOOLEAN()
+    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
+    process_handle.close()
+    del process_handle
+    if not success:        
+        return None            
+    if True == IsCritical:        
+        return None  
+    
+    try:
+        process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
+    except pywintypes.error as err:
+        lasterr = GetLastError()
+        print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
+        process_handle = None
+               
+    return process_handle 
+
+def get_process_objects(pid=None):
+    '''
+    process object iterator
+    '''        
+    return_length = ULONG()            
+    sysprocinfo = SYSTEM_PROCESS_INFORMATION()
+    res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
+                                                byref(sysprocinfo),
+                                                sizeof(sysprocinfo),
+                                                byref(return_length))
+    
+    buf = create_string_buffer(return_length.value)
+    res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
+                                                buf,
+                                                sizeof(buf),
+                                                byref(return_length))
+    if STATUS_SUCCESS != res:
+        return None
+    
+    SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
+    sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)
+    array_of_spi = bytearray(memoryview(buf))
+    
+    begin = 0
+    end = sz_spi
+    pid = 0
+    while True:
+        buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
+        spi = cast(buf, SystemProcInfo)                                       
+        if not not pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:
+            return spi.contents
+        elif not pid:
+            yield spi.contents
+        else:
+            continue                    
+        next_entry_offset = spi.contents.NextEntryOffset
+        if(0 == next_entry_offset):
+            break        
+        begin = begin + next_entry_offset
+        end = begin + sz_spi        
 
 def _get_process_handle(pid):
     '''
@@ -474,11 +618,13 @@ def get_system_handle_information(pid=None):
         shi = cast(buf, HdlEntry)
         if not not pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:
             sys_handle_info = shi.contents
+            yield sys_handle_info
+            break
         elif not pid:
             sys_handle_info = shi.contents
+            yield sys_handle_info
         else:
-            continue
-        yield sys_handle_info                
+            continue                        
 
 def get_handle_information(pid=None):
     '''
@@ -563,7 +709,6 @@ def get_basic_system_information():
     return sbi
 
 if __name__ == "__main__": 
-    
     new_privs = (
         (LookupPrivilegeValue(None, SE_SECURITY_NAME), SE_PRIVILEGE_ENABLED),
         (LookupPrivilegeValue(None, SE_CREATE_PERMANENT_NAME), SE_PRIVILEGE_ENABLED), 
@@ -573,14 +718,36 @@ if __name__ == "__main__":
     success = acquire_privileges(new_privs)
     if not success:
         print("Failed to acquire privs!\n")
-        sys.exit(-1)
+        sys.exit(-1)    
+    #pid = 1608
+    #for test in get_system_handle_information(pid):
+        #serdata = test.Serialize()
+        #print(serdata)
+        #new_test_instance = SYSTEM_HANDLE_TABLE_ENTRY_INFO.DeSerialize(serdata)
+        #print(test)
+        #for dupHandle in get_handle_information(pid):
+            #type_name = get_nt_object_type_info(dupHandle)            
+            #object_name = get_nt_object_name_info(dupHandle)     
+            
+    #for proc_obj in get_process_objects(pid):
+        #print(proc_obj)
+        #serdata = proc_obj.Serialize()
+        #print(serdata)
+        #new_proc_obj = SYSTEM_PROCESS_INFORMATION.DeSerialize(serdata)
+        #print(new_proc_obj)
+    
+    #new_test = test.DeSerialize(serdata)
+    #print("serialized test = {0}, new_test={1}\n".format(serdata, new_test))
+    
+
     try:        
         sbi = get_basic_system_information()
         print("System Basic Info = {0}\n".format(sbi,))
     
-        for pid in get_process_ids():        
+        for pid in get_process_ids():                    
             try:
-                print("Process ID {0} Handle Information:\n".format(pid,))
+                proc_obj = get_process_objects(pid)
+                print("Process ID {0} Handle Information: {1}\n".format(pid,proc_obj,))                
                 for dupHandle in get_handle_information(pid):
                     type_name = get_nt_object_type_info(dupHandle)
                     object_name = get_nt_object_name_info(dupHandle)            
