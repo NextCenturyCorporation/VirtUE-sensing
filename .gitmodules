@@ -3,5 +3,5 @@
 	url = git@github.com:zserge/jsmn.git
 [submodule "sensors/sensor_nfs/scapy-repo"]
 	path = sensors/sensor_nfs/scapy-repo
-	url = https://github.com/secdev/scapy.git
+	url = git@github.com:secdev/scapy.git
 	branch = v2.4.0rc4

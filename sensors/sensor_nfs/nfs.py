@@ -29,7 +29,7 @@ from scapy.all import *
 ##
 ## RPC replies are not self-contained - they don't have all the info
 ## needed to figure out their type. Thus, we track transaction IDs,
-## which are matched between the self-contained call message and its
+## which are matched between a self-contained call message and its
 ## associated reply. Then, we can piece together the reply.
 ##
 ## Map: transaction ID --> NFS reply class
@@ -58,7 +58,7 @@ def generate_fields( fields, cond=None ):
 def nfs3_fname( pre="", cond=None ):
     fields = [ FieldLenField( "name_len", 0, fmt='I', length_of="name" ),
                StrLenField( "name", "", length_from=lambda pkt: pkt.name_len),
-               StrFixedLenField( "pad", "", length_from=lambda pkt:(pkt.name_len % 4) ),]
+               XStrFixedLenField( "pad", "", length_from=lambda pkt:(-pkt.name_len % 4) ),]
     return generate_fields( fields, cond )
 
 # nfspath3
@@ -249,6 +249,12 @@ def nfs3_fattr( pre="", cond=None ):
              nfs3_time( pre+"ctime." ) 
     return generate_fields( fields, cond )
 
+# Page 24
+def nfs3_wcc_data( pre="", cond=None ):
+    fields = nfs3_pre_op_attr( "before." ) + \
+             nfs3_post_op_attr( "after." )
+    return generate_fields( fields, cond )
+
 # Page 26
 #      struct sattr3 {
 #         set_mode3   mode;
@@ -258,13 +264,8 @@ def nfs3_fattr( pre="", cond=None ):
 #         set_atime   atime;
 #         set_mtime   mtime;
 #      };
+'''
 def nfs3_sattr( pre="", cond=None ):
-    fields = nfs3_pre_op_attr( "before" ) + \
-             nfs3_post_op_attr( "after" )
-    return generate_fields( fields, cond )
-
-# Page 24
-def nfs3_wcc_data( pre="", cond=None ):
     fields = nfs3_mode( pre ) + \
              nfs3_uid( pre ) + \
              nfs3_gid( pre ) + \
@@ -272,6 +273,23 @@ def nfs3_wcc_data( pre="", cond=None ):
              nfs3_time( pre+"atime." ) + \
              nfs3_time( pre+"mtime." )
     return generate_fields( fields, cond )
+'''
+def nfs3_sattr( pre="", cond=None ):
+    fields = [ IntField( "set_mode", 0 ), ] + \
+             nfs3_mode( pre, cond=lambda pkt: pkt.set_mode != 0 ) + \
+             [ IntField( "set_uid", 0 ), ] + \
+             nfs3_uid( pre, cond=lambda pkt: pkt.set_uid != 0 ) + \
+             [ IntField( "set_gid", 0 ), ] + \
+             nfs3_gid( pre, cond=lambda pkt: pkt.set_gid != 0 ) + \
+             [ IntField( "set_size", 0 ), ] + \
+             [ ConditionalField( XLongField( pre+"size", 0 ),
+                                 lambda pkt: pkt.set_size != 0 ), ]  + \
+             [ IntField( "set_atime", 0 ), ] + \
+             nfs3_time( pre+"atime.",  cond=lambda pkt: pkt.set_atime != 0 ) + \
+             [ IntField( "set_mtime", 0 ), ] +\
+             nfs3_time( pre+"mtime.", cond=lambda pkt: pkt.set_mtime != 0 )
+    return generate_fields( fields, cond )
+
 
 def nfs3_post_op_attr( pre="" ):
     return [ IntField( "attribs_follow", 0 ) ] + \
@@ -291,11 +309,11 @@ def nfs3_pre_op_attr( pre="" ):
     return [ IntField( "attribs_follow", 0 ) ] + \
         nfs3_wcc_attr( pre, cond=lambda pkt: pkt.attribs_follow != 0 )
 
-
-#struct diropargs3 {
-#    nfs_fh3 dir;
-#    filename3 name;
-#};
+# Page 27
+# struct diropargs3 {
+#     nfs_fh3 dir;
+#     filename3 name;
+# };
 def nfs3_diropargs( pre="" ):
     return nfs3_fhandle() + nfs3_fname()
 
@@ -407,8 +425,8 @@ class NFS3_ACCESS_Call( Packet ):
 
 class NFS3_ACCESS_ReplyOk( Packet ):
     name = "NFS ACCESS reply OK"
-    fields_desc = nfs3_fhandle() + [ XIntField( "access", 0 ), ]
-    
+    fields_desc = nfs3_post_op_attr( "obj_attr." ) + [ XIntField( "access", 0 ), ]
+
 class NFS3_ACCESS_ReplyFail( Packet ):
     name = "NFS ACCESS reply fail"
     fields_desc = nfs3_post_op_attr( "obj_attr." ) 
@@ -523,11 +541,11 @@ class NFS3_CREATE_Call( Packet ):
     name = "NFS CREATE call"
     fields_desc = nfs3_diropargs() + \
                   [ IntEnumField( "mode", 0, nfs_const.Nfs3_ValCreateModeMap ) ] + \
-                  nfs3_sattr( cond=lambda pkt: pkt.mode in
-                              ( nfs_const.NfsCreateModeValMap['UNCHECKED'],
-                                nfs_const.NfsCreateModeValMap['GUARDED'] ) ) + \
-                  nfs3_createverf( cond=lambda pkt: pkt.mode in
-                                    ( nfs_const.NfsCreateModeValMap['EXCLUSIVE'] ) )
+                  []#nfs3_sattr( cond=lambda pkt: pkt.mode in
+                  #            ( nfs_const.NfsCreateModeValMap['UNCHECKED'],
+                  #              nfs_const.NfsCreateModeValMap['GUARDED'] ) ) + \
+                  #nfs3_createverf( cond=lambda pkt: pkt.mode in
+                  #                  ( nfs_const.NfsCreateModeValMap['EXCLUSIVE'] ) )
 
 class NFS3_CREATE_ReplyOk( Packet ):
     name = "NFS CREATE reply OK"
@@ -554,8 +572,7 @@ class NFS3_CREATE_Reply( Packet ):
 ######################################################################
 class NFS3_MKDIR_Call( Packet ):
     name = "NFS MKDIR call"
-    fields_desc = nfs3_diropargs() + \
-                  nfs3_sattr()
+    fields_desc = nfs3_diropargs() + nfs3_sattr()
 
 class NFS3_MKDIR_ReplyOk( Packet ):
     name = "NFS MKDIR reply OK"
@@ -1087,8 +1104,8 @@ class RPC_Call( Packet ):
 
     def guess_payload_class( self, payload ):
 
-        if self.underlayer.xid in ( 0x47189df3, ):
-            import pdb;pdb.set_trace()
+        #if self.underlayer.xid in ( 0x47189df3, ):
+        #    import pdb;pdb.set_trace()
             
         if self.prog == nfs_const.ProgramValMap['portmapper']:
             cls = PORTMAP_Call
@@ -1105,8 +1122,8 @@ class RPC_Call( Packet ):
     def post_dissection( self, pkt ):
         """ Figures out the response class, maps the XID to it in global dict """
         resp_class = None
-        if self.underlayer.xid in ( 0x47189df3, ):
-            import pdb;pdb.set_trace()
+        #if self.underlayer.xid in ( 0x47189df3, ):
+        #    import pdb;pdb.set_trace()
         if self.prog == nfs_const.ProgramValMap['portmapper']:
             resp_class = PORTMAP_Reply
         elif self.prog == nfs_const.ProgramValMap['mountd']:

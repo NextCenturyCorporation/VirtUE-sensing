@@ -21,6 +21,7 @@ import nfs_const
 
 xid_call_map = dict()
 xid_auth_map = dict()
+handle_name_map = dict()
 
 ct = 0
 def recv_pkt( pkt ):
