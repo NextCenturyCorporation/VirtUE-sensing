@@ -1,7 +1,7 @@
 version: '3'
 services:
   kafka:
-	image: 127.0.0.1:5000/savior-kafka
+    image: 127.0.0.1:5000/savior-kafka
     build: "./control/logging"
     ports:
       - "2181:2181"
@@ -11,12 +11,12 @@ services:
       ADVERTISED_PORT: "9092"
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
   cfssl:
-	image: 127.0.0.1:5000/savior-cfssl
+    image: 127.0.0.1:5000/savior-cfssl
     build: "./control/savior-ca"
     ports:
       - "3030:3030"
   api:
-	image: 127.0.0.1:5000/savior-api
+    image: 127.0.0.1:5000/savior-api
     build: "./control/api_server"
     ports:
       - "17141:17141"
@@ -31,14 +31,14 @@ services:
       - "kafka:kafka"
       - "cfssl:cfssl"
   dropper_callback:
-	image: 127.0.0.1:5000/savior-dropper_callback
+    image: 127.0.0.1:5000/savior-dropper_callback
     build: "./external/dropper_callback"
     ports:
       - "8080:8080"
     # hostname: dropper1
     # domainname: evil.io
   target_1:
-	image: 127.0.0.1/savior-target_1
+    image: 127.0.0.1/savior-target_1
     build: "./targets/demo-target"
     depends_on:
       - kafka
