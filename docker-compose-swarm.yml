@@ -38,7 +38,7 @@ services:
     # hostname: dropper1
     # domainname: evil.io
   target_1:
-    image: 127.0.0.1/savior-target_1
+    image: 127.0.0.1:5000/savior-target_1
     build: "./targets/demo-target"
     depends_on:
       - kafka
