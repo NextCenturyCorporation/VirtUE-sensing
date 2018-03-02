@@ -48,7 +48,7 @@ services:
   api_server_postgres:
     image: postgres:9.3
     volumes:
-      - ./pgdata:/var/lib/postgresql/data/pgdata
+      - /home/ubuntu/pgdata:/var/lib/postgresql/data/pgdata
     environment:
       POSTGRES_PASSWORD: "postgres"
       POSTGRES_USER: "postgres"
