@@ -58,4 +58,4 @@ services:
       placement:
         constraints: [node.role == manager]
 volumes:
-  db-data
+  db-data:
