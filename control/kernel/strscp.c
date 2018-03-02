@@ -12,24 +12,63 @@ typedef char uint8_t;
 #define krealloc(p, t, f)						\
 	realloc((p), (t))
 #define kzalloc(s, f) calloc((s), sizeof(uint8_t))
+#define printk printf
+#define KERN_INFO ""
 
 const uint8_t escape [] = {0x5c, 0x00};
 int verbose_flag = 0;
 
-/**
- * read in for jsonl to parse
- * assuming that in and out are both open.
- **/
-
-int read_jsonl(FILE *in, FILE *out)
+static inline void *__krealloc(void *buf, size_t s) 
 {
-
-
-	return 3;
-
+	void *p = krealloc(buf, s, GFP_KERNEL);
+	if (!p) {
+		free(buf);
+		printk("realloc(): errno=%d\n", ENOMEM);
+	}
+	return p;
 }
 
 
+/*
+ * An example of reading JSON from stdin and printing its content to stdout.
+ * The output looks like YAML, but I'm not sure if it's really compatible.
+ */
+
+static int dump(const char *js, jsmntok_t *t, size_t count, int indent) {
+	int i, j, k;
+	if (count == 0) {
+		return 0;
+	}
+	if (t->type == JSMN_PRIMITIVE) {
+		printf("%.*s", t->end - t->start, js+t->start);
+		return 1;
+	} else if (t->type == JSMN_STRING) {
+		printf("'%.*s'", t->end - t->start, js+t->start);
+		return 1;
+	} else if (t->type == JSMN_OBJECT) {
+		printf("\n");
+		j = 0;
+		for (i = 0; i < t->size; i++) {
+			for (k = 0; k < indent; k++) printf("  ");
+			j += dump(js, t+1+j, count-j, indent+1);
+			printf(": ");
+			j += dump(js, t+1+j, count-j, indent+1);
+			printf("\n");
+		}
+		return j+1;
+	} else if (t->type == JSMN_ARRAY) {
+		j = 0;
+		printf("\n");
+		for (i = 0; i < t->size; i++) {
+			for (k = 0; k < indent-1; k++) printf("  ");
+			printf("   - ");
+			j += dump(js, t+1+j, count-j, indent+1);
+			printf("\n");
+		}
+		return j+1;
+	}
+	return 0;
+}
 
 
 
@@ -220,30 +259,37 @@ get_options (int argc, char **argv)
 			FILE *in_file;
 			ssize_t nread, len = 0;
 			uint8_t *line = NULL;
-			jsmn_parser p;
-			jsmntok_t *tok;
-			size_t tokcount = 0x10;
 
-			jsmn_init(&p);
-			tok = kzalloc(sizeof(jsmntok_t) * tokcount, GFP_KERNEL);
-			if (tok == NULL) {
-				fprintf(stderr, "kzalloc(): errno %d\n", errno);
-				exit(EXIT_FAILURE);
-			}
 			in_file_name = strdup(optarg);
 			in_file = fopen(in_file_name, "r");
 			if (in_file == NULL) {
 				perror("fopen");
 				exit(EXIT_FAILURE);
 			}
-
+		again:
 			while((nread = getline(&line, &len, in_file)) != -1) {
-				line = trim_to_nl(line, strlen(line));
-				line = add_nl_at_end(line, strlen(line));
-				line = escape_newlines(line, strlen(line));
-				line = unescape_newlines(line, strlen(line));
-				if (verbose_flag) {
-					fwrite(line, strlen(line), 1, stdout);
+				jsmn_parser p;
+				jsmntok_t *tok;
+				size_t tokcount = 0x10;
+
+				jsmn_init(&p);
+				tok = kzalloc(sizeof(jsmntok_t) * tokcount, GFP_KERNEL);
+				if (tok == NULL) {
+					fprintf(stderr, "kzalloc(): errno %d\n", errno);
+					exit(EXIT_FAILURE);
+				}
+				int ccode = jsmn_parse(&p, line, len, tok, tokcount);
+				if (ccode < 0) {
+					if (ccode == JSMN_ERROR_NOMEM) {
+						tokcount *= 2;
+						tok = __krealloc(tok, sizeof(*tok) * tokcount);
+						if (!tok) {
+							exit(EXIT_FAILURE);
+						}
+						goto again;
+					}
+				} else if (verbose_flag){
+					dump(line, tok, p.toknext, 0);
 				}
 				free(line);
 				line = NULL;
