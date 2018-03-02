@@ -84,6 +84,12 @@ ValPortMapperMap = {
 
 PortMapperValMap = {v: k for k, v in ValPortMapperMap.items()}
 
+ProtoValMap = {
+    'TCP' : 6,
+    'UDP' : 17,
+}
+
+ValProtoMap = {v: k for k, v in ProtoValMap.items()}
 
 ValProgramMap = {
     100000 : 'portmapper',
@@ -309,3 +315,5 @@ Mount3_StatValMap = {
 }
 
 Mount3_ValStatMap = {v: k for k, v in Mount3_StatValMap.items()}
+
+MOUNT3_OK = Mount3_StatValMap[ 'MNT3_OK' ]

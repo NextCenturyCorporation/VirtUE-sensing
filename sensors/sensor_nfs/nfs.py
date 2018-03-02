@@ -38,6 +38,18 @@ from scapy.all import *
 
 xid_reply_map = dict()
 
+
+##
+## Maps XIDs to their respective request for lookup in replies
+##
+xid_call_map = dict()
+
+
+##
+## Maps transaction IDs to their caller objects
+##
+#xid_call_map = dict()
+
 ##
 ## Most of our Packet classes must specify no padding, thus they
 ## follow this template to minimze code duplication. N.B. this is
@@ -75,8 +87,9 @@ class NFS3_fname( PacketNoPad ):
 class NFS3_path( PacketNoPad ):
     name = "path"
     fields_desc = [ FieldLenField( "l",  0, length_of="v", fmt='I' ),
-                    StrLenField(   "v", "", length_from=lambda pkt: pkt.l), ]
-    
+                    StrLenField(   "v", "", length_from=lambda pkt: pkt.l),
+                    XStrFixedLenField( "p", "", length_from=lambda pkt:(-pkt.l % 4) ),]
+
 # fileid3
 #  typedef uint64 fileid3;
 class NFS3_fileid( PacketNoPad ):
@@ -312,7 +325,7 @@ class NFS3_symlink_data( PacketNoPad ):
 
 
 ######################################################################
-## Procedure 0: NULL
+## NFS Procedure 0: NULL
 ######################################################################
 
 class NFS3_NULL_Call( Packet ):
@@ -326,7 +339,7 @@ class NFS3_NULL_Reply( Packet ):
 
     
 ######################################################################
-## Procedure 1: GETTATTR
+## NFS Procedure 1: GETTATTR
 ######################################################################
 class NFS3_GETATTR_Call( Packet ):
     name = "NFS GETATTR call"
@@ -345,7 +358,7 @@ class NFS3_GETATTR_Reply( Packet ):
         Packet.guess_payload_class(self, payload)
 
 ######################################################################
-## Procedure 2: SETATTR
+## NFS Procedure 2: SETATTR
 ######################################################################
 class NFS3_SETATTR_Call( Packet ):
     name = "NFS SETATTR call"
@@ -361,7 +374,7 @@ class NFS3_SETATTR_Reply( Packet ):
 
 
 ######################################################################
-## Procedure 3: LOOKUP
+## NFS Procedure 3: LOOKUP
 ######################################################################
 class NFS3_LOOKUP_Call( Packet ):
     name = "NFS LOOKUP call"
@@ -389,7 +402,7 @@ class NFS3_LOOKUP_Reply( Packet ):
 
 
 ######################################################################
-## Procedure 4: ACCESS
+## NFS Procedure 4: ACCESS
 ######################################################################
 class NFS3_ACCESS_Call( PacketNoPad ):
     name = "NFS ACCESS call"
@@ -415,7 +428,7 @@ class NFS3_ACCESS_Reply( Packet ):
             return NFS3_ACCESS_ReplyFail
 
 ######################################################################
-## Procedure 5: READLINK
+## NFS Procedure 5: READLINK
 ######################################################################
 class NFS3_READLINK_Call( Packet ):
     name = "NFS READLINK call"
@@ -441,7 +454,7 @@ class NFS3_READLINK_Reply( Packet ):
             return NFS3_READLINK_ReplyFail
 
 ######################################################################
-## Procedure 6 (section 3.3.6): READ
+## NFS Procedure 6 (section 3.3.6): READ
 ######################################################################
 class NFS3_READ_Call( Packet ):
     name = "NFS READ call"
@@ -476,7 +489,7 @@ class NFS3_READ_Reply( Packet ):
 
 
 ######################################################################
-## Procedure 7 (section 3.3.7): WRITE
+## NFS Procedure 7 (section 3.3.7): WRITE
 ######################################################################
 class NFS3_WRITE_Call( Packet ):
     name = "NFS WRITE call"
@@ -512,7 +525,7 @@ class NFS3_WRITE_Reply( Packet ):
             return NFS3_WRITE_ReplyFail
 
 ######################################################################
-## Procedure 8 (section 3.3.8): CREATE
+## NFS Procedure 8 (section 3.3.8): CREATE
 ######################################################################
 class NFS3_CREATE_Call( Packet ):
     name = "NFS CREATE call"
@@ -547,7 +560,7 @@ class NFS3_CREATE_Reply( Packet ):
             return NFS3_CREATE_ReplyFail
 
 ######################################################################
-## Procedure 9 (section 3.3.9): MKDIR
+## NFS Procedure 9 (section 3.3.9): MKDIR
 ######################################################################
 class NFS3_MKDIR_Call( Packet ):
     name = "NFS MKDIR call"
@@ -575,7 +588,7 @@ class NFS3_MKDIR_Reply( Packet ):
             return NFS3_MKDIR_ReplyFail
 
 ######################################################################
-## Procedure 10 (section 3.3.10): SYMLINK
+## NFS Procedure 10 (section 3.3.10): SYMLINK
 ######################################################################
 class NFS3_SYMLINK_Call( Packet ):
     name = "NFS SYMLINK call"
@@ -603,7 +616,7 @@ class NFS3_SYMLINK_Reply( Packet ):
             return NFS3_SYMLINK_ReplyFail
 
 ######################################################################
-## Procedure 11 (section 3.3.11): MKNOD *** NOT IMPLEMENTED FOR NOW ***
+## NFS Procedure 11 (section 3.3.11): MKNOD *** NOT IMPLEMENTED FOR NOW ***
 ######################################################################
 class NFS3_MKNOD_Call( Packet ):
     name = "NFS MKNOD call"
@@ -615,7 +628,7 @@ class NFS3_MKNOD_Reply( Packet ):
 
 
 ######################################################################
-## Procedure 12 (section 3.3.12): REMOVE
+## NFS Procedure 12 (section 3.3.12): REMOVE
 ######################################################################
 class NFS3_REMOVE_Call( Packet ):
     name = "NFS REMOVE call"
@@ -627,7 +640,7 @@ class NFS3_REMOVE_Reply( Packet ):
                     PacketField(         "wcc", None, NFS3_wcc_data ),    ]
 
 ######################################################################
-## Procedure 13 (section 3.3.13): RMDIR
+## NFS Procedure 13 (section 3.3.13): RMDIR
 ######################################################################
 class NFS3_RMDIR_Call( Packet ):
     name = "NFS RMDIR call"
@@ -639,7 +652,7 @@ class NFS3_RMDIR_Reply( Packet ):
                     PacketField(         "wcc", None, NFS3_wcc_data ),    ]
 
 ######################################################################
-## Procedure 14 (section 3.3.14): RENAME
+## NFS Procedure 14 (section 3.3.14): RENAME
 ######################################################################
 class NFS3_RENAME_Call( Packet ):
     name = "NFS RENAME call"
@@ -654,7 +667,7 @@ class NFS3_RENAME_Reply( Packet ):
 
     
 ######################################################################
-## Procedure 15 (section 3.3.15): LINK
+## NFS Procedure 15 (section 3.3.15): LINK
 ######################################################################
 class NFS3_LINK_Call( Packet ):
     name = "NFS LINK call"
@@ -668,7 +681,7 @@ class NFS3_LINK_Reply( Packet ):
                     PacketField( "linkdir", None, NFS3_wcc_data ), ]
 
 ######################################################################
-## Procedure 16 (section 3.3.16) READDIR
+## NFS Procedure 16 (section 3.3.16) READDIR
 ######################################################################
 class NFS3_READDIR_Call( Packet ):
     name = "NFS READDIR call"
@@ -722,7 +735,7 @@ class NFS3_READDIR_Reply( Packet ):
 
 
 ######################################################################
-## Procedure 17 (section 3.3.17): READDIRPLUS
+## NFS Procedure 17 (section 3.3.17): READDIRPLUS
 ######################################################################
         
 class NFS3_READDIRPLUS_Call( Packet ):
@@ -784,7 +797,7 @@ class NFS3_READDIRPLUS_Reply( Packet ):
             return NFS3_READDIRPLUS_ReplyFail
 
 ######################################################################
-## Procedure 18 (section 3.3.18): FSSTAT
+## NFS Procedure 18 (section 3.3.18): FSSTAT
 ######################################################################
 
 class NFS3_FSSTAT_Call( Packet ):
@@ -822,7 +835,7 @@ class NFS3_FSSTAT_Reply( Packet ):
 
 
 ######################################################################
-## Procedure 19 (section 3.3.19): FSINFO
+## NFS Procedure 19 (section 3.3.19): FSINFO
 ######################################################################
 
 class NFS3_FSINFO_Call( Packet ):
@@ -861,7 +874,7 @@ class NFS3_FSINFO_Reply( Packet ):
             return NFS3_FSINFO_ReplyFail
 
 ######################################################################
-## Procedure 20 (section 3.3.20): PATHCONF
+## NFS Procedure 20 (section 3.3.20): PATHCONF
 ######################################################################
 
 class NFS3_PATHCONF_Call( Packet ):
@@ -894,7 +907,7 @@ class NFS3_PATHCONF_Reply( Packet ):
 
 
 ######################################################################
-## Procedure 21 (section 3.3.21): COMMIT
+## NFS Procedure 21 (section 3.3.21): COMMIT
 ######################################################################
 class NFS3_COMMIT_Call( Packet ):
     name = "NFS COMMIT call"
@@ -924,74 +937,239 @@ class NFS3_COMMIT_Reply( Packet ):
 
 ## Lookup table: Procedure value --> Call handler
 nfs3_call_lookup = {
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_NULL' ]        : NFS3_NULL_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_GETATTR' ]     : NFS3_GETATTR_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SETATTR' ]     : NFS3_SETATTR_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LOOKUP' ]      : NFS3_LOOKUP_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_ACCESS' ]      : NFS3_ACCESS_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READLINK' ]    : NFS3_READLINK_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READ' ]        : NFS3_READ_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_WRITE' ]       : NFS3_WRITE_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_CREATE' ]      : NFS3_CREATE_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKDIR' ]       : NFS3_MKDIR_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SYMLINK' ]     : NFS3_SYMLINK_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKNOD' ]       : NFS3_MKNOD_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_REMOVE' ]      : NFS3_REMOVE_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RMDIR' ]       : NFS3_RMDIR_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RENAME' ]      : NFS3_RENAME_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LINK' ]        : NFS3_LINK_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READDIR' ]     : NFS3_READDIR_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_NULL'        ] : NFS3_NULL_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_GETATTR'     ] : NFS3_GETATTR_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SETATTR'     ] : NFS3_SETATTR_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LOOKUP'      ] : NFS3_LOOKUP_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_ACCESS'      ] : NFS3_ACCESS_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READLINK'    ] : NFS3_READLINK_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READ'        ] : NFS3_READ_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_WRITE'       ] : NFS3_WRITE_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_CREATE'      ] : NFS3_CREATE_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKDIR'       ] : NFS3_MKDIR_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SYMLINK'     ] : NFS3_SYMLINK_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKNOD'       ] : NFS3_MKNOD_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_REMOVE'      ] : NFS3_REMOVE_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RMDIR'       ] : NFS3_RMDIR_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RENAME'      ] : NFS3_RENAME_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LINK'        ] : NFS3_LINK_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READDIR'     ] : NFS3_READDIR_Call,
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READDIRPLUS' ] : NFS3_READDIRPLUS_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSSTAT' ]      : NFS3_FSSTAT_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSINFO' ]      : NFS3_FSINFO_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_PATHCONF' ]    : NFS3_PATHCONF_Call,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_COMMIT' ]      : NFS3_COMMIT_Call,
-}
-
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSSTAT'      ] : NFS3_FSSTAT_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSINFO'      ] : NFS3_FSINFO_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_PATHCONF'    ] : NFS3_PATHCONF_Call,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_COMMIT'      ] : NFS3_COMMIT_Call,
+} 
+ 
 ## Lookup table: Procedure value --> Response handler
 nfs3_reply_lookup = {
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_NULL' ]        : NFS3_NULL_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_GETATTR' ]     : NFS3_GETATTR_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SETATTR' ]     : NFS3_SETATTR_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LOOKUP' ]      : NFS3_LOOKUP_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_ACCESS' ]      : NFS3_ACCESS_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READLINK' ]    : NFS3_READLINK_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READ' ]        : NFS3_READ_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_WRITE' ]       : NFS3_WRITE_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_CREATE' ]      : NFS3_CREATE_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKDIR' ]       : NFS3_MKDIR_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SYMLINK' ]     : NFS3_SYMLINK_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKNOD' ]       : NFS3_MKNOD_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_REMOVE' ]      : NFS3_REMOVE_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RMDIR' ]       : NFS3_RMDIR_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RENAME' ]      : NFS3_RENAME_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LINK' ]        : NFS3_LINK_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READDIR' ]     : NFS3_READDIR_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_NULL'        ] : NFS3_NULL_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_GETATTR'     ] : NFS3_GETATTR_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SETATTR'     ] : NFS3_SETATTR_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LOOKUP'      ] : NFS3_LOOKUP_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_ACCESS'      ] : NFS3_ACCESS_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READLINK'    ] : NFS3_READLINK_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READ'        ] : NFS3_READ_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_WRITE'       ] : NFS3_WRITE_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_CREATE'      ] : NFS3_CREATE_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKDIR'       ] : NFS3_MKDIR_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SYMLINK'     ] : NFS3_SYMLINK_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKNOD'       ] : NFS3_MKNOD_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_REMOVE'      ] : NFS3_REMOVE_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RMDIR'       ] : NFS3_RMDIR_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RENAME'      ] : NFS3_RENAME_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LINK'        ] : NFS3_LINK_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READDIR'     ] : NFS3_READDIR_Reply,
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_READDIRPLUS' ] : NFS3_READDIRPLUS_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSSTAT' ]      : NFS3_FSSTAT_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSINFO' ]      : NFS3_FSINFO_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_PATHCONF' ]    : NFS3_PATHCONF_Reply,
-    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_COMMIT' ]      : NFS3_COMMIT_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSSTAT'      ] : NFS3_FSSTAT_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSINFO'      ] : NFS3_FSINFO_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_PATHCONF'    ] : NFS3_PATHCONF_Reply,
+    nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_COMMIT'      ] : NFS3_COMMIT_Reply,
+} 
+
+
+######################################################################
+## MOUNT3 procedures, also defined in RFC 1813.
+######################################################################
+
+######################################################################
+## MOUNT3 Procedure 0 (section 5.2.0) NULL
+######################################################################
+class MOUNT3_NULL_Call( Packet ):
+    name = "MOUNT3 NULL call"
+    fields_desc = []
+
+class MOUNT3_NULL_Reply( Packet ):
+    name = "MOUNT3 NULL reply"
+    fields_desc = []
+
+######################################################################
+## MOUNT3 Procedure 1 (section 5.2.1) MNT
+######################################################################
+class MOUNT3_MNT_Call( PacketNoPad ):
+    name = "MOUNT3 MNT call"
+    fields_desc = [ PacketField( "path", None, NFS3_path ), ]
+
+class MOUNT3_MNT_ReplyOk( Packet ):
+    name = "NFS MNT reply OK"
+    fields_desc = [ PacketField(           "handle", None, NFS3_fhandle ),
+                    FieldLenField( "auth_flavor_ct",    0,    count_of="auth_flavors", fmt='I' ),
+                    FieldListField(  "auth_flavors",    0,
+                                    IntEnumField( "flavor", 0, nfs_const.ValAuthMap ),
+                                    count_from=lambda pkt: pkt.auth_flavor_ct ) ]
+class MOUNT3_MNT_Reply( Packet ):
+    name = "NFS MNT reply"
+    fields_desc = [ IntField( "status",    0 ), ]
+
+    def guess_payload_class( self, payload ):
+        if self.status == nfs_const.MOUNT33_OK:
+            return MOUNT33_MNT_ReplyOk
+
+######################################################################
+## MOUNT3 Procedure 3 (section 5.2.1) UMNT
+######################################################################
+class MOUNT3_UMNT_Call( PacketNoPad ):
+    name = "MOUNT3 UMNT call"
+    fields_desc = [ PacketField( "path", None, NFS3_path ), ]
+
+class MOUNT3_UMNT_Reply( Packet ):
+    name = "NFS UMNT reply"
+    fields_desc = []
+
+######################################################################
+## MOUNT3 Procedure 4 (section 5.2.1) UMNTALL
+######################################################################
+class MOUNT3_UMNTALL_Call( PacketNoPad ):
+    name = "MOUNT3 UMNTALL call"
+    fields_desc = []
+
+class MOUNT3_UMNTALL_Reply( Packet ):
+    name = "NFS UMNTALL reply"
+    fields_desc = []
+
+    
+# Not all procedures are implemented by us
+mount3_call_lookup = {
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_NULL'    ] : MOUNT3_NULL_Call,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_MNT'     ] : MOUNT3_MNT_Call,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_DUMP'    ] : None,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNT'    ] : MOUNT3_UMNT_Call,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNTALL' ] : MOUNT3_UMNTALL_Call,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_EXPORT'  ] : None,
 }
 
-        
-######################################################################
-## RPC pre-headers. UDP packets use the RPC header first, TCP use the
-## RPC RecordMarker, which is always followed by the RPC header.
-######################################################################
-frag_header = [ BitField(         "last",  0, 8  ),
-                BitFieldLenField( "len",   0, 24 ) ]
+mount3_reply_lookup = {
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_NULL'    ] : MOUNT3_NULL_Reply,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_MNT'     ] : MOUNT3_MNT_Reply,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_DUMP'    ] : None,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNT'    ] : MOUNT3_UMNT_Reply,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNTALL' ] : MOUNT3_UMNTALL_Reply,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_EXPORT'  ] : None,
+}
 
-rpc_base = [ XIntField(   "xid",        0 ),
-             IntEnumField( "direction", 0, nfs_const.ValMsgTypeMap ) ]
 
-# RPC Header
-class RPC_Header( Packet ):
-    name = "RPC Header (NF)"
-    fields_desc = [ XIntField( "xid",          0 ),
-                    IntEnumField( "direction", 0,
-                                  nfs_const.ValMsgTypeMap ) ]
+
+######################################################################
+## PORTMAP procedures, defined in RFC 1833
+######################################################################
+
+######################################################################
+## PORTMAP Procedure 0 (section 3.1, 3.2) NULL
+######################################################################
+class PORTMAP_NULL_Call( Packet ):
+    name = "PORTMAP NULL call"
+    fields_desc = []
+
+class PORTMAP_NULL_Reply( Packet ):
+    name = "PORTMAP NULL reply"
+    fields_desc = []
     
+######################################################################
+## PORTMAP Procedure 3 (section 3.1, 3.2) GETPORT
+######################################################################
+
+
+class PORTMAP_GETPORT_Call( Packet ):
+    name = "PORTMAP GETPORT call"
+    fields_desc = [ IntEnumField( "program", 0, nfs_const.ValProgramMap ),
+                    IntField(     "version", 0 ),
+                    IntField(       "proto", 0 ),
+                    IntField(        "port", 0 ) ]
+
+    #def post_dissection( self, pkt ):
+    #    #import pdb;pdb.set_trace()
+
+    #    #xid = self.underlayer.underlayer.xid
+    #    #xid_call_map[ xid ] = self
+
+class PORTMAP_GETPORT_Reply( Packet ):
+    name = "PORTMAP GETPORT reply"
+    fields_desc = [ IntField( "port", 0 ) ]
+    
+    def post_dissection( self, pkt ):
+        """ Bind newly-discovered port to RPC """
+        request = self.underlayer.underlayer.rpc_call
+
+        logging.info( "RPC program '{}' expected on port {}"
+                      .format( nfs_const.ValProgramMap[ request.program ],
+                               self.port ) )
+        bind_port_to_rpc( self.port,
+                          bind_udp=(request.proto == nfs_const.ProtoValMap['UDP']),
+                          bind_tcp=(request.proto == nfs_const.ProtoValMap['TCP']) )
+
+# Not all procedures are implemented by us
+portmap_call_lookup = {
+    nfs_const.PortMapperValMap[ 'PMAPPROC_NULL'    ] : PORTMAP_NULL_Call,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_SET'     ] : None,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_UNSET'   ] : None,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_GETPORT' ] : PORTMAP_GETPORT_Call,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_DUMP'    ] : None,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_CALLIT'  ] : None,
+}
+
+portmap_reply_lookup = {
+    nfs_const.PortMapperValMap[ 'PMAPPROC_NULL'    ] : PORTMAP_NULL_Reply,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_SET'     ] : None,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_UNSET'   ] : None,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_GETPORT' ] : PORTMAP_GETPORT_Reply,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_DUMP'    ] : None,
+    nfs_const.PortMapperValMap[ 'PMAPPROC_CALLIT'  ] : None,
+}
+
+######################################################################
+## UDP packets use the RPC header first; TCP use the RPC RecordMarker,
+## which is always followed by the RPC header.
+######################################################################
+
+class RPC_Header( Packet ):
+    """ RPC Header. Replies save a reference to their caller packets. """
+    __slots__ = Packet.__slots__ + [ 'rpc_call' ]
+    
+    name = "RPC Header (NF)"
+    fields_desc = [ XIntField(          "xid", 0 ),
+                    IntEnumField( "direction", 0, nfs_const.ValMsgTypeMap ) ]
+
+    def post_dissection( self, pkt ):
+        """
+        When a call is seen, save it globally. Once its reply is seen,
+        associate it with the reply only.
+        """
+        xid = self.underlayer.xid
+
+        if self.direction == nfs_const.MsgTypeValMap['CALL']:
+            xid_call_map[ xid ] = self
+            self.rpc_call = None
+        else:
+            if not hasattr( self, 'rpc_call' ):
+                self.rpc_call = list()
+            self.rpc_call.append(  xid_call_map[ xid ] )
+
+            # Remove the call packet from the global dictionary,
+            # provided no more replies are expected.
+            if not ( isinstance( self.underlayer, RPC_RecordMarker ) and
+                     not self.underlayer.last ):
+                del xid_call_map[ xid ]
+
 class RPC_RecordMarker( Packet ):
     name = "RPC Header (F)"
     # XXXX: incorrect: 'last' is indicated only by the most significant bit
@@ -1018,95 +1196,75 @@ class RPC_AuthSys( PacketNoPad ):
     #   unsigned int gids<16>;
     # };
 
-    fields_desc = [ XIntField(        "stamp",        0 ), 
-                    FieldLenField(    "name_len",     0, fmt='I', length_of="machine_name" ),
-                    StrLenField(      "machine_name", 0,  length_from=lambda pkt: pkt.name_len),
-                    StrFixedLenField( "pad",          "", length_from=lambda pkt:(-pkt.name_len % 4) ),
-                    PacketField(      "uid",          0,  NFS3_uid ),
-                    #IntField( "uid", 0 ),
-                    PacketField(      "gid",          0,  NFS3_gid ),
-                    #IntField( "gid", 0 ),
-                    FieldLenField(     "aux_gid_ct",  0,  count_of="aux_gids", fmt='I' ),
-                    FieldListField(    "aux_gids",    0,  IntField( "GID", 0 ),
+    fields_desc = [ XIntField(          "stamp",  0 ), 
+                    FieldLenField(   "name_len",  0, fmt='I', length_of="machine_name" ),
+                    StrLenField( "machine_name",  0, length_from=lambda pkt: pkt.name_len),
+                    StrFixedLenField(     "pad", "", length_from=lambda pkt:(-pkt.name_len % 4) ),
+                    PacketField(          "uid",  0, NFS3_uid ),
+                    PacketField(          "gid",  0, NFS3_gid ),
+                    FieldLenField( "aux_gid_ct",  0, count_of="aux_gids", fmt='I' ),
+                    FieldListField(  "aux_gids",  0, IntField( "GID", 0 ),
                                     count_from = lambda pkt: pkt.aux_gid_ct), ]
 
-# Unused
-
+# Broken
+'''
 class RPC_Auth( Packet ):
     name = "RPC Auth"
-    fields_desc = [ IntEnumField( "cred_flav",    0, nfs_const.ValAuthMap ), ]
-                    #IntField(     "cred_len",     0 ),
-                    #FieldLenField(     "cred_len",     0, fmt='I' ),
-                    #ConditionalField(
-                    #    PacketLenField( "sys", None, RPC_AuthSys,
-                    #                    length_from=lambda pkt: pkt.cred_len ),
-                    #    lambda pkt: (pkt.cred_len > 0 and
-                    #                 pkt.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ] ) ) ]
+    fields_desc = [ IntEnumField( "flavor", 0, nfs_const.ValAuthMap ),
+                    XIntField(         "l", 0 ), ]
                         
-    #] #ConditionalField( PacketField( "sys", None, RPC_AuthSys ),
-    #                  lambda pkt: (pkt.cred_len > 0 and
-    #                               pkt.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ] ) ) ]
-
-    def guess_payload_class( self, payload ):
-        import pdb;pdb.set_trace()
-        if self.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ]:
-            return RPC_AuthSys
-        elif self.cred_flav == nfs_const.AuthValMap[ 'AUTH_NULL' ]:
-            return RPC_AuthNull
-        else:
-            return Packet.guess_payload_class( self, payload )
-                    
-    def extract_padding(self, p):
-        return "", p
-
-    #RPC_AuthSys.get_fields( lambda pkt:(pkt.cred_len > 0 and
-    #                                                    pkt.cred_flav ==
-    #                                                    nfs_const.AuthValMap[ 'AUTH_UNIX' ] ) )
     #def guess_payload_class( self, payload ):
-    #    #import pdb;pdb.set_trace()
-    #    return NFS3_Verifier
-
+    #    if self.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ]:
+    #        return RPC_AuthSys
+    #    elif self.cred_flav == nfs_const.AuthValMap[ 'AUTH_NULL' ]:
+    #        return RPC_AuthNull
+    #    else:
+    #        return Packet.guess_payload_class( self, payload )
+'''
 
 class RPC_Call( Packet ):
-    """ RPC request: NFS or PORTMAP, but *NOT* MOUNT """ # ?????
+    """ RPC request: can hold NFS, PORTMAP, or MOUNT """ # ?????
     name = "RPC call"
     fields_desc = [
-        IntField(     "rpc_version",  0 ),
-        IntEnumField( "prog",         0,    nfs_const.ValProgramMap ),
-        IntField(     "prog_version", 0 ),
+        IntField(   "rpc_version", 0 ),
+        IntEnumField(      "prog", 0,    nfs_const.ValProgramMap ),
+        IntField(  "prog_version", 0 ),
 
         # proc should be an enum, but that's too much work given
         # scapy's constraints (the lookup depends on prog and proc).
-        IntField(     "proc",         0 ),
+        IntField(          "proc", 0 ),
 
-        IntEnumField( "cred_flav",    0, nfs_const.ValAuthMap ),
+        # Officially, the first field in opaque_auth. Cleaner to have
+        # it in an RPC_Auth class, but that doesn't seem to work.
+        IntEnumField( "cred_flav", 0, nfs_const.ValAuthMap ),
+
         # It'd be cleaner to include RCP_Auth and direct the parser to
         # Auth Packets via guess_paylaod_class(). But, that doesn't work.
         #PacketField( "auth", None, RPC_Auth ),
 
         # cred_len is a part of the auth field(s) but it's easier to
         # have it here, and compatible with AUTH_UNIX and AUTH_NULL.
-        IntField(     "cred_len",     0 ),
-        ConditionalField( PacketLenField( "auth", None, RPC_AuthSys,
+        IntField(      "cred_len", 0 ),
+        ConditionalField( PacketLenField( "auth_sys", None, RPC_AuthSys,
                                           length_from=lambda pkt: pkt.cred_len ),
                           lambda pkt: (pkt.cred_len > 0 and
                                        pkt.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ]) ),
-        ConditionalField( PacketLenField( "auth", None, RPC_AuthSys,
+        ConditionalField( PacketLenField( "auth_null", None, RPC_AuthNull,
                                           length_from=lambda pkt: pkt.cred_len ),
-                          lambda pkt: (pkt.cred_len > 0 and
-                                       pkt.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ]) ),
-
-
+                          lambda pkt: pkt.cred_flav == nfs_const.AuthValMap[ 'AUTH_NULL' ] ),
         PacketField(  "verifier", None, RPC_verifier ) ]
 
     def guess_payload_class( self, payload ):
+        cls = None
+        #import pdb;pdb.set_trace()
         if self.prog == nfs_const.ProgramValMap['portmapper']:
-            cls = PORTMAP_Call
+            cls = portmap_call_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['mountd']:
-            cls = MOUNT_Call
+            cls = mount3_call_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['nfs']:
             cls = nfs3_call_lookup[ self.proc ]
-        else:
+
+        if not cls:
             cls = Packet.guess_payload_class( self, payload )
 
         logging.debug( "XID {} --> {}".format( self.underlayer.xid, cls.__name__ ) )
@@ -1114,27 +1272,25 @@ class RPC_Call( Packet ):
 
     def post_dissection( self, pkt ):
         """ Figures out the response class, maps the XID to it in global dict """
-        resp_class = None
+        cls = None
+        #import pdb;pdb.set_trace()
+        xid = self.underlayer.xid
+
         if self.prog == nfs_const.ProgramValMap['portmapper']:
-            resp_class = PORTMAP_Reply
+            cls = portmap_reply_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['mountd']:
-            resp_class = MOUNT_Reply
+            cls = mount3_reply_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['nfs']:
-            resp_class = nfs3_reply_lookup[ self.proc ]
+            cls = nfs3_reply_lookup[ self.proc ]
 
-        if resp_class:
-            xid = self.underlayer.xid
-            logging.debug( "XID {:x} --> {}".format( xid, resp_class.__name__ ) )
-            xid_reply_map[ xid ] = resp_class
-        else:
-            pass
+        if cls:
+            logging.debug( "XID {:x} --> {}".format( xid, cls.__name__ ) )
+            xid_reply_map[ xid ] = cls
 
-class RPC_ReplySuccess( Packet ):
+class RPC_ReplySuccess( PacketNoPad ):
     name = "RPC success"
     fields_desc = [ FieldLenField( "data_len", 0, length_of="data" ),
                     StrLenField(   "data", "", length_from=lambda pkt: pkt.data_len), ]
-    def extract_padding(self, p):
-        return "", p
 
 class RPC_ReplyMismatch( Packet ):
     name = "RPC mismatch"
@@ -1143,64 +1299,68 @@ class RPC_ReplyMismatch( Packet ):
 
 class RPC_Reply( Packet ):
     name = "RPC reply"
-    fields_desc = [ IntField(    "state", 0),
-                    PacketField( "verify", None, RPC_verifier ),
-                    IntField(    "accept_state", 0), ]
+    fields_desc = [ IntField(          "state",     0),
+                    PacketField(       "verify", None, RPC_verifier ),
+                    IntField(    "accept_state",    0), ]
 
     def guess_payload_class( self, payload ):
-        xid = self.underlayer.xid
-        resp_class = xid_reply_map.get( xid, None )
-        if resp_class:
+        try:
+            xid = self.underlayer.xid
+        except:
+            import pdb;pdb.set_trace()
+        cls = xid_reply_map.get( xid, None )
+        if cls:
+            #import pdb;pdb.set_trace()
             del xid_reply_map[ xid ]
 
             if self.accept_state == nfs_const.AcceptStatValMap[ 'SUCCESS' ]:
-                print( "XID {:x} --> {}".format( self.underlayer.xid, resp_class.__name__ ) )
-                return resp_class
+                logging.debug( "XID {:x} --> {}".format( self.underlayer.xid, cls.__name__ ) )
+                return cls
             elif self.accept_state == nfs_const.AcceptStatValMap[ 'PROG_MISMATCH' ]:
                 return RPC_ReplyMismatch
 
         return Packet.guess_payload_class(self, payload)
+
+    #def post_dissection( self, pkt ):
+    def build_done( self, pkt ):
+        #import pdb;pdb.set_trace()
+        xid = self.underlayer.xid
+
+
+        return pkt
+    
+def bind_port_to_rpc( port, bind_udp=False, bind_tcp=False ):
+    #import pdb;pdb.set_trace()
+    if bind_udp:
+        bind_layers( UDP, RPC_Header, sport=port )
+        bind_layers( UDP, RPC_Header, dport=port )
+
+    if bind_tcp:
+        bind_layers( TCP, RPC_RecordMarker,  sport=port )
+        bind_layers( TCP, RPC_RecordMarker,  dport=port )
+
+    logging.info( "RPC is bound on port {} for {} {}".
+                  format( port,
+                          { False : "", True : "TCP" } [bind_udp],
+                          { False : "", True : "UDP" } [bind_tcp] ) )
         
-class PORTMAP_Call( Packet ):
-    name = "PORTMAP call"
-    fields_desc = [ IntField( "program", 0 ),
-                    IntField( "version", 0 ),
-                    IntField(   "proto", 0 ),
-                    IntField(    "port", 0 ) ]
 
-class PORTMAP_Reply( Packet ):
-    name = "PORTMAP reply"
-    fields_desc = [
-        IntField( "port", 0 ) ]
-    
-    
-class MOUNT_Call( PacketNoPad ):
-    name = "NFS MOUNT call"
-    fields_desc = [
-        FieldLenField( "path_len", 0, length_of="path", fmt='I' ),
-        StrLenField(   "path",     0, length_from=lambda pkt: pkt.path_len ),
-        PadField( StrLenField( "pad", "",
-                               length_from=lambda pkt: pkt.path_len ), 4, padwith=b'\x00' ),
-    ]
+######################################################################
+## Global settings
+######################################################################
 
-class MOUNT_Reply( Packet ):
-    name = "NFS MOUNT reply"
-    fields_desc = [ IntField(          "fhs_status",    0 ),
-                    PacketField(           "handle", None, NFS3_fhandle ),
-                    FieldLenField( "auth_flavor_ct",    0,    count_of="auth_flavors", fmt='I' ),
-                    FieldListField(   "auth_flavors",   0,
-                                    IntEnumField( "flavor", 0, nfs_const.ValAuthMap ),
-                                    count_from=lambda pkt: pkt.auth_flavor_ct ) ]
+def init():
+    # Universal/common bindings. Although we might (re)discover these
+    # via PORTMAP GETPORT calls, we need to assume them from the
+    # beginning or else we could miss some traffic.
+    #
+    # 111 - portmapper
+    # 955
+    # 2049 - nfs
+    for p in (111, 955, 2049):
+        bind_port_to_rpc( p, bind_udp=True, bind_tcp=True )
 
-# Universal bindings
-for p in (111, 955, 2049):
-    bind_layers( UDP, RPC_Header, sport=p )
-    bind_layers( UDP, RPC_Header, dport=p )
-    
-    bind_layers( TCP, RPC_RecordMarker,  sport=p )
-    bind_layers( TCP, RPC_RecordMarker,  dport=p )
-
-# RPC -> Call or Reply?
-bind_layers( RPC_Header,  RPC_Call,  direction=nfs_const.MsgTypeValMap['CALL'] )
-bind_layers( RPC_Header,  RPC_Reply, direction=nfs_const.MsgTypeValMap['REPLY'] )
+        # RPC -> Call or Reply?
+        bind_layers( RPC_Header,  RPC_Call,  direction=nfs_const.MsgTypeValMap['CALL'] )
+        bind_layers( RPC_Header,  RPC_Reply, direction=nfs_const.MsgTypeValMap['REPLY'] )
 

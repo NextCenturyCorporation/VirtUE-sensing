@@ -41,6 +41,7 @@ if __name__ == '__main__':
         parser.error( "Cannot specify both --iface and --pcap" )
         sys.exit( 1 )
 
+    nfs.init()
     if args.pcap:
         pkts = rdpcap( args.pcap )
 
