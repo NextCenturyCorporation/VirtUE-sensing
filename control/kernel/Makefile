@@ -18,7 +18,7 @@ jsonl-clean:
 	rm jsonl strscp.o jsmn.o &>/dev/null ||:
 
 jsonl: strscp.c jsmn/jsmn.c
-	  gcc -g -c strscp.c jsmn/jsmn.c
+	  gcc -D JSMN_PARENT_LINKS -D JSMN_STRICT -g -c strscp.c jsmn/jsmn.c
 		gcc -g -o jsonl strscp.o jsmn.o
 
 .PHONY: jsonl-test

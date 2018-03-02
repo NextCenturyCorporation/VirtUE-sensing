@@ -1,0 +1,4 @@
+{Virtue-protocol-version: 0.1}
+{Virtue-protocol-version: 0.1, request: [123456789, discovery] }
+{Virtue-protocol-version: 0.1, reply: [1234567890, [kernel-ps]] }
+{Virtue-protocol-version: 0.1, request: [1234567890, on, [kernel-ps, kernel-lsof]] }
