@@ -18,7 +18,7 @@ typedef char uint8_t;
 const uint8_t escape [] = {0x5c, 0x00};
 int verbose_flag = 0;
 
-static inline void *__krealloc(void *buf, size_t s) 
+static inline void *__krealloc(void *buf, size_t s)
 {
 	void *p = krealloc(buf, s, GFP_KERNEL);
 	if (!p) {
@@ -29,12 +29,90 @@ static inline void *__krealloc(void *buf, size_t s)
 }
 
 
+int check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
+						   jsmntok_t *version)
+{
+	uint8_t *start;
+	int bytes;
+	int ccode;
+
+
+	static uint8_t *prot_tag = "Virtue-protocol-version";
+	static uint8_t *ver_tag = "0.1";
+
+	assert(tag->start < len && tag->end < len);
+	start = string + tag->start;
+	bytes = tag->end - tag->start;
+	assert(bytes == strlen(prot_tag) - 1);
+	ccode = memcmp(prot_tag, start, bytes);
+	if (ccode) {
+		printk(KERN_INFO "message tag value is unexpected\n");
+		return ccode;
+	}
+
+	assert(version->start < len && version->end < len);
+	start = string + version->start;
+	bytes = version->end - version->start;
+	assert(bytes = strlen(ver_tag) - 1);
+	ccode = memcmp(ver_tag, start, bytes);
+
+	if (ccode) {
+		printk(KERN_INFO "Protocol version value is unexpected\n");
+		return ccode;
+	}
+	return 0;
+}
+
+
+/**
+ * each message must a well-formed JSON object
+ **/
+int
+parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
+				   jsmntok_t *tok, size_t tok_count)
+{
+	int i = 0, count = 0;
+	assert(p);
+	assert(string && string[len] == 0x00);
+	assert(tok && tok_count);
+
+	count = jsmn_parse(p, string, len, tok, tok_count);
+	if (count < 0 ) {
+		printk(KERN_INFO "failed to parse JSON: %d\n", count);
+		return count;
+	}
+
+	if (count < 1 || tok[0].type != JSMN_OBJECT) {
+		printk(KERN_INFO "each message must be a well-formed JSON object" \
+			   " %d\n", count);
+		return count;
+	}
+
+	/* count holds the number of tokens in the string */
+	for (i = 1; i < count; i++) {
+		/**
+		 * we always expect tok[1].type to be JSON_STRING, and
+		 * to be "Virtue-protocol-version", likewise tok[2].type to be
+		 * JSON_PRIMITIVE, and should be equal to the current version "0.1"
+		 **/
+	}
+
+	count = check_protocol_version(string, len, &tok[1], &tok[2]);
+
+	return count;
+
+}
+
+
+
+
 /*
  * An example of reading JSON from stdin and printing its content to stdout.
  * The output looks like YAML, but I'm not sure if it's really compatible.
  */
 
-static int dump(const char *js, jsmntok_t *t, size_t count, int indent) {
+static int dump(const char *js, jsmntok_t *t, size_t count, int indent)
+{
 	int i, j, k;
 	if (count == 0) {
 		return 0;
@@ -69,8 +147,6 @@ static int dump(const char *js, jsmntok_t *t, size_t count, int indent) {
 	}
 	return 0;
 }
-
-
 
 uint8_t *add_nl_at_end(uint8_t *in, int len)
 {
@@ -180,6 +256,7 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 
 uint8_t *empty(uint8_t *in, int len)
 {
+	assert(0);
 	return NULL;
 }
 
