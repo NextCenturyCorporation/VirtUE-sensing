@@ -15,6 +15,13 @@ typedef char uint8_t;
 #define printk printf
 #define KERN_INFO ""
 
+enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5 };
+
+
+enum message_type {REQUEST, REPLY};
+enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
+enum type option_index = USAGE;
+
 const uint8_t escape [] = {0x5c, 0x00};
 int verbose_flag = 0;
 
@@ -29,11 +36,43 @@ static inline void *__krealloc(void *buf, size_t s)
 }
 
 
-int check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
-						   jsmntok_t *version)
+/**
+ * in version 0.1, message must be either "request" or "reply"
+ *
+ **/
+
+static inline int
+check_protocol_message(uint8_t *string, size_t len, jsmntok_t *message)
+{
+	uint8_t *messages[] = {"request", "reply"};
+	uint8_t *msg;
+	size_t bytes;
+
+	assert(message->start < len && message->end < len);
+	msg = string + message->start;
+	bytes = message->end - message->start;
+	assert(bytes == strlen(messages[0]) ||
+		   bytes == strlen(messages[1]));
+
+	if (bytes == strlen(messages[0]) && ! memcmp(msg, messages[0], bytes)) {
+		return REQUEST;
+	}
+
+	if (bytes == strlen(messages[1]) && ! memcmp(msg, messages[1], bytes)) {
+		return REPLY;
+	}
+
+	return JSMN_ERROR_INVAL;
+}
+
+
+
+static inline int
+check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
+					   jsmntok_t *version)
 {
 	uint8_t *start;
-	int bytes;
+	size_t bytes;
 	int ccode;
 
 
@@ -43,22 +82,22 @@ int check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
 	assert(tag->start < len && tag->end < len);
 	start = string + tag->start;
 	bytes = tag->end - tag->start;
-	assert(bytes == strlen(prot_tag) - 1);
+	assert(bytes == strlen(prot_tag));
 	ccode = memcmp(prot_tag, start, bytes);
 	if (ccode) {
 		printk(KERN_INFO "message tag value is unexpected\n");
-		return ccode;
+		return JSMN_ERROR_INVAL;
 	}
 
 	assert(version->start < len && version->end < len);
 	start = string + version->start;
 	bytes = version->end - version->start;
-	assert(bytes = strlen(ver_tag) - 1);
+	assert(bytes == strlen(ver_tag));
 	ccode = memcmp(ver_tag, start, bytes);
 
 	if (ccode) {
 		printk(KERN_INFO "Protocol version value is unexpected\n");
-		return ccode;
+		return JSMN_ERROR_INVAL;
 	}
 	return 0;
 }
@@ -95,12 +134,45 @@ parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
 		 * to be "Virtue-protocol-version", likewise tok[2].type to be
 		 * JSON_PRIMITIVE, and should be equal to the current version "0.1"
 		 **/
+
+		switch (i) {
+		case VER_TAG:
+		{
+			if (check_protocol_version(string, len, &tok[i], &tok[i + 1])) {
+				return JSMN_ERROR_INVAL;
+			}
+			i  = VERSION; /* we validated the tag and value, so increment the index */
+			break;
+		}
+
+		case MSG:
+		{
+			/**
+			 * this should always be the command, REQUEST or REPLY
+			 */
+			int msg = check_protocol_message(string, len, &tok[i]);
+			if (msg == JSMN_ERROR_INVAL) {
+				return msg;
+			}
+			break;
+		}
+		case 4:
+		{
+			/* opening left bracket of message content object */
+
+			break;
+		}
+		case NONCE:
+		{
+			break;
+		}
+
+		default:
+			return JSMN_ERROR_INVAL;
+		}
 	}
 
-	count = check_protocol_version(string, len, &tok[1], &tok[2]);
-
 	return count;
-
 }
 
 
@@ -280,9 +352,8 @@ void usage(void)
 }
 
 
-enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 uint8_t *input_string = NULL, *output_string = NULL, *in_file_name  = NULL;
-enum type option_index = USAGE;
+
 static inline int
 get_options (int argc, char **argv)
 {
@@ -355,7 +426,7 @@ get_options (int argc, char **argv)
 					fprintf(stderr, "kzalloc(): errno %d\n", errno);
 					exit(EXIT_FAILURE);
 				}
-				int ccode = jsmn_parse(&p, line, len, tok, tokcount);
+				int ccode = jsmn_parse(&p, line, strlen(line), tok, tokcount);
 				if (ccode < 0) {
 					if (ccode == JSMN_ERROR_NOMEM) {
 						tokcount *= 2;
@@ -365,8 +436,10 @@ get_options (int argc, char **argv)
 						}
 						goto again;
 					}
-				} else if (verbose_flag){
-					dump(line, tok, p.toknext, 0);
+				} else {
+					parse_json_message(&p, line, strlen(line), tok, tokcount);
+					if (verbose_flag)
+						dump(line, tok, p.toknext, 0);
 				}
 				free(line);
 				line = NULL;
