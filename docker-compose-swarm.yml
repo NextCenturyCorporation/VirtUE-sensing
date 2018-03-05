@@ -11,7 +11,7 @@ services:
       ADVERTISED_PORT: "9092"
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
     networks:
-      api-net:
+      apinet:
         aliases:
           - kafka
   cfssl:
@@ -20,7 +20,7 @@ services:
     ports:
       - "3030:3030"
     networks:
-      api-net:
+      apinet:
         aliases:
           - cfssl
   api:
@@ -36,7 +36,7 @@ services:
       - cfssl
       - api_server_postgres
     networks:
-      api-net:
+      apinet:
         aliases:
           - api
   dropper_callback:
@@ -47,7 +47,7 @@ services:
     # hostname: dropper1
     # domainname: evil.io
     networks:
-      api-net:
+      apinet:
         aliases:
           - dropper_callback
   target_1:
@@ -59,7 +59,7 @@ services:
     stdin_open: true
     tty: true
     networks:
-      api-net:
+      apinet:
         aliases:
           - target_1
   api_server_postgres:
@@ -75,11 +75,11 @@ services:
       placement:
         constraints: [node.role == manager]
     networks:
-      api-net:
+      apinet:
         aliases:
           - api_server_postgres
           - postgres
 volumes:
   db-data:
 networks:
-  api-net:
+  apinet:
