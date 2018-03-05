@@ -10,19 +10,11 @@ services:
       ADVERTISED_HOST: kafka
       ADVERTISED_PORT: "9092"
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
-    networks:
-      apinet:
-        aliases:
-          - kafka
   cfssl:
     image: 127.0.0.1:5000/savior-cfssl
     build: "./control/savior-ca"
     ports:
       - "3030:3030"
-    networks:
-      apinet:
-        aliases:
-          - cfssl
   api:
     image: 127.0.0.1:5000/savior-api
     build: "./control/api_server"
@@ -35,21 +27,11 @@ services:
       - kafka
       - cfssl
       - api_server_postgres
-    networks:
-      apinet:
-        aliases:
-          - api
   dropper_callback:
     image: 127.0.0.1:5000/savior-dropper_callback
     build: "./external/dropper_callback"
     ports:
       - "8080:8080"
-    # hostname: dropper1
-    # domainname: evil.io
-    networks:
-      apinet:
-        aliases:
-          - dropper_callback
   target_1:
     image: 127.0.0.1:5000/savior-target_1
     build: "./targets/demo-target"
@@ -58,10 +40,6 @@ services:
       - api
     stdin_open: true
     tty: true
-    networks:
-      apinet:
-        aliases:
-          - target_1
   api_server_postgres:
     image: postgres:9.3
     volumes:
@@ -74,12 +52,5 @@ services:
     deploy:
       placement:
         constraints: [node.role == manager]
-    networks:
-      apinet:
-        aliases:
-          - api_server_postgres
-          - postgres
 volumes:
   db-data:
-networks:
-  apinet:
