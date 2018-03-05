@@ -35,6 +35,8 @@ services:
       - kafka
       - cfssl
       - api_server_postgres
+    deploy:
+      endpoint_mode: dnsrr
     networks:
       apinet:
         aliases:
