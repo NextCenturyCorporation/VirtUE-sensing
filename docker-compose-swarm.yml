@@ -4,6 +4,10 @@ services:
     image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
+    networks:
+      apinet:
+        aliases:
+          - zookeeper
   kafka:
     image: 127.0.0.1:5000/savior-kafka
     build:
@@ -24,6 +28,10 @@ services:
       KAFKA_PORT: 9092
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      apinet:
+        aliases:
+          - kafka
   cfssl:
     image: 127.0.0.1:5000/savior-cfssl
     build: "./control/savior-ca"
