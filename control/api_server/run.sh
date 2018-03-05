@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+sleep 7
+
 # get certificates
 python3 /app/tools/get_certificates.py --cfssl-host cfssl --hostname api -d /app/certs
 
