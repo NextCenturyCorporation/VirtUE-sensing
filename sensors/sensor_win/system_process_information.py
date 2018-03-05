@@ -285,6 +285,33 @@ class SYSTEM_INFORMATION_CLASS(CtypesEnum):
     MaxSystemInfoClass=0x0095
     
 
+class CLIENT_ID(SmartStructure):
+    '''
+    The CLIENT ID Structure
+    '''
+    _fields_ = [
+        ("UniqueProcess", c_void_p),
+        ("UniqueThread", c_void_p)
+        ]
+
+class SYSTEM_THREAD_INFORMATION(SmartStructure):
+    '''
+    The SYSTEM_THREAD_INFORMATION Structure
+    '''
+    _fields_ = [
+        ("KernelTime", LARGE_INTEGER),
+        ("UserTime", LARGE_INTEGER),
+        ("CreateTime", LARGE_INTEGER),
+        ("WaitTime", ULONG),
+        ("StartAddress", c_void_p),
+        ("ClientId", CLIENT_ID),
+        ("Priority", LONG),
+        ("BasePriority", LONG),
+        ("ContextSwitches", ULONG),
+        ("ThreadState", ULONG),
+        ("WaitReason", ULONG),
+        ]    
+
 class SYSTEM_HANDLE_FLAGS(CtypesEnum):
     PROTECT_FROM_CLOSE = 1
     INHERIT = 2    
@@ -399,7 +426,8 @@ class SaviorJSONEncoder(JSONEncoder):
         if isinstance(obj, UNICODE_STRING):
             return [obj.Length, obj.MaximumLength, obj.Buffer]
         # Let the base class default method raise the TypeError
-        return JSONEncoder.default(self, obj)   
+        return JSONEncoder.default(self, obj)
+
 STATUS_SUCCESS=0x0
 STATUS_INFO_LENGTH_MISMATCH=0xc0000004
 STATUS_INVALID_PARAMETER=0xC000000D
