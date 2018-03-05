@@ -12,15 +12,31 @@ typedef char uint8_t;
 #define krealloc(p, t, f)						\
 	realloc((p), (t))
 #define kzalloc(s, f) calloc((s), sizeof(uint8_t))
+#define kfree(p) free(p)
+#define kstrdup(p) strdup(p)
 #define printk printf
 #define KERN_INFO ""
 
-enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5 };
-
-
+enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6 };
 enum message_type {REQUEST, REPLY};
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
+enum status {EMPTY, ACTIVE};
+#define MAX_NONCE_SIZE 128
+#define MAX_CMD_SIZE 64
+
+struct jsmn_session
+{
+	uint8_t nonce[MAX_NONCE_SIZE];
+	uint8_t cmd[MAX_CMD_SIZE];
+	uint8_t *req_content; /* json object remainder, beginning after the req cmd */
+	uint8_t *rep_content; /* json object remainder, beginning after the cmd reply */
+	int status;
+	int socket;
+};
+
+#define MAX_SESSIONS 4
+static struct jsmn_session conversations[MAX_SESSIONS];
 
 const uint8_t escape [] = {0x5c, 0x00};
 int verbose_flag = 0;
@@ -34,6 +50,80 @@ static inline void *__krealloc(void *buf, size_t s)
 	}
 	return p;
 }
+
+static inline int
+process_jsmn_cmd(struct jsmn_session *session,
+				 uint8_t *string,
+				 size_t len, jsmntok_t *cmd, int type)
+{
+	uint8_t *c;
+	size_t bytes;
+
+	assert(session);
+	assert(cmd->start < len && cmd->end < len);
+	c = string + cmd->start;
+	bytes = cmd->end - cmd->start;
+
+	if (bytes <=0 || bytes >= MAX_CMD_SIZE)
+		return JSMN_ERROR_INVAL;
+	memcpy(session->cmd, c, bytes);
+	session->cmd[bytes] = 0x00;
+	if (type == REQUEST) {
+		session->req_content = kstrdup(string + cmd->end);
+	} else if (type == REPLY) {
+	    session->rep_content = kstrdup(string + cmd->end);
+	}
+
+	/**
+	 * TODO: here is where we can process specific command and reply
+	 * messages by calling into the actual probe
+	 **/
+	return 0;
+}
+
+
+static inline struct jsmn_session *
+get_session(uint8_t *string, size_t len, jsmntok_t *nonce, int type)
+{
+	uint8_t *n;
+	size_t bytes;
+	int i;
+
+	assert(nonce->start < len && nonce->end < len);
+	n = string + nonce->start;
+	bytes = nonce->end - nonce->start;
+
+	if (bytes <=0 || bytes > MAX_NONCE_SIZE)
+		return NULL;
+
+	if (type == REQUEST) {
+		for (i = 0; i < MAX_SESSIONS; i++) {
+			if (conversations[i].status == EMPTY) {
+				memset(conversations[i].nonce, 0x00, MAX_NONCE_SIZE);
+				memcpy(conversations[i].nonce, n, bytes);
+				conversations[i].status = ACTIVE;
+				if (conversations[i].req_content) {
+					kfree(conversations[i].req_content);
+					conversations[i].req_content = NULL;
+				}
+				if (conversations[i].rep_content) {
+					kfree(conversations[i].rep_content);
+					conversations[i].rep_content = NULL;
+				}
+				return &conversations[i];
+			}
+		}
+	}else if (type == REPLY) {
+		for (i = 0; i < MAX_SESSIONS; i++) {
+			if  (conversations[i].status == ACTIVE) {
+				if (! memcmp(conversations[i].nonce, n, bytes))
+					return &conversations[i];
+			}
+		}
+	}
+	return NULL;
+}
+
 
 
 /**
@@ -82,7 +172,8 @@ check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
 	assert(tag->start < len && tag->end < len);
 	start = string + tag->start;
 	bytes = tag->end - tag->start;
-	assert(bytes == strlen(prot_tag));
+	if (bytes != strlen(prot_tag))
+		return JSMN_ERROR_INVAL;
 	ccode = memcmp(prot_tag, start, bytes);
 	if (ccode) {
 		printk(KERN_INFO "message tag value is unexpected\n");
@@ -92,9 +183,9 @@ check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
 	assert(version->start < len && version->end < len);
 	start = string + version->start;
 	bytes = version->end - version->start;
-	assert(bytes == strlen(ver_tag));
+	if (bytes != strlen(ver_tag))
+		return JSMN_ERROR_INVAL;
 	ccode = memcmp(ver_tag, start, bytes);
-
 	if (ccode) {
 		printk(KERN_INFO "Protocol version value is unexpected\n");
 		return JSMN_ERROR_INVAL;
@@ -111,6 +202,9 @@ parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
 				   jsmntok_t *tok, size_t tok_count)
 {
 	int i = 0, count = 0;
+	int message_type = JSMN_ERROR_INVAL;
+	struct jsmn_session *message_session = NULL;
+
 	assert(p);
 	assert(string && string[len] == 0x00);
 	assert(tok && tok_count);
@@ -150,9 +244,9 @@ parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
 			/**
 			 * this should always be the command, REQUEST or REPLY
 			 */
-			int msg = check_protocol_message(string, len, &tok[i]);
-			if (msg == JSMN_ERROR_INVAL) {
-				return msg;
+			message_type = check_protocol_message(string, len, &tok[i]);
+			if (message_type == JSMN_ERROR_INVAL) {
+				return message_type;
 			}
 			break;
 		}
@@ -164,6 +258,12 @@ parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
 		}
 		case NONCE:
 		{
+			message_session = get_session(string, len, &tok[i], message_type);
+			break;
+		}
+		case CMD:
+		{
+
 			break;
 		}
 
