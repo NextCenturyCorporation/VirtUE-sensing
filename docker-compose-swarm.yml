@@ -7,7 +7,6 @@ services:
       - "2181:2181"
       - "9092:9092"
     environment:
-      HOSTNAME_COMMAND: "docker info | grep ^Name: | cut -d' ' -f 2"		
       ADVERTISED_HOST: "10.0.4.61"
       ADVERTISED_PORT: "9092"
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
