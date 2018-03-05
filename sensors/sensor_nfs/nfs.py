@@ -25,12 +25,11 @@ import nfs_const
 
 from scapy.all import *
 
-
 ##
 ## RPC replies are not self-contained - they don't have all the info
 ## needed to figure out their type. Thus, we track transaction IDs,
 ## which are matched between a self-contained call message and its
-## associated reply. Then, we can piece together the reply.
+## associated reply. We can then piece together the reply.
 ##
 ## Map: transaction ID --> NFS reply class
 ## Tracks outstanding XIDs so replies can be parsed.
@@ -40,15 +39,24 @@ xid_reply_map = dict()
 
 
 ##
+## This module is responsible for mapping RPC replies to their
+## respective calls. RPC replies then have an additional field,
+## 'rpc_call' (e.g. reply.rpc_call), which can be used to access the
+## call packet. This capability is particularly useful to a consumer
+## that reads replies and has to determine what they're in response
+## to. These actions are all implemented in
+## RPC_Header.post_dissection.
+##
+## This is particularly important when handling PORTMAP replies, since
+## we bind ports to the RPC header parser immediately upon discovering a
+## new RPC protocol usage.
+##
+
+##
 ## Maps XIDs to their respective request for lookup in replies
 ##
 xid_call_map = dict()
 
-
-##
-## Maps transaction IDs to their caller objects
-##
-#xid_call_map = dict()
 
 ##
 ## Most of our Packet classes must specify no padding, thus they
@@ -73,29 +81,48 @@ class PacketNoPad( Packet ):
 ## RFC 1813 Basic Data Types (page 15-16)
 ##
 
+def _bin2str( b ):
+    return str( ''.join( [ chr(x) for x in b ] ) )
+
+def _bin2hex( b ):
+    return ''.join( [ '%02x' % x for x in b ] )
+
 # filename3
 #  typedef string filename3<>;
-
 class NFS3_fname( PacketNoPad ):
     name = "fname"
     fields_desc = [ FieldLenField(     "l",  0, length_of="v", fmt='I'  ),
                     StrLenField(       "v", "", length_from=lambda pkt: pkt.l ),
-                    XStrFixedLenField( "p", "", length_from=lambda pkt:(-pkt.l % 4) ),]
-
+                    XStrFixedLenField( "p", "", length_from=lambda pkt:(-pkt.l % 4) ), ]
+    def __str__(self):
+        return _bin2str( self.v )
+    def __repr(self):
+        return str( self )
+    def __hash__(self):
+        x = hash( ( self.l, str(self) ) )
+        return x
+    
 # nfspath3
 #  typedef string nfspath3<>;
 class NFS3_path( PacketNoPad ):
     name = "path"
-    fields_desc = [ FieldLenField( "l",  0, length_of="v", fmt='I' ),
-                    StrLenField(   "v", "", length_from=lambda pkt: pkt.l),
-                    XStrFixedLenField( "p", "", length_from=lambda pkt:(-pkt.l % 4) ),]
+    fields_desc = [ FieldLenField(     "l",  0, length_of="v", fmt='I' ),
+                    StrLenField(       "v", "", length_from=lambda pkt: pkt.l),
+                    XStrFixedLenField( "p", "", length_from=lambda pkt:(-pkt.l % 4) ), ]
+
+    def __str__(self):
+        return _bin2str( self.v )
+    def __repr(self):
+        return str( self )
+    def __hash__(self):
+        x = hash( ( self.l, str(self) ) )
+        return x
 
 # fileid3
 #  typedef uint64 fileid3;
 class NFS3_fileid( PacketNoPad ):
     name = "fileid"
     fields_desc = [ XLongField( "v", 0 ), ]
-
 
 # cookie3
 #  typedef uint64 cookie3;
@@ -196,7 +223,13 @@ class NFS3_fhandle( PacketNoPad ):
     name = "fhandle"
     fields_desc = [ FieldLenField( "l",   0, length_of="v", fmt='I' ),
                     StrLenField(   "v", b"", length_from=lambda pkt: pkt.l ), ]
-
+    def __str__(self):
+        return _bin2hex( self.v )
+    def __repr__(self):
+        return _bin2hex( self.v )
+    def __hash__(self):
+        x = hash( ( self.l, str(self) ) )
+        return x
 
 #fattr3, page 22
 #      struct fattr3 {
@@ -299,7 +332,7 @@ class NFS3_wcc_data( PacketNoPad ):
 class NFS3_dir_op_args( PacketNoPad ):
     name = "dir_op_args"
     fields_desc = [ PacketField( "handle", None, NFS3_fhandle ),
-                    PacketField(   "name", None, NFS3_fname ), ]
+                    PacketField(  "fname", None, NFS3_fname ), ]
 
 # Page 31
 class NFS3_sattrguard( PacketNoPad ):
@@ -500,8 +533,6 @@ class NFS3_WRITE_Call( Packet ):
                     IntField(   "data_len",    0 ),
                     StrLenField(    "data",    0, length_from=lambda pkt: pkt.data_len ),
                     StrFixedLenField(  "p",   "", length_from=lambda pkt:(-pkt.data_len % 4) ), ]
-    def extract_padding(self, p):
-        return "", p
                     
 class NFS3_WRITE_ReplyOk( Packet ):
     name = "NFS WRITE reply OK"
@@ -699,10 +730,8 @@ class NFS3_READDIR_entry( Packet ):
     
     @staticmethod
     def next_entry( pkt, lst, curr, remain ):
-        if not curr:
+        if (not curr) or curr.entry_follows:
             # We got here, so NFS3_READDIR_ReplyOk.entry_follows == True
-            return NFS3_READDIR_entry
-        if curr.entry_follows:
             return NFS3_READDIR_entry
         else:
             return None
@@ -716,7 +745,6 @@ class NFS3_READDIR_ReplyOk( Packet ):
                     ConditionalField( PacketListField( "entries", None, NFS3_READDIR_entry,
                                                        next_cls_cb=NFS3_READDIR_entry.next_entry ),
                                       lambda pkt: pkt.entry_follows ),
-                    # READDIRPLUS3resok.reply.eof
                     IntField(           "eof",  0 ) ]
 
 class NFS3_READDIR_ReplyFail( Packet ):
@@ -761,10 +789,8 @@ class NFS3_READDIRPLUS_entry( PacketNoPad ):
         
     @staticmethod
     def next_entry( pkt, lst, curr, remain ):
-        if not curr:
+        if (not curr) or curr.entry_follows:
             # We got here, so NFS3_READDIRPLUS_ReplyOk.entry_follows == True
-            return NFS3_READDIRPLUS_entry
-        if curr.entry_follows:
             return NFS3_READDIRPLUS_entry
         else:
             return None
@@ -1022,8 +1048,8 @@ class MOUNT3_MNT_Reply( Packet ):
     fields_desc = [ IntField( "status",    0 ), ]
 
     def guess_payload_class( self, payload ):
-        if self.status == nfs_const.MOUNT33_OK:
-            return MOUNT33_MNT_ReplyOk
+        if self.status == nfs_const.MOUNT3_OK:
+            return MOUNT3_MNT_ReplyOk
 
 ######################################################################
 ## MOUNT3 Procedure 3 (section 5.2.1) UMNT
@@ -1096,11 +1122,6 @@ class PORTMAP_GETPORT_Call( Packet ):
                     IntField(       "proto", 0 ),
                     IntField(        "port", 0 ) ]
 
-    #def post_dissection( self, pkt ):
-    #    #import pdb;pdb.set_trace()
-
-    #    #xid = self.underlayer.underlayer.xid
-    #    #xid_call_map[ xid ] = self
 
 class PORTMAP_GETPORT_Reply( Packet ):
     name = "PORTMAP GETPORT reply"
@@ -1154,15 +1175,15 @@ class RPC_Header( Packet ):
         When a call is seen, save it globally. Once its reply is seen,
         associate it with the reply only.
         """
-        xid = self.underlayer.xid
+
+        xid = self.xid
 
         if self.direction == nfs_const.MsgTypeValMap['CALL']:
             xid_call_map[ xid ] = self
             self.rpc_call = None
         else:
-            if not hasattr( self, 'rpc_call' ):
-                self.rpc_call = list()
-            self.rpc_call.append(  xid_call_map[ xid ] )
+            assert not hasattr( self, 'rpc_call' )
+            self.rpc_call = xid_call_map[ xid ]
 
             # Remove the call packet from the global dictionary,
             # provided no more replies are expected.
@@ -1179,7 +1200,14 @@ class RPC_RecordMarker( Packet ):
     # Always followed by RPC Header
     def guess_payload_class( self, payload ):
         return RPC_Header
-    
+
+    def post_dissection( self, pkt ):
+        """ Adjust fields due to imprecision above """
+        self.len = ((self.last & 0x7f) << 24) | self.len
+        if self.last:
+            self.last = 1
+        else:
+            self.last = 0
 
 class RPC_AuthNull( PacketNoPad ):
     name = "RPC Authorization NULL"
@@ -1231,7 +1259,8 @@ class RPC_Call( Packet ):
         IntField(  "prog_version", 0 ),
 
         # proc should be an enum, but that's too much work given
-        # scapy's constraints (the lookup depends on prog and proc).
+        # scapy's constraints (the lookup depends on prog, not only
+        # proc).
         IntField(          "proc", 0 ),
 
         # Officially, the first field in opaque_auth. Cleaner to have
@@ -1256,7 +1285,6 @@ class RPC_Call( Packet ):
 
     def guess_payload_class( self, payload ):
         cls = None
-        #import pdb;pdb.set_trace()
         if self.prog == nfs_const.ProgramValMap['portmapper']:
             cls = portmap_call_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['mountd']:
@@ -1273,7 +1301,6 @@ class RPC_Call( Packet ):
     def post_dissection( self, pkt ):
         """ Figures out the response class, maps the XID to it in global dict """
         cls = None
-        #import pdb;pdb.set_trace()
         xid = self.underlayer.xid
 
         if self.prog == nfs_const.ProgramValMap['portmapper']:
@@ -1289,8 +1316,8 @@ class RPC_Call( Packet ):
 
 class RPC_ReplySuccess( PacketNoPad ):
     name = "RPC success"
-    fields_desc = [ FieldLenField( "data_len", 0, length_of="data" ),
-                    StrLenField(   "data", "", length_from=lambda pkt: pkt.data_len), ]
+    fields_desc = [ FieldLenField( "data_len",  0, length_of="data" ),
+                    StrLenField(       "data", "", length_from=lambda pkt: pkt.data_len), ]
 
 class RPC_ReplyMismatch( Packet ):
     name = "RPC mismatch"
@@ -1299,18 +1326,17 @@ class RPC_ReplyMismatch( Packet ):
 
 class RPC_Reply( Packet ):
     name = "RPC reply"
-    fields_desc = [ IntField(          "state",     0),
-                    PacketField(       "verify", None, RPC_verifier ),
-                    IntField(    "accept_state",    0), ]
+    fields_desc = [ IntField(        "state",    0),
+                    PacketField(    "verify", None, RPC_verifier ),
+                    IntField( "accept_state",    0), ]
 
     def guess_payload_class( self, payload ):
         try:
             xid = self.underlayer.xid
         except:
-            import pdb;pdb.set_trace()
+            assert False # problem!
         cls = xid_reply_map.get( xid, None )
         if cls:
-            #import pdb;pdb.set_trace()
             del xid_reply_map[ xid ]
 
             if self.accept_state == nfs_const.AcceptStatValMap[ 'SUCCESS' ]:
@@ -1320,17 +1346,8 @@ class RPC_Reply( Packet ):
                 return RPC_ReplyMismatch
 
         return Packet.guess_payload_class(self, payload)
-
-    #def post_dissection( self, pkt ):
-    def build_done( self, pkt ):
-        #import pdb;pdb.set_trace()
-        xid = self.underlayer.xid
-
-
-        return pkt
     
 def bind_port_to_rpc( port, bind_udp=False, bind_tcp=False ):
-    #import pdb;pdb.set_trace()
     if bind_udp:
         bind_layers( UDP, RPC_Header, sport=port )
         bind_layers( UDP, RPC_Header, dport=port )

@@ -23,7 +23,9 @@ import nfs_packet_handler as handler
 
 def recv_pkt( pkt ):
     handler.standalone_handler( pkt )
-        
+    #handler.null_handler( pkt )
+    #handler.raw_print_handler( pkt )
+    
 if __name__ == '__main__':
     # setup commandline arguments 
     parser = argparse.ArgumentParser( description='NFS Protocol Sniffer' ) 
