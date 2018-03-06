@@ -14,8 +14,8 @@ services:
       context: "./control/logging"
       dockerfile: Dockerfile-alt
     ports:
-      - target: 9455
-        published: 9455
+      - target: 9555
+        published: 9555
         protocol: tcp
         mode: host
     environment:
@@ -24,7 +24,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:SSL,OUTSIDE:SSL
       KAFKA_ADVERTISED_PROTOCOL_NAME: OUTSIDE
-      KAFKA_ADVERTISED_PORT: 9455
+      KAFKA_ADVERTISED_PORT: 9555
       KAFKA_PROTOCOL_NAME: INSIDE
       KAFKA_PORT: 9455
     volumes:
