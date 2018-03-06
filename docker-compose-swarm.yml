@@ -14,18 +14,18 @@ services:
       context: "./control/logging"
       dockerfile: Dockerfile-alt
     ports:
-      - target: 9094
-        published: 9094
+      - target: 9455
+        published: 9455
         protocol: tcp
         mode: host
     environment:
       HOSTNAME_COMMAND: "docker info | grep ^Name: | cut -d' ' -f 2"      
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:SSL,OUTSIDE:SSL
       KAFKA_ADVERTISED_PROTOCOL_NAME: OUTSIDE
-      KAFKA_ADVERTISED_PORT: 9094
+      KAFKA_ADVERTISED_PORT: 9455
       KAFKA_PROTOCOL_NAME: INSIDE
-      KAFKA_PORT: 9092
+      KAFKA_PORT: 9455
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
