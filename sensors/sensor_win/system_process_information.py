@@ -53,33 +53,50 @@ class SmartStructure(Structure):
         state = state[:len(state)-1]
         return state
     
-    __repr__ = __str__
+    def __repr__(self):
+        '''
+        returns a dictionary object representative of this object instance internal state
+        '''
+        instance = {}
+        szfields = len(type(self)._fields_)        
+        for ndx in range(0, szfields):            
+            this_name = type(self)._fields_[ndx][0];
+            this_value = getattr(self, this_name)                           
+            instance[this_name] = this_value   
+        return state        
     
-    def Serialize(self):
+    def Encode(self):
         '''
-        Serialize an instance of this class into a JSON representation
+        Encode an instance of this class into a JSON representation
         '''
-        encoder = SaviorJSONEncoder()
+        encoder = JSONEncoder()
         result = {}
         anonymous = getattr(self, '_anonymous_', [])        
         clazz = getattr(self, '__class__', None)        
         result['__class__'] = clazz.__name__
         for _name, _type in getattr(self, '_fields_', []):
             value = getattr(self, _name)            
-            # don't serialize private fields
+            # don't Encode private fields
             if _name.startswith('_'):
                 continue
             if _name in anonymous:
                 result.update(encoder.encode(value))
             else:
-                result[_name] = encoder.encode(value)
-        encoded_data = dumps(result)
+                try:
+                    result[_name] = encoder.encode(value)
+                except TypeError as te:
+                    value = getattr(self,_name)
+                    if isinstance(value, UNICODE_STRING):
+                        result[_name] = value.Buffer
+                    print("value={0}\n".format(value,))                        
+                    print("result={0}\n".format(result,))                        
+        encoded_data = dumps(result, indent=4)
         return encoded_data
     
     @classmethod                  
-    def DeSerialize(clz, obj):
+    def Decode(clz, obj):
         '''
-        DeSerialize a JSON representation into an instance of this class
+        Decode a JSON representation into an instance of this class
         '''
         if not issubclass(clz, SmartStructure) or not isinstance(obj, str):
             return None
@@ -103,7 +120,10 @@ class SmartStructure(Structure):
                 else:
                     value = _type(int(value_as_a_string))                
             elif _type in SmartStructure.string_types:
-                value = value_as_a_string                                                          
+                value = value_as_a_string
+            else:
+                value = _type()
+
             setattr(clazz, _name, value)
             value = getattr(clazz, _name)        
         return clazz    
@@ -638,21 +658,18 @@ def get_system_handle_information(pid=None):
     initial_offset = addressof(SystemHandleInfo.contents.Handles) - addressof(SystemHandleInfo.contents) 
     array_of_shtei = bytearray(memoryview(buf)[initial_offset:])
     
-    sys_handle_info = None
     for ndx in range(0, SystemHandleInfo.contents.NumberOfHandles): 
         begin = sz_shtei * ndx
         end = begin + sz_shtei
         buf = (BYTE * sz_shtei).from_buffer_copy(array_of_shtei[begin:end])
         shi = cast(buf, HdlEntry)
         if not not pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:
-            sys_handle_info = shi.contents
-            yield sys_handle_info
+            yield shi.contents
             break
         elif not pid:
-            sys_handle_info = shi.contents
-            yield sys_handle_info
+            yield shi.contents
         else:
-            continue                        
+            continue    
 
 def get_handle_information(pid=None):
     '''
@@ -667,11 +684,11 @@ def get_handle_information(pid=None):
     try:
         for shi in get_system_handle_information(pid):
             try:            
-                duped_handle = DuplicateHandle(process_handle, shi.HandleValue, current_process_handle, PROCESS_DUP_HANDLE, False, 0)
-                yield duped_handle
+                duped_handle = DuplicateHandle(process_handle, shi.HandleValue, current_process_handle, PROCESS_DUP_HANDLE, False, 0)                
             except pywintypes.error as err:
                 pass
-                #print("Handle {0} Caught a pywintypes.err Error {1}\n".format(shi ,err,))                
+            else:
+                yield duped_handle                
     finally:
         process_handle.close()
 
@@ -747,45 +764,42 @@ if __name__ == "__main__":
     if not success:
         print("Failed to acquire privs!\n")
         sys.exit(-1)    
-    #pid = 1608
-    #for test in get_system_handle_information(pid):
-        #serdata = test.Serialize()
-        #print(serdata)
-        #new_test_instance = SYSTEM_HANDLE_TABLE_ENTRY_INFO.DeSerialize(serdata)
-        #print(test)
-        #for dupHandle in get_handle_information(pid):
-            #type_name = get_nt_object_type_info(dupHandle)            
-            #object_name = get_nt_object_name_info(dupHandle)     
-            
-    #for proc_obj in get_process_objects(pid):
-        #print(proc_obj)
-        #serdata = proc_obj.Serialize()
-        #print(serdata)
-        #new_proc_obj = SYSTEM_PROCESS_INFORMATION.DeSerialize(serdata)
-        #print(new_proc_obj)
+        
+    pid = 1584
+    for proc_obj in get_process_objects(pid):
+        print(proc_obj)        
+        proc_data = proc_obj.Encode()
+        for hdlinfo in get_system_handle_information(pid):
+            type_name = get_nt_object_type_info(hdlinfo)            
+            object_name = get_nt_object_name_info(hdlinfo)        
+            serdata = hdlinfo.Encode()
+            print(serdata)
+            new_test_instance = SYSTEM_HANDLE_TABLE_ENTRY_INFO.Decode(serdata)
+            print(hdlinfo)
+        new_proc_obj = SYSTEM_PROCESS_INFORMATION.Decode(proc_data)
+        print(new_proc_obj)         
+                    
+    sys.exit(0)
     
-    #new_test = test.DeSerialize(serdata)
-    #print("serialized test = {0}, new_test={1}\n".format(serdata, new_test))
     
-
-    try:        
-        sbi = get_basic_system_information()
-        print("System Basic Info = {0}\n".format(sbi,))
+    #try:        
+        #sbi = get_basic_system_information()
+        #print("System Basic Info = {0}\n".format(sbi,))
     
-        for pid in get_process_ids():                    
-            try:
-                proc_obj = get_process_objects(pid)
-                print("Process ID {0} Handle Information: {1}\n".format(pid,proc_obj,))                
-                for dupHandle in get_handle_information(pid):
-                    type_name = get_nt_object_type_info(dupHandle)
-                    object_name = get_nt_object_name_info(dupHandle)            
-                    print("\tHandle={0},type_name={1},object_name={2}\n".format(dupHandle, type_name,object_name,))           
-                    dupHandle.Close()            
-            except pywintypes.error as err:
-                print("Unable to get handle information from pid {0} - {1}\n"
-                      .format(pid, err,))
-    finally:
-        success = release_privileges(new_privs)        
+        #for pid in get_process_ids():                    
+            #try:
+                #proc_obj = get_process_objects(pid)
+                #print("Process ID {0} Handle Information: {1}\n".format(pid,proc_obj,))                
+                #for dupHandle in get_handle_information(pid):
+                    #type_name = get_nt_object_type_info(dupHandle)
+                    #object_name = get_nt_object_name_info(dupHandle)            
+                    #print("\tHandle={0},type_name={1},object_name={2}\n".format(dupHandle, type_name,object_name,))           
+                    #dupHandle.Close()            
+            #except pywintypes.error as err:
+                #print("Unable to get handle information from pid {0} - {1}\n"
+                      #.format(pid, err,))
+    #finally:
+        #success = release_privileges(new_privs)        
       
     
    
