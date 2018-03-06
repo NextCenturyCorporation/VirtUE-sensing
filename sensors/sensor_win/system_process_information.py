@@ -53,7 +53,9 @@ class SmartStructure(Structure):
         state = state[:len(state)-1]
         return state
     
-    def __repr__(self):
+    __repr__ = __str__
+    
+    def ToDict(self):
         '''
         returns a dictionary object representative of this object instance internal state
         '''
@@ -63,7 +65,7 @@ class SmartStructure(Structure):
             this_name = type(self)._fields_[ndx][0];
             this_value = getattr(self, this_name)                           
             instance[this_name] = this_value   
-        return state        
+        return instance        
     
     def Encode(self):
         '''
@@ -541,16 +543,14 @@ def get_process_objects(pid=None):
     
     begin = 0
     end = sz_spi
-    pid = 0
     while True:
         buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
         spi = cast(buf, SystemProcInfo)                                       
-        if not not pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:
-            return spi.contents
-        elif not pid:
+        if not not pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:
             yield spi.contents
-        else:
-            continue                    
+            break
+        elif not pid:
+            yield spi.contents                  
         next_entry_offset = spi.contents.NextEntryOffset
         if(0 == next_entry_offset):
             break        
@@ -765,13 +765,16 @@ if __name__ == "__main__":
         print("Failed to acquire privs!\n")
         sys.exit(-1)    
         
-    pid = 1584
+    pid = 72
     for proc_obj in get_process_objects(pid):
         print(proc_obj)        
         proc_data = proc_obj.Encode()
-        for hdlinfo in get_system_handle_information(pid):
+        for hdlinfo in get_system_handle_information(pid):            
             type_name = get_nt_object_type_info(hdlinfo)            
-            object_name = get_nt_object_name_info(hdlinfo)        
+            object_name = get_nt_object_name_info(hdlinfo)
+            hdl = proc_obj.ToDict()
+            hdl["type_name"] = type_name
+            hdl["object_name"] = object_name
             serdata = hdlinfo.Encode()
             print(serdata)
             new_test_instance = SYSTEM_HANDLE_TABLE_ENTRY_INFO.Decode(serdata)
