@@ -52,49 +52,49 @@ config :api_server, ApiServer.Scheduler,
 
 # Kafka connections
 config :kafka_ex,
-  brokers: [
-    {"kafka", 9092}
-  ],
-  consumer_group: "kafka_ex",
-  disable_default_worker: true,
-  sync_timeout: 30000,
-  max_restarts: 15,
-  commit_interval: 5_000,
-  commit_threshold: 100,
-  use_ssl: false,
-  ssl_options: [],
-  kafka_version: "0.9.0"
-
-#  # brokers
 #  brokers: [
-#    {"kafka", 9455}
+#    {"kafka", 9092}
 #  ],
-#
 #  consumer_group: "kafka_ex",
-#
 #  disable_default_worker: true,
-#
 #  sync_timeout: 30000,
-#
-#  max_restarts: 10,
-#
-#  max_seconds: 60,
-#
+#  max_restarts: 15,
 #  commit_interval: 5_000,
-#
 #  commit_threshold: 100,
-#
-#  use_ssl: true,
-#
-#  ssl_options: [
-#
-#    cacertfile: "/app/certs/ca.pem",
-#    certfile: "/app/certs/cert.pem",
-#    keyfile: "/app/certs/cert-key.pem"
-#
-#  ],
-#
+#  use_ssl: false,
+#  ssl_options: [],
 #  kafka_version: "0.9.0"
+
+  # brokers
+  brokers: [
+    {"kafka", 9455}
+  ],
+
+  consumer_group: "kafka_ex",
+
+  disable_default_worker: true,
+
+  sync_timeout: 30000,
+
+  max_restarts: 10,
+
+  max_seconds: 60,
+
+  commit_interval: 5_000,
+
+  commit_threshold: 100,
+
+  use_ssl: true,
+
+  ssl_options: [
+
+    cacertfile: "/app/certs/ca.pem",
+    certfile: "/app/certs/cert.pem",
+    keyfile: "/app/certs/cert-key.pem"
+
+  ],
+
+  kafka_version: "0.9.0"
 
 
 
