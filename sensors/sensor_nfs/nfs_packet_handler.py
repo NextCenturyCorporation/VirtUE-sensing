@@ -24,74 +24,140 @@ xid_auth_map = dict()
 
 handle_name_map = dict()
 name_handle_map = dict()
+active_mount_map = dict()
+
+
+class ResourceAccess:
+    __slots__ = [ 'handle', 'path', 'cred' ]
+    
+    
+def _create_handle_mapping( path, handle ):
+    handle_name_map[ handle ] = path
+    name_handle_map[ path ]   = handle
+
+    logging.debug( "Handle {} <--> Path '{}'".format( handle, path ) )
+    
+def _destroy_handle_mapping( path=None, handle=None ):
+    if (path and handle) or (not path and not handle):
+        raise RuntimeError( "Pass in exactly one of [handle, path]" )
+
+    if not path:
+        path = handle_name_map[ handle ]
+    if not handle:
+        handle = name_handle_map[ path ]
+
+    logging.debug( "Handle {} now invalid".format( handle ) )
+    logging.debug( "Path {} now invalid".format( path ) )
+
+    del handle_name_map[ handle ]
+    del name_handle_map[ path ]
+
+def _create_mount_mapping( path, handle ):
+    active_mount_map[ path ] = handle
+    _create_handle_mapping( path, handle )
+    
+def _destroy_mount_mapping( path ):
+    #pdb.set_trace()
+    for k in [ p for p in name_handle_map.keys()
+               if str(p).startswith( str(path) ) ]:
+        _destroy_handle_mapping( path=k )
+    del active_mount_map[ path ]
+    
+def _get_path( handle ):
+    return str(handle_name_map[ handle ])
+
+def _get_handle( name ):
+    return str(name_handle_map[ handle ])
 
 def _handle_nop( rpc_call, rpc_reply ):
     logging.debug( "#{} RPC program {} procedure {} not handled"
                    .format( pkt_ct, rpc_call.prog, rpc_call.proc ) )
 
 def _handle_nfs3_null( rpc_call, rpc_reply ):
-    logging.debug( "#{} NFSnull: " )
+    logging.debug( "#{} NFS null: ".format( pkt_ct ) )
 
 def _handle_nfs3_getattr( rpc_call, rpc_reply ):
-    name = handle_name_map[ rpc_call.handle ]
+    name = _get_path( rpc_call.handle )
     logging.debug( "#{} NFS getattr: {}"
                    .format( pkt_ct, name ) )
 
 def _handle_nfs3_setattr( rpc_call, rpc_reply ):
-    name = handle_name_map[ rpc_call.args.handle ]
+    name = _get_path( rpc_call.args.handle )
     logging.debug( "#{} NFS setattr: {}"
                    .format( pkt_ct, name ) )
 
 def _handle_nfs3_lookup( rpc_call, rpc_reply ):
-    name = handle_name_map[ rpc_call.args.handle ]
-    logging.debug( "#{} NFS lookup: {}"
-                   .format( pkt_ct, name ) )
+    parent = _get_path( rpc_call.args.handle )
+    name = str(rpc_call.args.fname)
+
+    newpath = os.path.join( parent, name )
+
+    if rpc_reply.nfs_status == nfs_const.NFS3_OK:
+        logging.debug( "#{} NFS lookup: {} -> {}"
+                       .format( pkt_ct, rpc_call.auth_sys, newpath ) )
+        _create_handle_map( newpath, rpc_reply.handle )
+    else:
+        logging.debug( "#{} NFS lookup: {} failed {}"
+                       .format( pkt_ct, newpath, rpc_reply.nfs_status ) )
 
 def _handle_nfs3_access( rpc_call, rpc_reply ):
-    name = handle_name_map[ rpc_call.handle ]
-    logging.debug( "#{} NFS access {}"
-                   .format( pkt_ct, name )  )
+    name = _get_path( rpc_call.handle )
+    logging.debug( "#{} NFS access {}".format( pkt_ct, name )  )
 
 def _handle_nfs3_readlink( rpc_call, rpc_reply ):
-    name = handle_name_map[ rpc_call.handle ]
-    logging.debug( "#{} NFS readlink:"
-                   .format( pkt_ct, name ) )
+    name = _get_path( rpc_call.args.handle )
+    if rpc_reply.nfs_status == nfs_const.NFS3_OK:
+        logging.debug( "#{} NFS readlink: {} --> {}"
+                       .format( pkt_ct, name, rpc_reply.path ) )
+    else:
+        logging.debug( "#{} NFS readlink: failed {}".
+                       format( pkt_ct, rpc_reply.nfs_status ) )
 
 def _handle_nfs3_read( rpc_call, rpc_reply ):
-    name = handle_name_map[ rpc_call.handle ]
-    logging.debug( "#{} NFS read:"
-                   .format( pkt_ct, name ) )
-
-def _handle_nfs3_write( rpc_call, rpc_reply ):
-    pdb.set_trace()
-    name = handle_name_map[ rpc_call.handle ]
+    name = _get_path( rpc_call.handle )
     if rpc_reply.nfs_status == nfs_const.NFS3_OK:
-        logging.debug( "#{} NFS write: {} bytes ofs {}"
+        logging.debug( "#{} NFS read: {} bytes {} ofs {}"
                        .format( pkt_ct, name, rpc_call.count, rpc_call.offset ) )
     else:
-        logging.debug( "#{} NFS write: failed {}"
-                       .format( pkt_ct, rpc_reply.nfs_status ) )
+        logging.debug( "#{} NFS read: {} failed {}"
+                       .format( pkt_ct, name, rpc_reply.nfs_status ) )
+
+
+def _handle_nfs3_write( rpc_call, rpc_reply ):
+    name = _get_path( rpc_call.handle )
+    if rpc_reply.nfs_status == nfs_const.NFS3_OK:
+        logging.debug( "#{} NFS write: {} bytes {} ofs {}"
+                       .format( pkt_ct, name, rpc_call.count, rpc_call.offset ) )
+    else:
+        logging.debug( "#{} NFS write: {} failed {}"
+                       .format( pkt_ct, name, rpc_reply.nfs_status ) )
 
 def _handle_nfs3_create( rpc_call, rpc_reply ):
-    handle = rpc_call.args.handle
-    name = handle_name_map[ handle ]
-    
-    logging.debug( "#{} NFS create: {} {} "
-                   .format( pkt_ct, name, handle )  )
+    parent_name = _get_path( rpc_call.args.handle )
+    new_path = os.path.join( parent_name, str( rpc_call.args.fname ) )
+
+    if rpc_reply.nfs_status == nfs_const.NFS3_OK:
+        hnew = None
+        if rpc_reply.handle.handle_follows:
+            hnew = rpc_reply.handle.handle
+            _create_handle_mapping( new_path, hnew )
+            
+        logging.debug( "#{} NFS create: {} --> {} "
+                       .format( pkt_ct, new_path, hnew )  )
 
 def _handle_nfs3_mkdir( rpc_call, rpc_reply ):
     hparent = rpc_call.args.handle
     dparent = handle_name_map[ hparent ]
-    pdb.set_trace()
-    new = os.path.join( dparent, str(rpc_call.args.fname) )
+
+    parent_name = _get_path( rpc_call.args.handle )
+    new_path = os.path.join( parent_name, str( rpc_call.args.fname ) )
 
     if rpc_reply.nfs_status == nfs_const.NFS3_OK:
         if rpc_reply.handle.handle_follows:
             h = rpc_reply.handle.handle
-            name_handle_map[ new ] = h
-            handle_name_map[ h ] = new
+            _create_handle_mapping( new_path, h)
             logging.debug( "#{} NFS mkdir: {} --> {}"
-                           .format( pkt_ct, new, h ) )
+                           .format( pkt_ct, new_path, h ) )
     else:
         logging.debug( "#{} NFS mkdir: {} failed {}"
                        .format( pkt_ct, new, rpc_reply.nfs_status ) )
@@ -212,17 +278,17 @@ nfs3_handler_lookup = {
 
 
 def _handle_mount3_mnt( rpc_call, rpc_reply ):
-    handle_name_map[ rpc_reply.handle ] = str(rpc_call.path)
-    name_handle_map[ str(rpc_call.path) ] = rpc_reply.handle
+    #handle_name_map[ rpc_reply.handle ] = str(rpc_call.path)
+    #name_handle_map[ rpc_call.path ] = rpc_reply.handle
+
+    _create_mount_mapping( rpc_call.path, rpc_reply.handle )
     logging.debug( "#{} MOUNT mnt: {} --> {:}"
                    .format( pkt_ct, rpc_reply.handle, str(rpc_call.path) ) )
-    
+
 def _handle_mount3_umnt( rpc_call, rpc_reply ):
-    handle = name_handle_map[ rpc_call.path ]
-    logging.debug( "#{} MOUNT umnt: {} --> {}"
-                   .format( pkt_ct, handle, rpc_call.path ) )
-    del handle_name_map[ handle ]
-    del name_handle_map[ str(rpc_call.path) ]
+    logging.debug( "#{} MOUNT umnt: {}"
+                   .format( pkt_ct, rpc_call.path ) )
+    _destroy_mount_mapping( rpc_call.path )
 
 def _handle_mount3_umnt_all( rpc_call, rpc_reply ):
     logging.debug( "#{} MOUNT umnt_all:".format( pkt_ct ) )
@@ -362,35 +428,27 @@ def _state_tracker( pkt ):
 def _handler_core( pkt ):
     _state_tracker( pkt )
 
-    #if pkt_ct in (67,68,):
-    #    import pdb;pdb.set_trace()
-
     rpc = pkt.getlayer( nfs.RPC_Header )
     if not rpc:
         logging.debug( "#{} not RPC".format( pkt_ct ) )
         return
-
-    #logging.debug( "#{} - RPC: XID {:x} dir {} packet {}"
-    #               .format( pkt_ct, rpc.xid, rpc.direction, repr(rpc) ) )
-    #rpc.show()
-
-    # Ignore calls. The NFS parser binds replies to their calls. We
-    # examine only replies so we have all the info at hand.
 
     if not rpc.rpc_call: # call packets have None for call field
         logging.debug( "#{} Ignoring call side of XID {:x}"
                        .format( pkt_ct, rpc.xid ) )
         return
 
-    rpc_call = rpc.rpc_call[0]
+    rpc_call = rpc.rpc_call
 
     if rpc_call.prog not in ( nfs_const.ProgramValMap['mountd'],
                               nfs_const.ProgramValMap['nfs']  ):
         logging.debug( "Ignoring program {} call/reply with XID {:x}".
                        format( rpc_call.prog, rpc.xid ) )
         return
-    #import pdb;pdb.set_trace()
 
+    who = rpc_call.auth_sys # None if AUTH_NULL used
+    #if who:
+    #    pdb.set_trace()
     
     if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
         # This is a mountd reply. Call its handler with the (call, reply) pair
@@ -403,12 +461,10 @@ def _handler_core( pkt ):
 def null_handler( pkt ):
     pass
 
-
 def raw_print_handler( pkt ):
     _state_tracker( pkt )
     logging.debug( "#{} - packet {}"
                    .format( pkt_ct, repr(pkt) ) )
-
     
 def standalone_handler( pkt ):
     _handler_core( pkt )

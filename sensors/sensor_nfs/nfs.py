@@ -99,8 +99,7 @@ class NFS3_fname( PacketNoPad ):
     def __repr(self):
         return str( self )
     def __hash__(self):
-        x = hash( ( self.l, str(self) ) )
-        return x
+        return hash( ( self.l, str(self) ) )
     
 # nfspath3
 #  typedef string nfspath3<>;
@@ -115,8 +114,7 @@ class NFS3_path( PacketNoPad ):
     def __repr(self):
         return str( self )
     def __hash__(self):
-        x = hash( ( self.l, str(self) ) )
-        return x
+        return  hash( ( self.l, str(self) ) )
 
 # fileid3
 #  typedef uint64 fileid3;
@@ -154,12 +152,16 @@ class NFS3_writeverf( PacketNoPad ):
 class NFS3_uid( PacketNoPad ):
     name = "uid"
     fields_desc = [ XIntField( "v", 0 ), ]
+    def __str__(self):
+        return str(self.v)
 
 # gid3
 #       typedef uint32 gid3;
 class NFS3_gid( PacketNoPad ):
     name = "gid"
     fields_desc = [ XIntField( "v", 0 ), ]
+    def __str__(self):
+        return str(self.v)
 
 
 # size3
@@ -167,12 +169,16 @@ class NFS3_gid( PacketNoPad ):
 class NFS3_size( PacketNoPad ):
     name = "size"
     fields_desc = [ XLongField( "v", 0 ), ]
+    def __str__(self):
+        return str(self.v)
 
 # offset3
 #       typedef uint64 offset3;
 class NFS3_offset( PacketNoPad ):
     name = "offset"
     fields_desc = [ XLongField( "v", 0 ), ]
+    def __str__(self):
+        return str(self.v)
 
 
 # mode3
@@ -180,12 +186,16 @@ class NFS3_offset( PacketNoPad ):
 class NFS3_mode( PacketNoPad ):
     name = "mode"
     fields_desc = [ XIntField( "v", 0 ), ]
+    def __str__(self):
+        return str(self.v)
 
 # count3
 #       typedef uint32 count3;
 class NFS3_count( PacketNoPad ):
     name = "count"
     fields_desc = [ XIntField( "v", 0 ), ]
+    def __str__(self):
+        return str(self.v)
 
 class NFS3_ftype( PacketNoPad ):
     name = "ftype"
@@ -228,8 +238,7 @@ class NFS3_fhandle( PacketNoPad ):
     def __repr__(self):
         return _bin2hex( self.v )
     def __hash__(self):
-        x = hash( ( self.l, str(self) ) )
-        return x
+        return hash( ( self.l, str(self) ) )
 
 #fattr3, page 22
 #      struct fattr3 {
@@ -1073,6 +1082,17 @@ class MOUNT3_UMNTALL_Reply( Packet ):
     name = "NFS UMNTALL reply"
     fields_desc = []
 
+######################################################################
+## MOUNT3 Procedure 5 (section 5.2.5) EXPORT
+######################################################################
+class MOUNT3_EXPORT_Call( PacketNoPad ):
+    name = "MOUNT3 EXPORT call"
+    fields_desc = []
+
+class MOUNT3_EXPORT_Reply( Packet ):
+    name = "NFS EXPORT reply"
+    fields_desc = []
+
     
 # Not all procedures are implemented by us
 mount3_call_lookup = {
@@ -1081,7 +1101,7 @@ mount3_call_lookup = {
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_DUMP'    ] : None,
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNT'    ] : MOUNT3_UMNT_Call,
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNTALL' ] : MOUNT3_UMNTALL_Call,
-    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_EXPORT'  ] : None,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_EXPORT'  ] : MOUNT3_EXPORT_Call,
 }
 
 mount3_reply_lookup = {
@@ -1090,7 +1110,7 @@ mount3_reply_lookup = {
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_DUMP'    ] : None,
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNT'    ] : MOUNT3_UMNT_Reply,
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNTALL' ] : MOUNT3_UMNTALL_Reply,
-    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_EXPORT'  ] : None,
+    nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_EXPORT'  ] : MOUNT3_EXPORT_Reply,
 }
 
 
@@ -1234,6 +1254,13 @@ class RPC_AuthSys( PacketNoPad ):
                     FieldListField(  "aux_gids",  0, IntField( "GID", 0 ),
                                     count_from = lambda pkt: pkt.aux_gid_ct), ]
 
+    def __str__(self):
+        return ("AUTH_UNIX: host {} / uid {} / gid {} / aux_gids {}"
+                .format( _bin2str(self.machine_name),
+                         str(self.uid),
+                         str(self.gid),
+                         self.aux_gids ) )
+    
 # Broken
 '''
 class RPC_Auth( Packet ):
