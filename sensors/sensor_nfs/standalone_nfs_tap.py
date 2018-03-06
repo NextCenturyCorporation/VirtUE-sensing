@@ -17,7 +17,7 @@ import nfs_const
 
 import nfs_packet_handler as handler
 
-# conf.debug_dissector = 1
+#conf.debug_dissector = 1
 # packages: python-libpcap, scapy-python3(pip)
 
 
@@ -42,7 +42,10 @@ if __name__ == '__main__':
     if args.iface and args.pcap:
         parser.error( "Cannot specify both --iface and --pcap" )
         sys.exit( 1 )
-
+    if not args.iface and not args.pcap:
+        parser.error( "Must specify one of --iface or --pcap" )
+        sys.exit( 1 )
+        
     nfs.init()
     if args.pcap:
         pkts = rdpcap( args.pcap )
@@ -51,6 +54,6 @@ if __name__ == '__main__':
             recv_pkt( p )
     else:
         sniff( iface=args.iface,
-               filter="tcp or upd",
+               #filter="tcp or upd",
                store=False,
                prn=recv_pkt )

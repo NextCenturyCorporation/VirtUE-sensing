@@ -20,6 +20,7 @@
 import os
 import sys
 import logging
+import pdb
 
 import nfs_const
 
@@ -301,7 +302,23 @@ class NFS3_sattr( PacketNoPad ):
                     IntField( "set_mtime", 0 ),
                     ConditionalField( PacketField( "mtime", None, NFS3_time ),
                                       lambda pkt: pkt.set_mtime != 0 ), ]
+    def __str__(self):
+        s = ""
 
+        if self.set_mode:
+            s += "mode: {:x} ".format(self.mode.v)
+        if self.set_uid:
+            s += "uid: {} ".format(self.uid)
+        if self.set_gid:
+            s += "gid: {} ".format(self.gid)
+        if self.set_size:
+            s += "size: {} ".format(self.size)
+        if self.set_atime:
+            s += "atime: {} ".format(self.atime)
+        if self.set_mtime:
+            s += "mtime: {} ".format(self.mtime)
+        return s
+            
 class NFS3_post_op_attr( PacketNoPad ):
     name = "NFS post_op_attr"
     fields_desc = [ IntField( "attribs_follow", 0 ),
@@ -355,6 +372,15 @@ class NFS3_symlink_data( PacketNoPad ):
     fields_desc = [ PacketField( "attr", None, NFS3_sattr ),
                     PacketField( "path", None, NFS3_path ), ]
 
+class NFS3_status( PacketNoPad ):
+    name = "nfs_status"
+    fields_desc = [ IntEnumField( "v", None, nfs_const.Nfs3_ValStatMap ), ]
+
+    def success( self ):
+        return 0 == self.v
+
+    def __str__( self ):
+        return nfs_const.Nfs3_ValStatMap[ self.v ]
 
 ######################################################################
 ## NFS Procedures: These are the NFS functions built on top of
@@ -393,9 +419,9 @@ class NFS3_GETATTR_ReplyOk( Packet ):
 
 class NFS3_GETATTR_Reply( Packet ):
     name = "NFS GETATTR reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_GETATTR_ReplyOk
         Packet.guess_payload_class(self, payload)
 
@@ -434,10 +460,10 @@ class NFS3_LOOKUP_ReplyFail( Packet ):
 
 class NFS3_LOOKUP_Reply( Packet ):
     name = "NFS LOOKUP reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_LOOKUP_ReplyOk
         else:
             return NFS3_LOOKUP_ReplyFail
@@ -462,9 +488,9 @@ class NFS3_ACCESS_ReplyFail( Packet ):
     
 class NFS3_ACCESS_Reply( Packet ):
     name = "NFS ACCESS reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_ACCESS_ReplyOk
         else:
             return NFS3_ACCESS_ReplyFail
@@ -487,10 +513,10 @@ class NFS3_READLINK_ReplyFail( Packet ):
 
 class NFS3_READLINK_Reply( Packet ):
     name = "NFS READLINK reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_READLINK_ReplyOk
         else:
             return NFS3_READLINK_ReplyFail
@@ -521,10 +547,10 @@ class NFS3_READ_ReplyFail( Packet ):
     
 class NFS3_READ_Reply( Packet ):
     name = "NFS READ reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_READ_ReplyOk
         else:
             return NFS3_READ_ReplyFail
@@ -556,10 +582,10 @@ class NFS3_WRITE_ReplyFail( Packet ):
     
 class NFS3_WRITE_Reply( Packet ):
     name = "NFS WRITE reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_WRITE_ReplyOk
         else:
             return NFS3_WRITE_ReplyFail
@@ -591,10 +617,10 @@ class NFS3_CREATE_ReplyFail( Packet ):
 
 class NFS3_CREATE_Reply( Packet ):
     name = "NFS CREATE reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_CREATE_ReplyOk
         else:
             return NFS3_CREATE_ReplyFail
@@ -619,10 +645,10 @@ class NFS3_MKDIR_ReplyFail( Packet ):
     
 class NFS3_MKDIR_Reply( Packet ):
     name = "NFS MKDIR reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_MKDIR_ReplyOk
         else:
             return NFS3_MKDIR_ReplyFail
@@ -647,10 +673,10 @@ class NFS3_SYMLINK_ReplyFail( Packet ):
     
 class NFS3_SYMLINK_Reply( Packet ):
     name = "NFS SYMLINK reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_SYMLINK_ReplyOk
         else:
             return NFS3_SYMLINK_ReplyFail
@@ -696,14 +722,14 @@ class NFS3_RMDIR_Reply( Packet ):
 ######################################################################
 class NFS3_RENAME_Call( Packet ):
     name = "NFS RENAME call"
-    fields_desc = [ PacketField( "from", None, NFS3_dir_op_args ),
-                    PacketField(   "to", None, NFS3_dir_op_args ), ]
+    fields_desc = [ PacketField( "ffrom", None, NFS3_dir_op_args ),
+                    PacketField(   "fto", None, NFS3_dir_op_args ), ]
 
 class NFS3_RENAME_Reply( Packet ):
     name = "NFS RENAME reply"
     fields_desc = [ IntEnumField( "nfs_status",    0, nfs_const.Nfs3_ValStatMap ),
-                    PacketField(        "from", None, NFS3_wcc_data ),
-                    PacketField(          "to", None, NFS3_wcc_data ), ]
+                    PacketField(       "ffrom", None, NFS3_wcc_data ),
+                    PacketField(         "fto", None, NFS3_wcc_data ), ]
 
     
 ######################################################################
@@ -713,7 +739,6 @@ class NFS3_LINK_Call( Packet ):
     name = "NFS LINK call"
     fields_desc = [ PacketField( "handle", None, NFS3_fhandle ),
                     PacketField(  "link" , None, NFS3_dir_op_args ), ]
-    
 
 class NFS3_LINK_Reply( Packet ):
     name = "NFS LINK reply"
@@ -762,10 +787,10 @@ class NFS3_READDIR_ReplyFail( Packet ):
 
 class NFS3_READDIR_Reply( Packet ):
     name = "NFS READDIR reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_READDIR_ReplyOk
         else:
             return NFS3_READDIR_ReplyFail
@@ -823,10 +848,10 @@ class NFS3_READDIRPLUS_ReplyFail( Packet ):
 
 class NFS3_READDIRPLUS_Reply( Packet ):
     name = "NFS READDIRPLUS reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_READDIRPLUS_ReplyOk
         else:
             return NFS3_READDIRPLUS_ReplyFail
@@ -860,10 +885,10 @@ class NFS3_FSSTAT_ReplyFail( Packet ):
     
 class NFS3_FSSTAT_Reply( Packet ):
     name = "NFS FSSTAT reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_FSSTAT_ReplyOk
         else:
             return NFS3_FSSTAT_ReplyFail
@@ -900,10 +925,10 @@ class NFS3_FSINFO_ReplyOk( PacketNoPad ):
 
 class NFS3_FSINFO_Reply( Packet ):
     name = "NFS FSINFO reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_FSINFO_ReplyOk
         else:
             return NFS3_FSINFO_ReplyFail
@@ -932,10 +957,10 @@ class NFS3_PATHCONF_ReplyFail( Packet ):
     
 class NFS3_PATHCONF_Reply( Packet ):
     name = "NFS PATHCONF reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_PATHCONF_ReplyOk
         else:
             return NFS3_PATHCONF_ReplyFail
@@ -961,10 +986,10 @@ class NFS3_COMMIT_ReplyFail( Packet ):
 
 class NFS3_COMMIT_Reply( Packet ):
     name = "NFS COMMIT reply"
-    fields_desc = [ IntEnumField( "nfs_status", 0, nfs_const.Nfs3_ValStatMap ), ]
+    fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
 
     def guess_payload_class( self, payload ):
-        if self.nfs_status == nfs_const.NFS3_OK:
+        if self.nfs_status.success():
             return NFS3_COMMIT_ReplyOk
         else:
             return NFS3_COMMIT_ReplyFail
@@ -1182,6 +1207,16 @@ portmap_reply_lookup = {
 ## which is always followed by the RPC header.
 ######################################################################
 
+class RPC_status( PacketNoPad ):
+    name = "rpc_status"
+    fields_desc = [ IntEnumField( "v", 0, nfs_const.ValAcceptStatMap ), ]
+
+    def success( self ):
+        return 0 == self.v
+
+    def __str__( self ):
+        return nfs_const.ValAcceptStatMap[ self.v ]
+
 class RPC_Header( Packet ):
     """ RPC Header. Replies save a reference to their caller packets. """
     __slots__ = Packet.__slots__ + [ 'rpc_call' ]
@@ -1353,9 +1388,9 @@ class RPC_ReplyMismatch( Packet ):
 
 class RPC_Reply( Packet ):
     name = "RPC reply"
-    fields_desc = [ IntField(        "state",    0),
-                    PacketField(    "verify", None, RPC_verifier ),
-                    IntField( "accept_state",    0), ]
+    fields_desc = [ IntField(          "state",    0),
+                    PacketField(      "verify", None, RPC_verifier ),
+                    PacketField( "accept_state", None, RPC_status ), ]
 
     def guess_payload_class( self, payload ):
         try:
@@ -1366,10 +1401,10 @@ class RPC_Reply( Packet ):
         if cls:
             del xid_reply_map[ xid ]
 
-            if self.accept_state == nfs_const.AcceptStatValMap[ 'SUCCESS' ]:
+            if self.accept_state.success():
                 logging.debug( "XID {:x} --> {}".format( self.underlayer.xid, cls.__name__ ) )
                 return cls
-            elif self.accept_state == nfs_const.AcceptStatValMap[ 'PROG_MISMATCH' ]:
+            elif self.accept_state.v == nfs_const.AcceptStatValMap[ 'PROG_MISMATCH' ]:
                 return RPC_ReplyMismatch
 
         return Packet.guess_payload_class(self, payload)
