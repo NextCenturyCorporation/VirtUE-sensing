@@ -1,7 +1,7 @@
 FROM wurstmeister/kafka:latest
 
 # Get Python3 for certificate tools support
-RUN apk add python3
+RUN apk add python3 openssl
 
 # install the certificate support tools
 RUN mkdir -p /var/tools/
