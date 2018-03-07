@@ -20,6 +20,8 @@
 import os
 import sys
 import logging
+import struct
+
 import pdb
 
 import nfs_const
@@ -58,6 +60,14 @@ xid_reply_map = dict()
 ##
 xid_call_map = dict()
 
+
+
+class nfs_config:
+    breakpoints = False
+
+def dobreak():
+    if nfs_config.breakpoints:
+        pdb.set_trace()
 
 ##
 ## Most of our Packet classes must specify no padding, thus they
@@ -101,7 +111,7 @@ class NFS3_fname( PacketNoPad ):
         return str( self )
     def __hash__(self):
         return hash( ( self.l, str(self) ) )
-    
+
 # nfspath3
 #  typedef string nfspath3<>;
 class NFS3_path( PacketNoPad ):
@@ -524,6 +534,9 @@ class NFS3_READLINK_Reply( Packet ):
 ######################################################################
 ## NFS Procedure 6 (section 3.3.6): READ
 ######################################################################
+
+# N.B. see note on WRITE
+
 class NFS3_READ_Call( Packet ):
     name = "NFS READ call"
     fields_desc = [ PacketField( "handle", None, NFS3_fhandle ),
@@ -559,16 +572,43 @@ class NFS3_READ_Reply( Packet ):
 ######################################################################
 ## NFS Procedure 7 (section 3.3.7): WRITE
 ######################################################################
+
+# N.B. In case of a large write that can't fit in one packet, the
+# operation will be split across multiple TCP segments and the
+# cumulative size reported in the WRITE call. Since we're not
+# performing reassembly, we'll be given fewer bytes than reported by
+# the WRITE call header.
+#
+# Moreover, a large write can be split into multiple WRITEs which are
+# then split across several TCP packets. WRITEs after the first one
+# might contain, in this order:
+# 1. TCP header
+# 2. The final bytes from the previous WRITE
+# 3. The RPC and NFS headers for the new WRITE
+#
+# This means that we need to track data offsets in large writes to
+# find subsequent WRITEs. As currently implemented, we look for an RPC
+# header immediately after the TCP header and will miss the RPC
+# header. We attempt to parse the data bytes as an RPC header but
+# *should* fail out.
+#
+# The bottom line is that we will catch the first WRITE, so we know
+# who attempted to write to which file. However, we miss the full
+# contents.
+#
+# The same likely applies to READs.
+
 class NFS3_WRITE_Call( Packet ):
     name = "NFS WRITE call"
+
+    # .data consumes remainder of packet
     fields_desc = [ PacketField(  "handle", None, NFS3_fhandle ),
                     PacketField(  "offset", None, NFS3_offset ),
                     PacketField(   "count", None, NFS3_count ),
                     IntEnumField( "stable",    0, nfs_const.Nfs3_ValStableMap ),
                     IntField(   "data_len",    0 ),
-                    StrLenField(    "data",    0, length_from=lambda pkt: pkt.data_len ),
-                    StrFixedLenField(  "p",   "", length_from=lambda pkt:(-pkt.data_len % 4) ), ]
-                    
+                    StrField(       "data",    ""), ]
+    
 class NFS3_WRITE_ReplyOk( Packet ):
     name = "NFS WRITE reply OK"
     fields_desc = [ PacketField(        "wcc", None, NFS3_wcc_data ),
@@ -1019,7 +1059,7 @@ nfs3_call_lookup = {
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSINFO'      ] : NFS3_FSINFO_Call,
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_PATHCONF'    ] : NFS3_PATHCONF_Call,
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_COMMIT'      ] : NFS3_COMMIT_Call,
-} 
+}
  
 ## Lookup table: Procedure value --> Response handler
 nfs3_reply_lookup = {
@@ -1217,13 +1257,55 @@ class RPC_status( PacketNoPad ):
     def __str__( self ):
         return nfs_const.ValAcceptStatMap[ self.v ]
 
+# N.B. see note in WRITE. In certain cases we're looking for the RPC
+# header at the wrong offset. This can be fixed by tracking TCP state
+# (i.e. file offsets) and using them to adjust the payload contents
+# via {RPC_Header,RPC_RecordMarker}.pre_dissect()
 class RPC_Header( Packet ):
     """ RPC Header. Replies save a reference to their caller packets. """
     __slots__ = Packet.__slots__ + [ 'rpc_call' ]
     
     name = "RPC Header (NF)"
-    fields_desc = [ XIntField(          "xid", 0 ),
-                    IntEnumField( "direction", 0, nfs_const.ValMsgTypeMap ) ]
+    fields_desc = [ XIntField(          "xid", None ),
+                    IntEnumField( "direction", None, nfs_const.ValMsgTypeMap ) ]
+
+    pkt_ct  = 0
+    def pre_dissect( self, pay ):
+        RPC_Header.pkt_ct += 1
+
+        # Basic validation
+        (xid, direction) = struct.unpack( "!II", pay[:8] )
+
+        if xid == 0 or direction not in nfs_const.ValMsgTypeMap:
+            logging.debug( "Rejecting packer with checksum {:x} as non-RPC"
+                           .format( self.underlayer.underlayer.chksum ) )
+            dobreak()
+            raise RuntimeError( "Bad RPC header" )
+        dobreak()
+        return pay
+            
+    def _validate( self ):
+        if self.direction not in nfs_const.ValMsgTypeMap:
+            logging.warning( "Rejecting XID {:x} as RPC packet".format( self.xid ) )
+            dobreak()
+            self.remove_payload()
+            raise RuntimeError( "Illegal RPC packet direction" )
+            
+    seen = False
+    def guess_payload_class( self, payload ):
+        #if self.xid is None or self.xid in ( #0x7cfc2417,
+        #        0x7dfc2417, ) or RPC_Header.seen:
+        #    pdb.set_trace()
+        #    RPC_Header.seen = True
+            
+        if self.direction is nfs_const.MsgTypeValMap['CALL']:
+            logging.debug( "CALL XID: {:x}".format( self.xid ) )
+            return RPC_Call
+        elif self.direction is nfs_const.MsgTypeValMap['REPLY']:
+            logging.debug( "REPLY XID: {:x}".format( self.xid ) )
+            return RPC_Reply
+        else:
+            return None
 
     def post_dissection( self, pkt ):
         """
@@ -1233,37 +1315,74 @@ class RPC_Header( Packet ):
 
         xid = self.xid
 
-        if self.direction == nfs_const.MsgTypeValMap['CALL']:
+        if self.direction is nfs_const.MsgTypeValMap['CALL']:
             xid_call_map[ xid ] = self
             self.rpc_call = None
-        else:
+        elif self.direction is nfs_const.MsgTypeValMap['REPLY']:
             assert not hasattr( self, 'rpc_call' )
-            self.rpc_call = xid_call_map[ xid ]
+            self.rpc_call = xid_call_map.get( xid )
+            if not self.rpc_call:
+                logging.warning( "RPC REPLY for unknown CALL {:x}".format( xid ) )
+                return
 
             # Remove the call packet from the global dictionary,
             # provided no more replies are expected.
             if not ( isinstance( self.underlayer, RPC_RecordMarker ) and
                      not self.underlayer.last ):
                 del xid_call_map[ xid ]
-
+                
 class RPC_RecordMarker( Packet ):
+    # Called "Fragment Header" in Wireshark
     name = "RPC Header (F)"
-    # XXXX: incorrect: 'last' is indicated only by the most significant bit
-    fields_desc = [ BitField(         "last",  0, 8  ),
-                    BitFieldLenField( "len",   0, 24 ) ]
+    # Incorrect: 'last' is indicated only by the most significant bit;
+    # fixed up in post_dissection()
+    fields_desc = [ BitField( "last",  0, 8  ),
+                    BitField( "len",   0, 24 ) ]
 
+    def pre_dissect( self, pay ):
+
+        # Approximate validation: max size we'll accept is 64k
+        # (0x10000 = 2^16). NetBSD's NFS breaks large WRITEs into 32k
+        # (0x8000 = 2^15) chunks.
+
+        maxsize = 2**16
+        
+        (field, ) = struct.unpack( "!I", pay[:4] )
+
+        last = (field >> 20) # should be either 0 or 0x800
+        size = (field & (2**20-1))
+
+        if (last & 0x7ff) != 0 or (size > maxsize):
+            logging.debug( "Rejecting TCP packet with checksum {:x} as non-RPC"
+                           .format( self.underlayer.chksum ) )
+            dobreak()
+            raise RuntimeError( "Bad RPC Record marker header" )
+        dobreak()
+        return pay
+
+    '''
+    def _validate( self ):
+        # Reject last field other than 0x80 or 0x00 (only MSB can be asserted)
+        if self.last not in (0, 1, 0x80):
+            logging.warning( "Rejecting packet as RPC Record Marker. May be TCP continuation." )
+            dobreak()
+            self.remove_payload()
+            raise RuntimeError( "Rejecting as RPC Record Marker / Fragment Header" )
+    '''
+    
     # Always followed by RPC Header
     def guess_payload_class( self, payload ):
         return RPC_Header
 
     def post_dissection( self, pkt ):
         """ Adjust fields due to imprecision above """
-        self.len = ((self.last & 0x7f) << 24) | self.len
+
+        self.len = ( (self.last & 0x7f) << 24) | self.len        
         if self.last:
             self.last = 1
         else:
             self.last = 0
-
+            
 class RPC_AuthNull( PacketNoPad ):
     name = "RPC Authorization NULL"
     fields_desc = []
@@ -1348,16 +1467,19 @@ class RPC_Call( Packet ):
     def guess_payload_class( self, payload ):
         cls = None
         if self.prog == nfs_const.ProgramValMap['portmapper']:
+            assert self.proc in portmap_call_lookup
             cls = portmap_call_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['mountd']:
+            assert self.proc in mount3_call_lookup
             cls = mount3_call_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['nfs']:
+            assert self.proc in nfs3_call_lookup
             cls = nfs3_call_lookup[ self.proc ]
 
         if not cls:
             cls = Packet.guess_payload_class( self, payload )
 
-        logging.debug( "XID {} --> {}".format( self.underlayer.xid, cls.__name__ ) )
+        logging.debug( "XID {:x} --> {}".format( self.underlayer.xid, cls.__name__ ) )
         return cls
 
     def post_dissection( self, pkt ):
@@ -1371,7 +1493,6 @@ class RPC_Call( Packet ):
             cls = mount3_reply_lookup[ self.proc ]
         elif self.prog == nfs_const.ProgramValMap['nfs']:
             cls = nfs3_reply_lookup[ self.proc ]
-
         if cls:
             logging.debug( "XID {:x} --> {}".format( xid, cls.__name__ ) )
             xid_reply_map[ xid ] = cls
@@ -1408,6 +1529,12 @@ class RPC_Reply( Packet ):
                 return RPC_ReplyMismatch
 
         return Packet.guess_payload_class(self, payload)
+
+def RPC_Validator( Packet ):
+    name = "RPC validator"
+    fields_desc = []
+    # ??????????????????????????
+
     
 def bind_port_to_rpc( port, bind_udp=False, bind_tcp=False ):
     if bind_udp:
@@ -1439,7 +1566,4 @@ def init():
     for p in (111, 955, 2049):
         bind_port_to_rpc( p, bind_udp=True, bind_tcp=True )
 
-        # RPC -> Call or Reply?
-        bind_layers( RPC_Header,  RPC_Call,  direction=nfs_const.MsgTypeValMap['CALL'] )
-        bind_layers( RPC_Header,  RPC_Reply, direction=nfs_const.MsgTypeValMap['REPLY'] )
 

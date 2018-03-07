@@ -26,7 +26,6 @@ handle_name_map = dict()
 name_handle_map = dict()
 active_mount_map = dict()
 
-
 def _get_auth_str( rpc_call ):
     if rpc_call.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ]:
         return str( rpc_call.auth_sys )
@@ -62,17 +61,16 @@ def _create_mount_mapping( path, handle, rpc_call ):
     _create_handle_mapping( path, handle, rpc_call )
     
 def _destroy_mount_mapping( path ):
-    #pdb.set_trace()
     for k in [ p for p in name_handle_map.keys()
                if str(p).startswith( str(path) ) ]:
         _destroy_handle_mapping( path=k )
     del active_mount_map[ path ]
     
 def _get_path( handle ):
-    return str( handle_name_map.get( handle, 'unknown' ))
+    return str( handle_name_map.get( handle, '{unknown}' ))
 
 def _get_handle( name ):
-    return str( name_handle_map.get( handle, 'unknown' ))
+    return str( name_handle_map.get( handle, '{unknown}' ))
 
 def _handle_nop( rpc_call, rpc_reply ):
     logging.debug( "#{} RPC program {} procedure {} not handled"
@@ -349,11 +347,14 @@ def _handler_core( pkt ):
 
     rpc = pkt.getlayer( nfs.RPC_Header )
     if not rpc:
-        logging.debug( "#{} not RPC".format( pkt_ct ) )
+        #logging.debug( "#{} not RPC".format( pkt_ct ) )
         return
 
-    if not rpc.rpc_call: # call packets have None for call field
-        logging.debug( "#{} Ignoring call side of XID {:x}"
+    if rpc.xid == 0x7dfc2417:
+        pdb.set_trace()
+    
+    if not rpc.rpc_call: # CALL packets have None for call field
+        logging.debug( "#{} [call XID {:x}]"
                        .format( pkt_ct, rpc.xid ) )
         return
 
