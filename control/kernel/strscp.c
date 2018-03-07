@@ -21,19 +21,18 @@ typedef char uint8_t;
 enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6 };
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
-enum message_type {EMPTY, REQUEST, REPLY};
+enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
 #define MAX_NONCE_SIZE 128
 #define MAX_CMD_SIZE 64
 #define MAX_TOKENS 64
-
+struct jsmn_message;
+struct jsmn_session;
+static void dump_session(struct jsmn_session *s);
+static int dump(const char *js, jsmntok_t *t, size_t count, int indent);
 
 /** bsd queue
  *  in kernel, replace with <linux/list.h>
  **/
-
-struct jsmn_message;
-struct jsmn_session;
-
 SLIST_HEAD(messages, jsmn_message);
 SLIST_HEAD(sessions, jsmn_session);
 
@@ -88,6 +87,26 @@ static inline void *__krealloc(void *buf, size_t s)
 }
 
 
+static inline void
+free_message(struct jsmn_message *m)
+{
+	if(m->line)
+		kfree(m->line);
+	memset(m, 0x00, sizeof(*m));
+	return;
+}
+
+
+static inline void
+free_session(struct jsmn_session *s)
+{
+	if (s->req)
+		free_message(s->req);
+	if (s->rep)
+		free_message(s->rep);
+	memset(s, 0x00, sizeof(*s));
+}
+
 static inline int
 process_jsmn_cmd(struct jsmn_message *m)
 {
@@ -129,7 +148,11 @@ process_jsmn_cmd(struct jsmn_message *m)
 			return JSMN_ERROR_INVAL;
 		} else {
 /* clear the session for the next pair of messages */
+			if (verbose_flag)
+				dump_session(session);
 			session->status = EMPTY;
+			free_session(session);
+			return COMPLETE;
 		}
 	}
 	/**
@@ -259,7 +282,7 @@ check_protocol_version(struct jsmn_message *m)
 int
 parse_json_message(struct jsmn_message *m)
 {
-	int i = 0, count = 0;
+	int i = 0, count = 0, ccode = 0;
 	struct jsmn_session *message_session = NULL;
 
 	assert(m);
@@ -323,11 +346,12 @@ parse_json_message(struct jsmn_message *m)
 		}
 		case CMD:
 		{
+			ccode = process_jsmn_cmd(m);
 
-			if (process_jsmn_cmd(m))
+			if (!ccode || ccode == COMPLETE)
+				return 0;
+			else
 				return JSMN_ERROR_INVAL;
-
-			break;
 		}
 
 		default:
@@ -339,6 +363,15 @@ parse_json_message(struct jsmn_message *m)
 }
 
 
+static void dump_session(struct jsmn_session *s)
+{
+
+	assert(s && s->status == REPLY);
+	assert(s->req && s->rep);
+	dump(s->req->line, s->req->tokens, s->req->parser.toknext, 0);
+	dump(s->rep->line, s->rep->tokens, s->rep->parser.toknext, 0);
+	return;
+}
 
 
 /*
@@ -597,10 +630,6 @@ get_options (int argc, char **argv)
 				this_msg->line = line;
 				this_msg->len = strlen(line);
 				parse_json_message(this_msg);
-				if (verbose_flag)
-					dump(this_msg->line, this_msg->tokens,
-						 this_msg->parser.toknext, 0);
-
 				line = NULL;
 				len = 0;
 			}
