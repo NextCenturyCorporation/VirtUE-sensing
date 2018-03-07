@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <errno.h>
+#include <sys/queue.h>
 #include "jsmn/jsmn.h"
 
 typedef char uint8_t;
@@ -16,23 +17,62 @@ typedef char uint8_t;
 #define kstrdup(p) strdup(p)
 #define printk printf
 #define KERN_INFO ""
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
+
 
 enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6 };
-enum message_type {REQUEST, REPLY};
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
-enum status {EMPTY, ACTIVE};
+enum message_type {EMPTY, REQUEST, REPLY};
 #define MAX_NONCE_SIZE 128
 #define MAX_CMD_SIZE 64
+#define MAX_TOKENS 64
+
+
+/** bsd queue
+ *  in kernel, replace with <linux/list.h>
+ **/
+
+struct jsmn_message;
+struct jsmn_session;
+
+SLIST_HEAD(messages, jsmn_message);
+SLIST_HEAD(sessions, jsmn_session);
+
+struct messages message_head;
+struct sessions session_head;
+
+
+/** for linux kernel source compatibility
+ **/
+struct sock
+{
+	int socket;
+};
+
+struct jsmn_message
+{
+	SLIST_ENTRY(jsmn_message);
+	jsmn_parser parser;
+	jsmntok_t tokens[MAX_TOKENS];
+	uint8_t *line;
+	size_t len;
+	int type;
+	struct jsmn_session *s;
+};
 
 struct jsmn_session
 {
-	uint8_t nonce[MAX_NONCE_SIZE];
-	uint8_t cmd[MAX_CMD_SIZE];
-	uint8_t *req_content; /* json object remainder, beginning after the req cmd */
-	uint8_t *rep_content; /* json object remainder, beginning after the cmd reply */
+	SLIST_ENTRY(jsmn_session);
 	int status;
-	int socket;
+	struct sock  socket;
+	uint8_t nonce[MAX_NONCE_SIZE];
+	struct jsmn_message *req;
+	struct jsmn_message *rep;
+	uint8_t cmd[MAX_CMD_SIZE];
+
 };
 
 #define MAX_SESSIONS 4
@@ -51,29 +91,51 @@ static inline void *__krealloc(void *buf, size_t s)
 	return p;
 }
 
+
 static inline int
-process_jsmn_cmd(struct jsmn_session *session,
-				 uint8_t *string,
-				 size_t len, jsmntok_t *cmd, int type)
+process_jsmn_cmd(struct jsmn_message *m)
 {
-	uint8_t *c;
+	uint8_t *string, *c;
 	size_t bytes;
+	struct jsmn_session *session;
 
-	assert(session);
-	assert(cmd->start < len && cmd->end < len);
-	c = string + cmd->start;
-	bytes = cmd->end - cmd->start;
 
-	if (bytes <=0 || bytes >= MAX_CMD_SIZE)
-		return JSMN_ERROR_INVAL;
-	memcpy(session->cmd, c, bytes);
-	session->cmd[bytes] = 0x00;
-	if (type == REQUEST) {
-		session->req_content = kstrdup(string + cmd->end);
-	} else if (type == REPLY) {
-	    session->rep_content = kstrdup(string + cmd->end);
+	assert(m);
+	session = m->s;
+
+	assert(session &&
+		   (session->status == REQUEST ||
+			session->status == REPLY));
+
+	if (session->status == REQUEST) {
+		assert(m == session->req);
+
+	} else if (session->status == REPLY) {
+		assert(m == session->rep);
 	}
 
+	assert(m->tokens[CMD].start < m->len &&
+		   m->tokens[CMD].end < m->len &&
+		   (m->tokens[CMD].end > m->tokens[CMD].start));
+
+/* set up to copy or compare the session command */
+	c =  m->line + m->tokens[CMD].start;
+	bytes = m->tokens[CMD].end - m->tokens[CMD].start;
+	if (bytes <=0 || bytes >= MAX_CMD_SIZE)
+		return JSMN_ERROR_INVAL;
+	if (session->status == REQUEST) {
+        /* copy the command into the session command array */
+		memcpy(session->cmd, c, bytes);
+		session->cmd[bytes] = 0x00;
+	} else if (session->status == REPLY) {
+		/* command should match */
+		if (memcmp(session->cmd, c, bytes)) {
+			return JSMN_ERROR_INVAL;
+		} else {
+/* clear the session for the next pair of messages */
+			session->status = EMPTY;
+		}
+	}
 	/**
 	 * TODO: here is where we can process specific command and reply
 	 * messages by calling into the actual probe
@@ -82,49 +144,47 @@ process_jsmn_cmd(struct jsmn_session *session,
 }
 
 
-static inline struct jsmn_session *
-get_session(uint8_t *string, size_t len, jsmntok_t *nonce, int type)
+static inline struct jsmn_session *get_session(struct jsmn_message *m)
 {
 	uint8_t *n;
 	size_t bytes;
 	int i;
 
-	assert(nonce->start < len && nonce->end < len);
-	n = string + nonce->start;
-	bytes = nonce->end - nonce->start;
+	assert(m->tokens[NONCE].start < m->len &&
+		   m->tokens[NONCE].end < m->len &&
+		   m->tokens[NONCE].end > m->tokens[NONCE].start);
+	n = m->line  + m->tokens[NONCE].start;
+	bytes = m->tokens[NONCE].end - m->tokens[NONCE].start;
 
 	if (bytes <=0 || bytes > MAX_NONCE_SIZE)
 		return NULL;
 
-	if (type == REQUEST) {
+	if (m->type == REQUEST) {
 		for (i = 0; i < MAX_SESSIONS; i++) {
 			if (conversations[i].status == EMPTY) {
 				memset(conversations[i].nonce, 0x00, MAX_NONCE_SIZE);
 				memcpy(conversations[i].nonce, n, bytes);
-				conversations[i].status = ACTIVE;
-				if (conversations[i].req_content) {
-					kfree(conversations[i].req_content);
-					conversations[i].req_content = NULL;
-				}
-				if (conversations[i].rep_content) {
-					kfree(conversations[i].rep_content);
-					conversations[i].rep_content = NULL;
-				}
+				conversations[i].status = REQUEST;
+				conversations[i].req  = m;
+				conversations[i].rep = NULL;
+				m->s = &conversations[i];
 				return &conversations[i];
 			}
 		}
-	}else if (type == REPLY) {
+	} else if (m->type == REPLY) {
 		for (i = 0; i < MAX_SESSIONS; i++) {
-			if  (conversations[i].status == ACTIVE) {
-				if (! memcmp(conversations[i].nonce, n, bytes))
+			if  (conversations[i].status == REQUEST) {
+				if (! memcmp(conversations[i].nonce, n, bytes)) {
+					conversations[i].rep = m;
+					conversations[i].status = REPLY;
+					m->s = &conversations[i];
 					return &conversations[i];
+				}
 			}
 		}
 	}
 	return NULL;
 }
-
-
 
 /**
  * in version 0.1, message must be either "request" or "reply"
@@ -132,46 +192,49 @@ get_session(uint8_t *string, size_t len, jsmntok_t *nonce, int type)
  **/
 
 static inline int
-check_protocol_message(uint8_t *string, size_t len, jsmntok_t *message)
+check_protocol_message(struct jsmn_message *m)
 {
 	uint8_t *messages[] = {"request", "reply"};
 	uint8_t *msg;
 	size_t bytes;
 
-	assert(message->start < len && message->end < len);
-	msg = string + message->start;
-	bytes = message->end - message->start;
+	assert(m->tokens[MSG].start < m->len && m->tokens[MSG].end < m->len);
+	msg = m->line + m->tokens[MSG].start;
+	bytes = m->tokens[MSG].end - m->tokens[MSG].start;
 	assert(bytes == strlen(messages[0]) ||
 		   bytes == strlen(messages[1]));
-
+	m->type = JSMN_ERROR_INVAL;
 	if (bytes == strlen(messages[0]) && ! memcmp(msg, messages[0], bytes)) {
-		return REQUEST;
+		m->type = REQUEST;
 	}
 
 	if (bytes == strlen(messages[1]) && ! memcmp(msg, messages[1], bytes)) {
-		return REPLY;
+		m->type = REPLY;
 	}
 
-	return JSMN_ERROR_INVAL;
+	return m->type;
 }
 
 
 
 static inline int
-check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
-					   jsmntok_t *version)
+check_protocol_version(struct jsmn_message *m)
 {
 	uint8_t *start;
 	size_t bytes;
 	int ccode;
+	jsmntok_t tag, version;
 
 
 	static uint8_t *prot_tag = "Virtue-protocol-version";
 	static uint8_t *ver_tag = "0.1";
 
-	assert(tag->start < len && tag->end < len);
-	start = string + tag->start;
-	bytes = tag->end - tag->start;
+	tag = m->tokens[VER_TAG];
+	version = m->tokens[VER_TAG + 1];
+
+	assert(tag.start < m->len && tag.end < m->len);
+	start = m->line  + tag.start;
+	bytes = tag.end - tag.start;
 	if (bytes != strlen(prot_tag))
 		return JSMN_ERROR_INVAL;
 	ccode = memcmp(prot_tag, start, bytes);
@@ -180,9 +243,9 @@ check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
 		return JSMN_ERROR_INVAL;
 	}
 
-	assert(version->start < len && version->end < len);
-	start = string + version->start;
-	bytes = version->end - version->start;
+	assert(version.start < m->len && version.end < m->len);
+	start = m->line + version.start;
+	bytes = version.end - version.start;
 	if (bytes != strlen(ver_tag))
 		return JSMN_ERROR_INVAL;
 	ccode = memcmp(ver_tag, start, bytes);
@@ -198,24 +261,25 @@ check_protocol_version(uint8_t *string, size_t len, jsmntok_t *tag,
  * each message must a well-formed JSON object
  **/
 int
-parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
-				   jsmntok_t *tok, size_t tok_count)
+parse_json_message(struct jsmn_message *m)
 {
 	int i = 0, count = 0;
-	int message_type = JSMN_ERROR_INVAL;
 	struct jsmn_session *message_session = NULL;
 
-	assert(p);
-	assert(string && string[len] == 0x00);
-	assert(tok && tok_count);
-
-	count = jsmn_parse(p, string, len, tok, tok_count);
+	assert(m);
+	jsmn_init(&m->parser);
+	count = jsmn_parse(&m->parser,
+					   m->line,
+					   m->len,
+					   m->tokens,
+					   MAX_TOKENS);
 	if (count < 0 ) {
 		printk(KERN_INFO "failed to parse JSON: %d\n", count);
 		return count;
 	}
+	assert(m->line && m->line[m->len] == 0x00);
 
-	if (count < 1 || tok[0].type != JSMN_OBJECT) {
+	if (count < 1 || m->tokens[0].type != JSMN_OBJECT) {
 		printk(KERN_INFO "each message must be a well-formed JSON object" \
 			   " %d\n", count);
 		return count;
@@ -232,7 +296,7 @@ parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
 		switch (i) {
 		case VER_TAG:
 		{
-			if (check_protocol_version(string, len, &tok[i], &tok[i + 1])) {
+			if (check_protocol_version(m)) {
 				return JSMN_ERROR_INVAL;
 			}
 			i  = VERSION; /* we validated the tag and value, so increment the index */
@@ -244,9 +308,9 @@ parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
 			/**
 			 * this should always be the command, REQUEST or REPLY
 			 */
-			message_type = check_protocol_message(string, len, &tok[i]);
-			if (message_type == JSMN_ERROR_INVAL) {
-				return message_type;
+			m->type = check_protocol_message(m);
+			if (m->type == JSMN_ERROR_INVAL) {
+				return m->type;
 			}
 			break;
 		}
@@ -258,11 +322,14 @@ parse_json_message(jsmn_parser *p, uint8_t *string, size_t len,
 		}
 		case NONCE:
 		{
-			message_session = get_session(string, len, &tok[i], message_type);
+			m->s = get_session(m);
 			break;
 		}
 		case CMD:
 		{
+
+			if (process_jsmn_cmd(m))
+				return JSMN_ERROR_INVAL;
 
 			break;
 		}
@@ -508,40 +575,30 @@ get_options (int argc, char **argv)
 			ssize_t nread, len = 0;
 			uint8_t *line = NULL;
 
+
 			in_file_name = strdup(optarg);
 			in_file = fopen(in_file_name, "r");
 			if (in_file == NULL) {
 				perror("fopen");
 				exit(EXIT_FAILURE);
 			}
-		again:
-			while((nread = getline(&line, &len, in_file)) != -1) {
-				jsmn_parser p;
-				jsmntok_t *tok;
-				size_t tokcount = 0x10;
 
-				jsmn_init(&p);
-				tok = kzalloc(sizeof(jsmntok_t) * tokcount, GFP_KERNEL);
-				if (tok == NULL) {
-					fprintf(stderr, "kzalloc(): errno %d\n", errno);
+			SLIST_INIT(&message_head);
+			SLIST_INIT(&session_head);
+
+			while((nread = getline(&line, &len, in_file)) != -1) {
+				struct jsmn_message *this_msg =
+					kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
+				if (!this_msg) {
 					exit(EXIT_FAILURE);
 				}
-				int ccode = jsmn_parse(&p, line, strlen(line), tok, tokcount);
-				if (ccode < 0) {
-					if (ccode == JSMN_ERROR_NOMEM) {
-						tokcount *= 2;
-						tok = __krealloc(tok, sizeof(*tok) * tokcount);
-						if (!tok) {
-							exit(EXIT_FAILURE);
-						}
-						goto again;
-					}
-				} else {
-					parse_json_message(&p, line, strlen(line), tok, tokcount);
-					if (verbose_flag)
-						dump(line, tok, p.toknext, 0);
-				}
-				free(line);
+				this_msg->line = line;
+				this_msg->len = strlen(line);
+				parse_json_message(this_msg);
+				if (verbose_flag)
+					dump(this_msg->line, this_msg->tokens,
+						 this_msg->parser.toknext, 0);
+
 				line = NULL;
 				len = 0;
 			}
