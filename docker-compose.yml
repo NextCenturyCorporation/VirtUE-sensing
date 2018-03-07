@@ -1,14 +1,29 @@
-version: '2'
+version: '3.2'
 services:
-  kafka:
-    build: "./control/logging"
+  zookeeper:
+    image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
-      - "9092:9092"
+  kafka:
+    build:
+      context: "./control/logging"
+      dockerfile: Dockerfile
+    ports:
+      - target: 9555
+        published: 9555
+        protocol: tcp
+        mode: host
     environment:
-      ADVERTISED_HOST: kafka
-      ADVERTISED_PORT: "9092"
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
+      HOSTNAME_COMMAND: "docker info | grep ^Name: | cut -d' ' -f 2"      
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:SSL,OUTSIDE:SSL
+      KAFKA_ADVERTISED_PROTOCOL_NAME: OUTSIDE
+      KAFKA_ADVERTISED_PORT: 9555
+      KAFKA_PROTOCOL_NAME: INSIDE
+      KAFKA_PORT: 9455
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
   cfssl:
     build: "./control/savior-ca"
     ports:
