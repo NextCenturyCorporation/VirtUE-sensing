@@ -152,8 +152,14 @@ You can also stream the sensor data from any sensor observing the **root** user:
 
 The `virtue-security stream` command will continue receiving messages until you force quit the command (`ctrl-c` or the Windows equivalent).
 
+# Running the Sensor Architecture - Docker Swarm
+
+On our AWS dev, test, and production machines, we run most of the API and related services on top of Docker Swarm. See the [running on docker swarm](swarm.md) instructions for more details. 
 
 # Running the Sensing Architecture - Native
+
+The instructions for running natively are likely buggy - unless absolutely
+necessary, run the API locally via Docker.
 
 Running the Sensing architecture natively outside of Docker is cumbersome:
 
