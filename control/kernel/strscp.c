@@ -567,6 +567,12 @@ get_options (int argc, char **argv)
 		}
 		case IN_FILE:
 		{
+			/**
+			 * TODO: free message resources after processing
+			 * reply.
+			 * TODO: garbage-collect partial sessions (req only)
+			 * TODO: clean up replys with no matching request
+			 **/
 			FILE *in_file;
 			ssize_t nread, len = 0;
 			uint8_t *line = NULL;
