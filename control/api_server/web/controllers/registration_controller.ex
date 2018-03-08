@@ -382,7 +382,7 @@ defmodule ApiServer.RegistrationController do
     # let's send out our verification ping
     verification_url = "https://#{hostname}:#{port}/sensor/#{sensor}/registered"
     IO.puts("  = remote verifcation uri(#{verification_url})")
-    case HTTPoison.get(verification_url, [], [ssl: [{:cacertfile, Application.get_env(:api_server, :ca_cert_file)}, {:verify_fun, {&ApiServer.AuthenticationUtils.pin_verify/3, {:pin, pinned_key}}}, {:verify, :verify_none}], timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
+    case HTTPoison.get(verification_url, [], [ssl: [{:cacertfile, Application.get_env(:api_server, :ca_cert_file)}, {:verify_fun, {&ApiServer.AuthenticationUtils.pin_verify/3, {:pin, pinned_key}}}, {:verify, :verify_peer}], timeout: 5000, recv_timeout: 5000, connect_timeout: 5000]) do
 
       {:ok, %HTTPoison.Response{status_code: 200, body: _}} ->
         IO.puts("  + sensor(id=#{sensor}) verified with direct ping")

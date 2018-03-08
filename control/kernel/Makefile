@@ -1,7 +1,8 @@
 SHELL := /bin/bash
-
+MY_CCFLAGS += -std=gnu99 -fms-extensions -g -DDEBUG
+ccflags-y += ${MY_CCFLAGS}
+CC += ${MY_CCFLAGS}
 obj-m += controller.o controller-interface.o
-
 .PHONY: uname
 uname:
 	@./uname.sh
@@ -12,3 +13,34 @@ clean:
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
 		rm uname.h &>/dev/null
 
+.PHONY: jsonl-clean
+jsonl-clean:
+	rm jsonl strscp.o jsmn.o &>/dev/null ||:
+
+jsonl: strscp.c jsmn/jsmn.c
+	  gcc -g -c strscp.c jsmn/jsmn.c
+		gcc -g -o jsonl strscp.o jsmn.o
+
+.PHONY: jsonl-test
+jsonl-test: jsonl
+	./jsonl --verbose --in-file test.jsonl
+
+.PHONY: jsonl-debug
+jsonl-debug: jsonl-clean jsonl
+	gdb jsonl -x jsonl.gdb
+
+.PHONY: lint
+lint:
+	find . -name "*.c"  -exec cppcheck --force {} \;
+	find . -name "*.h"  -exec cppcheck --force {} \;
+
+.PHONY: pretty
+pretty:
+	find . -name "*.c"  -exec indent -bsd {} \;
+	find . -name "*.h"  -exec indent -bsd {} \;
+
+.PHONY: trim
+trim:
+	find ./ -name "*.c" | xargs ttws.sh
+	find ./ -name "*.h" | xargs ttws.sh
+	find ./ -name "Makefile" | xargs ttws.sh

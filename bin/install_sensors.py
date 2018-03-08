@@ -580,6 +580,13 @@ def install_sensor(target, sensor):
     for run_sub_dir in sensor["sensor"]["required_sub_directories"]:
         os.makedirs(os.path.abspath(os.path.join(sensor_dest_dir, run_sub_dir)))
 
+        # we need to create a simple empty dot file in a directory otherwise it's not recorded
+        # in git, which messes up other installations, because an empty directory isn't saved,
+        # and other systems generating targets will be missing things like 'certs' directories
+        # which then causes everything to crash
+        with open(os.path.join(os.path.join(sensor_dest_dir, run_sub_dir), ".empty"), "w") as dotfile:
+            dotfile.write("\n")
+
     print "    + startup script"
     shutil.copy(
         os.path.abspath(os.path.join(sensor_src_dir, sensor["sensor"]["startup_script"])),
