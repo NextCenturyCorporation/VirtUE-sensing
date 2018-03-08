@@ -227,6 +227,59 @@ Running virtue-security
 }
 ```
 
+You can also stream the sensor data from any sensor observing the **root** user:
+
+```bash
+>  ./bin/dockerized-stream.sh 
+{"timestamp":"2017-11-29T16:19:22.324018","sensor":"e56d0901-fa8e-4ad5-96c8-ee8581819d40","message":"COMMAND PID TID USER   FD   TYPE             DEVICE SIZE/OFF    NODE NAME\n","level":"debug"}
+{"timestamp":"2017-11-29T16:19:22.324136","sensor":"e56d0901-fa8e-4ad5-96c8-ee8581819d40","message":"python    1     root  cwd    DIR               0,72     4096  332393 /usr/src/app\n","level":"debug"}
+...
+```
+
+The `virtue-security stream` command will continue receiving messages until you force quit the command (`ctrl-c` or the Windows equivalent).
+
+# Running the Sensor Architecture - Docker Swarm
+
+On our AWS dev, test, and production machines, we run most of the API and related services on top of Docker Swarm. See the [running on docker swarm](swarm.md) instructions for more details. 
+
+# Running the Sensing Architecture - Native
+
+The instructions for running natively are likely buggy - unless absolutely
+necessary, run the API locally via Docker.
+
+Running the Sensing architecture natively outside of Docker is cumbersome:
+
+ - container startup scripts handle partial automation of the Certificate Authority
+ - Runtime options are codified on the command line controls of the `docker-compose` containers
+ - DNS and service naming are handled via Docker networking
+ 
+If you still want to try and run the components natively, the original and incomplete instructions
+follow:
+
+## Start Kafka
+
+```bash
+cd control/logging
+./start.sh
+```
+
+See [Start Kafka](control/logging/README.md#start-kafka-docker) for more info.
+
+
+## Start the Sensing API
+
+**TODO**: Update with the environment variable to use when running native, so Phoenix knows how to address Kafka.
+
+```bash
+cd control/api_server
+mix phoenix.server
+```
+
+See [Sensing API - Running](control/api_server/README.md) for more info.
+
+
+## Start the Dummy sensor
+
 With this script we're using the `virtue-security` command line interface to the Sensing API to issue an **inspect** command, which is returning a list of sensor metadata. The real command hidden behind the `dockerized-inspect.sh` command looks like:
 
 ```bash
