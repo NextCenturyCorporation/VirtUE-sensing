@@ -8,8 +8,9 @@
 ## https://tools.ietf.org/html/rfc1813
 ##
 
-## Requirements:
-##   git clone -b v2.4.0rc4 git@github.com:secdev/scapy.git ./scapy-repo
+## Requirements: grab scapy v2.4.0 rc4 via
+##   git submodule init
+##   git submodule update
 ##
 ## The scapy acquired via 'pip3 install scapy-python3' doesn't support
 ## features we need to parse
@@ -27,6 +28,11 @@ import pdb
 import nfs_const
 
 from scapy.all import *
+
+
+if sys.version_info.major < 3 or sys.version_info.minor < 5:
+    print( "NOTICE: This module is intented for Python 3.5+" )
+
 
 ##
 ## RPC replies are not self-contained - they don't have all the info
@@ -433,7 +439,7 @@ class NFS3_GETATTR_Reply( Packet ):
     def guess_payload_class( self, payload ):
         if self.nfs_status.success():
             return NFS3_GETATTR_ReplyOk
-        Packet.guess_payload_class(self, payload)
+        return Packet.guess_payload_class(self, payload)
 
 ######################################################################
 ## NFS Procedure 2: SETATTR
@@ -1277,7 +1283,7 @@ class RPC_Header( Packet ):
         (xid, direction) = struct.unpack( "!II", pay[:8] )
 
         if xid == 0 or direction not in nfs_const.ValMsgTypeMap:
-            logging.debug( "Rejecting packer with checksum {:x} as non-RPC"
+            logging.debug( "Rejecting packet with checksum {:x} as non-RPC (READ/WRITE continuation?)"
                            .format( self.underlayer.underlayer.chksum ) )
             dobreak()
             raise RuntimeError( "Bad RPC header" )
@@ -1286,7 +1292,8 @@ class RPC_Header( Packet ):
             
     def _validate( self ):
         if self.direction not in nfs_const.ValMsgTypeMap:
-            logging.warning( "Rejecting XID {:x} as RPC packet".format( self.xid ) )
+            logging.warning( "Rejecting XID {:x} as RPC packet (READ/WRITE continuation?)"
+                             .format( self.xid ) )
             dobreak()
             self.remove_payload()
             raise RuntimeError( "Illegal RPC packet direction" )
@@ -1353,7 +1360,7 @@ class RPC_RecordMarker( Packet ):
         size = (field & (2**20-1))
 
         if (last & 0x7ff) != 0 or (size > maxsize):
-            logging.debug( "Rejecting TCP packet with checksum {:x} as non-RPC"
+            logging.debug( "Rejecting TCP packet with checksum {:x} as non-RPC (READ/WRITE continuation?)"
                            .format( self.underlayer.chksum ) )
             dobreak()
             raise RuntimeError( "Bad RPC Record marker header" )

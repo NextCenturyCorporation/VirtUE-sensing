@@ -1,0 +1,10 @@
+{
+    "name": "nfs-sensor-target",
+    "library_directory": "./sensor_libraries",
+    "sensors_directory": "./sensors",
+    "requirements_directory": "./requirements",
+    "startup_scripts_directory": "./sensor_startup",
+    "kernel_mod_directory": "./kmods",
+    "sensors": []
+    "kernel_modules": []
+}

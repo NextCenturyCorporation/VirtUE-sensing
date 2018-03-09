@@ -9,7 +9,7 @@ import argparse
 import logging
 
 sys.path.append( os.path.join( os.path.dirname( os.path.realpath(__file__) ),
-                               'scapy-repo' ) )
+                               '..', 'sensor_libraries', 'scapy-repo' ) )
 
 from scapy.all import * # sniff, rdpcap
 import nfs
@@ -22,7 +22,7 @@ import nfs_packet_handler as handler
 
 
 def recv_pkt( pkt ):
-    handler.standalone_handler( pkt )
+    handler.pkt_handler_basic( pkt )
     #handler.null_handler( pkt )
     #handler.raw_print_handler( pkt )
     
