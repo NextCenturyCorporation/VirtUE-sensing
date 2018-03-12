@@ -18,12 +18,18 @@ typedef char uint8_t;
 #define printk printf
 #define KERN_INFO ""
 
-enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6 };
+enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6,
+                  PROBE = 7, RECORD = 9};
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
+enum message_command {DISCOVERY = 0, OFF = 1, ON = 2, INCREASE = 3, DECREASE = 4,
+					  LOW = 5, DEFAULT = 6, HIGH = 7, ADVERSARIAL = 8, RESET = 9, RECORDS = 10};
+
+
 #define MAX_NONCE_SIZE 128
 #define MAX_CMD_SIZE 64
+#define MAX_ID_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
 struct jsmn_message;
 struct jsmn_session;
@@ -33,23 +39,23 @@ static int dump(const char *js, jsmntok_t *t, size_t count, int indent);
 /** bsd queue
  *  in kernel, replace with <linux/list.h>
  **/
-SLIST_HEAD(messages, jsmn_message);
-SLIST_HEAD(sessions, jsmn_session);
 
-struct messages message_head;
-struct sessions session_head;
-
+SLIST_HEAD(session_head, jsmn_session) h_sessions;
 
 /** for linux kernel source compatibility
  **/
-struct sock
-{
-	int socket;
-};
+
+/**
+ * for linux kernel compatibility
+ **/
+									   struct sock
+									   {
+										   int socket;
+									   };
 
 struct jsmn_message
 {
-	SLIST_ENTRY(jsmn_message);
+	STAILQ_ENTRY(jsmn_message) e_messages;
 	jsmn_parser parser;
 	jsmntok_t tokens[MAX_TOKENS];
 	uint8_t *line;
@@ -58,23 +64,82 @@ struct jsmn_message
 	struct jsmn_session *s;
 };
 
+/**
+ * a session may have one request and multiple replies
+ **/
 struct jsmn_session
 {
-	SLIST_ENTRY(jsmn_session);
-	int status;
+	SLIST_ENTRY(jsmn_session) sessions;
 	struct sock  socket;
 	uint8_t nonce[MAX_NONCE_SIZE];
 	struct jsmn_message *req;
-	struct jsmn_message *rep;
+	STAILQ_HEAD(replies, jsmn_message) h_replies;
 	uint8_t cmd[MAX_CMD_SIZE];
+	uint8_t probe_id[MAX_ID_SIZE];
 
 };
 
-#define MAX_SESSIONS 4
-static struct jsmn_session conversations[MAX_SESSIONS];
+static inline int index_command(uint8_t *cmd, int bytes)
+{
+	static uint8_t *table[] = {
+		"discovery",
+		"off",
+		"on",
+		"increase",
+		"decrease",
+		"low",
+		"default",
+		"high",
+		"adversarial",
+		"reset",
+		"records"
+	};
+	static int length[] = {2, 2, 2, 2, 3, 2, 3, 2, 2, 3, 3};
+	int i = 0;
+
+	for(i = 0; i < 11; i++) {
+		if (! memcmp(cmd, table[i], (length[i] < bytes) ? length[i] : bytes))
+			return i;
+	}
+	return -JSMN_ERROR_INVAL;
+}
+
+
+static inline int
+process_records_cmd(struct jsmn_message *m, int index);
+
+static inline int
+process_jsmn_cmd(struct jsmn_message *m, int index);
+int (*cmd_table[])(struct jsmn_message *m, int index) =
+{
+	process_jsmn_cmd, /* DISCOVERY */
+	process_jsmn_cmd, /* OFF */
+	process_jsmn_cmd, /* ON */
+	process_jsmn_cmd, /* INCREASE */
+	process_jsmn_cmd, /* DECREASE */
+	process_jsmn_cmd, /* LOW */
+	process_jsmn_cmd, /* DEFAULT */
+	process_jsmn_cmd, /* HIGH */
+	process_jsmn_cmd, /* ADVERSARIAL */
+	process_jsmn_cmd, /* RESET */
+	process_records_cmd /* RECORDS */
+};
+
+int verbose_flag = 0;
+static inline void
+free_session(struct jsmn_session *s);
+
+static inline int
+process_single_response(struct jsmn_session *s)
+{
+	if (verbose_flag)
+		dump_session(s);
+	free_session(s);
+	return COMPLETE;
+}
+
 
 const uint8_t escape [] = {0x5c, 0x00};
-int verbose_flag = 0;
 
 static inline void *__krealloc(void *buf, size_t s)
 {
@@ -90,9 +155,10 @@ static inline void *__krealloc(void *buf, size_t s)
 static inline void
 free_message(struct jsmn_message *m)
 {
+	return;
 	if(m->line)
 		kfree(m->line);
-	memset(m, 0x00, sizeof(*m));
+	kfree(m);
 	return;
 }
 
@@ -100,74 +166,164 @@ free_message(struct jsmn_message *m)
 static inline void
 free_session(struct jsmn_session *s)
 {
+	return;
 	if (s->req)
 		free_message(s->req);
-	if (s->rep)
-		free_message(s->rep);
-	memset(s, 0x00, sizeof(*s));
-}
 
-static inline int
-process_jsmn_cmd(struct jsmn_message *m)
-{
-	uint8_t *string, *c;
-	size_t bytes;
-	struct jsmn_session *session;
-
-
-	assert(m);
-	session = m->s;
-
-	assert(session &&
-		   (session->status == REQUEST ||
-			session->status == REPLY));
-
-	if (session->status == REQUEST) {
-		assert(m == session->req);
-
-	} else if (session->status == REPLY) {
-		assert(m == session->rep);
+	while (! STAILQ_EMPTY(&s->h_replies)) {
+		struct jsmn_message *m = STAILQ_FIRST(&s->h_replies);
+		STAILQ_REMOVE_HEAD(&s->h_replies, e_messages);
+		free_message(m);
 	}
 
+	SLIST_REMOVE(&h_sessions, s, jsmn_session, sessions);
+	kfree(s);
+}
+
+
+
+/**
+ * assumes: we have already attached the message to
+ * a session
+ **/
+static inline int
+process_records_cmd(struct jsmn_message *m, int index)
+{
+	/**
+	 * every record command must be targeted to a probe id
+	 * the id may be a wildcard, we assume the command
+	 * and id are both stored in the message struct
+	 **/
+
+	if (m->type == REQUEST) {
+		/* here is where to call in to the probe */
+		printk(KERN_INFO "Dispatching a record request to %s, %s\n",
+			   m->s->probe_id, m->s->nonce);
+		return 0;
+	} else if (m->type == REPLY) {
+		int bytes;
+		uint8_t *r;
+		if (m->parser.toknext <= RECORD || m->parser.toknext >= MAX_TOKENS) {
+			printk(KERN_INFO "parser did not find a response record %s, %s\n",
+				   m->s->probe_id, m->s->nonce);
+			return process_single_response(m->s);
+		}
+		if (m->tokens[RECORD].start > m->len || m->tokens[RECORD].end > m->len) {
+			return JSMN_ERROR_INVAL;
+		}
+
+		r = m->line + m->tokens[RECORD].start;
+		bytes = m->tokens[RECORD].end - m->tokens[RECORD].start;
+		if (bytes <= 0 || bytes > m->len) {
+			return JSMN_ERROR_INVAL;
+		}
+		printk(KERN_INFO "Received a record from %s, %s, %.*s\n",
+			   m->s->probe_id, m->s->nonce, bytes, r);
+
+	}
+
+	return 0;
+
+}
+
+
+
+/**
+ * assumes: we have already attached the message to
+ * a session.
+ * every message requires a command and probe id
+ **/
+
+static inline int
+pre_process_jsmn_cmd(struct jsmn_message *m)
+{
+	uint8_t *string, *c, *id;
+	size_t c_bytes, id_bytes;
+	int ccode;
+
+	assert(m && m->s);
 	assert(m->tokens[CMD].start < m->len &&
 		   m->tokens[CMD].end < m->len &&
 		   (m->tokens[CMD].end > m->tokens[CMD].start));
 
-/* set up to copy or compare the session command */
-	c =  m->line + m->tokens[CMD].start;
-	bytes = m->tokens[CMD].end - m->tokens[CMD].start;
-	if (bytes <=0 || bytes >= MAX_CMD_SIZE)
+	if (m->parser.toknext > PROBE) {
+		assert(m->tokens[PROBE].start < m->len &&
+			   m->tokens[PROBE].end < m->len &&
+			   (m->tokens[PROBE].end > m->tokens[PROBE].start));
+	}
+
+	/* m->type is either REQUEST or REPLY */
+    /* set up to copy or compare the session command */
+	c = m->line + m->tokens[CMD].start;
+	c_bytes = m->tokens[CMD].end - m->tokens[CMD].start;
+	if (c_bytes <=0 || c_bytes >= MAX_CMD_SIZE)
 		return JSMN_ERROR_INVAL;
-	if (session->status == REQUEST) {
-        /* copy the command into the session command array */
-		memcpy(session->cmd, c, bytes);
-		session->cmd[bytes] = 0x00;
-	} else if (session->status == REPLY) {
-		/* command should match */
-		if (memcmp(session->cmd, c, bytes)) {
+	if (m->parser.toknext <= PROBE) {
+		/**
+		 * there is no probe element, only valid
+		 * for a discovery request message.
+		 **/
+	} else {
+		id = m->line + m->tokens[PROBE].start;
+		id_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
+		if (id_bytes <=0 || id_bytes >= MAX_CMD_SIZE)
 			return JSMN_ERROR_INVAL;
-		} else {
-/* clear the session for the next pair of messages */
-			if (verbose_flag)
-				dump_session(session);
-			session->status = EMPTY;
-			free_session(session);
-			return COMPLETE;
+
+	}
+
+
+	if (m->type == REQUEST) {
+        /* copy the command into the session command array */
+		memcpy(m->s->cmd, c, c_bytes);
+		m->s->cmd[c_bytes] = 0x00;
+		if (m->parser.toknext > PROBE) {
+			memcpy(m->s->probe_id, id, id_bytes);
+			m->s->probe_id[id_bytes] = 0x00;
+		}
+
+	} else if (m->type == REPLY) {
+		/* m is linked into the session tail q */
+		/* nonce and command match */
+		/* replies must have an id */
+        /* a discovery reply may have multiple probe id strings */
+		/* if a reply, nonce, session, and cmd must be identical */
+		if (m->parser.toknext <= PROBE) {
+			return JSMN_ERROR_INVAL;
 		}
 	}
-	/**
-	 * TODO: here is where we can process specific command and reply
-	 * messages by calling into the actual probe
-	 **/
-	return 0;
+
+	ccode = index_command(c, c_bytes);
+	if (ccode >= 0)
+		return cmd_table[ccode](m, ccode);
+	return ccode;
 }
 
+
+
+/**
+ * message is guaranteed to be connected to a session,
+ * is typed as either a request or reply
+ **/
+static inline int
+process_jsmn_cmd(struct jsmn_message *m, int index)
+{
+
+	if (m->type == REPLY) {
+		if (index != RECORDS) {
+			return process_single_response(m->s);
+		} else {
+			return JSMN_ERROR_INVAL;
+		}
+	}
+	return 0;
+}
 
 static inline struct jsmn_session *get_session(struct jsmn_message *m)
 {
 	uint8_t *n;
 	size_t bytes;
 	int i;
+	struct jsmn_session *ns;
 
 	assert(m->tokens[NONCE].start < m->len &&
 		   m->tokens[NONCE].end < m->len &&
@@ -179,31 +335,26 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 		return NULL;
 
 	if (m->type == REQUEST) {
-		for (i = 0; i < MAX_SESSIONS; i++) {
-			if (conversations[i].status == EMPTY) {
-				memset(conversations[i].nonce, 0x00, MAX_NONCE_SIZE);
-				memcpy(conversations[i].nonce, n, bytes);
-				conversations[i].status = REQUEST;
-				conversations[i].req  = m;
-				conversations[i].rep = NULL;
-				m->s = &conversations[i];
-				return &conversations[i];
-			}
-		}
-	} else if (m->type == REPLY) {
-		for (i = 0; i < MAX_SESSIONS; i++) {
-			if  (conversations[i].status == REQUEST) {
-				if (! memcmp(conversations[i].nonce, n, bytes)) {
-					conversations[i].rep = m;
-					conversations[i].status = REPLY;
-					m->s = &conversations[i];
-					return &conversations[i];
-				}
+        /* new session */
+		ns = kzalloc(sizeof(*ns), GFP_KERNEL);
+		memcpy(ns->nonce, n, bytes);
+		ns->req = m;
+		m->s = ns;
+		STAILQ_INIT(&ns->h_replies);
+		SLIST_INSERT_HEAD(&h_sessions, ns, sessions);
+		return ns;
+	} else {
+		SLIST_FOREACH(ns, &h_sessions, sessions) {
+			if (! memcmp(ns->nonce, n, bytes)) {
+				STAILQ_INSERT_TAIL(&ns->h_replies, m, e_messages);
+				m->s = ns;
+				return ns;
 			}
 		}
 	}
 	return NULL;
 }
+
 
 /**
  * in version 0.1, message must be either "request" or "reply"
@@ -346,7 +497,7 @@ parse_json_message(struct jsmn_message *m)
 		}
 		case CMD:
 		{
-			ccode = process_jsmn_cmd(m);
+			ccode = pre_process_jsmn_cmd(m);
 
 			if (!ccode || ccode == COMPLETE)
 				return 0;
@@ -365,11 +516,13 @@ parse_json_message(struct jsmn_message *m)
 
 static void dump_session(struct jsmn_session *s)
 {
+	struct jsmn_message *reply;
 
-	assert(s && s->status == REPLY);
-	assert(s->req && s->rep);
+	assert(s && s->req);
 	dump(s->req->line, s->req->tokens, s->req->parser.toknext, 0);
-	dump(s->rep->line, s->rep->tokens, s->rep->parser.toknext, 0);
+	STAILQ_FOREACH(reply, &s->h_replies, e_messages) {
+		dump(reply->line, reply->tokens, reply->parser.toknext, 0);
+	}
 	return;
 }
 
@@ -604,12 +757,16 @@ get_options (int argc, char **argv)
 			 * TODO: free message resources after processing
 			 * reply.
 			 * TODO: garbage-collect partial sessions (req only)
-			 * TODO: clean up replys with no matching request
+			 * TODO: clean up replies with no matching request
+			 * TODO: turn replies into a queue - to handle multi-record
+			 *       replies
+			 * TODO: add serial numbers to record replies
 			 **/
 			FILE *in_file;
 			ssize_t nread, len = 0;
 			uint8_t *line = NULL;
 
+			SLIST_INIT(&h_sessions);
 
 			in_file_name = strdup(optarg);
 			in_file = fopen(in_file_name, "r");
@@ -618,8 +775,6 @@ get_options (int argc, char **argv)
 				exit(EXIT_FAILURE);
 			}
 
-			SLIST_INIT(&message_head);
-			SLIST_INIT(&session_head);
 
 			while((nread = getline(&line, &len, in_file)) != -1) {
 				struct jsmn_message *this_msg =
@@ -629,6 +784,9 @@ get_options (int argc, char **argv)
 				}
 				this_msg->line = line;
 				this_msg->len = strlen(line);
+				/* the following call will free a request/response pair and its
+				 * session structure.
+				 */
 				parse_json_message(this_msg);
 				line = NULL;
 				len = 0;
