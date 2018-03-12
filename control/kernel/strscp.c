@@ -26,7 +26,7 @@ enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
 enum message_command {DISCOVERY = 0, OFF = 1, ON = 2, INCREASE = 3, DECREASE = 4,
 					  LOW = 5, DEFAULT = 6, HIGH = 7, ADVERSARIAL = 8, RESET = 9, RECORDS = 10};
 
-
+#define MAX_LINE_LEN 4096
 #define MAX_NONCE_SIZE 128
 #define MAX_CMD_SIZE 64
 #define MAX_ID_SIZE MAX_CMD_SIZE
@@ -61,6 +61,7 @@ struct jsmn_message
 	uint8_t *line;
 	size_t len;
 	int type;
+	size_t count; /* token count */
 	struct jsmn_session *s;
 };
 
@@ -208,15 +209,9 @@ process_records_cmd(struct jsmn_message *m, int index)
 				   m->s->probe_id, m->s->nonce);
 			return process_single_response(m->s);
 		}
-		if (m->tokens[RECORD].start > m->len || m->tokens[RECORD].end > m->len) {
-			return JSMN_ERROR_INVAL;
-		}
 
 		r = m->line + m->tokens[RECORD].start;
 		bytes = m->tokens[RECORD].end - m->tokens[RECORD].start;
-		if (bytes <= 0 || bytes > m->len) {
-			return JSMN_ERROR_INVAL;
-		}
 		printk(KERN_INFO "Received a record from %s, %s, %.*s\n",
 			   m->s->probe_id, m->s->nonce, bytes, r);
 
@@ -231,7 +226,8 @@ process_records_cmd(struct jsmn_message *m, int index)
 /**
  * assumes: we have already attached the message to
  * a session.
- * every message requires a command and probe id
+ * every message requires a command, and every message
+ * EXCEPT for the discovery request requires a probe ID
  **/
 
 static inline int
@@ -242,15 +238,6 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 	int ccode;
 
 	assert(m && m->s);
-	assert(m->tokens[CMD].start < m->len &&
-		   m->tokens[CMD].end < m->len &&
-		   (m->tokens[CMD].end > m->tokens[CMD].start));
-
-	if (m->parser.toknext > PROBE) {
-		assert(m->tokens[PROBE].start < m->len &&
-			   m->tokens[PROBE].end < m->len &&
-			   (m->tokens[PROBE].end > m->tokens[PROBE].start));
-	}
 
 	/* m->type is either REQUEST or REPLY */
     /* set up to copy or compare the session command */
@@ -268,7 +255,6 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 		id_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
 		if (id_bytes <=0 || id_bytes >= MAX_CMD_SIZE)
 			return JSMN_ERROR_INVAL;
-
 	}
 
 
@@ -293,7 +279,7 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 	}
 
 	ccode = index_command(c, c_bytes);
-	if (ccode >= 0)
+	if (ccode >= 0 && ccode <= RECORDS )
 		return cmd_table[ccode](m, ccode);
 	return ccode;
 }
@@ -325,9 +311,6 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 	int i;
 	struct jsmn_session *ns;
 
-	assert(m->tokens[NONCE].start < m->len &&
-		   m->tokens[NONCE].end < m->len &&
-		   m->tokens[NONCE].end > m->tokens[NONCE].start);
 	n = m->line  + m->tokens[NONCE].start;
 	bytes = m->tokens[NONCE].end - m->tokens[NONCE].start;
 
@@ -368,7 +351,6 @@ check_protocol_message(struct jsmn_message *m)
 	uint8_t *msg;
 	size_t bytes;
 
-	assert(m->tokens[MSG].start < m->len && m->tokens[MSG].end < m->len);
 	msg = m->line + m->tokens[MSG].start;
 	bytes = m->tokens[MSG].end - m->tokens[MSG].start;
 	assert(bytes == strlen(messages[0]) ||
@@ -402,7 +384,6 @@ check_protocol_version(struct jsmn_message *m)
 	tag = m->tokens[VER_TAG];
 	version = m->tokens[VER_TAG + 1];
 
-	assert(tag.start < m->len && tag.end < m->len);
 	start = m->line  + tag.start;
 	bytes = tag.end - tag.start;
 	if (bytes != strlen(prot_tag))
@@ -413,7 +394,6 @@ check_protocol_version(struct jsmn_message *m)
 		return JSMN_ERROR_INVAL;
 	}
 
-	assert(version.start < m->len && version.end < m->len);
 	start = m->line + version.start;
 	bytes = version.end - version.start;
 	if (bytes != strlen(ver_tag))
@@ -426,6 +406,32 @@ check_protocol_version(struct jsmn_message *m)
 	return 0;
 }
 
+static inline int
+validate_message_tokens(struct jsmn_message *m)
+{
+	int i = 0, len;
+
+	assert(m);
+	if (!m->line ||
+		m->len >= MAX_LINE_LEN ||
+		m->line[m->len] != 0x00) {
+		return -EINVAL;
+	}
+
+	if (m->count < 1 ||
+		m->count > MAX_TOKENS ||
+		m->tokens[0].type != JSMN_OBJECT) {
+		return -JSMN_ERROR_INVAL;
+	}
+	for (i = 0, len = m->len; i < m->count; i++) {
+		if (m->tokens[i].start > len ||
+			m->tokens[i].end > len ||
+			m->tokens[i].end - m->tokens[i].start < 0) {
+			return -JSMN_ERROR_INVAL;
+		}
+	}
+	return 0;
+}
 
 /**
  * each message must a well-formed JSON object
@@ -433,30 +439,29 @@ check_protocol_version(struct jsmn_message *m)
 int
 parse_json_message(struct jsmn_message *m)
 {
-	int i = 0, count = 0, ccode = 0;
+	int i = 0, ccode = 0;
 	struct jsmn_session *message_session = NULL;
 
 	assert(m);
 	jsmn_init(&m->parser);
-	count = jsmn_parse(&m->parser,
-					   m->line,
-					   m->len,
-					   m->tokens,
-					   MAX_TOKENS);
-	if (count < 0 ) {
-		printk(KERN_INFO "failed to parse JSON: %d\n", count);
-		return count;
+	m->count = jsmn_parse(&m->parser,
+						  m->line,
+						  m->len,
+						  m->tokens,
+						  MAX_TOKENS);
+	if (m->count < 0 ) {
+		printk(KERN_INFO "failed to parse JSON: %d\n", m->count);
+		return m->count;
 	}
 	assert(m->line && m->line[m->len] == 0x00);
-
-	if (count < 1 || m->tokens[0].type != JSMN_OBJECT) {
+	if (validate_message_tokens(m)) {
 		printk(KERN_INFO "each message must be a well-formed JSON object" \
-			   " %d\n", count);
-		return count;
+			   " %d\n", m->count);
+		return m->count;
 	}
 
 	/* count holds the number of tokens in the string */
-	for (i = 1; i < count; i++) {
+	for (i = 1; i < m->count; i++) {
 		/**
 		 * we always expect tok[1].type to be JSON_STRING, and
 		 * to be "Virtue-protocol-version", likewise tok[2].type to be
@@ -510,7 +515,7 @@ parse_json_message(struct jsmn_message *m)
 		}
 	}
 
-	return count;
+	return m->count;
 }
 
 
@@ -754,13 +759,13 @@ get_options (int argc, char **argv)
 		case IN_FILE:
 		{
 			/**
-			 * TODO: free message resources after processing
-			 * reply.
+			 * TODO: make message tokens realloc'd but keep the MAX_TOKENS
+			 *       limit, otherwise vulnerable to a DOS attack from a message
+			 *       like '{[[[[[[[[[[[[[[[[[[[[ ... ]]]]]]]]]]]]]]]]]]]]}'
+			 *       that would cause the parser to realloc tokens and exhuast
+			 *       memory
 			 * TODO: garbage-collect partial sessions (req only)
 			 * TODO: clean up replies with no matching request
-			 * TODO: turn replies into a queue - to handle multi-record
-			 *       replies
-			 * TODO: add serial numbers to record replies
 			 **/
 			FILE *in_file;
 			ssize_t nread, len = 0;
