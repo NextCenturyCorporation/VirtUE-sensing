@@ -20,9 +20,6 @@ IFS=$OLDIFS
 
 echo "#ifndef _UNAME_CONTROLLER_H" > $FILENAME
 echo "#define _UNAME_CONTROLLER_H" >> $FILENAME
-if [[ $LINUX_KERNEL_BUILD ]] ; then
-    echo "#include \"controller-linux.h\"" >> $FILENAME
-fi
 echo "/*this file is generated automatically in the makefile */" >> $FILENAME
 echo "/*NB: I always assume you are running the same kernel you are building!*/">>$FILENAME
 echo "const char *cont_long_version = \"$FULL_VERSION\";" >> $FILENAME
@@ -44,13 +41,37 @@ if (( $VERSION >= 4 )) ; then
 	API=new
 	echo "#define NEW_API 1" >> $FILENAME
 	echo "#define CONT_INIT_WORK kthread_init_work"  >> $FILENAME
+        echo "#define CONT_INIT_WORKER kthread_init_worker"  >> $FILENAME
 	echo "#define CONT_FLUSH_WORK kthread_flush_work" >> $FILENAME
 	echo "#define CONT_QUEUE_WORK kthread_queue_work"  >> $FILENAME
-        echo "#define CONT_INIT_WORKER kthread_init_worker"  >> $FILENAME
     fi
 fi
+
+
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 7 )); then
+	SOCKAPI=old
+	echo "#define OLD_SOCK_API 1" >> $FILENAME
+	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (z), (f))" >> $FILENAME
+    else
+	SOCKAPI=new
+	echo "#define NEW_SOCK_API 1" >> $FILENAME
+	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (f))" >> $FILENAME
+    fi
+fi
+
+
+#socket interface changes:
+# version 4.1.13:
+
+#int sock_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
+#		 int flags);
+
+# version 4.7:
+#int sock_recvmsg(struct socket *sock, struct msghdr *msg, int flags);
 
 echo "const char *cont_api = \"$API\";" >> $FILENAME
 echo "#endif /* _UNAME_CONTROLLER_H */" >> $FILENAME
 
-echo $API
+echo "kthreads api: $API"
+echo "sock api: $SOCKAPI"

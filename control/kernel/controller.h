@@ -22,16 +22,28 @@
  *******************************************************************/
 #ifndef _CONTROLLER_H
 #define _CONTROLLER_H
-
+#include "controller-linux.h"
+#include "uname.h"
+#include "controller-flags.h"
+#include "jsmn/jsmn.h"
 #define _MODULE_LICENSE "GPL v2"
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
 
+static int SHOULD_SHUTDOWN;
+
+
+static inline void sleep(unsigned sec)
+{
+	if (! SHOULD_SHUTDOWN) {
+	__set_current_state(TASK_INTERRUPTIBLE);
+	schedule_timeout(sec * HZ);
+	}
+}
+
 /* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
  */
-
-#include "uname.h"
 
 /* - - probe - -
  *
@@ -55,9 +67,6 @@
 
 
 
-#define PROBE_ID_SIZE 0x1000
-#define PROBE_DATA_SIZE 0x4000
-#define PS_HEADER_SIZE 0x100
 /**
  * __task_cred - Access a task's objective credentials
  * @task: The task to query
@@ -85,15 +94,12 @@
  * #endif
  **/
 
-
-
-
 /**
-  * executable name, excluding path.
-  * - normally initialized setup_new_exec()
-  * - access it with [gs]et_task_comm()
-  * - lock it with task_lock()
-  **/
+ * executable name, excluding path.
+ * - normally initialized setup_new_exec()
+ * - access it with [gs]et_task_comm()
+ * - lock it with task_lock()
+ **/
 extern const struct cred *get_task_cred(struct task_struct *);
 
 /*
@@ -125,14 +131,14 @@ static inline const char *get_task_state(struct task_struct *tsk)
  * threads and thread groups.  Most things considering CPU time want to group
  * these counts together and treat all three of them in parallel.
  */
-struct task_cputime {
-	u64				utime;
-	u64				stime;
-	unsigned long long		sum_exec_runtime;
-};
+	struct task_cputime {
+		u64				utime;
+		u64				stime;
+		unsigned long long		sum_exec_runtime;
+	};
 
 static inline void task_cputime(struct task_struct *t,
-				u64 *utime, u64 *stime)
+								u64 *utime, u64 *stime)
 {
 	*utime = t->utime;
 	*stime = t->stime;
@@ -140,29 +146,245 @@ static inline void task_cputime(struct task_struct *t,
 #endif
 
 struct kernel_ps_data {
-	uint8_t header[PS_HEADER_SIZE];
+	int index; /* used for access to using flex_array.h */
+	uint64_t nonce;
 	kuid_t user_id;
 	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
 	uint64_t load_avg;
 	uint64_t util_avg; /* see struct sched_avg in linux/sched.h */
+	struct files_struct *files;
 #define TASK_STATE_LEN 24
 	uint8_t state[TASK_STATE_LEN];
 	uint64_t start_time; /* task->start_time */
 	uint64_t u_time;
 	uint64_t s_time;
 	uint64_t task_time;
-	uint8_t comm[TASK_COMM_LEN];
+	spinlock_t sl;
+	uint8_t comm[TASK_COMM_LEN+1];
 };
 
 
-struct probe_s {
-	uint8_t *probe_id;
-	spinlock_t probe_lock;
+#define PS_DATA_SIZE sizeof(struct kernel_ps_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define PS_APPARENT_ARRAY_SIZE											\
+	FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS \
+
+#define PS_ARRAY_SIZE (PS_APPARENT_ARRAY_SIZE) - 1
+
+
+/**
+ * definitions for token storage allocation
+ * using flex_array also
+ **/
+#define TOKEN_DATA_SIZE (sizeof(jsmntok_t))
+#define TOKEN_APPARENT_ARRAY_SIZE \
+	FLEX_ARRAY_ELEMENTS_PER_PART(TOKEN_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS
+
+#define TOKEN_ARRAY_SIZE (((TOKEN_APPARENT_ARRAY_SIZE) * 2) - 1)
+
+
+/**
+ * workspace for kernel-lsof probe data
+ * line numbers from kernel version 4.1.3
+ * struct file in include/linux/fs.h:828
+ * struct path in include/linux/path.h:7
+ * struct file_operations in include/linux/fs.h:1573
+ * count, flags, mode
+ * struct fown_struct f_owner in include/linux/fs.h:797
+ * struct cred f_cred in include/linux/cred.h
+ * typedef unsigned __bitwise__ fmode_t in include/linux/types.h
+ *
+ **/
+struct kernel_lsof_data {
+	struct file f;
+	struct path p;
+	struct fown_struct owner;
+	atomic_long_t count;
+	unsigned int flags;
+	fmode_t mode;
+};
+
+
+/**
+   @brief struct probe is an a generic struct that is designed to be
+   incorporated into a more specific type of probe.
+
+   struct probe is initialized and destroyed by its incorporating
+   data structure. It has function pointers for init and destroy
+   methods.
+
+   members:
+   - probe_lock is available as a mutex object if needed
+
+   - probe_id is meant to uniqueily identify the probe,
+   it contains a copy of memory passed to the
+   probe in the init call.
+
+   - struct probe *(*init)(struct probe *probe,
+   uint8_t *id, int id_size,
+   uint8_t *data, int data_size) points to
+   an initializing function that will prepare the probe to run.
+   It takes a pointer to probe memory that has already been allocated,
+   and a pointer to allocated memory that identifies the probe. The
+   id and data are copied into a newly allocated memory buffer.
+
+   - void *(*destroy)(struct probe *probe) points to a destructor function
+   that stops kernel threads and tears down probe resources, frees id and
+   data memory but does not free probe memory.
+
+   - int (*send_msg_to_probe)(struct probe *probe, int length, void *buf)
+   causes the probe to copy length bytes of memory from buf. If
+   successful, it returns the number of bytes copied, or a negative
+   error code.
+
+   - int (*rcv_msg_from_probe)(struct probe *, void **ptr) causes the probe to
+   allocate buffer and assign it to *ptr. It returns the length of
+   the buffer at *ptr, or a negative number if an error occured.
+   if the probe does not have any messages to copy to the caller, it
+   will return -EAGAIN.
+
+   - struct kthread_worker probe_worker, and struct kthread_work probe_work
+   are both used to schedule the probe as a kernel thread.
+
+   - struct llist_node l_node is the lockless linked list node pointer. It
+   is used by the parent sensor to manage the probe as a peer of more than
+   one siblings.
+
+   - uint8 *data is a generic pointer whose use may be to store probe data
+   structures.
+
+**/
+struct probe {
+	spinlock_t lock;
+	uint8_t *id;
+	struct probe *(*init)(struct probe *, uint8_t *, int);
+	void *(*destroy)(struct probe *);
+	int (*send_msg)(struct probe *, int, void *);
+	int (*rcv_msg)(struct probe *, int, void **);
+	int (*start_stop)(struct probe *, uint64_t flags);
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
-	struct kthread_work probe_work;
-	struct list_head probe_list;
-	uint8_t *data;
+	struct kthread_worker worker;
+	struct kthread_work work;
+	struct llist_node l_node;
 };
+
+
+/**
+ * @brief a probe that produces a list of kernel processes similar to the
+ *        ps command.
+ *
+ *  members:
+ *
+ *  - probe is an anonymous struct probe (see above)
+ *
+ *  - flex_array is a kernel flex_array, which will be pre-allocated
+ *    to hold data from the kernel's process list
+ *
+ *  - print is a function pointer - it may be initialized with custom
+ *    output functions. The default is to printk kernel process data
+ *    to /var/log/messages using printk
+ *
+ *  - ps is a function pointer - it may be initialized with a custom
+ *    process probe function. The default is to collect process information
+ *    from the kernel's scheduler.
+ *
+ *  - _init is a function pointer, it points to a function to initialize
+ *    the ps probe. It calls a struct probe->init function to initialize
+ *    the probe anonymous structure.
+ *
+ *  - _destroy is a function pointer, it points to a function for destroying
+ *    the ps probe. It calls probe->destroy to tear down the anonymous
+ *    struct probe.
+ **/
+struct kernel_ps_probe {
+	struct probe;
+	struct flex_array *kps_data_flex_array;
+	int (*print)(struct kernel_ps_probe *, uint8_t *, uint64_t, int);
+	int (*ps)(struct kernel_ps_probe *, int, uint64_t);
+	struct kernel_ps_probe *(*_init)(struct kernel_ps_probe *,
+									 uint8_t *, int,
+		                             int (*print)(struct kernel_ps_probe *,
+												  uint8_t *, uint64_t, int));
+	void *(*_destroy)(struct probe *);
+};
+
+
+
+/**
+ * @brief The kernel sensor is the parent of one or more probes
+ *
+ * The Kernel Sensor  is similar to its child probes in the sense
+ * it uses kernel threads (kthreads) to run tasks. However, rather than
+ * probe kernel instrumentation, it runs tasks to manage and service
+ * its child probes. For example, presenting a socket interface
+ * to user space.
+ *
+ * members:
+ *
+ * lock is a resource available to manage exclusive
+ *      access to the kernel_sensor
+ * flags is a bit mask that will hold information for the
+ *       kernel sensor
+ * id is meant to uniqueily identify the sensor,
+ *     it should point to allocated memory passed to the
+ *     kernel sensor in the init call.
+ * struct kernel_sensor *(*init)(struct kernel_sensor *sensor, uint8_t *id)
+ *     initializes memory that has already been allocated to have working
+ *     semsor resources.
+ * void *(*destroy)(struct kernel_sensor *sensor) will tear down resources,
+ *      destroy child probes, de-schedule kernel threads, and zero-out sensor
+ *      memory. It does not free sensor memory.
+ * kwork and kworker are kernel structures to run sensor tasks.
+ * l_head is the head of the lockless probe list. Each child probe is
+ *      linked to this list
+ * s is a unix domain socket used to communicate with user space.
+ **/
+
+
+
+/**
+ * struct socket: include/linux/net.h: 110
+ **/
+
+/* max message header size */
+#define CONNECTION_MAX_HEADER 0x400
+
+/* connection struct is used for both listening and connected sockets */
+/* function pointers for listen, accept, close */
+struct connection {
+	struct probe;
+	/**
+	 * _init parameters:
+	 * uint64_t flags - will have the PROBE_LISTENER or PROBE_CONNECTED bit set
+	 * void * data depends on the value of flags:
+	 *    if __FLAG_IS_SET(flags, PROBE_LISTENER), then data points to a
+	 *    string in the form of "/var/run/socket-name".
+	 *    if __FLAG_IS_SET(flags, PROBE_CONNECTED, then data points to a
+	 *    struct socket
+	 **/
+	struct connection *(*_init)(struct connection *, uint64_t, void *);
+	void *(*_destroy)(struct connection *);
+	struct socket *connected;
+	uint8_t path[UNIX_PATH_MAX];
+};
+
+struct kernel_sensor {
+	struct probe;
+	struct kernel_sensor *(*_init)(struct kernel_sensor *);
+	void *(*_destroy)(struct kernel_sensor *);
+	struct llist_head probes;
+	struct llist_head listeners;
+	struct llist_head connections;
+};
+
+
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
  */
@@ -171,16 +393,16 @@ struct probe_s {
 struct kthread_worker *
 kthread_create_worker(unsigned int flags, const char namefmt[], ...);
 
-
 void kthread_destroy_worker(struct kthread_worker *worker);
 
-void
-kthread_destroy_worker(struct kthread_worker *worker);
-
-struct probe_s *init_k_probe(struct probe_s *probe);
+struct probe *init_probe(struct probe *probe,
+						 uint8_t *id,  int id_size);
 void *destroy_probe_work(struct kthread_work *work);
-void *destroy_k_probe(struct probe_s *probe);
+void *destroy_k_probe(struct probe *probe);
 
+bool init_and_queue_work(struct kthread_work *work,
+					struct kthread_worker *worker,
+					void (*function)(struct kthread_work *));
 
 
 /**
@@ -188,8 +410,8 @@ void *destroy_k_probe(struct probe_s *probe);
  * "more stable" api from here onward
  */
 uint8_t *register_probe(uint64_t flags,
-				   int (*probe)(uint64_t, uint8_t *),
-				   int delay, int timeout, int repeat);
+						int (*probe)(uint64_t, uint8_t *),
+						int delay, int timeout, int repeat);
 int unregister_probe(uint8_t *probe_id);
 
 /* allocates and returns a buffer with probe data */
@@ -207,20 +429,9 @@ uint64_t update_probe(uint8_t *probe_id,
 					  uint8_t *update,
 					  int update_size);
 
-struct kernel_sensor {
-	uint8_t *id;
-	spinlock_t lock;
-	uint64_t flags;
-	struct list_head *l;
-	struct kthread_worker *kworker; /* plan to move */
-	struct kthread_work *kwork;    /* plan to move */
-	struct probe_s probes[1]; /* use it as a pointer */
-};
-
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
-
-#define DMSG() printk(KERN_ALERT "DEBUG: Passed %s %d \n",__FUNCTION__,__LINE__);
+#define DMSG() printk(KERN_INFO "DEBUG: kernel-ps Passed %s %d \n",__FUNCTION__,__LINE__);
 
 #endif // CONTROLLER_H

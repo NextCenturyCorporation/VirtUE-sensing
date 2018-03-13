@@ -1,5 +1,5 @@
 /*******************************************************************
- * In-Virtue Kernel Controller
+ * in-Virtue Kernel Controller
  *
  * Copyright (C) 2017-2018  Michael D. Day II
  * Copyright (C) 2017-2018  Two Six Labs
@@ -25,8 +25,13 @@
 #include "controller.h"
 
 
+struct kernel_sensor k_sensor;
+EXPORT_SYMBOL(k_sensor);
+
+struct kernel_ps_probe kps_probe;
+
 static unsigned int ps_repeat = 1;
-static unsigned int ps_timeout = 60;
+static unsigned int ps_timeout = 1;
 
 module_param(ps_repeat, uint, 0644);
 module_param(ps_timeout, uint, 0644);
@@ -37,48 +42,106 @@ MODULE_PARM_DESC(ps_timeout,
 				 "ps function");
 
 
-LIST_HEAD(active_sensors);
-struct list_head *probe_queues[0x10];
+/** locking the kernel-ps flex_array
+ * to write to or read from the pre-allocated flex array parts,
+ * one must hold the kps_spinlock. The kernel_ps function will
+ * execute a trylock and return with -EAGAIN if it is unable
+ * to lock the array.
+ *
+ * A reader can decide best how to poll for the array spinlock, but
+ * it should hold the lock while using pointers from the array.
+ **/
 
-int probe_socket;
-
-struct kthread_work *controller_work;
-struct kthread_worker *controller_worker;
-struct probe_s *controller_probe;
-
-
-static int kernel_ps(int count)
-{
-	int ccode =  0;
-	struct task_struct *task;
 /**
-   uint8_t *header = "USER       PID %CPU %MEM    VSZ   RSS TTY      " \
-   "STAT START   TIME COMMAND";
-   printk(KERN_INFO "%s\n", header);
-**/
-	for_each_process(task) {
-		printk(KERN_INFO "kernel-ps-%d: %s [%d]\n", count, task->comm, task->pid);
-		ccode++;
+ * output the kernel-ps list to the kernel log
+ *
+ * @param uint8 *tag - tag added to each line, useful for filtering
+ *        log output.
+ * @param count The number of times kernel-ps has been run as a probe
+ * @param nonce Identifies flex_array elements that should be printed,
+ *              also terminates the printing loop
+ * @return -EAGAIN if unable to obtain kernel-ps flex array lock,
+ *         -ENOMEM if the ps flex_array is too small to contain every
+ *                 running process
+ *         The number of kernel-ps records printed if successful
+ **/
+
+static int print_kernel_ps(struct kernel_ps_probe *parent,
+						   uint8_t *tag,
+						   uint64_t nonce,
+						   int count)
+{
+	int index;
+	unsigned long flags;
+	struct kernel_ps_data *kpsd_p;
+
+	if (!spin_trylock_irqsave(&parent->lock, flags)) {
+		return -EAGAIN;
+	}
+	for (index = 0; index < PS_ARRAY_SIZE; index++)  {
+		kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
+		if (kpsd_p->nonce != nonce) {
+			break;
+		}
+		printk(KERN_INFO "%s %d:%d %s [%d] [%d] [%llx]\n",
+			   tag, count, index, kpsd_p->comm, kpsd_p->pid_nr,
+			   kpsd_p->user_id.val, nonce);
+	}
+	spin_unlock_irqrestore(&parent->lock, flags);
+	if (index == PS_ARRAY_SIZE) {
+		return -ENOMEM;
+	}
+	return index;
+}
+
+int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
+{
+	int index = 0;
+	struct task_struct *task;
+	struct kernel_ps_data kpsd;
+	unsigned long flags;
+
+	if (!spin_trylock_irqsave(&parent->lock, flags)) {
+		return -EAGAIN;
 	}
 
-    return ccode;
+	for_each_process(task) {
+		kpsd.nonce = nonce;
+		kpsd.index = index;
+		kpsd.user_id = task_uid(task);
+		kpsd.pid_nr = task->pid;
+		memcpy(kpsd.comm, task->comm, TASK_COMM_LEN);
+		if (index <  PS_ARRAY_SIZE) {
+			flex_array_put(parent->kps_data_flex_array, index, &kpsd, GFP_ATOMIC);
+		} else {
+			index = -ENOMEM;
+			goto unlock_out;
+		}
+		index++;
+	}
+
+unlock_out:
+	spin_unlock_irqrestore(&parent->lock, flags);
+    return index;
 }
+
 
 /* ugly but expedient way to support < 4.9 kernels */
 /* todo: convert to macros and move to header */
 /* CONT_INIT_AND_QUEUE, CONT_INIT_WORK, CONT_QUEUE_WORK */
 
-static bool
+bool
 init_and_queue_work(struct kthread_work *work,
 					struct kthread_worker *worker,
 					void (*function)(struct kthread_work *))
 {
 
+
 	CONT_INIT_WORK(work, function);
 	return CONT_QUEUE_WORK(worker, work);
 
 }
-
+EXPORT_SYMBOL(init_and_queue_work);
 
 /**
  * Flushes this work off any work_list it is on.
@@ -87,39 +150,90 @@ init_and_queue_work(struct kthread_work *work,
  */
 void *destroy_probe_work(struct kthread_work *work)
 {
-
 	CONT_FLUSH_WORK(work);
 	memset(work, 0, sizeof(struct kthread_work));
 	return work;
 }
-
 /**
- * destroy a struct probe_s, by tearing down
+ * destroy a struct probe, by tearing down
  * its allocated resources.
  * To free a dynamically allocated probe, you
  * could call it like this:
  *
- *   kfree(destroy_k_probe(probe));
+ *   kfree(destroy_probe(probe));
  *
  *  The inside call frees memory allocated for the probe id
  *   and probe data, destroys a probe work node if it is there,
  *  and returns a zero'ed out memory buffer to the outer call.
  */
-void *destroy_k_probe(struct probe_s *probe)
+void *destroy_probe(struct probe *probe)
 {
-	assert(probe);
+	assert(probe && __FLAG_IS_SET(probe->flags, PROBE_INITIALIZED));
+	__CLEAR_FLAG(probe->flags, PROBE_INITIALIZED);
 
-	if (probe->probe_id) {
-		kfree(probe->probe_id);
-	}
-	if (probe->data) {
-		kfree(probe->data);
+	if (probe->id &&
+		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
+		kfree(probe->id);
+		probe->id = NULL;
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
 	}
 
-	destroy_probe_work(&probe->probe_work);
-	memset(probe, 0, sizeof(struct probe_s));
+	if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
+		kthread_destroy_worker(&probe->worker);
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
+	}
 	return probe;
 }
+
+void *destroy_kernel_sensor(struct kernel_sensor *sensor)
+{
+
+	struct probe *probe, *tmp_p;
+	struct connection *connection, *tmp_c;
+	struct llist_node *llnode ;
+	assert(sensor);
+
+	/* sensor is the parent of all probes */
+	if (!llist_empty(&sensor->probes)) {
+		llnode = llist_del_all(&sensor->probes);
+		llist_for_each_entry_safe(probe, tmp_p, llnode, l_node) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_KPS)) {
+				((struct kernel_ps_probe *)probe)->_destroy(probe);
+			} else {
+				probe->destroy(probe);
+			}
+			/**
+			 * we want probes to be statically allocated, no need
+			 * to free them here
+			 **/
+		}
+	}
+
+	if (!llist_empty(&sensor->listeners)) {
+		llnode = llist_del_all(&sensor->listeners);
+		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_LISTEN)) {
+				;
+			}
+		}
+	}
+
+	if (!llist_empty(&sensor->connections)) {
+		llnode = llist_del_all(&sensor->connections);
+		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
+			if (__FLAG_IS_SET(probe->flags, PROBE_CONNECT)) {
+				;
+			}
+		}
+	}
+
+/* now destroy the sensor's anonymous probe struct */
+    probe = (struct probe *)sensor;
+	destroy_probe(probe);
+	memset(sensor, 0, sizeof(struct kernel_sensor));
+	return sensor;
+}
+
 
 
 struct kthread_worker *
@@ -172,8 +286,14 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
 	return worker;
 }
 
+/**
+ * shuts down a kthread worker, but does not free the
+ * memory - part of the transisiton to the worker belonging
+ * inside the probe struct.
+ **/
 void
 kthread_destroy_worker(struct kthread_worker *worker)
+
 {
 	struct task_struct *task;
 
@@ -185,71 +305,51 @@ kthread_destroy_worker(struct kthread_worker *worker)
 	flush_kthread_worker(worker);
 	kthread_stop(task);
 	WARN_ON(!list_empty(&worker->work_list));
-	kfree(worker);
 	return;
 }
 
 #endif
 
-/**
- * init_k_probe - initialize a kprobe that has already been allocated.
- *  - clear the kprobe memory
- *  - initialize the probe's spinlock and list head
- *  - allocates memory for the probe's ID and data
- *  - does not initialize probe->probe_work with a work node,
- *    which does need to get done by the kthreads library.
- * Initialize a kernel probe structure.
- * void *init_k_probe(struct probe_s *p)
- */
 
 /**
- * note jan 3 2018: don't always zero-out a probe, prepare for
- * showing persistent data in between probes (in between probe runs)
+ * init_k_sensor - initialize a kernel sensor, which is the parent
+ * of k_probes.
+ *
+ * sensor is already allocated
+ *
+ * - clear sensor memory
+ * - init the spinlock and probe list head
+ * - allocate memory for sensor's ID and data
+ * - does not initialize kwork work node, which is done by the
+ *   kthreads library.
  **/
-struct probe_s *init_k_probe(struct probe_s *probe)
+struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 {
-	if (!probe) {
+    if (!sensor) {
 		return ERR_PTR(-ENOMEM);
 	}
-	memset(probe, 0, sizeof(struct probe_s));
-	probe->probe_id = kzalloc(PROBE_ID_SIZE, GFP_KERNEL);
-	if (!probe->probe_id) {
-		return ERR_PTR(-ENOMEM);
-	}
+	memset(sensor, 0, sizeof(struct kernel_sensor));
 
-	probe->probe_lock=__SPIN_LOCK_UNLOCKED("probe");
-	/* flags, timeout, repeat are zero'ed */
-	/* probe_work is NULL */
-	INIT_LIST_HEAD(&(probe)->probe_list);
-
-	probe->data = kzalloc(PROBE_DATA_SIZE, GFP_KERNEL);
-	if (!probe->data) {
-		goto err_exit;
-	}
-	return probe;
-
-err_exit:
-	if (probe->probe_id) {
-		kfree(probe->probe_id);
-	}
-	if (probe->data) {
-		kfree(probe->data);
-	}
-	return ERR_PTR(-ENOMEM);
+/* we have an anonymous struct probe, need to initialize it.
+ * the anonymous struct is the first member of this structure.
+ */
+	init_probe((struct probe *)sensor,
+			   "Kernel Sensor", strlen("Kernel Sensor") + 1);
+	sensor->_init = init_kernel_sensor;
+	init_llist_head(&sensor->probes);
+	init_llist_head(&sensor->listeners);
+	init_llist_head(&sensor->connections);
+	sensor->_destroy = destroy_kernel_sensor;
+	/* initialize the socket later when we listen*/
+	return(sensor);
 }
 
 
-static inline void sleep(unsigned sec)
-{
-	__set_current_state(TASK_INTERRUPTIBLE);
-	schedule_timeout(sec * HZ);
-}
 
 
 /**
  * A probe routine is a kthread  worker, called from kernel thread.
- * it needs to execute quickly and can't hold any locks or
- * blocking objects. Once it runs once, it must be re-initialized
+ * Once it runs once, it must be re-initialized
  * and re-queued to run again...see /include/linux/kthread.h
  **/
 
@@ -264,13 +364,25 @@ static inline void sleep(unsigned sec)
 void  k_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
-	struct probe_s *probe_struct =
-		container_of(work, struct probe_s, probe_work);
+	struct kernel_ps_probe *probe_struct =
+		container_of(work, struct kernel_ps_probe, work);
 	static int count;
+	uint64_t nonce;
+	get_random_bytes(&nonce, sizeof(uint64_t));
 
-	kernel_ps(++count);
+	/**
+	 * if another process is reading the ps flex_array, kernel_ps
+	 * will return -EFAULT. therefore, reschedule and try again.
+	 */
+	while( probe_struct->ps(probe_struct, count, nonce) == -EAGAIN) {
+		schedule();
+	}
+/**
+ *  call print_kernel_ps by default. But, in the future there will be other             *  options, notably outputting in json format to a socket
+ **/
+	probe_struct->print(probe_struct, "kernel-ps", nonce, ++count);
 
-	if (probe_struct->repeat) {
+	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
 		probe_struct->repeat--;
 		sleep(probe_struct->timeout);
 		init_and_queue_work(work, co_worker, k_probe);
@@ -278,83 +390,210 @@ void  k_probe(struct kthread_work *work)
 	return;
 }
 
+
+/**
+ * init_probe - initialize a probe that has already been allocated.
+ * struct probe is usually used as an anonymous structure in a more
+ * specialized type of probe, for example kernel-ps or kernel-lsof
+ *  - probe memory is already allocated and should be zero'd by the
+ *    caller
+ *  - initialize the probe's spinlock and list head
+ *  - possibly allocates memory for the probe's ID and data
+ *  - does not initialize probe->probe_work with a work node,
+ *    which does need to get done by the kthreads library.
+ * Initialize a probe structure.
+ * void *init_probe(struct probe *p, uint8_t *id, uint8_t *data)
+ *
+ **/
+
+struct probe *init_probe(struct probe *probe,
+						 uint8_t *id, int id_size)
+{
+	if (!probe) {
+		return ERR_PTR(-ENOMEM);
+	}
+
+	probe->init =  init_probe;
+	probe->destroy = destroy_probe;
+	if (id && id_size > 0) {
+		probe->id = kzalloc(id_size, GFP_KERNEL);
+		if (!probe->id) {
+			return ERR_PTR(-ENOMEM);
+		}
+		__SET_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
+/**
+ * memcpy the number of chars minus the null terminator,
+ * which is already NULL. make sure to call this with
+ * stlen(id) + 1 as the length of the id field.
+ **/
+		memcpy(probe->id, id, id_size - 1);
+	}
+
+	probe->lock=__SPIN_LOCK_UNLOCKED("probe");
+	/* flags, timeout, repeat are zero'ed */
+	/* probe_work is NULL */
+
+	__SET_FLAG(probe->flags, PROBE_INITIALIZED);
+	return probe;
+}
+EXPORT_SYMBOL(init_probe);
+
+
+
+static void *destroy_kernel_ps_probe(struct probe *probe)
+{
+	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)probe;
+	assert(ps_p && __FLAG_IS_SET(ps_p->flags, PROBE_KPS));
+
+	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
+		destroy_probe(probe);
+	}
+
+	if (ps_p->kps_data_flex_array) {
+		flex_array_free(ps_p->kps_data_flex_array);
+	}
+
+	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
+	return ps_p;
+}
+
+struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+											 uint8_t *id, int id_len,
+											 int (*print)(struct kernel_ps_probe *,
+														  uint8_t *, uint64_t, int))
+{
+	int ccode = 0;
+	struct probe *tmp;
+
+	if (!ps_p) {
+		return ERR_PTR(-ENOMEM);
+	}
+	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
+	/* init the anonymous struct probe */
+
+	tmp = init_probe((struct probe *)ps_p, id, id_len);
+	/* tmp will be a good pointer if init returned successfully,
+	   an error pointer otherwise */
+	if (ps_p != (struct kernel_ps_probe *)tmp) {
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+
+
+	/** init timeout and repeat
+	 * they are passed on the command line, or (eventually) read
+	 * from sysfs
+     **/
+	__SET_FLAG(ps_p->flags, PROBE_KPS);
+
+	ps_p->timeout = ps_timeout;
+	ps_p->repeat = ps_repeat;
+
+	ps_p->_init = init_kernel_ps_probe;
+	ps_p->_destroy = destroy_kernel_ps_probe;
+	if (print) {
+		ps_p->print = print;
+	} else {
+		ps_p->print = print_kernel_ps;
+	}
+
+	ps_p->ps = kernel_ps;
+	ps_p->kps_data_flex_array =
+		flex_array_alloc(PS_DATA_SIZE, PS_ARRAY_SIZE, GFP_KERNEL);
+
+	if (!ps_p->kps_data_flex_array) {
+/* flex_array_alloc will return NULL upon failure, a valid pointer otherwise */
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+	ccode = flex_array_prealloc(ps_p->kps_data_flex_array, 0, PS_ARRAY_SIZE,
+								GFP_KERNEL | __GFP_ZERO);
+	if(ccode) {
+		/* ccode will be zero for success, -ENOMEM otherwise */
+		goto err_free_flex_array;
+	}
+
+	printk(KERN_INFO "kernel-ps PS_DATA_SIZE %ld PS_ARRAY_SIZE %ld\n",
+		   PS_DATA_SIZE, PS_ARRAY_SIZE);
+
+
+/* now queue the kernel thread work structures */
+	CONT_INIT_WORK(&ps_p->work, k_probe);
+	__SET_FLAG(ps_p->flags, PROBE_HAS_WORK);
+	CONT_INIT_WORKER(&ps_p->worker);
+	CONT_QUEUE_WORK(&ps_p->worker,
+					&ps_p->work);
+	kthread_run(kthread_worker_fn, &ps_p->worker,
+				"kernel-ps");
+	return ps_p;
+
+err_free_flex_array:
+	flex_array_free(ps_p->kps_data_flex_array);
+err_exit:
+	/* if the probe has been initialized, need to destroy it */
+	return ERR_PTR(ccode);
+}
+
+
+
 /**
  * this init reflects the correct workflow - the struct work needs to be
  * initialized and queued into the worker, before running the worker.
  * the worker will dequeue the work and run work->func(work),
  * then someone needs to decide if the work should be requeued.
  **/
-static int __init __kcontrol_init(void)
+static int __init kcontrol_init(void)
 {
 	int ccode = 0;
-	DMSG();
+	struct kernel_ps_probe *ps_probe = NULL;
 
-	controller_probe = kzalloc(sizeof(struct probe_s), GFP_KERNEL);
-	if (!controller_probe) {
-		DMSG();
+	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
 	}
 
-	controller_probe = init_k_probe(controller_probe);
-	if (controller_probe == ERR_PTR(-ENOMEM)) {
-		DMSG();
+	ps_probe = init_kernel_ps_probe(&kps_probe,
+						 "Kernel PS Probe",
+						 strlen("Kernel PS Probe") + 1,
+						 print_kernel_ps);
+
+	if (ps_probe == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-	controller_probe->repeat = ps_repeat;
-	controller_probe->timeout = ps_timeout;
 
-	controller_work = &controller_probe->probe_work;
-
-	controller_worker = kzalloc(sizeof(struct kthread_worker), GFP_KERNEL);
-	if (!controller_worker) {
-		DMSG();
-		ccode = -ENOMEM;
+	/* link this probe to the sensor struct */
+	if (! llist_add(&ps_probe->l_node, &k_sensor.probes)) {
+		ccode = -EINVAL;
 		goto err_exit;
 	}
-#ifdef OLD_API /* linux kernel 4.1 */
-	init_kthread_work(controller_work, k_probe);
-	init_kthread_worker(controller_worker);
-	queue_kthread_work(controller_worker, controller_work);
-#else /* more modern kernels */
-	kthread_init_work(controller_work, k_probe);
-	kthread_init_worker(controller_worker);
-	kthread_queue_work(controller_worker, controller_work);
-#endif
-	kthread_run(kthread_worker_fn, controller_worker,
-				"unremarked\%lx", (unsigned long)controller_probe);
+
 	return ccode;
 
 err_exit:
-	DMSG();
-	if (controller_probe) {
-		kfree(controller_probe);
-		controller_probe = NULL;
+	if (ps_probe != ERR_PTR(-ENOMEM)) {
+		if (__FLAG_IS_SET(ps_probe->flags, PROBE_INITIALIZED)) {
+			ps_probe->_destroy((struct probe *)ps_probe);
+		}
+		kfree(ps_probe);
+		ps_probe = NULL;
 	}
-	if (controller_worker) {
-		kfree(controller_worker);
-		controller_worker = NULL;
-	}
-
 	return ccode;
 }
 
+/**
+ * now there is a sensor struct, and probes are linked to the sensor in a list
+ *
+ **/
 static void __exit controller_cleanup(void)
 {
-	if (controller_probe) {
-		DMSG();
-		destroy_k_probe(controller_probe);
-		kfree(controller_probe);
-	}
-
-	if (controller_worker) {
-		DMSG();
-		kthread_destroy_worker(controller_worker);
-	}
+	/* destroy, but do not free the sensor */
+	/* sensor is statically allocated, no need to free it. */
+	SHOULD_SHUTDOWN = 1;
+	k_sensor._destroy(&k_sensor);
 
 }
 
-module_init(__kcontrol_init);
+module_init(kcontrol_init);
 module_exit(controller_cleanup);
 
 MODULE_LICENSE(_MODULE_LICENSE);
