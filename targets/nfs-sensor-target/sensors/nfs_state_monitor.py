@@ -120,36 +120,33 @@ def update_state( pkt ):
             return
         
         if rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LOOKUP' ]:
-            parent = get_path( rpc_call.args.handle )
-            name = str(rpc_call.args.fname)
-            newpath = os.path.join( parent, name )
+            new = os.path.join( get_path( rpc_call.args.handle ),
+                                str(rpc_call.args.fname) )
 
-            _create_handle_mapping( newpath, rpc_reply.handle, rpc_call )
+            _create_handle_mapping( new, rpc_reply.handle, rpc_call )
 
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_CREATE' ]:
             if rpc_reply.handle.handle_follows:
-                parent_name = get_path( rpc_call.args.handle )
-                new_path = os.path.join( parent_name, str( rpc_call.args.fname ) )
+                new = os.path.join( get_path( rpc_call.args.handle ),
+                                    str( rpc_call.args.fname ) )
 
-                hnew = rpc_reply.handle.handle
-                _create_handle_mapping( new_path, hnew, rpc_call )
+                _create_handle_mapping( new, rpc_reply.handle.handle, rpc_call )
 
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_MKDIR' ]:
             if rpc_reply.handle.handle_follows:
-                parent_name = get_path( rpc_call.args.handle )
-                new_path = os.path.join( parent_name, str( rpc_call.args.fname ) )
-                _create_handle_mapping( new_path, rpc_reply.handle.handle, rpc_call )
+                new = os.path.join( get_path( rpc_call.args.handle ),
+                                    str( rpc_call.args.fname ) )
+                _create_handle_mapping( new, rpc_reply.handle.handle, rpc_call )
 
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SYMLINK' ]:
             if rpc_reply.handle.handle_follows:
-                parent = state.get_path( rpc_call.args.handle )
-                new = os.path.join( parent, str(rpc_call.args.fname) )
-                handle = rpc_reply.handle.handle
-                _create_handle_mapping( new, handle, rpc_call )
+                new = os.path.join( state.get_path( rpc_call.args.handle ),
+                                    str(rpc_call.args.fname) )
+                _create_handle_mapping( new, rpc_reply.handle.handle, rpc_call )
 
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RMDIR' ]:
-            dname = os.path.join( get_path( rpc_call.args.handle ), rpc_call.args.name )
-            _destroy_handle_mapping( name=dname )
+            _destroy_handle_mapping( name=os.path.join( get_path( rpc_call.args.handle ),
+                                                        rpc_call.args.name ) )
             
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RENAME' ]:
             from_name = os.path.join( get_path( rpc_call.ffrom.handle ),
@@ -157,20 +154,21 @@ def update_state( pkt ):
             to_name   = os.path.join( get_path( rpc_call.fto.handle ),
                                       str(rpc_call.fto.fname) )
 
-            handle = get_handle( from_name )
             _destroy_handle_mapping( name=from_name )
-            _create_handle_mapping( to_name, handle, rpc_call )
+            _create_handle_mapping( to_name, get_handle( from_name ), rpc_call )
 
             
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LINK' ]:
             if rpc_reply.file.handle_follows:
-                source = get_path( rpc_call.handle )
-                dest   = os.path.join( get_path( rpc_call.link.handle ), rpc_call.link.fname )
-                _create_handle_mapping( dest, rpc_reply.file.handle, rpc_call )
+                _create_handle_mapping( os.path.join( get_path( rpc_call.link.handle ),
+                                                      rpc_call.link.fname ),
+                                        rpc_reply.file.handle,
+                                        rpc_call )
 
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_REMOVE' ]:
-            name = os.path.join( get_path( rpc_call.args.handle ), rpc_call.args.name )
-            _destroy_handle_mapping( path=name )
+            _destroy_handle_mapping(
+                path=os.path.join( get_path( rpc_call.args.handle ),
+                                   rpc_call.args.name ) )
 
     else:
         return

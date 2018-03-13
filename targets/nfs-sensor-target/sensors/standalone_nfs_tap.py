@@ -7,6 +7,7 @@ import os
 import sys
 import argparse
 import logging
+import pdb
 
 sys.path.append( os.path.join( os.path.dirname( os.path.realpath(__file__) ),
                                '..', 'sensor_libraries', 'scapy-repo' ) )
@@ -16,16 +17,26 @@ import nfs
 import nfs_const
 
 import nfs_packet_handler as handler
+import nfs_state_monitor as state
 
 #conf.debug_dissector = 1
 # packages: python-libpcap, scapy-python3(pip)
 
 
 def recv_pkt( pkt ):
-    handler.pkt_handler_basic( pkt )
-    #handler.null_handler( pkt )
-    #handler.raw_print_handler( pkt )
-    
+    r = handler.pkt_handler_standard( pkt )
+    if not r:
+        return
+    (level, data) = r
+
+    logging.info( "#{} proto {} command {} path {} who {} status {}"
+                  .format( state.pkt_ct,
+                           data['proto'],
+                           data['command'],
+                           data['path'],
+                           data['who'],
+                           data['status'] ) )
+
 if __name__ == '__main__':
     # setup commandline arguments 
     parser = argparse.ArgumentParser( description='NFS Protocol Sniffer' ) 
@@ -34,8 +45,8 @@ if __name__ == '__main__':
 
     parser.add_argument( "--pcap", action="store",
                          dest="pcap", default=None )
-    
-    # parse arguments 
+
+    # parse arguments
     args = parser.parse_args()
     logging.basicConfig( level=logging.DEBUG )
     
@@ -54,6 +65,6 @@ if __name__ == '__main__':
             recv_pkt( p )
     else:
         sniff( iface=args.iface,
-               #filter="tcp or upd",
+               filter=None,
                store=False,
                prn=recv_pkt )

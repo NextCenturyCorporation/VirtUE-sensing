@@ -704,8 +704,8 @@ class NFS3_MKDIR_Reply( Packet ):
 ######################################################################
 class NFS3_SYMLINK_Call( Packet ):
     name = "NFS SYMLINK call"
-    fields_desc = [ PacketField( "args", None, NFS3_dir_op_args ),
-                    PacketField( "link", None, NFS3_symlink_data ), ]
+    fields_desc = [ PacketField( "where",   None, NFS3_dir_op_args ),
+                    PacketField( "symlink", None, NFS3_symlink_data ), ]
 
 class NFS3_SYMLINK_ReplyOk( Packet ):
     name = "NFS SYMLINK reply OK"

@@ -5,6 +5,6 @@
     "requirements_directory": "./requirements",
     "startup_scripts_directory": "./sensor_startup",
     "kernel_mod_directory": "./kmods",
-    "sensors": []
+    "sensors": [],
     "kernel_modules": []
 }
