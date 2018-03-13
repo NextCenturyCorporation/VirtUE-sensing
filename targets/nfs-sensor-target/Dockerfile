@@ -15,9 +15,8 @@ COPY requirements/sensor_wrapper_requirements.txt /usr/src/app/requirements/
 RUN pip install -r /usr/src/app/requirements/sensor_wrapper_requirements.txt
 
 # SENSOR LIBRARIES
-
 RUN mkdir /usr/src/app/sensor_libraries
-COPY sensor_libraries/ /usr/src/app/sensor_libraries/
+COPY sensor_libraries /usr/src/app/sensor_libraries/
 WORKDIR /usr/src/app/sensor_libraries
 RUN chmod a+x install.sh
 RUN ./install.sh
@@ -34,6 +33,10 @@ COPY sensors/* /opt/sensors/
 #RUN mkdir /opt/sensor_startup
 #COPY sensor_startup/ /opt/sensor_startup/
 #RUN chmod a+x /opt/sensor_startup/*
+
+# Crypto
+RUN  mkdir  /opt/sensors/nfs_sensor
+COPY certs/ /opt/sensors/nfs_sensor/certs/
 
 # Service components
 COPY run.sh /usr/src/app

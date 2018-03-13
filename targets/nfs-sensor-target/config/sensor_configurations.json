@@ -1,0 +1,43 @@
+{
+  "name": "nfs",
+  "context": "virtue",
+  "os": "linux",
+  "description": "Sensor that monitors traffic to/from NFS unikernel server",
+  "configurations": [
+    {
+      "version": "latest",
+      "level": "default",
+      "format": "json",
+      "source": "nfs_config_default_latest.json",
+      "description": "Default configuration"
+    },
+    {
+      "version": "latest",
+      "level": "off",
+      "format": "json",
+      "source": "nfs_config_off_latest.json",
+      "description": "off configuration - emits no logging"
+    },
+    {
+      "version": "latest",
+      "level": "low",
+      "format": "json",
+      "source": "nfs_config_low_latest.json",
+      "description": "Low configuration"
+    },
+    {
+      "version": "latest",
+      "level": "high",
+      "format": "json",
+      "source": "nfs_config_high_latest.json",
+      "description": "High configuration"
+    },
+    {
+      "version": "latest",
+      "level": "adversarial",
+      "format": "json",
+      "source": "nfs_config_adversarial_latest.json",
+      "description": "Adversarial configuration"
+    }
+  ]
+}

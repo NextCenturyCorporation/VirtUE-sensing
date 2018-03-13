@@ -64,3 +64,7 @@ services:
       POSTGRES_USER: "postgres"
       PGDATA: "/var/lib/postgresql/data/pgdata"
       POSTGRES_DB: "api_server_postgres"
+  nfs_sensor:
+    build: "./targets/nfs-sensor-target"
+    environment:
+      CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
