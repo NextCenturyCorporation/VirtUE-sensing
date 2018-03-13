@@ -40,18 +40,20 @@ static int dump(const char *js, jsmntok_t *t, size_t count, int indent);
  *  in kernel, replace with <linux/list.h>
  **/
 
-SLIST_HEAD(session_head, jsmn_session) h_sessions;
-
-/** for linux kernel source compatibility
+/**
+ * break the SLIST_HEAD macro into two
+ * lines to the emacs c-mode indentation doesn't get confused.
  **/
+SLIST_HEAD(session_head, jsmn_session) \
+h_sessions;
 
 /**
  * for linux kernel compatibility
  **/
-									   struct sock
-									   {
-										   int socket;
-									   };
+struct sock
+{
+	int socket;
+};
 
 struct jsmn_message
 {
@@ -167,7 +169,6 @@ free_message(struct jsmn_message *m)
 static inline void
 free_session(struct jsmn_session *s)
 {
-	return;
 	if (s->req)
 		free_message(s->req);
 
@@ -304,6 +305,38 @@ process_jsmn_cmd(struct jsmn_message *m, int index)
 	return 0;
 }
 
+
+/**
+ * garbage collection of sessions
+ * every new session has one request message
+ * a session is discriminated by the value of request->socket.socket
+ * each socket may have exactly one pending request. If a new request
+ * comes on an existing socket, the existing request->session is
+ * garbage collected and a new session is established.
+ *
+ * a single request may elicit multiple replies, so this test
+ * is not symmetric - e.g., we don't garbage-collect a session
+ * after the first reply comes in on session->request->socket.socket
+ *
+ **/
+static inline void
+garbage_collect_session(struct jsmn_message *m)
+{
+	struct jsmn_session *s;
+	assert(m && m->type == REQUEST);
+	if (!m || m->type != REQUEST) {
+		return;
+	}
+
+	SLIST_FOREACH(s, &h_sessions, sessions) {
+		if (s && s->req && s->req->socket.socket == m->socket.socket) {
+			free_session(s); /* removes s from h_sessions */
+			return;
+		}
+	}
+}
+
+
 static inline struct jsmn_session *get_session(struct jsmn_message *m)
 {
 	uint8_t *n;
@@ -318,7 +351,9 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 		return NULL;
 
 	if (m->type == REQUEST) {
-        /* new session */
+		garbage_collect_session(m);
+
+/* new session */
 		ns = kzalloc(sizeof(*ns), GFP_KERNEL);
 		memcpy(ns->nonce, n, bytes);
 		ns->req = m;
