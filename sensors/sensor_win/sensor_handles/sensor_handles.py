@@ -1,0 +1,106 @@
+#!/usr/bin/python
+import datetime
+import json
+import re
+from curio import subprocesses, sleep
+
+from sensor_wrapper import SensorWrapper, report_on_file, which_file
+
+
+"""
+Sensor that wraps the system handles command.
+"""
+
+
+async def assess_handles(message_stub, config, message_queue):
+    """
+
+    :param message_stub:
+    :param config:
+    :param message_queue:
+    :return:
+    """
+    repeat_delay = config.get("repeat-interval", 15) * 4
+    print(" ::starting handles check-summing")
+    print("    $ repeat-interval = %d" % (repeat_delay,))
+
+    ps_canonical_path = which_file("handles")
+
+    print("    $ canonical path = %s" % (ps_canonical_path,))
+
+    while True:
+
+        # let's profile our ps command
+        ps_profile = await report_on_file(ps_canonical_path)
+        psp_logmsg = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "level": "info",
+            "message": ps_profile
+        }
+        psp_logmsg.update(message_stub)
+
+        await message_queue.put(json.dumps(psp_logmsg))
+
+        # sleep
+        await sleep(repeat_delay)
+
+
+async def handles(message_stub, config, message_queue):
+    """
+    Run the handles command and push messages to the output queue.
+
+    :param message_stub: Fields that we need to interpolate into every message
+    :param config: Configuration from our sensor, from the Sensing API
+    :param message_queue: Shared Queue for messages
+    :return: None
+    """
+    repeat_delay = config.get("repeat-interval", 15)
+
+    print(" ::starting handles")
+    print("    $ repeat-interval = %d" % (repeat_delay,))
+
+    # map the LSOF types to log levels
+    handles_type_map = {
+        "CHR": "debug",
+        "DIR": "debug",
+        "IPv4": "info",
+        "KQUEUE": "info",
+        "NPOLICY": "debug",
+        "REG": "debug",
+        "systm": "warn",
+        "unix": "info",
+        "vnode:": "warn"
+    }
+
+    # just read from the subprocesses and append to the log_message queue
+    p = subprocesses.Popen(["handles", "-r", "%d" % (repeat_delay,)], stdout=subprocesses.PIPE)
+    async for line in p.stdout:
+
+        # slice out the TYPE of the handles message
+        line_bits = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")
+
+        if len(line_bits) < 4:
+            continue
+
+        line_type = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")[4]
+
+        log_level = "debug"
+        if line_type in handles_type_map:
+            log_level = handles_type_map[line_type]
+
+        # build our log message
+        logmsg = {
+            "message": line.decode("utf-8"),
+            "timestamp": datetime.datetime.now().isoformat(),
+            "level": log_level
+        }
+
+        # interpolate everything from our message stub
+        logmsg.update(message_stub)
+
+        await message_queue.put(json.dumps(logmsg))
+
+if __name__ == "__main__":
+
+    wrapper = SensorWrapper("handles", [handles, assess_handles])
+    wrapper.start()

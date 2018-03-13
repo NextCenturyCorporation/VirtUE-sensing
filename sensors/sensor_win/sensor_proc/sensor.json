@@ -1,0 +1,15 @@
+{
+  "name": "proc-sensor",
+  "version": "0.1",
+  "target_folder": "proc",
+  "files": [
+    {
+      "source": "sensor_proc.py",
+      "dest": "sensor_proc.py"
+    }
+  ],
+  "startup_script": "run_proc_sensor.ps1",
+  "requirements_files": ["proc_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "pip": ["proc"]
+}
