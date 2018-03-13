@@ -1,17 +1,20 @@
 import sys
-import pywintypes
+from enum import IntEnum
 
-from enum import Enum, IntEnum
 from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar
 from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
 from ctypes import c_float, c_double, c_longdouble
-from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, pointer, windll
-from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, SHORT, BOOLEAN
+from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, windll
+from json import JSONEncoder, JSONDecoder, dumps
+from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, BOOLEAN
+import pywintypes
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
 from win32api import OpenProcess, DuplicateHandle, GetCurrentProcess
 from win32security import LookupPrivilegeValue, OpenProcessToken, AdjustTokenPrivileges, TOKEN_ALL_ACCESS
-from json import JSONEncoder, JSONDecoder, JSONDecodeError, dumps
+
+#pylint: disable=C0303
+
 
 PROCESS_DUP_HANDLE = 0x0040
 PROCESS_QUERY_INFORMATION = 0x0400
@@ -47,7 +50,7 @@ class SmartStructure(Structure):
         szfields = len(type(self)._fields_)
         state = "{0}@{1}: ".format(type(self),hex(id(self)),)
         for ndx in range(0, szfields):            
-            this_name = type(self)._fields_[ndx][0];
+            this_name = type(self)._fields_[ndx][0]
             this_value = getattr(self, this_name)                           
             state += "{0}={1},".format( this_name, this_value,)            
         state = state[:len(state)-1]
@@ -62,7 +65,7 @@ class SmartStructure(Structure):
         instance = {}
         szfields = len(type(self)._fields_)        
         for ndx in range(0, szfields):            
-            this_name = type(self)._fields_[ndx][0];
+            this_name = type(self)._fields_[ndx][0]
             this_value = getattr(self, this_name)                           
             instance[this_name] = this_value   
         return instance        
@@ -86,7 +89,7 @@ class SmartStructure(Structure):
             else:
                 try:
                     result[_name] = encoder.encode(value)
-                except TypeError as te:
+                except TypeError as _te:
                     value = getattr(self,_name)
                     if isinstance(value, UNICODE_STRING):
                         result[_name] = value.Buffer
@@ -489,34 +492,21 @@ def release_privileges(privs):
     bSuccess = _change_privileges(True, privs)
     return bSuccess
 
-def _get_process_handle(pid):
+def get_thread_objects(proc_obj, spi_ary):
     '''
-    Given a PID return its process handle
-    '''
-    if not pid or not isinstance(pid, int) or 0 != pid % 4:
-        return None    
-                   
-    process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
-    if not process_handle:    
-        return None               
+    Give a process object and the process information array yield thread objects for this 
+    process object
+    '''    
+    SystemThreadInfo = POINTER(SYSTEM_THREAD_INFORMATION)
+    sz_sti = sizeof(SYSTEM_THREAD_INFORMATION)    
+    sz_thd_buf = proc_obj.NumberOfThreads * sz_sti                                
+    begin = 0
     
-    IsCritical = BOOLEAN()
-    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
-    process_handle.close()
-    del process_handle
-    if not success:        
-        return None            
-    if True == IsCritical:        
-        return None  
-    
-    try:
-        process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
-    except pywintypes.error as err:
-        lasterr = GetLastError()
-        print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
-        process_handle = None
-               
-    return process_handle 
+    for n in range(0, proc_obj.NumberOfThreads):
+        buf = (BYTE * sz_sti).from_buffer_copy(spi_ary[begin:begin + sz_sti])
+        spt = cast(buf, SystemThreadInfo)
+        yield spt.contents        
+        begin = begin + sz_sti
 
 def get_process_objects(pid=None):
     '''
@@ -537,20 +527,22 @@ def get_process_objects(pid=None):
     if STATUS_SUCCESS != res:
         return None
     
-    SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
+    SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)    
+    sz_sti = sizeof(SYSTEM_THREAD_INFORMATION)        
     sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)
-    array_of_spi = bytearray(memoryview(buf))
+    array_of_spi = bytearray(memoryview(buf))    
     
     begin = 0
     end = sz_spi
     while True:
         buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
         spi = cast(buf, SystemProcInfo)                                       
-        if not not pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:
-            yield spi.contents
+        sz_thd_data = end + (spi.contents.NumberOfThreads * sz_sti)
+        if not not pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:            
+            yield spi.contents, array_of_spi[end:sz_thd_data]            
             break
         elif not pid:
-            yield spi.contents                  
+            yield spi.contents, array_of_spi[end:sz_thd_data]
         next_entry_offset = spi.contents.NextEntryOffset
         if(0 == next_entry_offset):
             break        
@@ -685,7 +677,7 @@ def get_handle_information(pid=None):
         for shi in get_system_handle_information(pid):
             try:            
                 duped_handle = DuplicateHandle(process_handle, shi.HandleValue, current_process_handle, PROCESS_DUP_HANDLE, False, 0)                
-            except pywintypes.error as err:
+            except pywintypes.error as _err:
                 pass
             else:
                 yield duped_handle                
@@ -751,6 +743,8 @@ def get_basic_system_information():
                                                 byref(sbi),
                                                 sizeof(sbi),
                                                 byref(return_length))
+    if res != 0:
+        sbi = None
     return sbi
 
 if __name__ == "__main__": 
@@ -765,9 +759,11 @@ if __name__ == "__main__":
         print("Failed to acquire privs!\n")
         sys.exit(-1)    
         
-    pid = 72
-    for proc_obj in get_process_objects(pid):
-        print(proc_obj)        
+    pid = 1184
+    for proc_obj, spi_ary in get_process_objects(pid):            
+        print(proc_obj)
+        for thd_obj in get_thread_objects(proc_obj, spi_ary):
+            print(thd_obj)
         proc_data = proc_obj.Encode()
         for hdlinfo in get_system_handle_information(pid):            
             type_name = get_nt_object_type_info(hdlinfo)            
