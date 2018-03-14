@@ -18,31 +18,31 @@ powershell Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%
 %TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
 del /F /Q %TEMP%\python-%PYTHONVER%.exe
 
-# REQUIREMENTS.TXT install and run
+REM REQUIREMENTS.TXT install and run
 MKDIR %SystemDrive%\app\requirements
-XCOPY /S /F /V requirements\ %SystemDrive%\app\requirements/
-%SystemDrive%\Python%PYTHONVER%\scripts\pip.exe install -v -r %SystemDrive%\app\requirements\requirements_master.txt
+XCOPY /S /F /V requirements\*.* %SystemDrive%\app\requirements/
+%SystemDrive%\Python%PYTHONVER%\scripts\pip.exe install -r %SystemDrive%\app\requirements\requirements_master.txt
 
-# SENSOR LIBRARIES
+REM SENSOR LIBRARIES
 MKDIR %SystemDrive%\app\sensor_libraries
-XCOPY /S /F /V sensor_libraries\ %SystemDrive%\app\sensor_libraries\
+XCOPY /S /F /V sensor_libraries\*.* %SystemDrive%\app\sensor_libraries\
 PUSHD %SystemDrive%\app\sensor_libraries
 powershell .\install.ps1
 POPD
 
-# Run the pip install script for required OS support in sensors
+REM Run the pip install script for required OS support in sensors
 powershell %SystemDrive%\app\sensor_libraries\pip_install.ps1
 
-# SENSORS
+REM SENSORS
 MKDIR %SystemDrive$\opt
 MKDIR %SystemDrive$\opt\sensors\
-XCOPY /S /F /V sensors\ %SystemDrive%\opt\sensors\
+XCOPY /S /F /V sensors\*.* %SystemDrive%\opt\sensors\
 
-# RUN SCRIPTS
+REM RUN SCRIPTS
 MKDIR %SystemDrive%\opt\sensor_startup
-XCOPY /S /F /V sensor_startup\ %SystemDrive%\opt\sensor_startup\
+XCOPY /S /F /V sensor_startup\*.* %SystemDrive%\opt\sensor_startup\
 
-# Service components
+REM Service components
 COPY /Y dropper.ps1 %TEMP%\dropper.ps1
 COPY /Y run.ps1 %SystemDrive%\app
 
