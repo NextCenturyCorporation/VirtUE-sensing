@@ -1,2 +1,2 @@
 
-docker build --network=DockerNAT -t virtue-savior/win-target:latest .
+docker build --network=Bridged -t virtue-savior/win-target:latest .
