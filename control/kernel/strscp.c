@@ -1,3 +1,5 @@
+#ifdef USERSPACE
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -17,6 +19,7 @@ typedef char uint8_t;
 #define kstrdup(p) strdup(p)
 #define printk printf
 #define KERN_INFO ""
+#endif /* USERSPACE */
 
 enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6,
                   PROBE = 7, RECORD = 9};
@@ -65,6 +68,7 @@ struct jsmn_message
 	int type;
 	size_t count; /* token count */
 	struct jsmn_session *s;
+	struct sock socket;
 };
 
 /**
@@ -73,7 +77,6 @@ struct jsmn_message
 struct jsmn_session
 {
 	SLIST_ENTRY(jsmn_session) sessions;
-	struct sock  socket;
 	uint8_t nonce[MAX_NONCE_SIZE];
 	struct jsmn_message *req;
 	STAILQ_HEAD(replies, jsmn_message) h_replies;
@@ -715,6 +718,8 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 	return in;
 }
 
+#ifdef USERSPACE
+
 uint8_t *empty(uint8_t *in, int len)
 {
 	assert(0);
@@ -849,3 +854,5 @@ int main(int argc, uint8_t **argv)
 	program_name = strdup(argv[0]);
 	return get_options(argc, argv);
 }
+
+#endif /* USERSPACE */
