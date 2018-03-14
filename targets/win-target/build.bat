@@ -20,18 +20,14 @@ del /F /Q %TEMP%\python-%PYTHONVER%.exe
 
 # REQUIREMENTS.TXT install and run
 MKDIR %SystemDrive%\app\requirements
-PUSHD %SystemDrive%\app
 XCOPY /S /F /V requirements\ %SystemDrive%\app\requirements/
 %SystemDrive%\Python%PYTHONVER%\scripts\pip.exe install -v -r %SystemDrive%\app\requirements\requirements_master.txt
-POPD
 
 # SENSOR LIBRARIES
 MKDIR %SystemDrive%\app\sensor_libraries
-PUSHD %SystemDrive%\app
 XCOPY /S /F /V sensor_libraries\ %SystemDrive%\app\sensor_libraries\
 PUSHD %SystemDrive%\app\sensor_libraries
 powershell .\install.ps1
-POPD
 POPD
 
 # Run the pip install script for required OS support in sensors
@@ -40,15 +36,11 @@ powershell %SystemDrive%\app\sensor_libraries\pip_install.ps1
 # SENSORS
 MKDIR %SystemDrive$\opt
 MKDIR %SystemDrive$\opt\sensors\
-PUSHD %SystemDrive$\opt
 XCOPY /S /F /V sensors\ %SystemDrive%\opt\sensors\
-POPD
 
 # RUN SCRIPTS
 MKDIR %SystemDrive%\opt\sensor_startup
-PUSHD %SystemDrive%\opt
 XCOPY /S /F /V sensor_startup\ %SystemDrive%\opt\sensor_startup\
-POPD
 
 # Service components
 COPY /Y dropper.ps1 %TEMP%\dropper.ps1
