@@ -8,9 +8,14 @@
 #include <getopt.h>
 #include <errno.h>
 #include <sys/queue.h>
+#endif /* USERSPACE */
+
 #include "jsmn/jsmn.h"
 
+
+#ifdef USERSPACE
 typedef char uint8_t;
+typedef int spinlock_t;
 #define GFP_KERNEL 1
 #define krealloc(p, t, f)						\
 	realloc((p), (t))
@@ -19,6 +24,11 @@ typedef char uint8_t;
 #define kstrdup(p) strdup(p)
 #define printk printf
 #define KERN_INFO ""
+#else
+/** kernel module **/
+#include <linux/list.h>
+
+
 #endif /* USERSPACE */
 
 enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6,
@@ -43,9 +53,10 @@ static int dump(const char *js, jsmntok_t *t, size_t count, int indent);
  *  in kernel, replace with <linux/list.h>
  **/
 
+#ifdef USERSPACE
 /**
- * break the SLIST_HEAD macro into two
- * lines to the emacs c-mode indentation doesn't get confused.
+ * break the SLIST_HEAD macro into two lines
+ * so emacs c-mode indentation doesn't get confused.
  **/
 SLIST_HEAD(session_head, jsmn_session) \
 h_sessions;
@@ -58,9 +69,20 @@ struct sock
 	int socket;
 };
 
+#else
+
+LIST_HEAD(h_sessions);
+
+#endif /* kernel space */
+
 struct jsmn_message
 {
+#ifdef USERSPACE
 	STAILQ_ENTRY(jsmn_message) e_messages;
+#else
+	struct list_head e_messages;
+#endif
+	spinlock_t sl;
 	jsmn_parser parser;
 	jsmntok_t tokens[MAX_TOKENS];
 	uint8_t *line;
@@ -76,10 +98,19 @@ struct jsmn_message
  **/
 struct jsmn_session
 {
+#ifdef USERSPACE
 	SLIST_ENTRY(jsmn_session) sessions;
+#else
+	struct list_head sessions;
+#endif
+	spinlock_t sl;
 	uint8_t nonce[MAX_NONCE_SIZE];
 	struct jsmn_message *req;
+#ifdef USERSPACE
 	STAILQ_HEAD(replies, jsmn_message) h_replies;
+#else
+	struct list_head h_replies;
+#endif
 	uint8_t cmd[MAX_CMD_SIZE];
 	uint8_t probe_id[MAX_ID_SIZE];
 
@@ -174,14 +205,24 @@ free_session(struct jsmn_session *s)
 {
 	if (s->req)
 		free_message(s->req);
-
+#ifdef USERSPACE
 	while (! STAILQ_EMPTY(&s->h_replies)) {
 		struct jsmn_message *m = STAILQ_FIRST(&s->h_replies);
 		STAILQ_REMOVE_HEAD(&s->h_replies, e_messages);
 		free_message(m);
 	}
-
 	SLIST_REMOVE(&h_sessions, s, jsmn_session, sessions);
+#else
+	{
+		struct jsmn_message *m;
+		while ((m = list_first_entry_or_null(&s->h_replies,
+											 jsmn_message,
+											 h_replies))) {
+			list_del(&m->e_messages);
+		}
+	}
+	list_del(&s->sessions);
+#endif
 	kfree(s);
 }
 
@@ -330,8 +371,13 @@ garbage_collect_session(struct jsmn_message *m)
 	if (!m || m->type != REQUEST) {
 		return;
 	}
+#ifdef USERSPACE
+	SLIST_FOREACH(s, &h_sessions, sessions)
+#else
+		list_for_each_entry(s, &h_sessions, sessions)
+#endif
+	{
 
-	SLIST_FOREACH(s, &h_sessions, sessions) {
 		if (s && s->req && s->req->socket.socket == m->socket.socket) {
 			free_session(s); /* removes s from h_sessions */
 			return;
@@ -361,13 +407,28 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 		memcpy(ns->nonce, n, bytes);
 		ns->req = m;
 		m->s = ns;
+#ifdef USERSPACE
 		STAILQ_INIT(&ns->h_replies);
 		SLIST_INSERT_HEAD(&h_sessions, ns, sessions);
+#else
+		INIT_LIST_HEAD(&ns->h_replies);
+		list_add(ns, &h_sessions);
+#endif
 		return ns;
 	} else {
-		SLIST_FOREACH(ns, &h_sessions, sessions) {
+#ifdef USERSPACE
+		SLIST_FOREACH(ns, &h_sessions, sessions)
+#else
+			list_for_each_entry(ns, &h_sessions, sessions)
+#endif
+		{
+
 			if (! memcmp(ns->nonce, n, bytes)) {
+#ifdef USERSPACE
 				STAILQ_INSERT_TAIL(&ns->h_replies, m, e_messages);
+#else
+				list_add_tail(m, &ns->h_replies);
+#endif
 				m->s = ns;
 				return ns;
 			}
@@ -563,7 +624,12 @@ static void dump_session(struct jsmn_session *s)
 
 	assert(s && s->req);
 	dump(s->req->line, s->req->tokens, s->req->parser.toknext, 0);
-	STAILQ_FOREACH(reply, &s->h_replies, e_messages) {
+#ifdef USERSPACE
+	STAILQ_FOREACH(reply, &s->h_replies, e_messages)
+#else
+	list_for_each_entry(reply, &s->h_replies, e_messages)
+#endif
+	{
 		dump(reply->line, reply->tokens, reply->parser.toknext, 0);
 	}
 	return;
@@ -659,7 +725,7 @@ uint8_t *unescape_newlines(uint8_t *in, int len)
 		if (in) {
 			if ( (in + 1) != NULL) {
 				if ( *(in + 1) == 0x0a || *(in + 1) == 0x0d ) {
-                    /* shorten the string */
+					/* shorten the string */
 					uint8_t *p = in + 1;
 					uint8_t *s = in;
 					while (*p) {
@@ -700,7 +766,7 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 	}
 	if (count) {
 		c = in = krealloc (in,  len + count + 1, GFP_KERNEL);
-        assert(c);
+		assert(c);
 		*(c + len + count) = 0x00;
 		p = c;
 		while (*p && count) {
@@ -810,9 +876,11 @@ get_options (int argc, char **argv)
 			FILE *in_file;
 			ssize_t nread, len = 0;
 			uint8_t *line = NULL;
-
+#ifdef USERSPACE
 			SLIST_INIT(&h_sessions);
-
+#else
+			INIT_LIST_HEAD(&h_sessions);
+#endif
 			in_file_name = strdup(optarg);
 			in_file = fopen(in_file_name, "r");
 			if (in_file == NULL) {
