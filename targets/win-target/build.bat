@@ -6,8 +6,6 @@ SET TEMP=%SystemDrive%\Temp
 SET PYTHONUNBUFFERED=0
 SET PYTHONVER=3.6.4
 
-PUSHD %SystemDrive%
-
 MKDIR %WORKDIR%
 MKDIR %TEMP%
 
@@ -50,6 +48,7 @@ POPD
 MKDIR %SystemDrive%\opt\sensor_startup
 PUSHD %SystemDrive%\opt
 XCOPY /S /F /V sensor_startup\ %SystemDrive%\opt\sensor_startup\
+POPD
 
 # Service components
 COPY /Y dropper.ps1 %TEMP%\dropper.ps1
