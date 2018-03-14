@@ -15,7 +15,7 @@ powershell Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.ex
 del /F /Q %TEMP%\vs_BuildTools.exe
 
 powershell Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%/python-%PYTHONVER%.exe" -OutFile %TEMP%\python-%PYTHONVER%.exe 
-%TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%TEMP%\Python%PYTHONVER% CompileAll=1' -Wait 
+%TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
 del /F /Q %TEMP%\python-%PYTHONVER%.exe
 
 # REQUIREMENTS.TXT install and run
