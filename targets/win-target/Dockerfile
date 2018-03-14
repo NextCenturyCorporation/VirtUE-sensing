@@ -18,13 +18,13 @@ RUN c:/vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MS
 RUN Remove-Item c:/vs_BuildTools.exe -Force
 
 RUN  wget https://www.python.org/ftp/python/3.6.4/python-3.6.4.exe -OutFile c:\python-3.6.4.exe 
-RUN Start-Process c:/python-3.6.4.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=c:/Python364 CompileAll=1' -Wait 
+RUN Start-Process -FilePath c:\python-3.6.4.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=c:\Python364' -Wait 
 RUN Remove-Item c:/python-3.6.4.exe -Force
 
 # REQUIERMENTS.TXT install and run
-#RUN mkdir C:/app/requirements
-#COPY requirements/ C:/app/requirements/
-#RUN c:/python364/scripts/pip install -r C:/app/requirements/requirements_master.txt
+RUN mkdir C:/app/requirements
+COPY requirements/ C:/app/requirements/
+RUN Start-Process -FilePath c:\Python364\scripts\pip.exe -ArgumentList 'install -v -r C:\app\requirements\requirements_master.txt' -Wait
 
 # SENSOR LIBRARIES
 #RUN mkdir C:/app/sensor_libraries
