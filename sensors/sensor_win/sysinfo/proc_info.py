@@ -1,3 +1,6 @@
+'''
+proc_info.py - provides the various window sensors data including process, threads, handles, and other operating system object information
+'''
 import sys
 from enum import IntEnum
 

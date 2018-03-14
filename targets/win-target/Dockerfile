@@ -14,12 +14,12 @@ SHELL ["powershell", "-NoProfile", "-ExecutionPolicy Bypass", "$ErrorActionPrefe
 LABEL Description="Python" Vendor="Python Software Foundation" Version="3.6.4"
 
 RUN Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.exe" -OutFile c:/vs_BuildTools.exe
-
 RUN c:/vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MSBuildTools --includeRecommended
+RUN Remove-Item c:/vs_BuildTools.exe -Force
 
 RUN  wget https://www.python.org/ftp/python/3.6.4/python-3.6.4.exe -OutFile c:\python-3.6.4.exe 
-#RUN Start-Process c:\python-3.6.4.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=c:\Python364 CompileAll=1' -Wait 
-#RUN Remove-Item c:\python-3.6.4.exe -Force
+RUN Start-Process c:/python-3.6.4.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=c:/Python364 CompileAll=1' -Wait 
+RUN Remove-Item c:/python-3.6.4.exe -Force
 
 # REQUIERMENTS.TXT install and run
 #RUN mkdir C:/app/requirements
