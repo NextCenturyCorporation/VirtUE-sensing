@@ -1,5 +1,7 @@
 FROM wurstmeister/kafka:latest
 
+RUN apk update
+
 # Get Python3 for certificate tools support
 RUN apk add python3 openssl
 
