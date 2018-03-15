@@ -139,6 +139,12 @@ sudo /usr/local/bin/docker-compose -f docker-compose-swarm.yml push
 
 ## Deploy the API Stack
 
+Before deploying to the swarm or building the swarm network, run the `swarm_setup.sh` script to prep the host environment:
+
+```bash
+./bin/swarm_setup.sh
+```
+
 Instead of directly invoking the `docker-compose` command, we'll deploy the API as described by the `docker-compose-swarm.yml` compose file using the `docker stack` interface to the Swarm.
 
 Start the external docker overlay network
