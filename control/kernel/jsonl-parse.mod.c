@@ -882,11 +882,11 @@ get_options (int argc, char **argv)
 			FILE *in_file;
 			ssize_t nread, len = 0;
 			uint8_t *line = NULL;
-#ifdef USERSPACE
 			SLIST_INIT(&h_sessions);
-#else
-			INIT_LIST_HEAD(&h_sessions);
-#endif
+/**
+ * if in kernel space, be certain to init the sessions list head
+ *		INIT_LIST_HEAD(&h_sessions);
+**/
 			in_file_name = strdup(optarg);
 			in_file = fopen(in_file_name, "r");
 			if (in_file == NULL) {
