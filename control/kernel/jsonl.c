@@ -106,6 +106,7 @@ get_options (int argc, char **argv)
 				/* the following call will free a request/response pair and its
 				 * session structure.
 				 */
+				this_msg->file = in_file;
 				parse_json_message(this_msg);
 				line = NULL;
 				len = 0;

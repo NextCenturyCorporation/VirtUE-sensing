@@ -49,7 +49,7 @@ struct jsmn_session;
 static void dump_session(struct jsmn_session *s);
 static int dump(const char *js, jsmntok_t *t, size_t count, int indent);
 
-/** bsd queue
+/** bsd queuelas
  *  in kernel, replace with <linux/list.h>
  **/
 
@@ -60,14 +60,6 @@ static int dump(const char *js, jsmntok_t *t, size_t count, int indent);
  **/
 SLIST_HEAD(session_head, jsmn_session) \
 h_sessions;
-
-/**
- * for linux kernel compatibility
- **/
-struct sock
-{
-	int socket;
-};
 
 #else
 
@@ -91,7 +83,11 @@ struct jsmn_message
 
 	size_t count; /* token count */
 	struct jsmn_session *s;
-	struct sock socket;
+#ifdef USERSPACE
+	FILE *file;
+#else
+	struct socket *socket;
+#endif
 };
 
 /**
@@ -178,17 +174,17 @@ process_single_response(struct jsmn_session *s)
 
 
 const uint8_t escape [] = {0x5c, 0x00};
-
+#ifdef USERSPACE
 static inline void *__krealloc(void *buf, size_t s)
 {
 	void *p = krealloc(buf, s, GFP_KERNEL);
 	if (!p) {
-		free(buf);
+		kfree(buf);
 		printk("realloc(): errno=%d\n", ENOMEM);
 	}
 	return p;
 }
-
+#endif
 
 static inline void
 free_message(struct jsmn_message *m)
@@ -216,8 +212,8 @@ free_session(struct jsmn_session *s)
 	{
 		struct jsmn_message *m;
 		while ((m = list_first_entry_or_null(&s->h_replies,
-											 jsmn_message,
-											 h_replies))) {
+											 struct jsmn_message,
+											 e_messages))) {
 			list_del(&m->e_messages);
 		}
 	}
@@ -278,8 +274,8 @@ process_records_cmd(struct jsmn_message *m, int index)
 static inline int
 pre_process_jsmn_cmd(struct jsmn_message *m)
 {
-	uint8_t *string, *c, *id;
-	size_t c_bytes, id_bytes;
+	uint8_t *c, *id = NULL;
+	size_t c_bytes, id_bytes = 0;
 	int ccode;
 
 	assert(m && m->s);
@@ -377,8 +373,12 @@ garbage_collect_session(struct jsmn_message *m)
 		list_for_each_entry(s, &h_sessions, sessions)
 #endif
 	{
-
-		if (s && s->req && s->req->socket.socket == m->socket.socket) {
+#ifdef USERSPACE
+		if (s && s->req && s->req->file == m->file)
+#else
+		if (s && s->req && s->req->socket == m->socket)
+#endif
+		{
 			free_session(s); /* removes s from h_sessions */
 			return;
 		}
@@ -390,7 +390,6 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 {
 	uint8_t *n;
 	size_t bytes;
-	int i;
 	struct jsmn_session *ns;
 
 	n = m->line  + m->tokens[NONCE].start;
@@ -412,7 +411,7 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 		SLIST_INSERT_HEAD(&h_sessions, ns, sessions);
 #else
 		INIT_LIST_HEAD(&ns->h_replies);
-		list_add(ns, &h_sessions);
+		list_add(&ns->sessions, &h_sessions);
 #endif
 		return ns;
 	} else {
@@ -427,7 +426,7 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 #ifdef USERSPACE
 				STAILQ_INSERT_TAIL(&ns->h_replies, m, e_messages);
 #else
-				list_add_tail(m, &ns->h_replies);
+				list_add_tail(&m->e_messages, &ns->h_replies);
 #endif
 				m->s = ns;
 				return ns;
@@ -539,7 +538,6 @@ int
 parse_json_message(struct jsmn_message *m)
 {
 	int i = 0, ccode = 0;
-	struct jsmn_session *message_session = NULL;
 
 	assert(m);
 	jsmn_init(&m->parser);
@@ -549,13 +547,13 @@ parse_json_message(struct jsmn_message *m)
 						  m->tokens,
 						  MAX_TOKENS);
 	if (m->count < 0 ) {
-		printk(KERN_INFO "failed to parse JSON: %d\n", m->count);
+		printk(KERN_INFO "failed to parse JSON: %d\n", (int)m->count);
 		return m->count;
 	}
 	assert(m->line && m->line[m->len] == 0x00);
 	if (validate_message_tokens(m)) {
 		printk(KERN_INFO "each message must be a well-formed JSON object" \
-			   " %d\n", m->count);
+			   " %d\n", (int)m->count);
 		return m->count;
 	}
 
@@ -654,30 +652,30 @@ static int dump(const char *js, jsmntok_t *t, size_t count, int indent)
 		return 0;
 	}
 	if (t->type == JSMN_PRIMITIVE) {
-		printf("%.*s", t->end - t->start, js+t->start);
+		printk(KERN_INFO "%.*s", t->end - t->start, js+t->start);
 		return 1;
 	} else if (t->type == JSMN_STRING) {
-		printf("'%.*s'", t->end - t->start, js+t->start);
+		printk(KERN_INFO "'%.*s'", t->end - t->start, js+t->start);
 		return 1;
 	} else if (t->type == JSMN_OBJECT) {
-		printf("\n");
+		printk(KERN_INFO "\n");
 		j = 0;
 		for (i = 0; i < t->size; i++) {
-			for (k = 0; k < indent; k++) printf("  ");
+			for (k = 0; k < indent; k++) printk(KERN_INFO "  ");
 			j += dump(js, t+1+j, count-j, indent+1);
-			printf(": ");
+			printk(KERN_INFO ": ");
 			j += dump(js, t+1+j, count-j, indent+1);
-			printf("\n");
+			printk(KERN_INFO "\n");
 		}
 		return j+1;
 	} else if (t->type == JSMN_ARRAY) {
 		j = 0;
-		printf("\n");
+		printk(KERN_INFO "\n");
 		for (i = 0; i < t->size; i++) {
-			for (k = 0; k < indent-1; k++) printf("  ");
-			printf("   - ");
+			for (k = 0; k < indent-1; k++) printk(KERN_INFO "  ");
+			printk(KERN_INFO "   - ");
 			j += dump(js, t+1+j, count-j, indent+1);
-			printf("\n");
+			printk(KERN_INFO "\n");
 		}
 		return j+1;
 	}
@@ -701,8 +699,7 @@ uint8_t *add_nl_at_end(uint8_t *in, int len)
  **/
 uint8_t *trim_to_nl(uint8_t *in, int len)
 {
-	int count = 0;
-	uint8_t *c, *out, *end = in + len;
+	uint8_t *c, *end = in + len;
 	assert(*end == 0);
 	c = strchr(in, 0x0a);
 	while (c && c > in) {

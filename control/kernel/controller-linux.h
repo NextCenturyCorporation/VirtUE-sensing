@@ -4,9 +4,6 @@
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
-/* the kernel itself has dynamic trace points, they
- *  need to be part of the probe capability.
- */
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
