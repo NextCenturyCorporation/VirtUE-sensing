@@ -14,12 +14,13 @@ from io import StringIO
 import json
 from kafka import KafkaProducer
 import os
-import pwd
+import sys
+if sys.platform != 'win32':
+    import pwd
 import requests
 from routes import Mapper
 import signal
 import socket
-import sys
 import time
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -1023,10 +1024,11 @@ class SensorWrapper(object):
 
         if self.opts.username is None:
 
-            # try and resolve the user from the PWD
-            pstruct = pwd.getpwuid(os.getuid())
-            if pstruct is not None:
-                self.opts.username = pstruct[0]
+            if sys.platform != 'win32':
+                # try and resolve the user from the PWD
+                pstruct = pwd.getpwuid(os.getuid())
+                if pstruct is not None:
+                    self.opts.username = pstruct[0]
 
             # no? maybe it's in the environment
             if self.opts.username is None:
