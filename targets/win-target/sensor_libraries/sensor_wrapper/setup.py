@@ -92,7 +92,7 @@ setup(
         'multidict==3.3.2',
         'Naked==0.1.31',
         'namedlist==1.7',
-        'pycrypto==2.6.1',
+        'pycryptodome==3.5.1',
         'PyYAML==3.12',
         'repoze.lru==0.7',
         'requests==2.18.4',
