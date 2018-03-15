@@ -15,11 +15,11 @@ clean:
 
 .PHONY: jsonl-clean
 jsonl-clean:
-	rm jsonl strscp.o jsmn.o &>/dev/null ||:
+	rm jsonl jsonl-parse.mod.o jsmn.o &>/dev/null ||:
 
-jsonl: strscp.c jsmn/jsmn.c
-	  gcc -D JSMN_PARENT_LINKS -D JSMN_STRICT -D USERSPACE -g -c strscp.c jsmn/jsmn.c
-		gcc -g -o jsonl strscp.o jsmn.o
+jsonl: jsonl-parse.mod.c jsmn/jsmn.c
+	  gcc -D JSMN_PARENT_LINKS -D JSMN_STRICT -D USERSPACE -g -c jsonl-parse.mod.c jsmn/jsmn.c
+		gcc -g -o jsonl jsonl-parse.mod.o jsmn.o
 
 .PHONY: jsonl-test
 jsonl-test: jsonl

@@ -88,6 +88,7 @@ struct jsmn_message
 	uint8_t *line;
 	size_t len;
 	int type;
+
 	size_t count; /* token count */
 	struct jsmn_session *s;
 	struct sock socket;
@@ -192,7 +193,6 @@ static inline void *__krealloc(void *buf, size_t s)
 static inline void
 free_message(struct jsmn_message *m)
 {
-	return;
 	if(m->line)
 		kfree(m->line);
 	kfree(m);
@@ -596,7 +596,13 @@ parse_json_message(struct jsmn_message *m)
 		}
 		case NONCE:
 		{
-			m->s = get_session(m);
+			if (!(m->s = get_session(m))) {
+				printk(KERN_INFO "unable to find session corresponding to message:");
+				dump(m->line, m->tokens, m->parser.toknext, 0);
+				free_message(m);
+				return JSMN_ERROR_INVAL;
+			}
+
 			break;
 		}
 		case CMD:
