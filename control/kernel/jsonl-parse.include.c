@@ -174,18 +174,6 @@ process_single_response(struct jsmn_session *s)
 
 
 const uint8_t escape [] = {0x5c, 0x00};
-#ifdef USERSPACE
-static inline void *__krealloc(void *buf, size_t s)
-{
-	void *p = krealloc(buf, s, GFP_KERNEL);
-	if (!p) {
-		kfree(buf);
-		printk("realloc(): errno=%d\n", ENOMEM);
-	}
-	return p;
-}
-#endif
-
 static inline void
 free_message(struct jsmn_message *m)
 {
