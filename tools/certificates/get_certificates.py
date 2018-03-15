@@ -20,6 +20,33 @@ import socket
 import sys
 
 
+def request_with_retries(retries=5, backoff_factor=1.1):
+    """
+    In some environments (*ahem* ec2) the CFSSL service can take longer to bring online
+    than other services. Instead of dropping **sleep** all over the run scripts of the
+    services that depend on this CA interaction script, we can introduce retries and a
+    backoff time.
+
+    This injects a slightly smarter retry/backoff mechanism into requests, based on the
+    urllib3 Retry code.
+
+    :return:
+    """
+    session = requests.Session()
+    retry = requests.packages.urllib3.util.retry.Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=(500, 502, 504)
+    )
+
+    adapter = requests.adapters.HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
 def get_ca_certificate(opts):
     """
     Retrieve the CA root public certificate for the Savior network.
@@ -33,7 +60,7 @@ def get_ca_certificate(opts):
     """
     log(opts, "  %% Requesting CA public root certificate")
 
-    res = requests.post("http://%s:%d/api/v1/cfssl/info" % (opts.cfssl_host, opts.cfssl_port), json={"label": "primary"})
+    res = request_with_retries().post("http://%s:%d/api/v1/cfssl/info" % (opts.cfssl_host, opts.cfssl_port), json={"label": "primary"})
 
     if res.status_code == 200:
         log(opts, "  * Got response from CA")

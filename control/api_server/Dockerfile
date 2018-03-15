@@ -8,7 +8,7 @@ ENV LC_ALL en_US.UTF-8
 
 # wget for convenience, use curl if you want to
 RUN apt-get update
-RUN apt-get -y -q install wget python3-pip
+RUN apt-get -y -q install wget python3-pip telnet
 
 # add erlang otp
 RUN wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
