@@ -11,7 +11,7 @@ all: uname
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 clean:
 #		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
-	  rm *.o *.ko &>/dev/null ||:
+	  rm *.o *.ko *.mod &>/dev/null ||:
 		rm uname.h &>/dev/null  ||:
 
 .PHONY: jsonl-clean
