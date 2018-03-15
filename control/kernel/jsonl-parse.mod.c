@@ -870,15 +870,7 @@ get_options (int argc, char **argv)
 		}
 		case IN_FILE:
 		{
-			/**
-			 * TODO: make message tokens realloc'd but keep the MAX_TOKENS
-			 *       limit, otherwise vulnerable to a DOS attack from a message
-			 *       like '{[[[[[[[[[[[[[[[[[[[[ ... ]]]]]]]]]]]]]]]]]]]]}'
-			 *       that would cause the parser to realloc tokens and exhuast
-			 *       memory
-			 * TODO: garbage-collect partial sessions (req only)
-			 * TODO: clean up replies with no matching request
-			 **/
+
 			FILE *in_file;
 			ssize_t nread, len = 0;
 			uint8_t *line = NULL;
