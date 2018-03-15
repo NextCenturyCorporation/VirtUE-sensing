@@ -51,21 +51,21 @@ def _handle_nfs3_getattr( rpc_call, rpc_reply ):
              { "proto"   : "nfs",
                "command" : "getattr",
                "who"     : state.get_auth_str(rpc_call),
-               "path"    : path,
-               "status"  : rpc_reply.nfs_status } )
+               "path"    : str( path ),
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_setattr( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.handle )
     
     logging.debug( "#{} NFS setattr: {} to {} by {} status {}"
                    .format( state.pkt_ct, path, str(rpc_call.new_attr),
-                            state.get_auth_str(rpc_call), rpc_reply.nfs_status ) )
+                            state.get_auth_str(rpc_call), str( rpc_reply.nfs_status ) ) )
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "setattr",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status,
+               "status"  : str( rpc_reply.nfs_status ),
                "new_attr": str(rpc_call.new_attr), } )
 
 def _handle_nfs3_lookup( rpc_call, rpc_reply ):
@@ -75,9 +75,9 @@ def _handle_nfs3_lookup( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "lookup",
-               "path"    : newpath,
+               "path"    : str( newpath ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_access( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.handle )
@@ -90,9 +90,9 @@ def _handle_nfs3_access( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "access",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status,
+               "status"  : str( rpc_reply.nfs_status ),
                "access"  : access } )
 
 def _handle_nfs3_readlink( rpc_call, rpc_reply ):
@@ -105,9 +105,9 @@ def _handle_nfs3_readlink( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "readlink",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status,
+               "status"  : str( rpc_reply.nfs_status ),
                "target"  : target } )
 
 
@@ -117,9 +117,9 @@ def _handle_nfs3_read( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "read",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_write( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.handle )
@@ -127,9 +127,9 @@ def _handle_nfs3_write( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "write",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_create( rpc_call, rpc_reply ):
     path = os.path.join( state.get_path( rpc_call.args.handle ),
@@ -138,9 +138,9 @@ def _handle_nfs3_create( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "create",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_mkdir( rpc_call, rpc_reply ):
     path = os.path.join( state.get_path( rpc_call.args.handle ),
@@ -149,9 +149,9 @@ def _handle_nfs3_mkdir( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "mkdir",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_symlink( rpc_call, rpc_reply ):
     # Where symlink is created
@@ -162,9 +162,9 @@ def _handle_nfs3_symlink( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "symlink",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status,
+               "status"  : str( rpc_reply.nfs_status ),
                "target"  : target } )
         
 def _handle_nfs3_mknod( rpc_call, rpc_reply ):
@@ -175,7 +175,7 @@ def _handle_nfs3_mknod( rpc_call, rpc_reply ):
                "command" : "mknod",
                "path"    : None,
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_remove( rpc_call, rpc_reply ):
     path = os.path.join( state.get_path( rpc_call.args.handle ), rpc_call.args.name )
@@ -183,9 +183,9 @@ def _handle_nfs3_remove( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "remove",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_rmdir( rpc_call, rpc_reply ):
     path = os.path.join( state.get_path( rpc_call.args.handle ), rpc_call.args.name )
@@ -193,9 +193,9 @@ def _handle_nfs3_rmdir( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "rmdir",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_rename( rpc_call, rpc_reply ):
     from_name = os.path.join( state.get_path( rpc_call.ffrom.handle ),
@@ -205,9 +205,9 @@ def _handle_nfs3_rename( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "rename",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status,
+               "status"  : str( rpc_reply.nfs_status ),
                "target"  : to_name } )
 
 def _handle_nfs3_link( rpc_call, rpc_reply ):
@@ -219,7 +219,7 @@ def _handle_nfs3_link( rpc_call, rpc_reply ):
                "command" : "link",
                "path"    : source,
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status,
+               "status"  : str( rpc_reply.nfs_status ),
                "target"  : dest } )
 
 def _handle_nfs3_readdir( rpc_call, rpc_reply ):
@@ -228,9 +228,9 @@ def _handle_nfs3_readdir( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "readdir",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_readdirplus( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.handle )
@@ -238,9 +238,9 @@ def _handle_nfs3_readdirplus( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "readdirplus",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_fsstat( rpc_call, rpc_reply ):
     root = state.get_path( rpc_call.root )
@@ -248,9 +248,9 @@ def _handle_nfs3_fsstat( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "fsstat",
-               "path"    : root,
+               "path"    : str( root ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_fsinfo( rpc_call, rpc_reply ):
     root = state.get_path( rpc_call.root )
@@ -260,7 +260,7 @@ def _handle_nfs3_fsinfo( rpc_call, rpc_reply ):
                "command" : "fsinfo",
                "path"    : root,
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_pathconf( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.path )
@@ -268,9 +268,9 @@ def _handle_nfs3_pathconf( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "pathconf",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 def _handle_nfs3_commit( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.root )
@@ -278,9 +278,9 @@ def _handle_nfs3_commit( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "commit",
-               "path"    : path,
+               "path"    : str( path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.nfs_status } )
+               "status"  : str( rpc_reply.nfs_status ) } )
 
 nfs3_handler_lookup = {
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_NULL'        ] : _handle_nfs3_null,
@@ -308,21 +308,37 @@ nfs3_handler_lookup = {
 }
 
 
+def _get_rpc_status( rpc_call, rpc_reply ):
+
+    # Not all RPC headers are parsed
+    status = None
+    if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
+        try:    
+            v = rpc_reply.getfieldval( "status" )
+            status = nfs_const.Mount3_ValStatMap[ v ]
+        except AttributeError:
+            pass
+    
+    if not status:
+        status = rpc_reply.accept_state.v
+
+    return status
+
 def _handle_mount3_mnt( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "mount",
                "command" : "mnt",
-               "path"    : rpc_call.path,
+               "path"    : str( rpc_call.path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.state } )
+               "status"  : _get_rpc_status( rpc_call, rpc_reply ) } )
 
 def _handle_mount3_umnt( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "mount",
                "command" : "umnt",
-               "path"    : rpc_call.path,
+               "path"    : str( rpc_call.path ),
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.state } )
+               "status"  : _get_rpc_status( rpc_call, rpc_reply ) } )
 
 def _handle_mount3_umnt_all( rpc_call, rpc_reply ):
     return ( info_level,
@@ -330,7 +346,7 @@ def _handle_mount3_umnt_all( rpc_call, rpc_reply ):
                "command" : "umnt_all",
                "path"    : None,
                "who"     : state.get_auth_str(rpc_call),
-               "status"  : rpc_reply.state } )
+               "status"  : _get_rpc_status( rpc_call, rpc_reply ) } )
     
 mount3_handler_lookup = {
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_NULL'    ] : _handle_nop,

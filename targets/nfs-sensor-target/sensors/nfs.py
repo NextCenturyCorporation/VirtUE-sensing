@@ -25,10 +25,9 @@ import struct
 
 import pdb
 
-import nfs_const
-
 from scapy.all import *
 
+import nfs_const
 
 if sys.version_info.major < 3 or sys.version_info.minor < 5:
     print( "NOTICE: This module is intented for Python 3.5+" )

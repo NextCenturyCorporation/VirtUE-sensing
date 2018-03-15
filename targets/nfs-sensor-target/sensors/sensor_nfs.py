@@ -1,43 +1,55 @@
 #!/usr/bin/env python3
 
-import datetime
-import json
-import re
-import asyncio
+# Copyright (C) Two Six Labs, 2018
+# Copyright (C) Matt Leinhos, 2018
 
-#from curio import subprocess, sleep
-from sensor_wrapper import SensorWrapper
+##
+## Async NFS packet processor, similar to sensor implementation
+##
+
+import os
+import sys
+import argparse
+import logging
+import pdb
+
+import datetime
+
+import asyncio
+import selectors
+
+from scapy.all import * # sniff, rdpcap
+
+import nfs
+import nfs_const
 
 import nfs_packet_handler as handler
 import nfs_state_monitor as state
 
 
-"""
-Sensor that observes NFS traffic
-"""
+from sensor_wrapper import SensorWrapper
+
+
+# Keep sniffing?
+sniff_sockets = True
+
+# This breaks parts of TCP or UDP parsers
+# conf.debug_dissector = 1
 
 # Some globals are needed due to constraints on recv_pkt() callback signature
 
-message_queue = None
-message_stub  = None
-network_iface = None
+#message_queue = None
+#message_stub  = None
+#network_iface = None
 
 
-def find_nfs_iface():
-    # Smartly discover the VIF that nfs-server unikernel is on. What
-    # follows is "not smart", so fix it.
-    return 'vif12.0'
-
-
-async def recv_pkt( pkt ):
-    global message_queue, message_stub
-
+async def recv_pkt( pkt, message_queue ):
     r = handler.pkt_handler_standard( pkt )
     if not r:
         return
     (level, data) = r
     
-    logmsg = { "timestamp" : datetime.datetime.now().isoformat(),
+    logmsg = { "timestamp" : datetime.now().isoformat(),
                "level"     : level,
                "action"    : data }
 
@@ -47,30 +59,46 @@ async def recv_pkt( pkt ):
     await message_queue.put( logmsg )
 
 
-async def nfs3_sniff( message_stub, config, message_queue ):
+async def nfs3_sniff(message_stub, config, message_queue):
     """
     Kick off the NFS sniffer (a long-running activity).
-
-    :param message_stub: Fields that we need to interpolate into every message
-    :param config: Configuration from our sensor, from the Sensing API
-    :param message_queue: Shared Queue for messages
-    :return: None
     """
 
-    network_iface = find_nfs_iface()
+    global sniff_sockets
 
+    iface = find_nfs_iface()
     print(" ::starting NFS sniffer")
-    print("     using network interface {}".format( network_iface ) )
+    print("     using network interface {}".format( iface ) )
 
     nfs.init()
 
-    # TODO: implement custom sniff() that cooperates with asyncio
-    sniff( iface=network_iface,
-           filter=None,
-           store=False,
-           prn=recv_pkt )
+    sock = conf.L2listen(type=ETH_P_ALL, iface=iface)
 
+    # Register the socket with an async-friendly select(). Once
+    # there's a packet to read, let the parser deal with it. Our
+    # packet handler, recv_pkt, has to be a coroutine, so we can't use
+    # the cleaner loop.add_reader().
+
+    with selectors.DefaultSelector() as sel:
+        sel.register( sock, selectors.EVENT_READ )
+
+        while sniff_sockets:
+            for sk, events in sel.select():
+                p = sock.recv()
+                if not p:
+                    break
+                p.sniffed_on = sock
+                await recv_pkt( p, message_queue )
+
+def find_nfs_iface():
+    print( "Returning network interface" )
+    return wrapper.opts.iface
 
 if __name__ == "__main__":
-    wrapper = SensorWrapper( "nfs", [nfs3_sniff,] )
+    logging.basicConfig( level=logging.DEBUG )
+
+    wrapper = SensorWrapper( "NFS", [nfs3_sniff,] )
+
+    wrapper.argparser.add_argument( "--iface", dest="iface", default=None,
+                                    help="Network interface to sniff" )
     wrapper.start()

@@ -82,6 +82,36 @@ def get_auth_str( rpc_call ):
     else:
         return "AUTH_UNKNOWN"
 
+
+def is_reply_parsable( rpc_reply, rpc_call ):
+    if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
+
+        if rpc_reply.accept_state.v != nfs_const.RPC_ACCEPT_SUCCESS:
+            return False
+        # Not all MOUNT3 headers are parsed
+        try:
+            status = rpc_reply.getfieldval( "status" )
+        except AttributeError:
+            return False
+
+        if status != nfs_const.MOUNT3_OK:
+            # Operation failed, nothing more to do for state update
+            return False
+        return True
+    
+    elif rpc_call.prog == nfs_const.ProgramValMap['nfs']:
+        # If the operation failed or the reply has no NFS status, then skip it
+        try:
+            if not rpc_reply.nfs_status.success():
+                return False
+        except AttributeError:
+            return False
+
+        return True
+
+    # Unsupported program
+    return False
+    
     
 def update_state( pkt ):
     global pkt_ct
@@ -95,29 +125,23 @@ def update_state( pkt ):
     # pkt is an RPC reply
     rpc_call = rpc_reply.rpc_call
 
+    if not is_reply_parsable( rpc_reply, rpc_call ):
+        return
+    
     # Update state for certain program / procedure combinations
     if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
-        if rpc_reply.accept_state.v != nfs_const.MOUNT3_OK:
-            # Operation failed, nothing more to do for state update
-            return
-            
+
         if rpc_call.proc == nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_MNT' ]:
             _create_mount_mapping( rpc_call.path, rpc_reply.handle, rpc_call )
 
         elif rpc_call.proc == nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNT' ]:
             _destroy_mount_mapping( rpc_call.path )
-            
+
         elif rpc_call.proc == nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNTALL' ]:
             for k in [ p for p in active_mount_map ]:
                 _destroy_mount_mapping( k )
-        
+
     elif rpc_call.prog == nfs_const.ProgramValMap['nfs']:
-        # If the operation failed or the reply has no NFS status, then skip it
-        try:
-            if not rpc_reply.nfs_status.success():
-                return
-        except AttributeError:
-            return
         
         if rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LOOKUP' ]:
             new = os.path.join( get_path( rpc_call.args.handle ),

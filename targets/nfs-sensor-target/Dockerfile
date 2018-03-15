@@ -22,8 +22,8 @@ RUN chmod a+x install.sh
 RUN ./install.sh
 
 # Run the apt-get install script for required OS support in sensors
-#RUN chmod a+x /usr/src/app/sensor_libraries/apt_get_install.sh
-#RUN /bin/bash /usr/src/app/sensor_libraries/apt_get_install.sh
+RUN chmod a+x /usr/src/app/sensor_libraries/apt_get_install.sh
+RUN /bin/bash /usr/src/app/sensor_libraries/apt_get_install.sh
 
 # SENSORS
 RUN mkdir /opt/sensors

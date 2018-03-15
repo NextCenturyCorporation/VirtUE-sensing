@@ -1,5 +1,5 @@
 {
-  "name": "nfs",
+  "name": "NFS",
   "context": "virtue",
   "os": "linux",
   "description": "Sensor that monitors traffic to/from NFS unikernel server",

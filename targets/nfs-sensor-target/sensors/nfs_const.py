@@ -41,6 +41,9 @@ ValAcceptStatMap = {
 
 AcceptStatValMap = {v: k for k, v in ValAcceptStatMap.items()}
 
+RPC_ACCEPT_SUCCESS = AcceptStatValMap[ 'SUCCESS' ]
+
+
 # Auth types
 ValAuthMap = {
     0 : 'AUTH_NULL',

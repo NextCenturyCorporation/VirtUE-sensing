@@ -68,3 +68,16 @@ services:
     build: "./targets/nfs-sensor-target"
     environment:
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
+      NFS_SENSOR_SNIFF_INTERFACE: "vif1.0"
+      NFS_SENSOR_STANDALONE: ""
+    #networks:
+    #  external:
+    #    name: host
+    #  - savior_default
+    network_mode: host
+    tty: true
+#networks:
+#  hostnet:
+#    external:
+#      name: host
+#  default:
