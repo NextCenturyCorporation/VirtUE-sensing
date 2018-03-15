@@ -10,13 +10,13 @@ MKDIR %WORKDIR%
 MKDIR %TEMP%
 
 
-powershell Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.exe" -OutFile %TEMP%\vs_BuildTools.exe %TEMP%\vs_BuildTools.exe --quiet --wait 
---add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.140 --includeRecommended 
-REM del /F /Q %TEMP%\vs_BuildTools.exe
+powershell Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.exe" -OutFile %TEMP%\vs_BuildTools.exe 
+%TEMP%\vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.140 --includeRecommended 
+DEL /F /Q %TEMP%\vs_BuildTools.exe
 
 powershell Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%/python-%PYTHONVER%.exe" -OutFile %TEMP%\python-%PYTHONVER%.exe 
 %TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
-del /F /Q %TEMP%\python-%PYTHONVER%.exe
+DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
 
 REM REQUIREMENTS.TXT install and run
 MKDIR %SystemDrive%\app\requirements
