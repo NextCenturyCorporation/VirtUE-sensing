@@ -183,6 +183,24 @@ free_message(struct jsmn_message *m)
 	return;
 }
 
+static inline struct jsmn_message *
+new_message(uint8_t *line, size_t len)
+{
+	struct jsmn_message *m;
+
+	assert(line && line[len] == 0x00);
+
+	if (!line || len > MAX_LINE_LEN || line[len] != 0x00) {
+		return NULL;
+	}
+	m = kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
+	if (!m) {
+		return NULL;
+	}
+	m->line = line;
+	m->len = len;
+	return m;
+}
 
 static inline void
 free_session(struct jsmn_session *s)

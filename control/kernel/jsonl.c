@@ -92,13 +92,10 @@ get_options (int argc, char **argv)
 
 
 			while((nread = getline(&line, &len, in_file)) != -1) {
-				struct jsmn_message *this_msg =
-					kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
+				struct jsmn_message *this_msg = new_message(line, strlen(line));
 				if (!this_msg) {
 					exit(EXIT_FAILURE);
 				}
-				this_msg->line = line;
-				this_msg->len = strlen(line);
 				/* the following call will free a request/response pair and its
 				 * session structure.
 				 */
