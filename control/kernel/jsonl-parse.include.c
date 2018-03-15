@@ -49,8 +49,9 @@ struct jsmn_session;
 static void dump_session(struct jsmn_session *s);
 static int dump(const char *js, jsmntok_t *t, size_t count, int indent);
 
-/** bsd queuelas
- *  in kernel, replace with <linux/list.h>
+/** user space makes use of bsd queues </usr/include/sys/queue.h>
+ *  in kernel, use instead <linux/list.h>, which has type-checking
+ *  built into the macros and inline functions.
  **/
 
 #ifdef USERSPACE
