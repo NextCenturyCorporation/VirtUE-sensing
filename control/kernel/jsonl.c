@@ -1,4 +1,4 @@
-#include "jsonl-parse.mod.c"
+#include "jsonl-parse.include.c"
 
 uint8_t *empty(uint8_t *in, int len)
 {
