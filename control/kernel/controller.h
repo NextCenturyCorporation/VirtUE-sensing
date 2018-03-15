@@ -179,17 +179,6 @@ struct kernel_ps_data {
 
 
 /**
- * definitions for token storage allocation
- * using flex_array also
- **/
-#define TOKEN_DATA_SIZE (sizeof(jsmntok_t))
-#define TOKEN_APPARENT_ARRAY_SIZE \
-	FLEX_ARRAY_ELEMENTS_PER_PART(TOKEN_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS
-
-#define TOKEN_ARRAY_SIZE (((TOKEN_APPARENT_ARRAY_SIZE) * 2) - 1)
-
-
-/**
  * workspace for kernel-lsof probe data
  * line numbers from kernel version 4.1.3
  * struct file in include/linux/fs.h:828

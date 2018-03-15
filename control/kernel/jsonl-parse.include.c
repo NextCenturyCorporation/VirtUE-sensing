@@ -80,7 +80,6 @@ struct jsmn_message
 	uint8_t *line;
 	size_t len;
 	int type;
-
 	size_t count; /* token count */
 	struct jsmn_session *s;
 #ifdef USERSPACE
@@ -112,6 +111,7 @@ struct jsmn_session
 	uint8_t probe_id[MAX_ID_SIZE];
 
 };
+
 
 static inline int index_command(uint8_t *cmd, int bytes)
 {
