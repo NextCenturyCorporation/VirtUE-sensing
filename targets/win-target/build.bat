@@ -44,7 +44,6 @@ MKDIR %SystemDrive%\opt\sensor_startup
 XCOPY /Y /S /F /V sensor_startup\*.* %SystemDrive%\opt\sensor_startup\
 
 REM Service components
-COPY /Y dropper.ps1 %TEMP%\dropper.ps1
 COPY /Y run.ps1 %SystemDrive%\app
 
 %POWERSHELL% %SystemDrive%\app\run.ps1

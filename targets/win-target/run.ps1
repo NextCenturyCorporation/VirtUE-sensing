@@ -1,6 +1,3 @@
 # Spin up our sensors
 echo "Starting Sensors"
-c:/opt/sensor_startup/run_sensors.ps1
-
-# Now start our service
-c:/temp/dropper.ps1
+powershell c:\opt\sensor_startup\run_sensors.ps1

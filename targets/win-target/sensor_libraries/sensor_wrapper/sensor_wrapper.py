@@ -14,12 +14,11 @@ from io import StringIO
 import json
 from kafka import KafkaProducer
 import os
-import pwd
+import sys
 import requests
 from routes import Mapper
 import signal
 import socket
-import sys
 import time
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -1022,11 +1021,6 @@ class SensorWrapper(object):
                 self.opts.virtue_id = str(uuid4())
 
         if self.opts.username is None:
-
-            # try and resolve the user from the PWD
-            pstruct = pwd.getpwuid(os.getuid())
-            if pstruct is not None:
-                self.opts.username = pstruct[0]
 
             # no? maybe it's in the environment
             if self.opts.username is None:
