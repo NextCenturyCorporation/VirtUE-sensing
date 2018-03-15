@@ -10,11 +10,13 @@ SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass
 MKDIR %WORKDIR%
 MKDIR %TEMP%
 
-
+REM Download and install Visual Studio 2017 Build Kit w/2015 Components
 %POWERSHELL% Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.exe" -OutFile %TEMP%\vs_BuildTools.exe 
 %TEMP%\vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.140 --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest --includeRecommended 
 DEL /F /Q %TEMP%\vs_BuildTools.exe
 
+
+REM Download and install python
 %POWERSHELL% Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%/python-%PYTHONVER%.exe" -OutFile %TEMP%\python-%PYTHONVER%.exe 
 %TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
 DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
