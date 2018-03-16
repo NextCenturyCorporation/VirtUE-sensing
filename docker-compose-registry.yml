@@ -5,8 +5,6 @@ services:
     image: registry:2
     ports:
       - 5000:5000
-    volumes:
-      - $PWD/registry:/var/lib/registry
 networks:
   apinet:
     external: true
