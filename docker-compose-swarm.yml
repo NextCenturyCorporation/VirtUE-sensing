@@ -4,7 +4,12 @@ services:
     image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
+    networks:
+      apinet:
+        aliases:
+          - zookeeper
   kafka:
+    image: 127.0.0.1:5000/savior-kafka
     build:
       context: "./control/logging"
       dockerfile: Dockerfile
@@ -24,11 +29,21 @@ services:
       KAFKA_PORT: 9455
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      apinet:
+        aliases:
+          - kafka
   cfssl:
+    image: 127.0.0.1:5000/savior-cfssl
     build: "./control/savior-ca"
     ports:
       - "3030:3030"
+    networks:
+      apinet:
+        aliases:
+          - cfssl
   api:
+    image: 127.0.0.1:5000/savior-api
     build: "./control/api_server"
     ports:
       - "17141:17141"
@@ -39,28 +54,52 @@ services:
       - kafka
       - cfssl
       - api_server_postgres
-    links:
-      - "kafka:kafka"
-      - "cfssl:cfssl"
+    networks:
+      apinet:
+        aliases:
+          - api
   dropper_callback:
+    image: 127.0.0.1:5000/savior-dropper_callback
     build: "./external/dropper_callback"
     ports:
       - "8080:8080"
     # hostname: dropper1
     # domainname: evil.io
+    networks:
+      apinet:
+        aliases:
+          - dropper_callback
   target_1:
+    image: 127.0.0.1:5000/savior-target_1
     build: "./targets/demo-target"
     depends_on:
       - kafka
       - api
     stdin_open: true
     tty: true
+    networks:
+      apinet:
+        aliases:
+          - target_1
   api_server_postgres:
     image: postgres:9.3
     volumes:
-      - ./pgdata:/var/lib/postgresql/data/pgdata
+      - db-data:/var/lib/postgresql/data/pgdata
     environment:
       POSTGRES_PASSWORD: "postgres"
       POSTGRES_USER: "postgres"
       PGDATA: "/var/lib/postgresql/data/pgdata"
       POSTGRES_DB: "api_server_postgres"
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      apinet:
+        aliases:
+          - api_server_postgres
+          - postgres
+volumes:
+  db-data:
+networks:
+  apinet:
+    external: true

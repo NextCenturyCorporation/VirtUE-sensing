@@ -16,4 +16,4 @@ keytool -importkeystore -deststorepass kafka_key_store -destkeystore $KAFKA_HOME
 keytool -keystore $KAFKA_HOME/certs/server.truststore.jks -alias CARoot -import -file $KAFKA_HOME/certs/ca.pem -deststorepass kafka_trust_store -noprompt
 
 # Run the server
-supervisord -n
+start-kafka.sh

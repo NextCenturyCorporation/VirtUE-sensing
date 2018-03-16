@@ -52,6 +52,18 @@ config :api_server, ApiServer.Scheduler,
 
 # Kafka connections
 config :kafka_ex,
+#  brokers: [
+#    {"kafka", 9092}
+#  ],
+#  consumer_group: "kafka_ex",
+#  disable_default_worker: true,
+#  sync_timeout: 30000,
+#  max_restarts: 15,
+#  commit_interval: 5_000,
+#  commit_threshold: 100,
+#  use_ssl: false,
+#  ssl_options: [],
+#  kafka_version: "0.9.0"
 
   # brokers
   brokers: [
