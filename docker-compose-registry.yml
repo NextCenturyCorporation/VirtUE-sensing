@@ -5,6 +5,10 @@ services:
     image: registry:2
     ports:
       - 5000:5000
+    networks:
+      apinet:
+        aliases:
+          - registry
 networks:
   apinet:
     external: true
