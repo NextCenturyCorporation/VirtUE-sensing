@@ -95,12 +95,22 @@ If you didn't record the join token from the manager when you started the swarm,
 sudo docker swarm join-token worker
 ```
 
+## Start the APINET network
+
+Start the external docker overlay network
+
+```bash
+> sudo docker network create --driver overlay --attachable --subnet 192.168.1.0/24 apinet
+```
+
+Notice that we're directly setting a subnet for use in the Swarm network - if we don't do this, the default network used in swarm has conflicts with the default subnet in the AWS VPC, that is overlapping `10.0.1.0/24` segments, which wreaks havoc with DNS and container routing. The name of this network, `apinet`, **must** match the defined external network name in the `docker-compose-swarm.yml` and `docker-compose-registry.yml` compose files.
+
 ## Setup a Docker Registry
 
 Moving containers build with `docker-compose` between the different nodes of a docker swarm requires a registry. Rather than using the global Docker Hub registry, we spin up our own registry as part of our deploy step. Start the registry with:
 
 ```bash
-sudo docker service create --name registry --publish published=5000,target=5000 registry:2
+> sudo docker stack deploy --compose-file docker-compose-registry.yml savior-registry
 ```
 
 You can confirm that the registry is running with:
@@ -147,13 +157,6 @@ Before deploying to the swarm or building the swarm network, _source_ the `swarm
 
 Instead of directly invoking the `docker-compose` command, we'll deploy the API as described by the `docker-compose-swarm.yml` compose file using the `docker stack` interface to the Swarm.
 
-Start the external docker overlay network
-
-```bash
-> sudo docker network create --driver overlay --attachable --subnet 192.168.1.0/24 apinet
-```
-
-Notice that we're directly setting a subnet for use in the Swarm network - if we don't do this, the default network used in swarm has conflicts with the default subnet in the AWS VPC, that is overlapping `10.0.1.0/24` segments, which wreaks havoc with DNS and container routing. The name of this network, `apinet`, **must** match the defined external network name in the `docker-compose-swarm.yml` compose file.
 
 Deploy everything with:
 
