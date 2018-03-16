@@ -95,6 +95,12 @@ If you didn't record the join token from the manager when you started the swarm,
 sudo docker swarm join-token worker
 ```
 
+Removing worker nodes from the swarm is straight-forward, and must be run from the node to be removed from the swarm:
+
+```bash
+sudo docker swarm leave
+```
+
 ## Start the APINET network
 
 Start the external docker overlay network
@@ -104,23 +110,6 @@ Start the external docker overlay network
 ```
 
 Notice that we're directly setting a subnet for use in the Swarm network - if we don't do this, the default network used in swarm has conflicts with the default subnet in the AWS VPC, that is overlapping `10.0.1.0/24` segments, which wreaks havoc with DNS and container routing. The name of this network, `apinet`, **must** match the defined external network name in the `docker-compose-swarm.yml` and `docker-compose-registry.yml` compose files.
-
-## Setup a Docker Registry
-
-Moving containers build with `docker-compose` between the different nodes of a docker swarm requires a registry. Rather than using the global Docker Hub registry, we spin up our own registry as part of our deploy step. Start the registry with:
-
-```bash
-> sudo docker stack deploy --compose-file docker-compose-registry.yml savior-registry
-```
-
-You can confirm that the registry is running with:
-
-```bash
-> curl http://localhost:5000/v2/
-{}
-```
-
-The empty JSON dictionary return is the expected result.
 
 ## Pull the API code
 
@@ -137,6 +126,24 @@ git clone "https://$GITHUB_TOKEN@github.com/twosixlabs/savior.git"
 ```
 
 Make sure you're on the branch you intend to run from.
+
+## Setup a Docker Registry
+
+Moving containers build with `docker-compose` between the different nodes of a docker swarm requires a registry. Rather than using the global Docker Hub registry, we spin up our own registry as part of our deploy step. Start the registry with:
+
+```bash
+> sudo docker service create --name registry --publish 5000:5000 registry:2
+```
+
+You can confirm that the registry is running with:
+
+```bash
+> curl http://localhost:5000/v2/
+{}
+```
+
+The empty JSON dictionary return is the expected result.
+
 
 ## Build and Push Containers
 
@@ -225,3 +232,9 @@ Enter into an interactive bash session on any of the services:
 ```
 
 This is more complicated than standard `docker exec` commands because of the naming format for service deployments.
+
+### Solving `no such image localhost:5000/...` issues
+
+The Docker `registry:2` service we deploy on the swarm should be reachable from any node in the swarm at `localhost:5000`, due to the load-balancing done by the Swarm for exposed service ports. Sometimes, though, things go wrong. 
+
+If you consistently see `no such image localhost:5000/...` type errors from `docker service ps savior_api-` calls for any image, chances are the Swarm routing overlay network isn't communicating, or is otherwise unable to load balance. The easiest way to restore service (after checking that network ACLs haven't changed), is to remove the Swarm node workers with `docker swarm leave` and then have each node re-join the swarm. This will reset the overlay routing.
