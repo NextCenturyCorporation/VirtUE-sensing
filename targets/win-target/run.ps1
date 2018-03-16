@@ -1,3 +1,3 @@
 # Spin up our sensors
 echo "Starting Sensors"
-powershell c:\opt\sensor_startup\run_sensors.ps1
+Start-Process -FilePath powershell.exe -ArgumentList 'c:\opt\sensor_startup\run_sensors.ps1' -Wait

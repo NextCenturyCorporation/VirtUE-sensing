@@ -1,2 +1,4 @@
+@echo off
+SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass
 
-%POWERSHELL% c:\opt\sensor_startup\run_tasklist_sensor.ps1
+%POWERSHELL% %SystemDrive%\opt\sensor_startup\run_tasklist_sensor.ps1

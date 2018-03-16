@@ -23,12 +23,13 @@ DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
 
 REM REQUIREMENTS.TXT install and run
 MKDIR %SystemDrive%\app\requirements
-XCOPY /Y /S /F /V requirements\*.* %SystemDrive%\app\requirements/
+XCOPY /Y /S /F /V requirements\*.* %SystemDrive%\app\requirements\
 %SystemDrive%\Python%PYTHONVER%\scripts\pip.exe install -r %SystemDrive%\app\requirements\requirements_master.txt
 
 REM SENSOR LIBRARIES
 MKDIR %SystemDrive%\app\sensor_libraries
 XCOPY /Y /S /F /V sensor_libraries\*.* %SystemDrive%\app\sensor_libraries\
+REM Install Sensor Wrapper
 PUSHD %SystemDrive%\app\sensor_libraries
 %POWERSHELL% .\install.ps1
 POPD
@@ -36,16 +37,17 @@ POPD
 REM Run the pip install script for required OS support in sensors
 %POWERSHELL% %SystemDrive%\app\sensor_libraries\pip_install.ps1
 
-REM SENSORS
+REM Install Sensors
 MKDIR %SystemDrive%\opt
 MKDIR %SystemDrive%\opt\sensors\
 XCOPY /Y /S /F /V sensors\*.* %SystemDrive%\opt\sensors\
+POPD
 
 REM RUN SCRIPTS
 MKDIR %SystemDrive%\opt\sensor_startup
 XCOPY /Y /S /F /V sensor_startup\*.* %SystemDrive%\opt\sensor_startup\
 
-REM Service components
+REM Service Components
 COPY /Y run.ps1 %SystemDrive%\app
 
 %POWERSHELL% %SystemDrive%\app\run.ps1
