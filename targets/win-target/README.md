@@ -3,7 +3,8 @@ Windows Sensors - Dummy Sensor Installation and Run Instructions
 Mark Sanderson
 mark.sanderson@twosixlabs.com
 
-# For now, Docker will not be used to containerize the Windows Sensors.  This product is still fairly immature.   There were a number of issues including randomvirtual network malfunction and etc that prevented Docker from being useful.
+# Docker Issues
+For now, Docker will not be used to containerize the Windows Sensors.  This product is still fairly immature.   There were a number of issues including randomvirtual network malfunction and etc that prevented Docker from being useful.
 
 # Building and running the Windows Dummy Sensor
 
