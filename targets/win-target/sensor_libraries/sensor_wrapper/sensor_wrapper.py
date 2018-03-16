@@ -3,10 +3,9 @@ __VERSION__ = "1.20171117"
 
 
 import argparse
-import asyncio
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl, spawn
+from curio import Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl, spawn
 import curequests
 import email
 import hashlib
@@ -787,11 +786,17 @@ class SensorWrapper(object):
             # sure we set the correct permissions (0x600)
             with open(self.opts.public_key_path, "w") as public_key_file:
                 public_key_file.write(pub_key)
-            os.chmod(self.opts.public_key_path, 0o600)
+            if sys.platform != 'win32':
+                os.chmod(self.opts.public_key_path, 0o600)
+            else:
+                pass
 
             with open(self.opts.private_key_path, "w") as private_key_file:
                 private_key_file.write(priv_key)
-            os.chmod(self.opts.private_key_path, 0x600)
+            if sys.platform != 'win32':
+                os.chmod(self.opts.private_key_path, 0x600)
+            else:
+                pass
 
             # we can now spin up our HTTPS actuation listener using our new keys
             ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
