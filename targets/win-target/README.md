@@ -5,7 +5,7 @@ mark.sanderson@twosixlabs.com
 
 # Differences And Caveats
 ## Docker Issues
-For now, Docker will not be used to containerize the Windows Sensors.  This product is still fairly immature.   There were a number of issues including randomvirtual network malfunction and etc that prevented Docker from being useful.
+For now, Docker *will not* be used to containerize the Windows Sensors.  The Windows 10 Docker product is still fairly immature, and it is not clear if we'll be able to take advantage of it's functionality in the future.  There were a number of issues including random virtual network malfunctions and etc that prevented Docker from being useful.
 ## Cert Directory
 The Cert directores keys are populated statically from a Linux version of of openssl.  I could not find an 'official' vesion of openssl running on Windows 10 that would immediately meet my needs.  I will utilize other mechanisms to dynamically generate these keys at later stage in the development process.
 ## curio
