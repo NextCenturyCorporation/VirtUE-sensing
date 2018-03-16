@@ -7,7 +7,7 @@ mark.sanderson@twosixlabs.com
 ## Docker Issues
 For now, Docker *will not* be used to containerize the Windows Sensors.  The Windows 10 Docker product is still fairly immature, and it is not clear if we'll be able to take advantage of it's functionality in the future.  There were a number of issues including random virtual network malfunctions and etc that prevented Docker from being useful.
 ## Cert Directory
-The Cert directores keys are populated statically from a Linux version of of openssl.  I could not find an 'official' vesion of openssl running on Windows 10 that would immediately meet my needs.  I will utilize other mechanisms to dynamically generate these keys at later stage in the development process.
+The Cert directores keys are populated statically from a Linux version of of openssl.  I could not find an 'official' version of openssl running on Windows 10 that would immediately meet my needs.  I will utilize other mechanisms to dynamically generate these keys at a later stage in the development process.
 ## curio
 The curio.subprocess.Popen function fail to run with an attribute error indicating that the setblocking function is missing.  This is somewhat expected as the select/poll model that curio uses is not fully compatable with how windows expects things.  Obviously, some kind of work around must be put in place.
 
@@ -18,9 +18,11 @@ The curio.subprocess.Popen function fail to run with an attribute error indicati
 3. Switch the branch to 'enh-create-win10-dummy-sensor':
 ```Cmd
 git checkout enh-create-win10-dummy-sensor
+```
 4. from the savior\targets\win-target subdirectory on the virtual machine execute the build batch file:
 ```Cmd
 .\build.bat
+```
 5. Visual Studio 2017 build environment with VS 2015 components will be the first requirements to be installed.  VS 2017 is required by at least module to compile required native code.
 6. Python 3.6.4 will be installed next, and you will need to be there to click through some of the UAC and python installation menu prompts.  The choices should be obvious, let me know if there is something unexpected in the installer prompting.
 7. Python requirements will be installed after the the python installer exits.  There are at least one required python packages that require the VS build enviornment, notably the http package.
