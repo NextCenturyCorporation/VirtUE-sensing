@@ -1,4 +1,0 @@
-pywin32
-pytest
-nose
-wmi
