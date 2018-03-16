@@ -1,2 +1,1 @@
-@echo off
-@echo No OS Support Installations Required
+echo "No OS Support Installations Required"
