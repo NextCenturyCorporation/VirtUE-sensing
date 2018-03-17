@@ -35,12 +35,20 @@ The curio package utilizes the select.select function within its kernel subsyste
 
 ```
 select.select(rlist, wlist, xlist[, timeout])
-This is a straightforward interface to the Unix select() system call. The first three arguments are sequences of ‘waitable objects’: either integers representing file descriptors or objects with a parameterless method named fileno() returning such an integer:
+This is a straightforward interface to the Unix select() system call. The first 
+three arguments are sequences of ‘waitable objects’: either integers 
+representing file descriptors or objects with a parameterless method named 
+fileno() returning such an integer:
 
 rlist: wait until ready for reading
 wlist: wait until ready for writing
-xlist: wait for an “exceptional condition” (see the manual page for what your system considers such a condition)
-Empty sequences are allowed, but acceptance of three empty sequences is platform-dependent. (It is known to work on Unix but not on Windows.) The optional timeout argument specifies a time-out as a floating point number in seconds. When the timeout argument is omitted the function blocks until at least one file descriptor is ready. A time-out value of zero specifies a poll and never blocks.
+xlist: wait for an **exceptional condition** (see the manual page for what your system considers such a condition)
+Empty sequences are allowed, but acceptance of three empty sequences is 
+platform-dependent. (It is known to work on Unix but not on Windows.) 
+The optional timeout argument specifies a time-out as a floating point number 
+in seconds. When the timeout argument is omitted the function blocks until at 
+least one file descriptor is ready. A time-out value of zero specifies a 
+poll and never blocks.
 ```
 
 Further information can be derived from the Windows select https://msdn.microsoft.com/en-us/library/ms740141(VS.85).aspx Note that the error 'WSAEINVAL' states it occurs when "The time-out value is not valid, or all three descriptor parameters were null."  Of course, calling select with 3 descriptor as empty is completely valid in the Linux/Unix Operating Systems.
