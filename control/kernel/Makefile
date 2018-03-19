@@ -11,15 +11,15 @@ all: uname
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 clean:
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
-		rm uname.h &>/dev/null
+		rm uname.h &>/dev/null  ||:
 
 .PHONY: jsonl-clean
 jsonl-clean:
-	rm jsonl strscp.o jsmn.o &>/dev/null ||:
+	rm jsonl jsonl.o jsmn.o &>/dev/null ||:
 
-jsonl: strscp.c jsmn/jsmn.c
-	  gcc -g -c strscp.c jsmn/jsmn.c
-		gcc -g -o jsonl strscp.o jsmn.o
+jsonl: jsonl.c jsmn/jsmn.c
+	  gcc -D JSMN_PARENT_LINKS -D JSMN_STRICT -D USERSPACE -g -c jsonl.c jsmn/jsmn.c
+		gcc -g -o jsonl jsonl.o jsmn.o
 
 .PHONY: jsonl-test
 jsonl-test: jsonl
