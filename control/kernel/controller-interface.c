@@ -2,7 +2,6 @@
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
-
 #include "controller.h"
 #include "jsmn/jsmn.h"
 #include "jsmn/jsmn.c"
@@ -56,6 +55,9 @@ static int k_socket_read(struct socket *s, int n, void *in)
 	set_fs(oldfs);
 	return ccode;
 }
+
+
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 static int k_socket_write(struct socket *s, int n, void *out)
 {
@@ -118,7 +120,7 @@ static int read_parse_message(struct jsmn_message *m)
 
 again:
 	ccode = k_socket_read(m->socket, m->len, m->line);
-	if ((ccode > 0) && (ccode <= m->len)) {
+	if (ccode > 0) {
 		bytes_read += ccode;
 		/* make sure that the read buffer is terminated with a zero */
 		line_save = m->line;
@@ -141,11 +143,6 @@ again:
 				m->line += bytes_read;
 				goto again;
 			}
-		} else if (m->count < 0) {
-			kfree(m->line);
-			m->line = NULL;
-			m->len = 0;
-			return m->count;
 		}
 		/* set ccode to the number of tokens */
 		ccode = m->count;
@@ -154,9 +151,8 @@ again:
 }
 
 
-
-
-static void k_read_write(struct kthread_work *work)
+static void
+k_read_write(struct kthread_work *work)
 {
 	int ccode = 0;
 	/**
@@ -165,9 +161,9 @@ static void k_read_write(struct kthread_work *work)
 	 * these buffers are 1k each. if we needs more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
-	uint8_t *read_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
-	uint8_t *write_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	uint8_t *read_buf = NULL;
 
+	struct jsmn_message *m = NULL;
 	struct socket *sock = NULL;
 	struct kthread_worker *worker = work->worker;
 	struct connection *connection =
@@ -179,16 +175,56 @@ static void k_read_write(struct kthread_work *work)
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 
 	sock = connection->connected;
-
-	ccode = k_socket_read(sock, 1, read_buf);
-
-	ccode = k_socket_write(sock, 1, write_buf);
-
-	if (! SHOULD_SHUTDOWN ) {
-		init_and_queue_work(work, worker, k_read_write);
+	read_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (read_buf == NULL) {
+		return;
 	}
-};
 
+again:
+	ccode = k_socket_read(sock, CONNECTION_MAX_HEADER - 1, read_buf);
+	if (ccode < 0){
+		if (ccode == -EAGAIN) {
+			goto again;
+		}
+		connection->connected = NULL;
+		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+		goto err_out1;
+	}
+	m = new_message(read_buf, CONNECTION_MAX_HEADER);
+	if(!m) {
+		goto err_out1;
+	}
+
+	m->socket = sock;
+	m->count = read_parse_message(m);
+	if (m->count < 0) {
+		/* for some reason, didn't read a valid json object */
+		goto err_out0;
+	}
+
+	/**
+	 * following call, if successful, will dispatch to the
+	 * correct message handler
+	 **/
+	ccode = parse_json_message(m);
+	if (ccode < 0) {
+		goto err_out0;
+	}
+
+ 	if (! SHOULD_SHUTDOWN ) {
+		/* do it all again */
+ 		init_and_queue_work(work, worker, k_read_write);
+ 	}
+
+err_out0:
+	free_message(m);
+	goto err_out2;
+err_out1:
+	kfree(read_buf);
+err_out2:
+	sock_release(sock);
+	return;
+}
 
 static void k_accept(struct kthread_work *work)
 {
