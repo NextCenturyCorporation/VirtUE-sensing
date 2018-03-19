@@ -547,12 +547,16 @@ parse_json_message(struct jsmn_message *m)
 	int i = 0, ccode = 0;
 
 	assert(m);
-	jsmn_init(&m->parser);
-	m->count = jsmn_parse(&m->parser,
-						  m->line,
-						  m->len,
-						  m->tokens,
-						  MAX_TOKENS);
+	if (!m->count) {
+
+		jsmn_init(&m->parser);
+		m->count = jsmn_parse(&m->parser,
+							  m->line,
+							  m->len,
+							  m->tokens,
+							  MAX_TOKENS);
+	}
+
 	if (m->count < 0 ) {
 		printk(KERN_INFO "failed to parse JSON: %d\n", (int)m->count);
 		return m->count;
