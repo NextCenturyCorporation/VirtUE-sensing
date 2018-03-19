@@ -343,7 +343,7 @@ struct kernel_ps_probe {
 
 /* max message header size */
 #define CONNECTION_MAX_HEADER 0x400
-
+#define CONNECTION_MAX_MESSAGE 0x1000
 /* connection struct is used for both listening and connected sockets */
 /* function pointers for listen, accept, close */
 struct connection {

@@ -23,7 +23,6 @@ init_connection(struct connection *, uint64_t, void *);
  * sk refers to struct sock
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
-
 static int k_socket_read(struct socket *s, int n, void *in)
 {
 	struct msghdr msg;
@@ -89,11 +88,85 @@ static int k_socket_write(struct socket *s, int n, void *out)
 	return ccode;
 }
 
+/**
+ * struct message is assumed to be partially initialized:
+ * m->spinlock
+ * m->line points to a buffer
+ * m->len is the size of the buffer, but will get re-initialized to
+ *        the number of bytes read
+ * everything else will be initialized by the function
+ *
+ * if json_parse returns JSMN_ERROR_PART we need to realloc
+ * a larger buffer and continue reading, but we set a hard limit
+ * at CONNECTION_MAX_MESSAGE, by default 4k.
+ * the initial buffer size is expected to be CONNECTION_MAX_HEADER,
+ * by default 1K.
+ *
+ * the linux kernel is mostly likely to be acting as a server of the
+ * sensor protocol, and request messages are expected to be much smaller
+ * than CONNECTION_MAX_HEADER, so it would be good to re-visit the
+ * definition of CONNECTION_MAX_HEADER, and even the use or krealloc
+ * below.
+ **/
+static int read_parse_message(struct jsmn_message *m)
+{
+	int ccode = 0, len_save = 0, bytes_read = 0;
+	void *line_save = NULL;
+	assert(m && m->line && m->len <= CONNECTION_MAX_MESSAGE);
+	assert(m->socket);
+	len_save = m->len;
+
+again:
+	ccode = k_socket_read(m->socket, m->len, m->line);
+	if ((ccode > 0) && (ccode <= m->len)) {
+		bytes_read += ccode;
+		/* make sure that the read buffer is terminated with a zero */
+		line_save = m->line;
+		m->line[bytes_read] = 0x00;
+		m->len = bytes_read;
+		jsmn_init(&m->parser);
+		m->count = jsmn_parse(&m->parser,
+							  m->line,
+							  m->len,
+							  m->tokens,
+							  MAX_TOKENS);
+		if (m->count == JSMN_ERROR_PART && len_save < CONNECTION_MAX_MESSAGE) {
+            /* it may be valid to realloc and try again */
+			m->line = krealloc(m->line, CONNECTION_MAX_MESSAGE, GFP_KERNEL);
+			if (m->line) {
+				len_save = CONNECTION_MAX_MESSAGE;
+				line_save = m->line;
+				m->len = CONNECTION_MAX_MESSAGE - (1 + bytes_read);
+				*(m->line + CONNECTION_MAX_MESSAGE) = 0x00;
+				m->line += bytes_read;
+				goto again;
+			}
+		} else if (m->count < 0) {
+			kfree(m->line);
+			m->line = NULL;
+			m->len = 0;
+			return m->count;
+		}
+		/* set ccode to the number of tokens */
+		ccode = m->count;
+	}
+	return ccode;
+}
+
+
+
+
 static void k_read_write(struct kthread_work *work)
 {
 	int ccode = 0;
-	uint8_t buf [CONNECTION_MAX_HEADER + 1];
-
+	/**
+	 * allocate these buffers dynamically so this function can
+	 * be re-entrant. Also avoid allocation on the stack.
+	 * these buffers are 1k each. if we needs more space, the
+	 * message handlers will need to realloc the buf for more space
+	 **/
+	uint8_t *read_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	uint8_t *write_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
 
 	struct socket *sock = NULL;
 	struct kthread_worker *worker = work->worker;
@@ -107,8 +180,9 @@ static void k_read_write(struct kthread_work *work)
 
 	sock = connection->connected;
 
-	ccode = k_socket_read(sock, 1, buf);
-	ccode = k_socket_write(sock, 1, buf);
+	ccode = k_socket_read(sock, 1, read_buf);
+
+	ccode = k_socket_write(sock, 1, write_buf);
 
 	if (! SHOULD_SHUTDOWN ) {
 		init_and_queue_work(work, worker, k_read_write);
