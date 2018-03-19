@@ -333,7 +333,7 @@ class NFS3_sattr( PacketNoPad ):
         if self.set_mtime:
             s += "mtime: {} ".format(self.mtime)
         return s
-            
+
 class NFS3_post_op_attr( PacketNoPad ):
     name = "NFS post_op_attr"
     fields_desc = [ IntField( "attribs_follow", 0 ),
@@ -420,7 +420,7 @@ class NFS3_NULL_Reply( Packet ):
     name = "NFS NULL response"
     fields_desc = []
 
-    
+
 ######################################################################
 ## NFS Procedure 1: GETTATTR
 ######################################################################
@@ -449,7 +449,7 @@ class NFS3_SETATTR_Call( Packet ):
                     PacketField( "new_attr", None, NFS3_sattr ),
                     PacketField(    "guard", None, NFS3_sattrguard ), ]
 
-    
+
 class NFS3_SETATTR_Reply( Packet ):
     name = "NFS SETATTR reply"
     fields_desc = [ IntEnumField( "nfs_status",    0, nfs_const.Nfs3_ValStatMap ),
@@ -496,11 +496,11 @@ class NFS3_ACCESS_ReplyOk( Packet ):
     name = "NFS ACCESS reply OK"
     fields_desc = [ PacketField(  "obj", None,    NFS3_post_op_attr ),
                     XIntField( "access",    0 ),                     ]
-    
+
 class NFS3_ACCESS_ReplyFail( Packet ):
     name = "NFS ACCESS reply fail"
     fields_desc = [ PacketField( "obj", None, NFS3_post_op_attr ) ]
-    
+
 class NFS3_ACCESS_Reply( Packet ):
     name = "NFS ACCESS reply"
     fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
@@ -516,7 +516,7 @@ class NFS3_ACCESS_Reply( Packet ):
 class NFS3_READLINK_Call( Packet ):
     name = "NFS READLINK call"
     fields_desc = [ PacketField( "handle", None, NFS3_fhandle ), ]
-    
+
 class NFS3_READLINK_ReplyOk( Packet ):
     name = "NFS READLINK reply OK"
     fields_desc = [ PacketField( "link", None, NFS3_post_op_attr ),
@@ -548,7 +548,7 @@ class NFS3_READ_Call( Packet ):
                     PacketField( "offset", None, NFS3_offset ),
                     PacketField( "count",  None, NFS3_count ), ]
 
-    
+
 class NFS3_READ_ReplyOk( PacketNoPad ):
     name = "NFS READ reply OK"
     fields_desc = [ PacketField(    "file", None, NFS3_post_op_attr ),
@@ -562,7 +562,7 @@ class NFS3_READ_ReplyOk( PacketNoPad ):
 class NFS3_READ_ReplyFail( Packet ):
     name = "NFS READ reply Fail"
     fields_desc = [ PacketField( "file", None, NFS3_post_op_attr ), ]
-    
+
 class NFS3_READ_Reply( Packet ):
     name = "NFS READ reply"
     fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
@@ -613,18 +613,18 @@ class NFS3_WRITE_Call( Packet ):
                     IntEnumField( "stable",    0, nfs_const.Nfs3_ValStableMap ),
                     IntField(   "data_len",    0 ),
                     StrField(       "data",    ""), ]
-    
+
 class NFS3_WRITE_ReplyOk( Packet ):
     name = "NFS WRITE reply OK"
     fields_desc = [ PacketField(        "wcc", None, NFS3_wcc_data ),
                     XIntField(        "count",    0 ),
                     IntEnumField( "committed",    0, nfs_const.Nfs3_ValStableMap ),
                     PacketField(  "writeverf", None, NFS3_writeverf ) ]
-    
+
 class NFS3_WRITE_ReplyFail( Packet ):
     name = "NFS WRITE reply fail"
     fields_desc = [ PacketField( "wcc", None, NFS3_wcc_data ), ]
-    
+
 class NFS3_WRITE_Reply( Packet ):
     name = "NFS WRITE reply"
     fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
@@ -649,13 +649,13 @@ class NFS3_CREATE_Call( Packet ):
                     ConditionalField( PacketField( "how", None, NFS3_createverf ),
                                       lambda pkt: pkt.mode in (
                                           nfs_const.Nfs3_CreateModeValMap['EXCLUSIVE'], ) ), ]
-    
+
 class NFS3_CREATE_ReplyOk( Packet ):
     name = "NFS CREATE reply OK"
     fields_desc = [ PacketField( "handle", None, NFS3_post_op_fh ),
                     PacketField(   "attr", None, NFS3_post_op_attr ),
                     PacketField(    "wcc", None, NFS3_wcc_data ),    ]
-    
+
 class NFS3_CREATE_ReplyFail( Packet ):
     name = "NFS CREATE reply fail"
     fields_desc = [ PacketField( "wcc", None, NFS3_wcc_data ), ]
@@ -687,7 +687,7 @@ class NFS3_MKDIR_ReplyOk( Packet ):
 class NFS3_MKDIR_ReplyFail( Packet ):
     name = "NFS MKDIR reply fail"
     fields_desc = [ PacketField( "wcc", None, NFS3_wcc_data ), ]
-    
+
 class NFS3_MKDIR_Reply( Packet ):
     name = "NFS MKDIR reply"
     fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
@@ -715,7 +715,7 @@ class NFS3_SYMLINK_ReplyOk( Packet ):
 class NFS3_SYMLINK_ReplyFail( Packet ):
     name = "NFS SYMLINK reply fail"
     fields_desc = [ PacketField( "wcc", None, NFS3_wcc_data ), ]
-    
+
 class NFS3_SYMLINK_Reply( Packet ):
     name = "NFS SYMLINK reply"
     fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
@@ -776,7 +776,7 @@ class NFS3_RENAME_Reply( Packet ):
                     PacketField(       "ffrom", None, NFS3_wcc_data ),
                     PacketField(         "fto", None, NFS3_wcc_data ), ]
 
-    
+
 ######################################################################
 ## NFS Procedure 15 (section 3.3.15): LINK
 ######################################################################
@@ -806,7 +806,7 @@ class NFS3_READDIR_entry( Packet ):
                     PacketField(         "fname", None, NFS3_fname ),
                     PacketField(        "cookie", None, NFS3_cookie ),
                     IntField(    "entry_follows", False ) ]
-    
+
     @staticmethod
     def next_entry( pkt, lst, curr, remain ):
         if (not curr) or curr.entry_follows:
@@ -844,7 +844,7 @@ class NFS3_READDIR_Reply( Packet ):
 ######################################################################
 ## NFS Procedure 17 (section 3.3.17): READDIRPLUS
 ######################################################################
-        
+
 class NFS3_READDIRPLUS_Call( Packet ):
     name = "NFS READDIRPLUS call"
     fields_desc = [ PacketField(     "handle", None, NFS3_fhandle ),
@@ -865,7 +865,7 @@ class NFS3_READDIRPLUS_entry( PacketNoPad ):
                     PacketField(       "file", None, NFS3_post_op_fh ),
                     # struct entryplus3 { ... entryplus3 * nextentry }
                     IntField( "entry_follows", False ), ]
-        
+
     @staticmethod
     def next_entry( pkt, lst, curr, remain ):
         if (not curr) or curr.entry_follows:
@@ -916,18 +916,18 @@ class NFS3_FSSTAT_ReplyOk( Packet ):
                     PacketField( "tbytes", None, NFS3_size ),
                     PacketField( "fbytes", None, NFS3_size ),
                     PacketField( "abytes", None, NFS3_size ),
-                    
+
                     PacketField( "tfiles", None, NFS3_size ),
                     PacketField( "ffiles", None, NFS3_size ),
                     PacketField( "afiles", None, NFS3_size ),
 
                     IntField(  "invarsec",    0 ), ]
-    
+
 
 class NFS3_FSSTAT_ReplyFail( Packet ):
     name = "NFS FSSTAT reply fail"
     fields_desc = [ PacketField( "fs"  , None, NFS3_post_op_attr ), ]
-    
+
 class NFS3_FSSTAT_Reply( Packet ):
     name = "NFS FSSTAT reply"
     fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
@@ -946,11 +946,11 @@ class NFS3_FSSTAT_Reply( Packet ):
 class NFS3_FSINFO_Call( Packet ):
     name = "NFS FSINFO call"
     fields_desc = [ PacketField( "root", None, NFS3_fhandle ), ]
-    
+
 class NFS3_FSINFO_ReplyFail( Packet ):
     name = "NFS FSINFO reply fail"
     fields_desc = [ PacketField( "fs"  , None, NFS3_post_op_attr ), ]
-        
+
 class NFS3_FSINFO_ReplyOk( PacketNoPad ):
     name = "NFS FSINFO reply OK"
     fields_desc = [ PacketField(          "fs", None, NFS3_post_op_attr ),
@@ -963,7 +963,7 @@ class NFS3_FSINFO_ReplyOk( PacketNoPad ):
                     XIntField(        "wtmult",    0 ),
 
                     XIntField(        "dtmult",    0 ),
-                    
+
                     PacketField( "maxfilesize", None, NFS3_size ),
                     PacketField(  "time_delta", None, NFS3_time ),
                     XIntField(    "properties",    0 ), ] # nfs_const.Nfs3_ValFsinfoMap
@@ -985,7 +985,7 @@ class NFS3_FSINFO_Reply( Packet ):
 class NFS3_PATHCONF_Call( Packet ):
     name = "NFS PATHCONF call"
     fields_desc = [ PacketField( "path", None, NFS3_fhandle ), ]
-    
+
 class NFS3_PATHCONF_ReplyOk( Packet ):
     name = "NFS PATHCONF reply OK"
     fields_desc = [ PacketField(            "dir", None, NFS3_post_op_attr ),
@@ -995,11 +995,11 @@ class NFS3_PATHCONF_ReplyOk( Packet ):
                     XIntField( "chown_restricted",    0 ),
                     XIntField( "case_insensitive",    0 ),
                     XIntField(  "case_preserving",    0 ), ]
-    
+
 class NFS3_PATHCONF_ReplyFail( Packet ):
     name = "NFS PATHCONF reply fail"
     fields_desc = [ PacketField( "pathconf"  , None, NFS3_post_op_attr ), ]
-    
+
 class NFS3_PATHCONF_Reply( Packet ):
     name = "NFS PATHCONF reply"
     fields_desc = [ PacketField( "nfs_status", 0, NFS3_status ), ]
@@ -1065,7 +1065,7 @@ nfs3_call_lookup = {
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_PATHCONF'    ] : NFS3_PATHCONF_Call,
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_COMMIT'      ] : NFS3_COMMIT_Call,
 }
- 
+
 ## Lookup table: Procedure value --> Response handler
 nfs3_reply_lookup = {
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_NULL'        ] : NFS3_NULL_Reply,
@@ -1090,7 +1090,7 @@ nfs3_reply_lookup = {
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_FSINFO'      ] : NFS3_FSINFO_Reply,
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_PATHCONF'    ] : NFS3_PATHCONF_Reply,
     nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_COMMIT'      ] : NFS3_COMMIT_Reply,
-} 
+}
 
 
 ######################################################################
@@ -1163,7 +1163,7 @@ class MOUNT3_EXPORT_Reply( Packet ):
     name = "NFS EXPORT reply"
     fields_desc = []
 
-    
+
 # Not all procedures are implemented by us
 mount3_call_lookup = {
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_NULL'    ] : MOUNT3_NULL_Call,
@@ -1199,7 +1199,7 @@ class PORTMAP_NULL_Call( Packet ):
 class PORTMAP_NULL_Reply( Packet ):
     name = "PORTMAP NULL reply"
     fields_desc = []
-    
+
 ######################################################################
 ## PORTMAP Procedure 3 (section 3.1, 3.2) GETPORT
 ######################################################################
@@ -1216,7 +1216,7 @@ class PORTMAP_GETPORT_Call( Packet ):
 class PORTMAP_GETPORT_Reply( Packet ):
     name = "PORTMAP GETPORT reply"
     fields_desc = [ IntField( "port", 0 ) ]
-    
+
     def post_dissection( self, pkt ):
         """ Bind newly-discovered port to RPC """
         request = self.underlayer.underlayer.rpc_call
@@ -1269,7 +1269,7 @@ class RPC_status( PacketNoPad ):
 class RPC_Header( Packet ):
     """ RPC Header. Replies save a reference to their caller packets. """
     __slots__ = Packet.__slots__ + [ 'rpc_call' ]
-    
+
     name = "RPC Header (NF)"
     fields_desc = [ XIntField(          "xid", None ),
                     IntEnumField( "direction", None, nfs_const.ValMsgTypeMap ) ]
@@ -1288,7 +1288,7 @@ class RPC_Header( Packet ):
             raise RuntimeError( "Bad RPC header" )
         dobreak()
         return pay
-            
+
     def _validate( self ):
         if self.direction not in nfs_const.ValMsgTypeMap:
             logging.warning( "Rejecting XID {:x} as RPC packet (READ/WRITE continuation?)"
@@ -1296,14 +1296,14 @@ class RPC_Header( Packet ):
             dobreak()
             self.remove_payload()
             raise RuntimeError( "Illegal RPC packet direction" )
-            
+
     seen = False
     def guess_payload_class( self, payload ):
         #if self.xid is None or self.xid in ( #0x7cfc2417,
         #        0x7dfc2417, ) or RPC_Header.seen:
         #    pdb.set_trace()
         #    RPC_Header.seen = True
-            
+
         if self.direction is nfs_const.MsgTypeValMap['CALL']:
             logging.debug( "CALL XID: {:x}".format( self.xid ) )
             return RPC_Call
@@ -1336,7 +1336,7 @@ class RPC_Header( Packet ):
             if not ( isinstance( self.underlayer, RPC_RecordMarker ) and
                      not self.underlayer.last ):
                 del xid_call_map[ xid ]
-                
+
 class RPC_RecordMarker( Packet ):
     # Called "Fragment Header" in Wireshark
     name = "RPC Header (F)"
@@ -1352,7 +1352,7 @@ class RPC_RecordMarker( Packet ):
         # (0x8000 = 2^15) chunks.
 
         maxsize = 2**16
-        
+
         (field, ) = struct.unpack( "!I", pay[:4] )
 
         last = (field >> 20) # should be either 0 or 0x800
@@ -1375,7 +1375,7 @@ class RPC_RecordMarker( Packet ):
             self.remove_payload()
             raise RuntimeError( "Rejecting as RPC Record Marker / Fragment Header" )
     '''
-    
+
     # Always followed by RPC Header
     def guess_payload_class( self, payload ):
         return RPC_Header
@@ -1383,12 +1383,12 @@ class RPC_RecordMarker( Packet ):
     def post_dissection( self, pkt ):
         """ Adjust fields due to imprecision above """
 
-        self.len = ( (self.last & 0x7f) << 24) | self.len        
+        self.len = ( (self.last & 0x7f) << 24) | self.len
         if self.last:
             self.last = 1
         else:
             self.last = 0
-            
+
 class RPC_AuthNull( PacketNoPad ):
     name = "RPC Authorization NULL"
     fields_desc = []
@@ -1404,7 +1404,7 @@ class RPC_AuthSys( PacketNoPad ):
     #   unsigned int gids<16>;
     # };
 
-    fields_desc = [ XIntField(          "stamp",  0 ), 
+    fields_desc = [ XIntField(          "stamp",  0 ),
                     FieldLenField(   "name_len",  0, fmt='I', length_of="machine_name" ),
                     StrLenField( "machine_name",  0, length_from=lambda pkt: pkt.name_len),
                     StrFixedLenField(     "pad", "", length_from=lambda pkt:(-pkt.name_len % 4) ),
@@ -1420,14 +1420,14 @@ class RPC_AuthSys( PacketNoPad ):
                          str(self.uid),
                          str(self.gid),
                          self.aux_gids ) )
-    
+
 # Broken
 '''
 class RPC_Auth( Packet ):
     name = "RPC Auth"
     fields_desc = [ IntEnumField( "flavor", 0, nfs_const.ValAuthMap ),
                     XIntField(         "l", 0 ), ]
-                        
+
     #def guess_payload_class( self, payload ):
     #    if self.cred_flav == nfs_const.AuthValMap[ 'AUTH_UNIX' ]:
     #        return RPC_AuthSys
@@ -1541,7 +1541,7 @@ def RPC_Validator( Packet ):
     fields_desc = []
     # ??????????????????????????
 
-    
+
 def bind_port_to_rpc( port, bind_udp=False, bind_tcp=False ):
     if bind_udp:
         bind_layers( UDP, RPC_Header, sport=port )
@@ -1555,7 +1555,7 @@ def bind_port_to_rpc( port, bind_udp=False, bind_tcp=False ):
                   format( port,
                           { False : "", True : "TCP" } [bind_udp],
                           { False : "", True : "UDP" } [bind_tcp] ) )
-        
+
 
 ######################################################################
 ## Global settings
@@ -1571,5 +1571,3 @@ def init():
     # 2049 - nfs
     for p in (111, 955, 2049):
         bind_port_to_rpc( p, bind_udp=True, bind_tcp=True )
-
-

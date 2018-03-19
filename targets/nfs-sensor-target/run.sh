@@ -23,7 +23,7 @@ fi
 if [ -n "$NFS_SENSOR_STANDALONE" ]
 then
     echo "NFS sensor starting in standalone mode"
-    # Useful for debugging only....    
+    # Useful for debugging only....
     python /opt/sensors/standalone_nfs_tap.py --iface $NFS_SENSOR_SNIFF_INTERFACE
 
 else

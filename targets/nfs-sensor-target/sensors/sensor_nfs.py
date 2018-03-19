@@ -49,7 +49,7 @@ async def recv_pkt( pkt, message_queue ):
     if not r:
         return
     (level, data) = r
-    
+
     logmsg = { "timestamp" : datetime.now().isoformat(),
                "level"     : level,
                "action"    : data }
@@ -76,7 +76,7 @@ async def nfs3_sniff(message_stub, config, message_queue):
     async for line in p.stdout:
         print("    " + line )
     p.close()
-    
+
     nfs.init()
 
     sock = conf.L2listen(type=ETH_P_ALL, iface=iface)

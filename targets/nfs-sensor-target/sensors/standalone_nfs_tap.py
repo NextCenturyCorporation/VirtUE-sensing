@@ -41,7 +41,7 @@ async def recv_pkt( pkt ):
     if not r:
         return
     (level, data) = r
-    
+
     logmsg = { "timestamp" : datetime.now().isoformat(),
                "level"     : level,
                "action"    : data }
@@ -77,16 +77,17 @@ async def async_sniff( loop,iface ):
                 p.sniffed_on = sock
                 await recv_pkt( p )
 
+
 async def proc_all_pkts( pkts ):
     for p in pkts:
         await recv_pkt( p )
 
 
 if __name__ == "__main__":
-    # setup commandline arguments 
-    parser = argparse.ArgumentParser( description='NFS Protocol Sniffer' ) 
+    # setup commandline arguments
+    parser = argparse.ArgumentParser( description='NFS Protocol Sniffer' )
     parser.add_argument( '--iface', action="store",
-                         dest="iface", default=None ) 
+                         dest="iface", default=None )
 
     parser.add_argument( "--pcap", action="store",
                          dest="pcap", default=None )
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     if not args.iface and not args.pcap:
         parser.error( "Must specify one of --iface or --pcap" )
         sys.exit( 1 )
-        
+
     nfs.init()
 
     loop = asyncio.get_event_loop()
@@ -110,4 +111,3 @@ if __name__ == "__main__":
         loop.run_until_complete( proc_all_pkts( pkts ) )
     else:
         loop.run_until_complete( async_sniff( loop, args.iface ) )
-    

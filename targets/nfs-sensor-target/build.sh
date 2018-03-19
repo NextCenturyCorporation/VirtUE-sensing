@@ -23,7 +23,7 @@ docker build -t $_image .
 
 exit 0
 
-# Build container --network=$_net 
+# Build container --network=$_net
 docker create \
        --name $_container $_image /bin/bash
 

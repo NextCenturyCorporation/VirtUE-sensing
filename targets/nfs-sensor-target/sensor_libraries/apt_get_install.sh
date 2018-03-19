@@ -4,4 +4,4 @@
 apt-get install -y vim vim-gtk
 
 # DHCP
-apt-get install -y isc-dhcp-client 
+apt-get install -y isc-dhcp-client

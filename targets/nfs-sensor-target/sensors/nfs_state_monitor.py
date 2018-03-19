@@ -37,7 +37,7 @@ def _create_handle_mapping( path, handle, rpc_call ):
     name_handle_map[ path ]   = handle
     logging.debug( "Handle {} <--> Path '{}', user {}"
                    .format( handle, path, get_auth_str(rpc_call) ) )
-    
+
 def _destroy_handle_mapping( path=None, handle=None ):
     if (path and handle) or (not path and not handle):
         raise RuntimeError( "Pass in exactly one of [handle, path]" )
@@ -58,13 +58,13 @@ def _create_mount_mapping( path, handle, rpc_call ):
     active_mount_map[ path ] = handle
     _create_handle_mapping( path, handle, rpc_call )
 
-    
+
 def _destroy_mount_mapping( path ):
     for k in [ p for p in name_handle_map.keys()
                if str(p).startswith( str(path) ) ]:
         _destroy_handle_mapping( path=k )
     del active_mount_map[ path ]
-    
+
 
 def get_path( handle ):
     return str( handle_name_map.get( handle, '{unknown}' ))
@@ -98,7 +98,7 @@ def is_reply_parsable( rpc_reply, rpc_call ):
             # Operation failed, nothing more to do for state update
             return False
         return True
-    
+
     elif rpc_call.prog == nfs_const.ProgramValMap['nfs']:
         # If the operation failed or the reply has no NFS status, then skip it
         try:
@@ -111,8 +111,8 @@ def is_reply_parsable( rpc_reply, rpc_call ):
 
     # Unsupported program
     return False
-    
-    
+
+
 def update_state( pkt ):
     global pkt_ct
     pkt_ct += 1
@@ -127,7 +127,7 @@ def update_state( pkt ):
 
     if not is_reply_parsable( rpc_reply, rpc_call ):
         return
-    
+
     # Update state for certain program / procedure combinations
     if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
 
@@ -142,7 +142,7 @@ def update_state( pkt ):
                 _destroy_mount_mapping( k )
 
     elif rpc_call.prog == nfs_const.ProgramValMap['nfs']:
-        
+
         if rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LOOKUP' ]:
             new = os.path.join( get_path( rpc_call.args.handle ),
                                 str(rpc_call.args.fname) )
@@ -171,7 +171,7 @@ def update_state( pkt ):
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RMDIR' ]:
             _destroy_handle_mapping( name=os.path.join( get_path( rpc_call.args.handle ),
                                                         rpc_call.args.name ) )
-            
+
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RENAME' ]:
             from_name = os.path.join( get_path( rpc_call.ffrom.handle ),
                                       str(rpc_call.ffrom.fname) )
@@ -181,7 +181,7 @@ def update_state( pkt ):
             _destroy_handle_mapping( name=from_name )
             _create_handle_mapping( to_name, get_handle( from_name ), rpc_call )
 
-            
+
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_LINK' ]:
             if rpc_reply.file.handle_follows:
                 _create_handle_mapping( os.path.join( get_path( rpc_call.link.handle ),

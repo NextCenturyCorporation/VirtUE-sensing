@@ -43,7 +43,7 @@ def _handle_nfs3_null( rpc_call, rpc_reply ):
                "path"    : None,
                "who"     : None,
                "status"  : None } )
-    
+
 def _handle_nfs3_getattr( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.handle )
 
@@ -56,7 +56,7 @@ def _handle_nfs3_getattr( rpc_call, rpc_reply ):
 
 def _handle_nfs3_setattr( rpc_call, rpc_reply ):
     path = state.get_path( rpc_call.handle )
-    
+
     logging.debug( "#{} NFS setattr: {} to {} by {} status {}"
                    .format( state.pkt_ct, path, str(rpc_call.new_attr),
                             state.get_auth_str(rpc_call), str( rpc_reply.nfs_status ) ) )
@@ -158,7 +158,7 @@ def _handle_nfs3_symlink( rpc_call, rpc_reply ):
     path = os.path.join( state.get_path( rpc_call.where.handle ),
                          rpc_call.where.fname )
     target = rpc_call.symlink.path
-    
+
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "symlink",
@@ -166,7 +166,7 @@ def _handle_nfs3_symlink( rpc_call, rpc_reply ):
                "who"     : state.get_auth_str(rpc_call),
                "status"  : str( rpc_reply.nfs_status ),
                "target"  : target } )
-        
+
 def _handle_nfs3_mknod( rpc_call, rpc_reply ):
 
     # TODO: implement call/reply in nfs.py
@@ -313,12 +313,12 @@ def _get_rpc_status( rpc_call, rpc_reply ):
     # Not all RPC headers are parsed
     status = None
     if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
-        try:    
+        try:
             v = rpc_reply.getfieldval( "status" )
             status = nfs_const.Mount3_ValStatMap[ v ]
         except AttributeError:
             pass
-    
+
     if not status:
         status = rpc_reply.accept_state.v
 
@@ -347,7 +347,7 @@ def _handle_mount3_umnt_all( rpc_call, rpc_reply ):
                "path"    : None,
                "who"     : state.get_auth_str(rpc_call),
                "status"  : _get_rpc_status( rpc_call, rpc_reply ) } )
-    
+
 mount3_handler_lookup = {
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_NULL'    ] : _handle_nop,
     nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_MNT'     ] : _handle_mount3_mnt,
@@ -364,7 +364,7 @@ def _get_program_pkt( rpc ):
         return nfs_const.ValProgramMap.get( rpccall.prog, None )
     else:
         pass
-    
+
 def _get_procedure_pkt( rpc ):
     prog = None
     if prog is 'NFS':
@@ -380,18 +380,18 @@ def _get_rpc_call( rpc ):
     if nfs_const.MsgTypeValMap['CALL'] == rpc.direction:
         rpccall = rpc.getlayer( nfs.RPC_Call )
     else:
-        
+
         rpccall = None
     return rpccall
-        
+
 
 _curr_mount3_handlers = mount3_handler_lookup
 _curr_nfs3_handlers   = nfs3_handler_lookup
-    
+
 def _handler_core( pkt ):
     parse = True
     res = None
-    
+
     rpc = pkt.getlayer( nfs.RPC_Header )
     if (not rpc) or (not rpc.rpc_call):
         parse = False
@@ -407,11 +407,11 @@ def _handler_core( pkt ):
         if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
             # This is a mountd reply. Call its handler with the (call, reply) pair
             res = _curr_mount3_handlers[ rpc_call.proc ] ( rpc_call, rpc )
-            
+
         elif rpc_call.prog == nfs_const.ProgramValMap['nfs']:
             # This is an NFS reply. Call its handler with the (call, reply) pair
             res = _curr_nfs3_handlers[ rpc_call.proc ] ( rpc_call, rpc )
-            
+
         else:
             logging.debug( "Ignoring program {} call/reply with XID {:x}".
                            format( rpc_call.prog, rpc.xid ) )
@@ -427,7 +427,7 @@ def set_rpc_handlers( nfs=None, mount3=None ):
     if mount3:
         _curr_mount3_handlers = mount3
 
-        
+
 # Use only one of these, or write your own
 def pkt_handler_null( pkt ):
     pass
