@@ -29,13 +29,14 @@ then
 else
     echo "NFS sensor starting in integrated mode"
 
-    python /opt/sensors/sensor_nfs.py                 \
-           --iface $NFS_SENSOR_SNIFF_INTERFACE        \
-           --api-host api --sensor-port 11040         \
-           --sensor-hostname localhost                \
-           --ca-key-path      /opt/sensors/nfs_sensor/certs
-           
-    #--public-key-path  /opt/sensors/nfs_sensor/certs/cert.pem     \
-           #--private-key-path /opt/sensors/nfs_sensor/certs/cert-key.pem \
-           #--ca-key-path      /opt/sensors/nfs_sensor/certs
+    echo '127.0.0.1 api' >> /etc/hosts
+
+    python /opt/sensors/sensor_nfs.py                   \
+           --iface $NFS_SENSOR_SNIFF_INTERFACE          \
+           --api-host api --sensor-port 11040           \
+           --sensor-hostname localhost                  \
+           --ca-key-path      /opt/sensors/nfs_sensor/certs          \
+           --public-key-path  /opt/sensors/nfs_sensor/certs/cert.pem \
+           --private-key-path /opt/sensors/nfs_sensor/certs/cert-key.pem
+
 fi
