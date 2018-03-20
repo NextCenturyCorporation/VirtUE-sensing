@@ -19,7 +19,7 @@ import asyncio
 import selectors
 
 sys.path.append( os.path.join( os.path.dirname( os.path.realpath(__file__) ),
-                               '..', 'sensor_libraries', 'scapy-repo' ) )
+                               'scapy' ) )
 
 from scapy.all import * # sniff, rdpcap
 import nfs

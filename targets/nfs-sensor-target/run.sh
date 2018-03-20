@@ -4,6 +4,9 @@
 ## Starts the NFS sensor from within the docker container
 ##
 
+_dsensor=/opt/sensor
+
+
 # Spin up our sensors
 echo " [bash] Starting NFS sensor"
 echo " [bash] env NFS_SENSOR_SNIFF_INTERFACE: \"$NFS_SENSOR_SNIFF_INTERFACE\""
@@ -24,19 +27,19 @@ if [ -n "$NFS_SENSOR_STANDALONE" ]
 then
     echo "NFS sensor starting in standalone mode"
     # Useful for debugging only....
-    python /opt/sensors/standalone_nfs_tap.py --iface $NFS_SENSOR_SNIFF_INTERFACE
+    python /opt/sensor/standalone_nfs_tap.py --iface $NFS_SENSOR_SNIFF_INTERFACE
 
 else
     echo "NFS sensor starting in integrated mode"
 
     echo '127.0.0.1 api' >> /etc/hosts
 
-    python /opt/sensors/sensor_nfs.py                   \
-           --iface $NFS_SENSOR_SNIFF_INTERFACE          \
-           --api-host api --sensor-port 11040           \
-           --sensor-hostname localhost                  \
-           --ca-key-path      /opt/sensors/nfs_sensor/certs          \
-           --public-key-path  /opt/sensors/nfs_sensor/certs/cert.pem \
-           --private-key-path /opt/sensors/nfs_sensor/certs/cert-key.pem
+    python $_dsensor/sensor_nfs.py                   \
+           --iface $NFS_SENSOR_SNIFF_INTERFACE       \
+           --api-host api --sensor-port 11040        \
+           --sensor-hostname localhost               \
+           --ca-key-path      $_dsensor/nfs_sensor/certs          \
+           --public-key-path  $_dsensor/nfs_sensor/certs/cert.pem \
+           --private-key-path $_dsensor/nfs_sensor/certs/cert-key.pem
 
 fi

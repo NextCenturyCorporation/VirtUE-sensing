@@ -14,20 +14,28 @@ RUN mkdir /usr/src/app/requirements
 COPY requirements/sensor_wrapper_requirements.txt /usr/src/app/requirements/
 RUN pip install -r /usr/src/app/requirements/sensor_wrapper_requirements.txt
 
-# SENSOR LIBRARIES
-RUN mkdir /usr/src/app/sensor_libraries
-COPY sensor_libraries /usr/src/app/sensor_libraries/
-WORKDIR /usr/src/app/sensor_libraries
+# COMMON SENSOR LIBRARIES
+RUN mkdir /usr/src/app/libs
+COPY common_libraries /usr/src/app/libs/common
+WORKDIR /usr/src/app/libs/common
 RUN chmod a+x install.sh
 RUN ./install.sh
 
+# SENSOR-SPECIFIC LIBRARY
+COPY sensor/scapy /usr/src/app/libs/scapy
+WORKDIR /usr/src/app/libs
+RUN ls .
+RUN find ./scapy/setup.py
+RUN pip install ./scapy
+
+
 # Run the apt-get install script for required OS support in sensors
-RUN chmod a+x /usr/src/app/sensor_libraries/apt_get_install.sh
-RUN /bin/bash /usr/src/app/sensor_libraries/apt_get_install.sh
+RUN chmod a+x /usr/src/app/libs/common/apt_get_install.sh
+RUN /bin/bash /usr/src/app/libs/common/apt_get_install.sh
 
 # SENSORS
-RUN mkdir /opt/sensors
-COPY sensors/* /opt/sensors/
+RUN mkdir /opt/sensor
+COPY sensor/* /opt/sensor/
 
 # RUN SCRIPTS
 #RUN mkdir /opt/sensor_startup
@@ -35,8 +43,8 @@ COPY sensors/* /opt/sensors/
 #RUN chmod a+x /opt/sensor_startup/*
 
 # Crypto
-RUN  mkdir  /opt/sensors/nfs_sensor
-COPY certs/ /opt/sensors/nfs_sensor/certs/
+RUN  mkdir  /opt/sensor/nfs_sensor
+COPY certs/ /opt/sensor/nfs_sensor/certs/
 
 # Service components
 COPY run.sh /usr/src/app
