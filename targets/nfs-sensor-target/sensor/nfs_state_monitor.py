@@ -88,16 +88,21 @@ def is_reply_parsable( rpc_reply, rpc_call ):
 
         if rpc_reply.accept_state.v != nfs_const.RPC_ACCEPT_SUCCESS:
             return False
-        # Not all MOUNT3 headers are parsed
-        try:
-            status = rpc_reply.getfieldval( "status" )
-        except AttributeError:
-            return False
 
-        if status != nfs_const.MOUNT3_OK:
-            # Operation failed, nothing more to do for state update
-            return False
-        return True
+        # Not all MOUNT3 headers are parsed. XXXX this is hacky.
+
+        # UMNT calls always succeed and don't provide a status. They
+        # are parsable.
+        if rpc_call.proc in (
+                nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNT'    ],
+                nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_UMNTALL' ], ):
+            return True
+
+        if rpc_call.proc == nfs_const.Mount3_ProcedureValMap[ 'MOUNTPROC3_MNT' ]:
+            # parsable if mount succeeded
+            return rpc_reply.status == nfs_const.MOUNT3_OK
+
+        return False
 
     elif rpc_call.prog == nfs_const.ProgramValMap['nfs']:
         # If the operation failed or the reply has no NFS status, then skip it
@@ -114,6 +119,7 @@ def is_reply_parsable( rpc_reply, rpc_call ):
 
 
 def update_state( pkt ):
+    """ Update stats and handle / path info state """
     global pkt_ct
     pkt_ct += 1
 
@@ -164,9 +170,9 @@ def update_state( pkt ):
 
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_SYMLINK' ]:
             if rpc_reply.handle.handle_follows:
-                new = os.path.join( state.get_path( rpc_call.args.handle ),
-                                    str(rpc_call.args.fname) )
-                _create_handle_mapping( new, rpc_reply.handle.handle, rpc_call )
+                target = os.path.join( get_path( rpc_call.where.handle ),
+                                       str( rpc_call.where.fname ) )
+                _create_handle_mapping( target, rpc_reply.handle.handle, rpc_call )
 
         elif rpc_call.proc == nfs_const.Nfs3_ProcedureValMap[ 'NFSPROC3_RMDIR' ]:
             _destroy_handle_mapping( name=os.path.join( get_path( rpc_call.args.handle ),
@@ -193,6 +199,5 @@ def update_state( pkt ):
             _destroy_handle_mapping(
                 path=os.path.join( get_path( rpc_call.args.handle ),
                                    rpc_call.args.name ) )
-
     else:
         return

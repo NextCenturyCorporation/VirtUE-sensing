@@ -108,6 +108,7 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 
     if args.pcap:
-        loop.run_until_complete( proc_all_pkts( pkts ) )
+         pkts = rdpcap( args.pcap )
+         loop.run_until_complete( proc_all_pkts( pkts ) )
     else:
         loop.run_until_complete( async_sniff( loop, args.iface ) )

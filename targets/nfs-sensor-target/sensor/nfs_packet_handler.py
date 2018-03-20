@@ -155,14 +155,15 @@ def _handle_nfs3_mkdir( rpc_call, rpc_reply ):
 
 def _handle_nfs3_symlink( rpc_call, rpc_reply ):
     # Where symlink is created
-    path = os.path.join( state.get_path( rpc_call.where.handle ),
-                         rpc_call.where.fname )
-    target = rpc_call.symlink.path
+    target = os.path.join( state.get_path( rpc_call.where.handle ),
+                           str( rpc_call.where.fname ) )
+    # Source info
+    source = str( rpc_call.symlink.path )
 
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "symlink",
-               "path"    : str( path ),
+               "path"    : source,
                "who"     : state.get_auth_str(rpc_call),
                "status"  : str( rpc_reply.nfs_status ),
                "target"  : target } )
@@ -407,7 +408,6 @@ def _handler_core( pkt ):
         if rpc_call.prog == nfs_const.ProgramValMap['mountd']:
             # This is a mountd reply. Call its handler with the (call, reply) pair
             res = _curr_mount3_handlers[ rpc_call.proc ] ( rpc_call, rpc )
-
         elif rpc_call.prog == nfs_const.ProgramValMap['nfs']:
             # This is an NFS reply. Call its handler with the (call, reply) pair
             res = _curr_nfs3_handlers[ rpc_call.proc ] ( rpc_call, rpc )

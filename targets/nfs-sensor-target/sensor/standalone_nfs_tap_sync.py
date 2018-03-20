@@ -66,6 +66,8 @@ if __name__ == "__main__":
     nfs.init()
 
     if args.pcap:
-        sniff( offline=args.pcap, prn=recv_pkt )
+        pkts = rdpcap( args.pcap )
+        for p in pkts:
+            recv_pkt( p )
     else:
         sniff( iface=args.iface, prn=recv_pkt )
