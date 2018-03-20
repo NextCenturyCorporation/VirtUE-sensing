@@ -4,4 +4,4 @@
 [submodule "targets/nfs-sensor-target/sensor/scapy"]
 	path = targets/nfs-sensor-target/sensor/scapy
 	url = git@github.com:secdev/scapy.git
-	branch = v2.4.0rc4
+	branch = v2.4.0rc5
