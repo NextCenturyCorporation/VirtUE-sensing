@@ -198,9 +198,12 @@ def validate_target(target, sensors, kmods):
         if req_kmod not in kmod_idx:
             errors.append("required kernel module [%s] does not exist" % (req_kmod,))
 
-    for dir_key in ["sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory"]:
+    for dir_key in ["platform", "sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory"]:
         if dir_key not in target["target"]:
             errors.append("Required directory definition field missing [%s]" % (dir_key,))
+    if ("platform" in target["target"] 
+        and target["target"]["platform"] not in ["Linux", "Windows"]):
+        errors.append("Platform %s is Invalid!" % target["target"]["platform"],)
     return errors
 
 
@@ -351,6 +354,10 @@ def create_apt_get_script(target, sensors, kmods):
     :param sensors:
     :return:
     """
+
+    if target["target"]["platform"] == "Windows":
+        return
+    
     print "  + Finding apt-get requirements for installed sensors"
 
     # directory were we'll create the apt_get_install.sh script
@@ -396,11 +403,17 @@ def create_sensor_startup_master(target):
     start_dir = os.path.abspath(os.path.join(target["root"], target["target"]["startup_scripts_directory"]))
 
     scripts = os.listdir(start_dir)
-    with open(os.path.abspath(os.path.join(start_dir, "run_sensors.sh")), "w") as master_script:
-        master_script.write("#!/bin/bash\n")
+    run_script = "run_sensors.ps1" if target["target"]["platform"] == "Windows" else "run_sensors.sh"
+    with open(os.path.abspath(os.path.join(start_dir, run_script)), "w") as master_script:
+        if target["target"]["platform"] == "Linux":
+            master_script.write("#!/bin/bash\n")
 
         for script in scripts:
-            master_script.write("/opt/sensor_startup/%s &\n" % (script,))
+            if target["target"]["platform"] == "Linux":
+                master_script.write("/opt/sensor_startup/%s &\n" % (script,))
+            elif target["target"]["platform"] == "Windows":
+                master_script.write("powershell -NoProfile -ExecutionPolicy Bypass c:/opt/sensor_startup/%s\n" 
+                        % (script,))
 
     print "    + %d startup scripts added" % (len(scripts),)
 
@@ -425,6 +438,13 @@ def create_kernel_module_install_script(target, kmods):
 
     build_steps = []
 
+    if target["target"]["platform"] == "Windows":
+        shell = "powershell -NoProfile -ExecutionPolicy Bypass" 
+    elif target["target"]["platform"] == "Linux":
+        shell = "bash"
+    else:
+        shell = None
+
     for req_kmod in target["target"]["kernel_modules"]:
         kmod = kmod_idx[req_kmod]["kernel_module"]
 
@@ -445,16 +465,19 @@ def create_kernel_module_install_script(target, kmods):
             up_rel_dir = os.path.relpath(kmod_root_dir, os.path.dirname(inst_file))
 
             # add the actual build step
-            build_steps.append("cd %s\nbash %s\ncd %s\n" % (inst_rel_dir, inst_run_file, up_rel_dir))
+            build_steps.append("cd %s\n%s ./%s\ncd %s\n" % (inst_rel_dir, shell, inst_run_file, up_rel_dir))
 
     # write out the install file
     print "  + Writing install file"
-    with open(os.path.join(kmod_root_dir, "install.sh"), "w") as kmod_installer:
-        kmod_installer.write("#!/bin/bash\n")
+    install_script = "install.ps1" if target["target"]["platform"] == "Windows" else "install.sh"
+    with open(os.path.join(kmod_root_dir, install_script), "w") as kmod_installer:
+        if target["target"]["platform"] == "Linux":
+            kmod_installer.write("#!/bin/bash\n")
+        elif target["target"]["platform"] == "Windows":
+            pass
 
         for build_step in build_steps:
             kmod_installer.write(build_step)
-
 
 def create_support_library_install_script(target):
     """
@@ -481,10 +504,10 @@ def create_support_library_install_script(target):
 
     print "    + Writing install script"
 
-    with open(os.path.abspath(os.path.join(lib_dir, "install.sh")), "w") as installer:
+    install_script = "install.ps1" if target["target"]["platform"] == "Windows" else "install.sh"
+    with open(os.path.abspath(os.path.join(lib_dir, install_script)), "w") as installer:
         for pip_install in pip_installs:
             installer.write("pip install ./%s\n" % (pip_install,))
-
 
 def create_requirements_master(target):
     """
@@ -684,7 +707,7 @@ if __name__ == "__main__":
     targets = find_targets(targets_dir)
 
     for target in targets:
-        print "  + %s" % (target["name"],)
+        print "  + %s " % (target["name"],)
         errors = validate_target(target, sensors, kmods)
         if len(errors) != 0:
             print "    ! errors detected in target.json"
