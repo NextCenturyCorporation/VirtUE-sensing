@@ -1,0 +1,7 @@
+{"Virtue-protocol-version": 0.1, "request": [123456789, "discovery"] }
+{"Virtue-protocol-version": 0.1, "reply": [123456789, "discovery", ["kernel-ps", "kernel-lsof"]]}
+{"Virtue-protocol-version": 0.1, "request": [3456789012, "records", "kernel-ps"] }
+{"Virtue-protocol-version": 0.1, "request": [2345678901, "on", "kernel-ps"] }
+{"Virtue-protocol-version": 0.1, "reply": [2345678901, "on", "kernel-ps"] }
+{"Virtue-protocol-version": 0.1, "reply": [3456789012, "records", "kernel-ps"[ "record" ]] }
+{"Virtue-protocol-version": 0.1, "reply": [3456789012, "records", "kernel-ps"] }
