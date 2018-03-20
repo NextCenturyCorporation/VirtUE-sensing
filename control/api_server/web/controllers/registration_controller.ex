@@ -213,14 +213,14 @@ defmodule ApiServer.RegistrationController do
             "hostname" => hostname,
             "port" => port,
             "name" => sensor_name_version
-          }
+          } = body_params
         } = conn, _) do
 
     # let's decode the public key from urlsafe base64
     {:ok, public_key} = Base.url_decode64(public_key_b64)
 
     # our default OS for registration is linux
-    sensor_os = map.get(body_params, "os", "linux")
+    sensor_os = Map.get(body_params, "os", "linux")
 
     # basic logging
     IO.puts("Registering sensor(id=#{sensor})")
