@@ -31,3 +31,6 @@ pgdata
 
 Mnesia*
 certs
+
+# IntelliJ backup
+projectFilesBackup
