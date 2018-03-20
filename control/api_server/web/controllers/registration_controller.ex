@@ -219,6 +219,9 @@ defmodule ApiServer.RegistrationController do
     # let's decode the public key from urlsafe base64
     {:ok, public_key} = Base.url_decode64(public_key_b64)
 
+    # our default OS for registration is linux
+    sensor_os = map.get(body_params, "os", "linux")
+
     # basic logging
     IO.puts("Registering sensor(id=#{sensor})")
 
@@ -246,7 +249,7 @@ defmodule ApiServer.RegistrationController do
       ! is_sensor_port(port) ->
         IO.puts IEx.Info.info(port)
         invalid_registration(conn, sensor, "port", port)
-      ! ApiServer.Component.has_default_configuration?(%{name: sensor_name, context: "virtue", os: "linux"}) ->
+      ! ApiServer.Component.has_default_configuration?(%{name: sensor_name, context: "virtue", os: sensor_os}) ->
         invalid_registration(conn, sensor, "default configuration", "Cannot locate default configuration for #{sensor_name}")
 
       # now we have a valid registration
@@ -268,7 +271,7 @@ defmodule ApiServer.RegistrationController do
             #   5. Retrieve the configuration
             #   6. Mark the sensor as registered
             #   ?. Verify public key against the PKIKey record in mnesia
-            with {:ok, component} <- ApiServer.Component.get_component(%{name: sensor_name, context: "virtue", os: "linux"}),
+            with {:ok, component} <- ApiServer.Component.get_component(%{name: sensor_name, context: "virtue", os: sensor_os}),
               {:ok, sensor_create} <- ApiServer.Sensor.create(
                 %{
                   sensor_id: sensor,
