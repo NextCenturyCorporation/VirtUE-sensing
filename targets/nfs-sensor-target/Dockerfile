@@ -24,10 +24,7 @@ RUN ./install.sh
 # SENSOR-SPECIFIC LIBRARY
 COPY sensor/scapy /usr/src/app/libs/scapy
 WORKDIR /usr/src/app/libs
-RUN ls .
-RUN find ./scapy/setup.py
 RUN pip install ./scapy
-
 
 # Run the apt-get install script for required OS support in sensors
 RUN chmod a+x /usr/src/app/libs/common/apt_get_install.sh
@@ -43,7 +40,7 @@ COPY sensor/* /opt/sensor/
 #RUN chmod a+x /opt/sensor_startup/*
 
 # Crypto
-RUN  mkdir  /opt/sensor/nfs_sensor/certs
+RUN  mkdir  /opt/sensor/certs
 #COPY certs/ /opt/sensor/nfs_sensor/certs/
 
 # Service components

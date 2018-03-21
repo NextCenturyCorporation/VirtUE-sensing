@@ -38,8 +38,10 @@ else
            --iface $NFS_SENSOR_SNIFF_INTERFACE       \
            --api-host api --sensor-port 11040        \
            --sensor-hostname localhost               \
-           --ca-key-path      $_dsensor/nfs_sensor/certs          \
-           --public-key-path  $_dsensor/nfs_sensor/certs/cert.pem \
-           --private-key-path $_dsensor/nfs_sensor/certs/cert-key.pem
+           --ca-key-path      $_dsensor/certs
+
+    # How to handle certs?
+    #       --public-key-path  $_dsensor/certs/cert.pem \
+    #       --private-key-path $_dsensor/certs/cert-key.pem
 
 fi
