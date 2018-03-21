@@ -42,6 +42,24 @@ MODULE_PARM_DESC(ps_timeout,
 				 "ps function");
 
 
+
+/**
+ * lockless list black magic:
+ * 1) llist_del_all (head)
+ * 2) llist_for_each_entry - copy each entry id  string into buffer
+ * 3a) llist_del_all (head) and save if not null (means another probe was
+ *     added when we were not looking)
+ * 3b) llist_add_batch (original first, original last, head) from step 2
+ * 3c) llist_add(3a) if not null - this is a probe that was linked
+ *     while we were building the discovery buffer in step 2
+ **/
+static inline int
+build_discovery_buffer(uint8_t **buf, size_t len)
+{
+
+
+}
+
 /** locking the kernel-ps flex_array
  * to write to or read from the pre-allocated flex array parts,
  * one must hold the kps_spinlock. The kernel_ps function will
