@@ -91,6 +91,9 @@ static int k_socket_write(struct socket *s, int n, void *out)
 }
 
 /**
+ * @brief read_parse_message - read a message from the connected
+ * domain socket and see if it can be parsed as a JSON object.
+ *
  * struct message is assumed to be partially initialized:
  * m->spinlock
  * m->line points to a buffer
@@ -104,11 +107,12 @@ static int k_socket_write(struct socket *s, int n, void *out)
  * the initial buffer size is expected to be CONNECTION_MAX_HEADER,
  * by default 1K.
  *
- * the linux kernel is mostly likely to be acting as a server of the
- * sensor protocol, and request messages are expected to be much smaller
- * than CONNECTION_MAX_HEADER, so it would be good to re-visit the
- * definition of CONNECTION_MAX_HEADER, and even the use or krealloc
- * below.
+ * It is not expected that the realloc loop will run (JSMN_ERROR_PART)
+ * in version 0.1 of the kernel sensor protocol, because the linux kernel
+ * is mostly likely to be acting as a server of the kernel sensor protocol,
+ * and request messages are expected to be smaller than CONNECTION_MAX_HEADER,
+ * so it would be good to re-visit the definition of CONNECTION_MAX_HEADER,
+ * and even the use of krealloc below.
  **/
 static int read_parse_message(struct jsmn_message *m)
 {
@@ -134,6 +138,9 @@ again:
 							  MAX_TOKENS);
 		if (m->count == JSMN_ERROR_PART && len_save < CONNECTION_MAX_MESSAGE) {
             /* it may be valid to realloc and try again */
+			DMSG();
+			printk(KERN_INFO "kernel sensor read part of a JSON object, " \
+				   "attempting to realloc and read the remainder\n");
 			m->line = krealloc(m->line, CONNECTION_MAX_MESSAGE, GFP_KERNEL);
 			if (m->line) {
 				len_save = CONNECTION_MAX_MESSAGE;
@@ -146,10 +153,29 @@ again:
 		}
 		/* set ccode to the number of tokens */
 		ccode = m->count;
+	} else {
+		DMSG();
+		printk(KERN_INFO "kernel sensor error reading from socket\n");
 	}
 	return ccode;
 }
 
+/**
+ * @brief k_read_write kernel thread that reads and writes the JSON
+ * kernel sensor protocol over a connected socket.
+ *
+ * If the socket presents a valid JSON object that is also a
+ * sensor protocol message, create struct jsmn_message and dispatch
+ * that message to the json parser.
+ *
+ * The json parser will create a struct jsmn_session which it will use
+ * to organize the response message and eventually to write that response
+ * back to the client over the same socket.
+ *
+ * Te json parser will dispatch the message to the correct
+ * sensor.probe, which is expected to generate a response.
+ *
+ **/
 
 static void
 k_read_write(struct kthread_work *work)
@@ -158,7 +184,7 @@ k_read_write(struct kthread_work *work)
 	/**
 	 * allocate these buffers dynamically so this function can
 	 * be re-entrant. Also avoid allocation on the stack.
-	 * these buffers are 1k each. if we needs more space, the
+	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
 	uint8_t *read_buf = NULL;
@@ -177,6 +203,12 @@ k_read_write(struct kthread_work *work)
 	sock = connection->connected;
 	read_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
 	if (read_buf == NULL) {
+/**
+ * running as a kernel thread, can't return an error code, so we need
+ * to log this error info
+ **/
+		DMSG();
+		printk(KERN_INFO "kernel sensor error - no memory, kernel thread exiting\n");
 		return;
 	}
 
@@ -186,7 +218,6 @@ again:
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
-		connection->connected = NULL;
 		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
 		goto err_out1;
 	}
@@ -198,16 +229,26 @@ again:
 	m->socket = sock;
 	m->count = read_parse_message(m);
 	if (m->count < 0) {
-		/* for some reason, didn't read a valid json object */
+    /* for some reason, didn't read a valid json object */
+		DMSG();
+		printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
+			   "connection is being closed\n");
 		goto err_out0;
 	}
 
 	/**
 	 * following call, if successful, will dispatch to the
-	 * correct message handler
+	 * correct message handler, which will call into the correct
+	 * probe, which will usually result in a write to this socket.
+	 *
+	 * parse_json_message accepts responsibility for freeing
+	 * resources when it returns >= 0.
 	 **/
 	ccode = parse_json_message(m);
 	if (ccode < 0) {
+		DMSG();
+		printk(KERN_INFO "kernel sensor error parsing a protocol message, " \
+			   "connection is being closed\n");
 		goto err_out0;
 	}
 
@@ -215,14 +256,13 @@ again:
 		/* do it all again */
  		init_and_queue_work(work, worker, k_read_write);
  	}
+	return;
 
 err_out0:
 	free_message(m);
-	goto err_out2;
 err_out1:
-	kfree(read_buf);
-err_out2:
-	sock_release(sock);
+	if (read_buf) kfree(read_buf);
+	kfree(connection->_destroy(connection));
 	return;
 }
 
@@ -313,6 +353,20 @@ link_new_connection_work(struct connection *c,
 	}
 }
 
+/**
+ * tear down the connection but don't free the connection
+ * memory. do free resources, struct sock.
+ **/
+static inline void *destroy_connection(struct connection *c)
+{
+	/* destroy the probe resources */
+	c->destroy((struct probe *)c);
+	if (c->connected) {
+		sock_release(c->connected);
+	}
+	memset(c, 0x00, sizeof(*c));
+	return c;
+}
 
 
 /**
@@ -336,6 +390,8 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
 	c->flags = flags;
+	c->_destroy = destroy_connection;
+
 	if (__FLAG_IS_SET(flags, PROBE_LISTEN)) {
 		/**
 		 * p is a pointer to a string holding the socket name

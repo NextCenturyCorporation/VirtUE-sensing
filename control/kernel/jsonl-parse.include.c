@@ -175,6 +175,13 @@ process_single_response(struct jsmn_session *s)
 
 
 const uint8_t escape [] = {0x5c, 0x00};
+
+
+/**
+ * free_message - and don't free the socket (kernel space) 
+ * or close the file (user space). The other end of the 
+ * connection may write or read using this socket (file)
+ **/
 static inline void
 free_message(struct jsmn_message *m)
 {
@@ -222,6 +229,7 @@ free_session(struct jsmn_session *s)
 											 struct jsmn_message,
 											 e_messages))) {
 			list_del(&m->e_messages);
+			free_message(m);
 		}
 	}
 	list_del(&s->sessions);
