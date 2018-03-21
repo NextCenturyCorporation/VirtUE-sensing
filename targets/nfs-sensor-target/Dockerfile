@@ -43,8 +43,8 @@ COPY sensor/* /opt/sensor/
 #RUN chmod a+x /opt/sensor_startup/*
 
 # Crypto
-RUN  mkdir  /opt/sensor/nfs_sensor
-COPY certs/ /opt/sensor/nfs_sensor/certs/
+RUN  mkdir  /opt/sensor/nfs_sensor/certs
+#COPY certs/ /opt/sensor/nfs_sensor/certs/
 
 # Service components
 COPY run.sh /usr/src/app
