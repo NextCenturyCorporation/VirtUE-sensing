@@ -14,6 +14,12 @@ MKDIR %TEMP%
 %TEMP%\vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.140 --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest --includeRecommended 
 DEL /F /Q %TEMP%\vs_BuildTools.exe
 
+@echo Install AWS Powershell Netcore
+%POWERSHELL% Invoke-WebRequest -Uri "http://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi" -OutFile %TEMP%\AWSToolsAndSDKForNet.msi
+pause
+%TEMP%\AWSToolsAndSDKForNet.msi --quiet
+pause
+
 @ECHO Download and install python . . . 
 %POWERSHELL% Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%/python-%PYTHONVER%.exe" -OutFile %TEMP%\python-%PYTHONVER%.exe 
 %TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
