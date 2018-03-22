@@ -1,6 +1,6 @@
 {
   "name": "site-visit-win-target",
-  "platform": "Windows",
+  "os": "Windows",
   "library_directory": "./sensor_libraries",
   "sensors_directory": "./sensors",
   "requirements_directory": "./requirements",
