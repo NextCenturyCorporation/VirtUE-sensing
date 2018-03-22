@@ -15,11 +15,13 @@ REM Download and install Visual Studio 2017 Build Kit w/2015 Components
 %TEMP%\vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.140 --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest --includeRecommended 
 DEL /F /Q %TEMP%\vs_BuildTools.exe
 
-
 REM Download and install python
 %POWERSHELL% Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%/python-%PYTHONVER%.exe" -OutFile %TEMP%\python-%PYTHONVER%.exe 
 %TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
 DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
+
+REM Go to the windows target directory from .\savior
+PUSHD targets\win-target
 
 REM REQUIREMENTS.TXT install and run
 MKDIR %SystemDrive%\app\requirements
@@ -41,7 +43,6 @@ REM Install Sensors
 MKDIR %SystemDrive%\opt
 MKDIR %SystemDrive%\opt\sensors\
 XCOPY /Y /S /F /V sensors\*.* %SystemDrive%\opt\sensors\
-POPD
 
 REM RUN SCRIPTS
 MKDIR %SystemDrive%\opt\sensor_startup
@@ -49,5 +50,8 @@ XCOPY /Y /S /F /V sensor_startup\*.* %SystemDrive%\opt\sensor_startup\
 
 REM Service Components
 COPY /Y run.ps1 %SystemDrive%\app
+
+REM POP back to .\savior
+POPD
 
 %POWERSHELL% %SystemDrive%\app\run.ps1
