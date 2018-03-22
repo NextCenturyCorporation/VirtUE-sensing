@@ -1,2 +1,2 @@
-pywin32==1.0
+pywin32==223
 curio==0.9
