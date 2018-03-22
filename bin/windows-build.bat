@@ -1,4 +1,4 @@
-@echo on
+@echo off
 
 REM base system setup and requirements
 SET WORKDIR=C:\app
