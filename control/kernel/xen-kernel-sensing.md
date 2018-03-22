@@ -10,10 +10,13 @@ Xen kernel sensing will share the same approach and much of the same code as lin
 ### Similarities
 1. A sensor runs as a (Xen) kernel thread and manages one or more _probes_. The sensor (parent) and probes (children) have a _parent-child relationship._
 2. Each probe provides a specific type of instrumentation and also runs as a separate thread, but is subject to control by the sensor thread.
+
 	3. starting, stoping, rescheduling, changing the probe level, retrieving records, and so on according to the JSON control protocol.
 3. The sensor provides communication between the probes and user space using the JSONL kernel sensing message protocol.
+
 	4. See _messages.md_
 	4. Supporting the same request commands and reply responses, which as of now is:
+	
 ``static uint8_t *table[] = {
 		"discovery",
 		"off",
@@ -27,6 +30,7 @@ Xen kernel sensing will share the same approach and much of the same code as lin
 		"reset",
 		"records"
 	};``
+	
 4. The user space interface on both platforms will be script-enabled via the JSONL format of the command-response protocol. Pushing a JSONL string into the kernel via either a  domain socket (linux) or hypercall (Xen) will emit a string JSONL response object.
 
 ### Differences
