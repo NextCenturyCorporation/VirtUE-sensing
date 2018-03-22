@@ -4,7 +4,7 @@ Probing from within the Xen kernel can provide information that may act as a _ca
 While most probing may be more efficiently done via privileged domain libraries, a Xen kernel probing capability is beneficial while also being relatively minimal.
 ## General Approach
 Xen kernel sensing will share the same approach and much of the same code as linux kernel sensing. That is, native kernel code accessing native kernel data structures and symbols.
-> Much of the Xen kernel code is directly copied from or derived from the Linux 2.6 kernel, although some components including the schedular are unique to Xen
+> Much of the Xen kernel code is directly copied from or derived from the Linux 2.6 kernel, although some components including the scheduler are unique to Xen
 > Aside from specific types of linux probes (e.g., _lsof_), probably 85% of the code will be shared between the linux kernel sensor and Xen sensor source trees.
 
 ### Similarities
