@@ -14,6 +14,7 @@ from io import StringIO
 import json
 from kafka import KafkaProducer
 import os
+import platform
 import pwd
 import requests
 from routes import Mapper
@@ -98,6 +99,16 @@ class SensorWrapper(object):
         self.sensor_name = name
         self.setup_options()
         self.opts = None
+
+        # what operating system are we?
+        self.operating_system = None
+        p = platform.system().lower()
+        if p in ["linux", "darwin"]:
+            self.operating_system = "linux"
+        elif p in ["windows", "nt"]:
+            self.operating_system = "nt"
+        else:
+            self.operating_system = "linux"
 
         # all of our sensing methods that are called - this is the
         # sensor specific implementation
@@ -357,7 +368,8 @@ class SensorWrapper(object):
             "public_key": pubkey_b64,
             "hostname": self.opts.sensor_hostname,
             "port": self.opts.sensor_port,
-            "name": "%s-%s" % (self.sensor_name, __VERSION__,)
+            "name": "%s-%s" % (self.sensor_name, __VERSION__,),
+            "os": self.operating_system
         }
 
         print("registering with [%s]" % (uri,))
