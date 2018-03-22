@@ -37,9 +37,6 @@ PUSHD %SystemDrive%\app\sensor_libraries
 %POWERSHELL% .\install.ps1
 POPD
 
-@ECHO Run the pip install script for required OS support in sensors
-%POWERSHELL% %SystemDrive%\app\sensor_libraries\pip_install.ps1
-
 @ECHO Installing All Sensors
 MKDIR %SystemDrive%\opt
 MKDIR %SystemDrive%\opt\sensors\
