@@ -56,7 +56,9 @@ MODULE_PARM_DESC(ps_timeout,
 static inline int
 build_discovery_buffer(uint8_t **buf, size_t len)
 {
-
+	/* see llist.h: 234
+	xchg(new head, old head);
+	
 
 }
 
