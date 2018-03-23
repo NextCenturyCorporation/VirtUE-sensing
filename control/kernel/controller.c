@@ -210,48 +210,47 @@ void *destroy_probe(struct probe *probe)
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
 
-	struct probe *probe, *tmp_p;
-	struct connection *connection, *tmp_c;
+	struct probe *probe_p, *tmp_p;
+	struct connection *conn_c, *tmp_c;
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
 
-	list_for_each_entry_safe(probe, tmp_p, &sensor->probes, l_node) {
-		if (__FLAG_IS_SET(probe->flags, PROBE_KPS)) {
-			((struct kernel_ps_probe *)probe)->_destroy(probe);
+	list_for_each_entry_safe(probe_p, tmp_p, &sensor->probes, l_node) {
+		if (__FLAG_IS_SET(probe_p->flags, PROBE_KPS)) {
+			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
 		} else {
-			probe->destroy(probe);
+			probe_p->destroy(probe_p);
 		}
-		/* TODO: probes are no longer statically allocated */
 		/**
-		 * we want probes to be statically allocated, no need
-		 * to free them here
+		 * TODO: kernel-ps is statically allocated, but not all
+		 * probes will be. some probes will need to be kfreed()'d
 		 **/
 	}
 
-
-
-//	lnode = list_del_all(&sensor->listeners);
-	list_for_each_entry_safe(connection, tmp_c, &sensor->listeners, l_node) {
-		if (__FLAG_IS_SET(probe->flags, PROBE_LISTEN)) {
-/* TODO: listener->destroy(); probe->destroy(); */
-			;
+	list_for_each_entry_safe(conn_c, tmp_c, &sensor->listeners, l_node) {
+		if (__FLAG_IS_SET(probe_p->flags, PROBE_LISTEN)) {
+			/**
+			 * the listener is statically allocated, no need to
+			 * free the memory
+			 **/
+			probe_p->destroy(probe_p);
 		}
 	}
 
-
-
-//	lnode = list_del_all(&sensor->connections);
-	list_for_each_entry_safe(connection, tmp_c, &sensor->connections, l_node) {
-		if (__FLAG_IS_SET(probe->flags, PROBE_CONNECT)) {
-/* TODO: connection->destroy(); probe->destroy(); */
-			;
+	list_for_each_entry_safe(conn_c, tmp_c, &sensor->connections, l_node) {
+		if (__FLAG_IS_SET(probe_p->flags, PROBE_CONNECT)) {
+			/**
+			 * a connection is dynamically allocated, so
+			 * need to kfree the memory
+			 **/
+			kfree(probe_p->destroy(probe_p));
 		}
 	}
 
 /* now destroy the sensor's anonymous probe struct */
-	probe = (struct probe *)sensor;
-	destroy_probe(probe);
+	probe_p = (struct probe *)sensor;
+	destroy_probe(probe_p);
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
 }
