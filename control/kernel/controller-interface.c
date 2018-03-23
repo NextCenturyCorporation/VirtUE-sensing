@@ -262,6 +262,7 @@ err_out0:
 	free_message(m);
 err_out1:
 	if (read_buf) kfree(read_buf);
+	list_del(&connection->l_node);
 	kfree(connection->_destroy(connection));
 	return;
 }
