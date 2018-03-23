@@ -14,7 +14,7 @@ MKDIR %TEMP%
 %TEMP%\vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.140 --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest --includeRecommended 
 DEL /F /Q %TEMP%\vs_BuildTools.exe
 
-@ECHO Download and install python . . . 
+@ECHO Download and Install python . . . 
 %POWERSHELL% Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%/python-%PYTHONVER%.exe" -OutFile %TEMP%\python-%PYTHONVER%.exe 
 %TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
 DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
@@ -24,7 +24,7 @@ python -m pip install --upgrade pip
 @ECHO Go to the windows target directory from .\savior
 PUSHD targets\win-target
 
-@ECHO Installing REQUIREMENTS.TXT install and run . . . 
+@ECHO Installing REQUIREMENTS.TXT Install and run . . . 
 MKDIR %SystemDrive%\app\requirements
 XCOPY /Y /S /F /V requirements\*.* %SystemDrive%\app\requirements\
 %SystemDrive%\Python%PYTHONVER%\scripts\pip.exe install -r %SystemDrive%\app\requirements\requirements_master.txt
