@@ -53,16 +53,18 @@ MODULE_PARM_DESC(ps_timeout,
  * 3c) llist_add(3a) if not null - this is a probe that was linked
  *     while we were building the discovery buffer in step 2
  **/
+#ifdef NOTHING
 static inline int
 build_discovery_buffer(uint8_t **buf, size_t len)
 {
-	/* see llist.h: 234
+	/* see llist.h: 234 */
 	xchg(new head, old head);
-	
 
 }
+#endif
 
-/** locking the kernel-ps flex_array
+/**
+ * locking the kernel-ps flex_array
  * to write to or read from the pre-allocated flex array parts,
  * one must hold the kps_spinlock. The kernel_ps function will
  * execute a trylock and return with -EAGAIN if it is unable
@@ -142,7 +144,7 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 
 unlock_out:
 	spin_unlock_irqrestore(&parent->lock, flags);
-    return index;
+	return index;
 }
 
 
@@ -210,45 +212,45 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 
 	struct probe *probe, *tmp_p;
 	struct connection *connection, *tmp_c;
-	struct llist_node *llnode ;
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
-	if (!llist_empty(&sensor->probes)) {
-		llnode = llist_del_all(&sensor->probes);
-		llist_for_each_entry_safe(probe, tmp_p, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_KPS)) {
-				((struct kernel_ps_probe *)probe)->_destroy(probe);
-			} else {
-				probe->destroy(probe);
-			}
-			/**
-			 * we want probes to be statically allocated, no need
-			 * to free them here
-			 **/
+
+	list_for_each_entry_safe(probe, tmp_p, &sensor->probes, l_node) {
+		if (__FLAG_IS_SET(probe->flags, PROBE_KPS)) {
+			((struct kernel_ps_probe *)probe)->_destroy(probe);
+		} else {
+			probe->destroy(probe);
+		}
+		/* TODO: probes are no longer statically allocated */
+		/**
+		 * we want probes to be statically allocated, no need
+		 * to free them here
+		 **/
+	}
+
+
+
+//	lnode = list_del_all(&sensor->listeners);
+	list_for_each_entry_safe(connection, tmp_c, &sensor->listeners, l_node) {
+		if (__FLAG_IS_SET(probe->flags, PROBE_LISTEN)) {
+/* TODO: listener->destroy(); probe->destroy(); */
+			;
 		}
 	}
 
-	if (!llist_empty(&sensor->listeners)) {
-		llnode = llist_del_all(&sensor->listeners);
-		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_LISTEN)) {
-				;
-			}
-		}
-	}
 
-	if (!llist_empty(&sensor->connections)) {
-		llnode = llist_del_all(&sensor->connections);
-		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_CONNECT)) {
-				;
-			}
+
+//	lnode = list_del_all(&sensor->connections);
+	list_for_each_entry_safe(connection, tmp_c, &sensor->connections, l_node) {
+		if (__FLAG_IS_SET(probe->flags, PROBE_CONNECT)) {
+/* TODO: connection->destroy(); probe->destroy(); */
+			;
 		}
 	}
 
 /* now destroy the sensor's anonymous probe struct */
-    probe = (struct probe *)sensor;
+	probe = (struct probe *)sensor;
 	destroy_probe(probe);
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
@@ -345,7 +347,7 @@ kthread_destroy_worker(struct kthread_worker *worker)
  **/
 struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 {
-    if (!sensor) {
+	if (!sensor) {
 		return ERR_PTR(-ENOMEM);
 	}
 	memset(sensor, 0, sizeof(struct kernel_sensor));
@@ -356,9 +358,9 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 	init_probe((struct probe *)sensor,
 			   "Kernel Sensor", strlen("Kernel Sensor") + 1);
 	sensor->_init = init_kernel_sensor;
-	init_llist_head(&sensor->probes);
-	init_llist_head(&sensor->listeners);
-	init_llist_head(&sensor->connections);
+	INIT_LIST_HEAD(&sensor->probes);
+	INIT_LIST_HEAD(&sensor->listeners);
+	INIT_LIST_HEAD(&sensor->connections);
 	sensor->_destroy = destroy_kernel_sensor;
 	/* initialize the socket later when we listen*/
 	return(sensor);
@@ -503,7 +505,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	/** init timeout and repeat
 	 * they are passed on the command line, or (eventually) read
 	 * from sysfs
-     **/
+	 **/
 	__SET_FLAG(ps_p->flags, PROBE_KPS);
 
 	ps_p->timeout = ps_timeout;
@@ -572,9 +574,9 @@ static int __init kcontrol_init(void)
 	}
 
 	ps_probe = init_kernel_ps_probe(&kps_probe,
-						 "Kernel PS Probe",
-						 strlen("Kernel PS Probe") + 1,
-						 print_kernel_ps);
+									"Kernel PS Probe",
+									strlen("Kernel PS Probe") + 1,
+									print_kernel_ps);
 
 	if (ps_probe == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
@@ -582,10 +584,7 @@ static int __init kcontrol_init(void)
 	}
 
 	/* link this probe to the sensor struct */
-	if (! llist_add(&ps_probe->l_node, &k_sensor.probes)) {
-		ccode = -EINVAL;
-		goto err_exit;
-	}
+	list_add(&ps_probe->l_node, &k_sensor.probes);
 
 	return ccode;
 

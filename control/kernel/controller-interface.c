@@ -344,7 +344,7 @@ link_new_connection_work(struct connection *c,
 						 uint8_t *d)
 {
 	if (!SHOULD_SHUTDOWN) {
-		llist_add(&c->l_node, &k_sensor.probes);
+		list_add(&c->l_node, &k_sensor.probes);
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
 		CONT_INIT_WORKER(&c->worker);

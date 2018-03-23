@@ -178,8 +178,8 @@ const uint8_t escape [] = {0x5c, 0x00};
 
 
 /**
- * free_message - and don't free the socket (kernel space) 
- * or close the file (user space). The other end of the 
+ * free_message - and don't free the socket (kernel space)
+ * or close the file (user space). The other end of the
  * connection may write or read using this socket (file)
  **/
 static inline void

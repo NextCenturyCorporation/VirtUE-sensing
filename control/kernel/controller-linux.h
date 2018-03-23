@@ -16,6 +16,7 @@
 #include <linux/spinlock.h>
 /*#include <trace/ftrace.h>*/
 #include <linux/llist.h>
+#include <linux/rculist.h>
 #include <linux/flex_array.h>
 #include <linux/net.h>
 #include <linux/socket.h>

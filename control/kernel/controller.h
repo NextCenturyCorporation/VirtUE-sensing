@@ -241,7 +241,7 @@ struct kernel_lsof_data {
    - struct kthread_worker probe_worker, and struct kthread_work probe_work
    are both used to schedule the probe as a kernel thread.
 
-   - struct llist_node l_node is the lockless linked list node pointer. It
+   - struct list_node l_node is the linked list node pointer. It
    is used by the parent sensor to manage the probe as a peer of more than
    one siblings.
 
@@ -260,7 +260,7 @@ struct probe {
 	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
 	struct kthread_worker worker;
 	struct kthread_work work;
-	struct llist_node l_node;
+	struct list_head l_node;
 };
 
 
@@ -367,9 +367,9 @@ struct kernel_sensor {
 	struct probe;
 	struct kernel_sensor *(*_init)(struct kernel_sensor *);
 	void *(*_destroy)(struct kernel_sensor *);
-	struct llist_head probes;
-	struct llist_head listeners;
-	struct llist_head connections;
+	struct list_head probes;
+	struct list_head listeners;
+	struct list_head connections;
 };
 
 
