@@ -9,12 +9,6 @@ SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass
 MKDIR %WORKDIR%
 MKDIR %TEMP%
 
-@echo Install AWS Powershell Netcore
-%POWERSHELL% Invoke-WebRequest -Uri "http://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi" -OutFile %TEMP%\AWSToolsAndSDKForNet.msi
-pause
-%TEMP%\AWSToolsAndSDKForNet.msi --quiet
-pause
-
 @ECHO Download and Install Visual Studio 2017 Build Kit w/2015 Components . . .
 %POWERSHELL% Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.exe" -OutFile %TEMP%\vs_BuildTools.exe 
 %TEMP%\vs_BuildTools.exe --quiet --wait --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.140 --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest --includeRecommended 
