@@ -16,8 +16,8 @@ Xen kernel sensing will share the same approach and much of the same code as lin
 
 	4. See _messages.md_
 	4. Supporting the same request commands and reply responses, which as of now is:
-	
-``static uint8_t *table[] = {
+
+`static uint8_t *table[] = {
 		"discovery",
 		"off",
 		"on",
@@ -29,8 +29,8 @@ Xen kernel sensing will share the same approach and much of the same code as lin
 		"adversarial",
 		"reset",
 		"records"
-	};``
-	
+	};`
+
 4. The user space interface on both platforms will be script-enabled via the JSONL format of the command-response protocol. Pushing a JSONL string into the kernel via either a  domain socket (linux) or hypercall (Xen) will emit a string JSONL response object.
 
 ### Differences
@@ -38,3 +38,10 @@ Xen kernel sensing will share the same approach and much of the same code as lin
 2. The set of probes to run in the Xen kernel will be different from linux and limited to Xen kernel resources.
 3. Sensor and probe commands and responses will be achieved via a new _privileged hypercall_, built in to the Xen Kernel. Usually this means only _Dom 0_ processes may invoke the sensing protocol, but it may be invoked also from a separate privileged domain, the sole purpose of which is to support kernel sensing.
 > A linux System Call and a Xen Privileged hypercall are analogous and implemented (mostly) the same way on each platform.
+
+### Probes for the Xen Kernel
+
+1. _kernel-ps_, which presents a _ps command_ view from within the kernel of running processes or threads. In the Xen case, the output will correspond to running Xen domains and Xen kernel-internal threads. It may be useful to find hidden or obscured running Domains, or may find visible domains with unexpected privileges.
+2. checksums on the contents of important Xen symbols, which could detect the installation of trampolines (_jumps_) within the Xen kernel.
+3. Changes to Xen kernel page tables. page table entries (_ptes_) will change frequently, but changes to Xen kernel first-level page tables will be predictable and associated with specific events. A probe can detect unpredicted changes to the first-level page table.
+4. Chages to Xen kernel exception handlers. Xen exception handling should not change during runtime, and detecting changes should be relatively simple for an in-kernel probe.
