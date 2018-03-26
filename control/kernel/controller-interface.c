@@ -181,6 +181,7 @@ static void
 k_read_write(struct kthread_work *work)
 {
 	int ccode = 0;
+	unsigned long flags;
 	/**
 	 * allocate these buffers dynamically so this function can
 	 * be re-entrant. Also avoid allocation on the stack.
@@ -204,8 +205,8 @@ k_read_write(struct kthread_work *work)
 	read_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
 	if (read_buf == NULL) {
 /**
- * running as a kernel thread, can't return an error code, so we need
- * to log this error info
+ * running as a kernel thread, can't return an error code to the caller,
+ * so we need to log this error info.
  **/
 		DMSG();
 		printk(KERN_INFO "kernel sensor error - no memory, kernel thread exiting\n");
@@ -242,7 +243,7 @@ again:
 	 * probe, which will usually result in a write to this socket.
 	 *
 	 * parse_json_message accepts responsibility for freeing
-	 * resources when it returns >= 0.
+	 * resources when it returns >= 0.fpu
 	 **/
 	ccode = parse_json_message(m);
 	if (ccode < 0) {
@@ -262,7 +263,10 @@ err_out0:
 	free_message(m);
 err_out1:
 	if (read_buf) kfree(read_buf);
-	list_del(&connection->l_node);
+	spin_lock_irqsave(&k_sensor.lock, flags);
+	list_del_rcu(&connection->l_node);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
+	synchronize_rcu();
 	kfree(connection->_destroy(connection));
 	return;
 }
@@ -344,8 +348,12 @@ link_new_connection_work(struct connection *c,
 						 void (*f)(struct kthread_work *),
 						 uint8_t *d)
 {
+
 	if (!SHOULD_SHUTDOWN) {
-		list_add(&c->l_node, &k_sensor.probes);
+		unsigned long flags;
+		spin_lock_irqsave(&k_sensor.lock, flags);
+		list_add_rcu(&c->l_node, &k_sensor.connections);
+		spin_unlock_irqrestore(&k_sensor.lock, flags);
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
 		CONT_INIT_WORKER(&c->worker);
@@ -373,6 +381,7 @@ static inline void *destroy_connection(struct connection *c)
 /**
  * return a newly initialized connnection struct,
  * socket will either be bound and listening, or
+
  * accepted and connected, according to flags
  **/
 struct connection *
@@ -406,7 +415,7 @@ init_connection(struct connection *c, uint64_t flags, void *p)
         /**
 		 * the socket is now bound and listening, we don't want to block
 		 * here so schedule the accept to happen on a separate kernel thread.
-		 * first, link it to the kernel sensor list of probes, then schedule
+		 * first, link it to the kernel sensor list of connections, then schedule
 		 * it as work
 		 **/
 
@@ -441,9 +450,8 @@ err_exit:
 static int __init socket_interface_init(void)
 {
 	DMSG();
-	INIT_LIST_HEAD(&h_sessions);
+	init_jsonl_parser();
 	init_connection(&listener, PROBE_LISTEN, socket_name);
-
 
 	return 0;
 }

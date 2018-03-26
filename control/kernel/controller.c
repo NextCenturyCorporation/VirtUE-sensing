@@ -43,16 +43,7 @@ MODULE_PARM_DESC(ps_timeout,
 
 
 
-/**
- * lockless list black magic:
- * 1) llist_del_all (head)
- * 2) llist_for_each_entry - copy each entry id  string into buffer
- * 3a) llist_del_all (head) and save if not null (means another probe was
- *     added when we were not looking)
- * 3b) llist_add_batch (original first, original last, head) from step 2
- * 3c) llist_add(3a) if not null - this is a probe that was linked
- *     while we were building the discovery buffer in step 2
- **/
+
 #ifdef NOTHING
 static inline int
 build_discovery_buffer(uint8_t **buf, size_t len)
@@ -193,16 +184,16 @@ void *destroy_probe(struct probe *probe)
 	assert(probe && __FLAG_IS_SET(probe->flags, PROBE_INITIALIZED));
 	__CLEAR_FLAG(probe->flags, PROBE_INITIALIZED);
 
-	if (probe->id &&
-		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
-		kfree(probe->id);
-		probe->id = NULL;
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
-	}
-
 	if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
 		kthread_destroy_worker(&probe->worker);
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
+	}
+	if (probe->id &&
+		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
+		uint8_t *tmp = probe->id;
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
+		probe->id = NULL;
+		kfree(tmp);
 	}
 	return probe;
 }
@@ -210,25 +201,39 @@ void *destroy_probe(struct probe *probe)
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
 
-	struct probe *probe_p, *tmp_p;
-	struct connection *conn_c, *tmp_c;
+	struct probe *probe_p;
+	struct connection *conn_c;
+	unsigned long flags;
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
+	spin_lock_irqsave(&sensor->lock, flags);
+	while (NULL !=
+		   (probe_p = list_first_or_null_rcu(&sensor->probes,
+											 struct probe,
+											 l_node))) {
+		list_del_rcu(&probe_p->l_node);
 
-	list_for_each_entry_safe(probe_p, tmp_p, &sensor->probes, l_node) {
 		if (__FLAG_IS_SET(probe_p->flags, PROBE_KPS)) {
 			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
 		} else {
+
 			probe_p->destroy(probe_p);
 		}
+		synchronize_rcu();
 		/**
 		 * TODO: kernel-ps is statically allocated, but not all
 		 * probes will be. some probes will need to be kfreed()'d
 		 **/
 	}
-
-	list_for_each_entry_safe(conn_c, tmp_c, &sensor->listeners, l_node) {
+	spin_unlock_irqrestore(&sensor->lock, flags);
+	synchronize_rcu();
+	spin_lock_irqsave(&sensor->lock, flags);
+	while (NULL !=
+		   (conn_c = list_first_or_null_rcu(&sensor->listeners,
+											struct connection,
+											l_node))) {
+		list_del_rcu(&probe_p->l_node);
 		if (__FLAG_IS_SET(probe_p->flags, PROBE_LISTEN)) {
 			/**
 			 * the listener is statically allocated, no need to
@@ -236,17 +241,31 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 **/
 			probe_p->destroy(probe_p);
 		}
+		synchronize_rcu();
 	}
 
-	list_for_each_entry_safe(conn_c, tmp_c, &sensor->connections, l_node) {
+	spin_unlock_irqrestore(&sensor->lock, flags);
+	synchronize_rcu();
+
+
+	spin_lock_irqsave(&sensor->lock, flags);
+	while (NULL !=
+		   (conn_c = list_first_or_null_rcu(&sensor->connections,
+											struct connection,
+											l_node))) {
+		list_del_rcu(&probe_p->l_node);
 		if (__FLAG_IS_SET(probe_p->flags, PROBE_CONNECT)) {
 			/**
 			 * a connection is dynamically allocated, so
 			 * need to kfree the memory
 			 **/
-			kfree(probe_p->destroy(probe_p));
+			probe_p->destroy(probe_p);
+			synchronize_rcu();
+			kfree(probe_p);
 		}
 	}
+	spin_unlock_irqrestore(&sensor->lock, flags);
+	synchronize_rcu();
 
 /* now destroy the sensor's anonymous probe struct */
 	probe_p = (struct probe *)sensor;
@@ -357,9 +376,9 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 	init_probe((struct probe *)sensor,
 			   "Kernel Sensor", strlen("Kernel Sensor") + 1);
 	sensor->_init = init_kernel_sensor;
-	INIT_LIST_HEAD(&sensor->probes);
-	INIT_LIST_HEAD(&sensor->listeners);
-	INIT_LIST_HEAD(&sensor->connections);
+	INIT_LIST_HEAD_RCU(&sensor->probes);
+	INIT_LIST_HEAD_RCU(&sensor->listeners);
+	INIT_LIST_HEAD_RCU(&sensor->connections);
 	sensor->_destroy = destroy_kernel_sensor;
 	/* initialize the socket later when we listen*/
 	return(sensor);
@@ -433,7 +452,7 @@ struct probe *init_probe(struct probe *probe,
 	if (!probe) {
 		return ERR_PTR(-ENOMEM);
 	}
-
+	INIT_LIST_HEAD_RCU(&probe->l_node);
 	probe->init =  init_probe;
 	probe->destroy = destroy_probe;
 	if (id && id_size > 0) {
@@ -567,6 +586,7 @@ static int __init kcontrol_init(void)
 {
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
+	unsigned long flags;
 
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
@@ -582,8 +602,10 @@ static int __init kcontrol_init(void)
 		goto err_exit;
 	}
 
+	spin_lock_irqsave(&k_sensor.lock, flags);
 	/* link this probe to the sensor struct */
-	list_add(&ps_probe->l_node, &k_sensor.probes);
+	list_add_rcu(&ps_probe->l_node, &k_sensor.probes);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
 
 	return ccode;
 

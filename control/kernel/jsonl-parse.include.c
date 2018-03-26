@@ -26,7 +26,7 @@ typedef int spinlock_t;
 #define KERN_INFO ""
 #else
 /** kernel module **/
-#include <linux/list.h>
+#include <linux/rculist.h>
 
 
 #endif /* USERSPACE */
@@ -63,10 +63,35 @@ SLIST_HEAD(session_head, jsmn_session) \
 h_sessions;
 
 #else
-
-LIST_HEAD(h_sessions);
+spinlock_t sessions_lock;
+unsigned long sessions_flag;
+struct list_head h_sessions;
+static inline void init_jsonl_parser(void)
+{
+	INIT_LIST_HEAD_RCU(&h_sessions);
+}
 
 #endif /* kernel space */
+
+
+/**
+ * a jsmn_message is a single jsonl object, read and created by a connection
+ * the jsonl control protocol expects messages to be a request and matching
+ * replies (one or more).
+ *
+ * Each new request message automatically creates a new jsmn_session (below).
+ * a successful session is one request message and at least one reply
+ * message.
+ *
+ * A jsmn_session provides glue that binds a request to matching responses.
+ *
+ * The struct connection (defined in controller.h) initializes each jsmn_message
+ * with the struct socket that produced the data (read or written).
+ *
+ * You may always relate a struct connection to a jsmn_message by their having
+ * the same struct socket.
+ *
+ **/
 
 struct jsmn_message
 {
@@ -98,7 +123,7 @@ struct jsmn_session
 #ifdef USERSPACE
 	SLIST_ENTRY(jsmn_session) sessions;
 #else
-	struct list_head sessions;
+	struct list_head session_entry;
 #endif
 	spinlock_t sl;
 	uint8_t nonce[MAX_NONCE_SIZE];
@@ -187,7 +212,7 @@ free_message(struct jsmn_message *m)
 {
 	if(m->line)
 		kfree(m->line);
-	kfree(m);
+ 	kfree(m);
 	return;
 }
 
@@ -213,8 +238,7 @@ new_message(uint8_t *line, size_t len)
 static inline void
 free_session(struct jsmn_session *s)
 {
-	if (s->req)
-		free_message(s->req);
+
 #ifdef USERSPACE
 	while (! STAILQ_EMPTY(&s->h_replies)) {
 		struct jsmn_message *m = STAILQ_FIRST(&s->h_replies);
@@ -225,16 +249,22 @@ free_session(struct jsmn_session *s)
 #else
 	{
 		struct jsmn_message *m;
-		while ((m = list_first_entry_or_null(&s->h_replies,
-											 struct jsmn_message,
-											 e_messages))) {
-			list_del(&m->e_messages);
+		spin_lock_irqsave(&sessions_lock, sessions_flag);
+		list_del_rcu(&s->session_entry);
+		while ((m = list_first_or_null_rcu(&s->h_replies,
+										   struct jsmn_message,
+										   e_messages))) {
+			list_del_rcu(&m->e_messages);
+			synchronize_rcu();
 			free_message(m);
 		}
+		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
+		if (s->req) {
+			free_message(s->req);
+		}
+		kfree(s);
 	}
-	list_del(&s->sessions);
 #endif
-	kfree(s);
 }
 
 
@@ -384,20 +414,30 @@ garbage_collect_session(struct jsmn_message *m)
 	}
 #ifdef USERSPACE
 	SLIST_FOREACH(s, &h_sessions, sessions)
-#else
-		list_for_each_entry(s, &h_sessions, sessions)
-#endif
 	{
-#ifdef USERSPACE
 		if (s && s->req && s->req->file == m->file)
-#else
-		if (s && s->req && s->req->socket == m->socket)
-#endif
+
 		{
 			free_session(s); /* removes s from h_sessions */
 			return;
 		}
 	}
+#else
+	{
+		rcu_read_lock();
+		list_for_each_entry_rcu(s, &h_sessions, session_entry) {
+			if (s && s->req && s->req->socket == m->socket){
+				rcu_read_unlock();
+				/* free session will handle locking and rcu garbage
+				   collection. */
+				free_session(s);
+				return;
+			}
+		}
+		rcu_read_unlock();
+	}
+
+#endif
 }
 
 
@@ -425,29 +465,36 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 		STAILQ_INIT(&ns->h_replies);
 		SLIST_INSERT_HEAD(&h_sessions, ns, sessions);
 #else
-		INIT_LIST_HEAD(&ns->h_replies);
-		list_add(&ns->sessions, &h_sessions);
+		INIT_LIST_HEAD_RCU(&ns->h_replies);
+		spin_lock_irqsave(&sessions_lock, sessions_flag);
+		list_add_rcu(&ns->session_entry, &h_sessions);
+		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
 #endif
 		return ns;
 	} else {
 #ifdef USERSPACE
 		SLIST_FOREACH(ns, &h_sessions, sessions)
-#else
-			list_for_each_entry(ns, &h_sessions, sessions)
-#endif
 		{
-
 			if (! memcmp(ns->nonce, n, bytes)) {
-#ifdef USERSPACE
 				STAILQ_INSERT_TAIL(&ns->h_replies, m, e_messages);
-#else
-				list_add_tail(&m->e_messages, &ns->h_replies);
-#endif
-				m->s = ns;
-				return ns;
 			}
 		}
-	}
+#else
+		rcu_read_lock();
+		list_for_each_entry_rcu(ns, &h_sessions, session_entry) {
+			if (! memcmp(ns->nonce, n, bytes)) {
+				unsigned long replies_flag;
+				spin_lock_irqsave(&ns->sl, replies_flag);
+				list_add_tail_rcu(&m->e_messages, &ns->h_replies);
+				spin_unlock_irqrestore(&ns->sl, replies_flag);
+			}
+			rcu_read_unlock();
+		}
+#endif
+		m->s = ns;
+		return ns;
+	} /* m->type  == response */
+
 	return NULL;
 }
 
@@ -650,11 +697,15 @@ static void dump_session(struct jsmn_session *s)
 #ifdef USERSPACE
 	STAILQ_FOREACH(reply, &s->h_replies, e_messages)
 #else
-	list_for_each_entry(reply, &s->h_replies, e_messages)
+	rcu_read_lock();
+	list_for_each_entry_rcu(reply, &s->h_replies, e_messages)
 #endif
 	{
 		dump(reply->line, reply->tokens, reply->parser.toknext, 0);
 	}
+#ifndef USERSPACE
+	rcu_read_unlock();
+#endif
 	return;
 }
 
