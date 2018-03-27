@@ -76,7 +76,8 @@ in certain ways within `sensor/nfs.py`:
 
    * Bind TCP and UPD ports 111, 955, and 2049 to Scapy-derived RPC
      Header handlers. RPC is described in 
-     [RFC 1831](https://tools.ietf.org/html/rfc1831).
+     [RFC 1831](https://tools.ietf.org/html/rfc1831) and
+     [RFC 5531](https://tools.ietf.org/html/rfc5531).
 
    * Bind other TCP and UDP ports to the RPC handlers upon completion
      of a GETPORT exchange.
