@@ -82,7 +82,7 @@ in certain ways within `sensor/nfs.py`:
      of a GETPORT exchange.
 
 3. The RPC header directs Scapy to parse the next protocol (PORTMAP,
-MOUNTD, or [NFSv3]((https://tools.ietf.org/html/rfc1813) based on data in the RPC header. It's
+MOUNTD, or [NFSv3](https://tools.ietf.org/html/rfc1813) based on data in the RPC header. It's
 important to note here that the RPC Call header contains a transaction
 ID, the 'program' number, and the 'procedure' number (in RPC
 nomenclature). However, the RPC Reply only has the transation
