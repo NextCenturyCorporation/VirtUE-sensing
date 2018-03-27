@@ -16,6 +16,11 @@ extern CONST FLT_REGISTRATION FilterRegistration;
 extern "C" POBJECT_TYPE *IoDriverObjectType; // POBJECT_TYPE 
 extern WVUGlobals Globals;
 
+extern const ULONG HEADER_BLOCK_SIZE;
+extern const ULONG ENCRYPT_PAGE_SIZE;
+extern const LONGLONG FILE_ALLOCATION_NA;
+
+extern const ULONG FILE_ATTRIBUTES_NA;
 extern class ProcessInfoMap *pProcInfoMap;
 extern class ProcessTracker *pProcessTracker;
 

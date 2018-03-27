@@ -29,6 +29,8 @@
 #include "externs.h"
 #include "cmn.h"
 #include "UnDoc.h"
+#include "config.h"
+#include "debug.h"
 
 #pragma prefast(disable:__WARNING_ENCODE_MEMBER_FUNCTION_POINTER, "Not valid for kernel mode drivers")
 

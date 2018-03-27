@@ -11,7 +11,7 @@
     </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+      <Extensions>mc;rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="Driver Files">
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
@@ -37,6 +37,9 @@
       <UniqueIdentifier>{d7f736fb-de95-4296-8f52-4a123d45bca2}</UniqueIdentifier>
       <Extensions>h;hxx;hpp</Extensions>
     </Filter>
+    <Filter Include="inc">
+      <UniqueIdentifier>{1e8e0e72-7f46-4474-a998-942337fc5298}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="WinVirtUE.inf">
@@ -44,9 +47,6 @@
     </Inf>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="WinVirtUE.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="CPPRuntime\CPPRuntime.cpp">
       <Filter>Source Files\CPPRuntime</Filter>
     </ClCompile>
@@ -54,6 +54,21 @@
       <Filter>Source Files\CPPRuntime</Filter>
     </ClCompile>
     <ClCompile Include="WinVUFilterRegistration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Globals.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WinVirtUE.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Driver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PortMsgTrans.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -87,6 +102,21 @@
     <ClInclude Include="WinVUFilterRegistration.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="Debug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Driver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PortMsgTrans.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\WVUKernelUserComms.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Templates\CopyrightAndFuncDocTemplate.txt">
@@ -103,5 +133,10 @@
     <None Include="..\TODO.md">
       <Filter>Docs</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <MessageCompile Include="Messages.mc">
+      <Filter>Resource Files</Filter>
+    </MessageCompile>
   </ItemGroup>
 </Project>

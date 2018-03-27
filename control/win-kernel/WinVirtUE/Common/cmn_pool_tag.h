@@ -14,3 +14,5 @@
 #define INSTANCECONTEXT_POOL_TAG        'xtci'
 #define STREAMCONTEXT_POOL_TAG          'xtcs'
 #define WVU_FLT_REG_POOL_TAG            'grlf'
+#define WVU_QUERY_VOLUME_NAME_POOL_TAG	'lovq'
+#define WVU_DEBUG_POOL_TAG              'gbed'

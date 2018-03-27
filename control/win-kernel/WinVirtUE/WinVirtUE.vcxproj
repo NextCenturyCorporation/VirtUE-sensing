@@ -35,11 +35,15 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Debug.cpp" />
+    <ClCompile Include="Driver.cpp" />
+    <ClCompile Include="Globals.cpp" />
+    <ClCompile Include="PortMsgTrans.cpp" />
     <ClCompile Include="WinVUFilterRegistration.cpp" />
     <ResourceCompile Include="WinVirtUE.rc" />
     <ClCompile Include="CPPRuntime\CPPRuntime.cpp" />
     <ClCompile Include="CPPRuntime\new.cpp" />
-    <ClCompile Include="WinVirtUE.c" />
+    <ClCompile Include="WinVirtUE.cpp" />
     <Inf Include="WinVirtUE.inf" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -125,12 +129,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <DiagnosticMode>true</DiagnosticMode>
-    <IncludePath>$(ProjectDir)CPPRuntime;$(ProjectDir)Common;$(ProjectDir);$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)CPPRuntime;$(ProjectDir)Common;$(ProjectDir);$(SolutionDir)inc;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <DiagnosticMode>true</DiagnosticMode>
-    <IncludePath>$(ProjectDir)CPPRuntime;$(ProjectDir)Common;$(ProjectDir);$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)CPPRuntime;$(ProjectDir)Common;$(ProjectDir);$(SolutionDir)inc;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -194,12 +198,17 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\inc\WVUKernelUserComms.h" />
     <ClInclude Include="Common\cmn.h" />
     <ClInclude Include="Common\cmn_pool_tag.h" />
     <ClInclude Include="Common\common.h" />
     <ClInclude Include="Common\externs.h" />
     <ClInclude Include="Common\types.h" />
+    <ClInclude Include="config.h" />
     <ClInclude Include="CPPRuntime\CPPRuntime.h" />
+    <ClInclude Include="Debug.h" />
+    <ClInclude Include="Driver.h" />
+    <ClInclude Include="PortMsgTrans.h" />
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="WinVUFilterRegistration.h" />
   </ItemGroup>
@@ -210,6 +219,9 @@
     <None Include="..\DESIGN.md" />
     <None Include="..\README.md" />
     <None Include="..\TODO.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <MessageCompile Include="Messages.mc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

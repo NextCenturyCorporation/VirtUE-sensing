@@ -39,9 +39,9 @@ CONST FLT_REGISTRATION FilterRegistration = {
     (PFLT_INSTANCE_TEARDOWN_CALLBACK)WVUInstanceTeardownComplete,        //  InstanceTeardownComplete
 
     (PFLT_GENERATE_FILE_NAME)WVUGenerateFileNameCallback,                //  GenerateFileName    
-    NULL,                                                               //  NormalizeNameComponent
-    NULL,                                                               //  NormalizeContextCleanupCallback;
-    NULL,                                                               //  TransactionNotificationCallback;
+    NULL,                                                                //  NormalizeNameComponent
+    NULL,                                                                //  NormalizeContextCleanupCallback;
+    NULL,                                                                //  TransactionNotificationCallback;
     (PFLT_NORMALIZE_NAME_COMPONENT_EX)WVUNormalizeNameComponentExCallback  //  NormalizeNameComponentExCallback;
 };
 
@@ -68,7 +68,7 @@ FreeVolumeName(
             VolumeName->Buffer,
             FILE_FS_VOLUME_INFORMATION,
             VolumeLabel),
-        WVU_POOL_TAG_QUERY_VOLUME_NAME);
+		WVU_QUERY_VOLUME_NAME_POOL_TAG);
 }
 
 /**
@@ -102,7 +102,7 @@ QueryVolumeName(
     VolumeInformation = (PFILE_FS_VOLUME_INFORMATION)ExAllocatePoolWithTag(
         PagedPool,
         AllocSize,
-        WVU_POOL_TAG_QUERY_VOLUME_NAME);
+		WVU_QUERY_VOLUME_NAME_POOL_TAG);
     if (NULL == VolumeInformation)
     {
         Status = STATUS_INSUFFICIENT_RESOURCES;
@@ -131,7 +131,7 @@ QueryVolumeName(
     {
         ExFreePoolWithTag(
             VolumeInformation,
-            WVU_POOL_TAG_QUERY_VOLUME_NAME);
+            WVU_QUERY_VOLUME_NAME_POOL_TAG);
         InstanceContext->AllocatedVolumeName = FALSE;
     }
 
@@ -281,7 +281,8 @@ WVUUnload(
     {
         WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "ObsidianWave Filter Unload Aborted Because AllowFilterUnload is FALSE!\n");
         Status = STATUS_FLT_DO_NOT_DETACH;
-        return Status;
+		goto Error;
+        
     }
 
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "ObsidianWave Filter Unload Proceeding . . .\n");
@@ -299,22 +300,6 @@ WVUUnload(
     FltCloseCommunicationPort(Globals.WVUServerPort);
     Globals.WVUServerPort = NULL;
 
-    Status = PsRemoveLoadImageNotifyRoutine(ImageLoadNotificationRoutine);
-    FLT_ASSERTMSG("PsRemoveLoadImageNotifyRoutine(ImageLoadNotificationRoutine) removal Failed!", NT_SUCCESS(Status));
-    if (FALSE == NT_SUCCESS(Status))
-    {
-        WVU_DEBUG_PRINT(LOG_WVU_MAIN, ERROR_LEVEL_ID, "PsRemoveLoadImageNotifyRoutine(ImageLoadNotificationRoutine) "
-            "removal Failed! Status=%08x\n", Status);
-    }
-
-    Status = PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx, TRUE);
-    FLT_ASSERTMSG("PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx) removal Failed!", NT_SUCCESS(Status));
-    if (FALSE == NT_SUCCESS(Status))
-    {
-        WVU_DEBUG_PRINT(LOG_WVU_MAIN, ERROR_LEVEL_ID, "PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx, TRUE) "
-            "removal Failed! Status=%08x\n", Status);
-    }
-
     // cause the WVU Thread to proceed with object destruction
     KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);
 
@@ -327,7 +312,12 @@ WVUUnload(
     // unregister all callbacks
     FltUnregisterFilter(Globals.FilterHandle);
 
-    return STATUS_SUCCESS;
+	// we've made, all is well
+	Status = STATUS_SUCCESS;
+
+Error:
+
+    return Status;
 }
 
 /**
