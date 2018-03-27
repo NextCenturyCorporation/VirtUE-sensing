@@ -7,8 +7,9 @@ the Sensor API -- its code lives in the target directory because it
 more closely matches a target.  It runs in its own environment (not in
 a target VM/container) and does not host other sensors.
 
-The sensor is intended to run alongside an [NFS Server Unikernel]
-(https://github.com/NextCenturyCorporation/VirtUE-VMs). It requires
+The sensor is intended to run alongside the
+[NFS Server Unikernel](https://github.com/NextCenturyCorporation/VirtUE-VMs).
+It requires
 access to the NIC that the NFS traffic traverses and access to the
 Sensor API server. To simplify dependencies for the user, it runs
 within a Docker container. This can cause challenges when attempting
@@ -74,16 +75,16 @@ interface.
 in certain ways within `sensor/nfs.py`:
 
    * Bind TCP and UPD ports 111, 955, and 2049 to Scapy-derived RPC
-     Header handlers. RPC is described in [RFC 1831]
-     (https://tools.ietf.org/html/rfc1831).
+     Header handlers. RPC is described in 
+     [RFC 1831](https://tools.ietf.org/html/rfc1831).
 
    * Bind other TCP and UDP ports to the RPC handlers upon completion
      of a GETPORT exchange.
 
 3. The RPC header directs Scapy to parse the next protocol (PORTMAP,
-MOUNTD, or NFS) based on data in the RPC header. It's important to
-note here that the RPC Call header contains a transaction ID, the
-'program' number, and the 'procedure' number (in RPC
+MOUNTD, or NFSv3 - RFC 1813) based on data in the RPC header. It's
+important to note here that the RPC Call header contains a transaction
+ID, the 'program' number, and the 'procedure' number (in RPC
 nomenclature). However, the RPC Reply only has the transation
 ID. Therefore our parser maps transaction IDs to their RPC Call
 objects so it knows how to parse RPC Replies.
