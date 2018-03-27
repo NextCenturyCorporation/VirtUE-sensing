@@ -29,6 +29,7 @@ struct kernel_sensor k_sensor;
 EXPORT_SYMBOL(k_sensor);
 
 struct kernel_ps_probe kps_probe;
+struct kernel_lsof_probe klsof_probe;
 
 static unsigned int ps_repeat = 1;
 static unsigned int ps_timeout = 1;
@@ -485,7 +486,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
  * Each time the sample runs it increments its count, prints probe
  * information, and either reschedules itself or dies.
  **/
-void  k_probe(struct kthread_work *work)
+void  run_kps_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
 	struct kernel_ps_probe *probe_struct =
@@ -509,7 +510,7 @@ void  k_probe(struct kthread_work *work)
 	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
 		probe_struct->repeat--;
 		sleep(probe_struct->timeout);
-		init_and_queue_work(work, co_worker, k_probe);
+		init_and_queue_work(work, co_worker, run_kps_probe);
 	}
 	return;
 }
@@ -642,7 +643,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 
 
 /* now queue the kernel thread work structures */
-	CONT_INIT_WORK(&ps_p->work, k_probe);
+	CONT_INIT_WORK(&ps_p->work, run_kps_probe);
 	__SET_FLAG(ps_p->flags, PROBE_HAS_WORK);
 	CONT_INIT_WORKER(&ps_p->worker);
 	CONT_QUEUE_WORK(&ps_p->worker,

@@ -37,5 +37,5 @@
 #define PROBE_HAS_WORK          0x20
 #define PROBE_LISTEN            0x40
 #define PROBE_CONNECT           0x80
-
+#define PROBE_LSOF             0x100
 #endif

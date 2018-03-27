@@ -307,6 +307,18 @@ struct kernel_ps_probe {
 };
 
 
+struct kernel_lsof_probe {
+	struct probe;
+	struct flex_array *klsof_data_flex_array;
+	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
+	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
+	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
+									 uint8_t *, int,
+		                             int (*print)(struct kernel_lsof_probe *,
+												  uint8_t *, uint64_t, int));
+	void *(*_destroy)(struct probe *);
+};
+
 
 /**
  * @brief The kernel sensor is the parent of one or more probes
