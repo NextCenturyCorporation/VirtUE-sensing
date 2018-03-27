@@ -44,15 +44,99 @@ MODULE_PARM_DESC(ps_timeout,
 
 
 
-#ifdef NOTHING
-static inline int
-build_discovery_buffer(uint8_t **buf, size_t len)
-{
-	/* see llist.h: 234 */
-	xchg(new head, old head);
+/**
+ * The discovery buffer needs to be a formatted as a JSON array,
+ * with each probe's ID string as an element in the array.
+ **/
 
+/**
+ * @brief build a JSON array containing the id strings of each parser
+ * registered with the sensor.
+ *
+ * @param uint8_t **buf pointer-to-a-pointer that we will allocate for
+ *        the caller, to hold a json array of probe ids.
+ * @param size_t *len - pointer to an integer that will contain the
+ *        size of the buffer we (re)allocate for the caller.
+ * @return zero upon success, -ENOMEM in case of error.
+ *
+ *
+ * This is ugly for two reasons. First, we don't pre-calculate the length
+ * of the combined id strings. So we allocate a buffer that we _think_
+ * will be large enough, and then realloc it to a smaller buffer at the end,
+ * if we have extra memory (greater than 256.
+ *
+ * if the initial array is too small, we just give up and return -ENOMEM.
+ * The right thing to do would be to krealloc to a larger buffer. That
+ * would mean re-assigning the cursor. Not a lot of work, so it is something
+ * to do if necessary.
+ *
+ * Secondly, building the JSON array is a manual process, so creating the
+ * array one character at a time is needed. And the remaining length calculation
+ * is erring on the the side of being conservative.
+ *
+ * TODO: maintain this buffer array before its needed, by re-constructing it
+ * every time a probe registers or de-registers.
+ *
+ * TODO: krealloc the buffer to a larger size if the initial buffer is too
+ * small.
+ **/
+
+static inline int
+build_discovery_buffer(uint8_t **buf, size_t *len)
+{
+
+	uint8_t *cursor;
+	int remaining, count = 0;
+	struct probe *p_cursor;
+
+	assert(buf && len);
+
+	*len = CONNECTION_MAX_HEADER;
+	*buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (*buf <= 0) {
+		*len = 0;
+		return -ENOMEM;
+	}
+
+	remaining = *len;
+	cursor = *buf;
+	*cursor++ = L_BRACKET; remaining--;
+	*cursor++ = D_QUOTE; remaining--;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(p_cursor, &k_sensor.probes, l_node) {
+		int id_len;
+		if ((remaining - 5) > (id_len = strlen(p_cursor->id))) {
+			if (count > 0) {
+				*cursor++ = COMMA; remaining--;
+				*cursor++ = SPACE; remaining--;
+			}
+			*cursor++ = D_QUOTE; remaining--;
+			strncpy(cursor, p_cursor->id, remaining - 3);
+			remaining -= id_len;
+			cursor += id_len;
+			*cursor++ = D_QUOTE; remaining--;
+			count++;
+		} else {
+			goto err_exit;
+		}
+	}
+	rcu_read_unlock();
+	if (remaining > 1) {
+		*cursor = R_BRACKET; remaining--;
+		*cursor = 0x00; remaining--;
+	}
+	if (remaining > 0x100) {
+		*buf = krealloc(*buf, (*len - (remaining - 1)), GFP_KERNEL);
+		*len -= (remaining - 1);
+	}
+	return 0;
+
+err_exit:
+	if (*buf) kfree(*buf);
+	*len = -ENOMEM;
+	return -ENOMEM;
 }
-#endif
 
 /**
  * locking the kernel-ps flex_array

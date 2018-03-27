@@ -31,6 +31,9 @@
 
 static int SHOULD_SHUTDOWN;
 
+enum json_array_chars {
+	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d
+};
 
 static inline void sleep(unsigned sec)
 {
