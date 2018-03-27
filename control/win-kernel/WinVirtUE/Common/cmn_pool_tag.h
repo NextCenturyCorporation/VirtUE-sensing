@@ -13,3 +13,4 @@
 #define FILTERMANAGER_POOL_TAG          'rtlF'
 #define INSTANCECONTEXT_POOL_TAG        'xtci'
 #define STREAMCONTEXT_POOL_TAG          'xtcs'
+#define WVU_FLT_REG_POOL_TAG            'grlf'

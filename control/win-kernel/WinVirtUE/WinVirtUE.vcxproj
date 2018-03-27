@@ -35,6 +35,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="WinVUFilterRegistration.cpp" />
     <ResourceCompile Include="WinVirtUE.rc" />
     <ClCompile Include="CPPRuntime\CPPRuntime.cpp" />
     <ClCompile Include="CPPRuntime\new.cpp" />
@@ -200,6 +201,7 @@
     <ClInclude Include="Common\types.h" />
     <ClInclude Include="CPPRuntime\CPPRuntime.h" />
     <ClInclude Include="UnDoc.h" />
+    <ClInclude Include="WinVUFilterRegistration.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Templates\CopyrightAndFuncDocTemplate.txt" />
