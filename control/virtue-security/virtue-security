@@ -4510,6 +4510,7 @@ def options():
 if __name__ == "__main__":
 
     opts = options()
+    print("%% virtue-security api(%s)" % (opts.api_host,))
 
     # dispatch our command based upon the primary mode
     dispatch = {
