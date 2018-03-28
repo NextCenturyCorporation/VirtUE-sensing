@@ -4486,7 +4486,7 @@ def options():
     parser.add_argument("--ca-key-path", dest="ca_key_path", default=None, help="Where to store the Certificate Authority Root Public Key")
 
     # communications
-    parser.add_argument("-a", "--api-host", dest="api_host", default="api", help="API host URI")
+    parser.add_argument("-a", "--api-host", dest="api_host", default="sensing-api.savior.internal", help="API host URI")
     parser.add_argument("--api-port-https", dest="api_port_https", default=17504, type=int, help="API HTTPS port")
     parser.add_argument("--api-port-http", dest="api_port_http", default=17141, type=int, help="API HTTP port")
 
