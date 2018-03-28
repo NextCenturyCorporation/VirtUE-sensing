@@ -20,7 +20,7 @@ services:
         mode: ingress
     environment:
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
-      KAFKA_ADVERTISED_HOSTNAME: "sensing-kafka.savior.internal"      
+      KAFKA_ADVERTISED_HOST_NAME: "sensing-kafka.savior.internal"      
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:SSL,OUTSIDE:SSL
       KAFKA_ADVERTISED_PROTOCOL_NAME: OUTSIDE
