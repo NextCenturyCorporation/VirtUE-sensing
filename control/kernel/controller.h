@@ -176,9 +176,9 @@ struct kernel_ps_data {
  **/
 
 #define PS_APPARENT_ARRAY_SIZE											\
-	FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS \
+	(FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
 
-#define PS_ARRAY_SIZE (PS_APPARENT_ARRAY_SIZE) - 1
+#define PS_ARRAY_SIZE ((PS_APPARENT_ARRAY_SIZE) - 1)
 
 
 /**
@@ -194,13 +194,36 @@ struct kernel_ps_data {
  *
  **/
 struct kernel_lsof_data {
+	uint64_t index, nonce;
+	kuid_t user_id;
+	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
 	struct file f;
 	struct path p;
 	struct fown_struct owner;
 	atomic_long_t count;
 	unsigned int flags;
 	fmode_t mode;
+	uint8_t comm[TASK_COMM_LEN+1];
 };
+
+
+#define LSOF_DATA_SIZE sizeof(struct kernel_lsof_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define LSOF_APPARENT_ARRAY_SIZE										   \
+	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
+
+#define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
+
+
+
+
 
 
 /**
