@@ -352,13 +352,17 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
-	spin_lock_irqsave(&sensor->lock, flags);
-	while (NULL !=
-		   (probe_p = list_first_or_null_rcu(&sensor->probes,
-											 struct probe,
-											 l_node))) {
-		list_del_rcu(&probe_p->l_node);
 
+	rcu_read_lock();
+	probe_p = list_first_or_null_rcu(&sensor->probes,
+									 struct probe,
+									 l_node);
+	rcu_read_unlock();
+	while (probe_p != NULL) {
+		spin_lock_irqsave(&sensor->lock, flags);
+		list_del_rcu(&probe_p->l_node);
+		spin_unlock_irqrestore(&sensor->lock, flags);
+		synchronize_rcu();
 		if (__FLAG_IS_SET(probe_p->flags, PROBE_KPS)) {
 			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
 		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KLSOF)) {
@@ -366,53 +370,68 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		} else {
 			probe_p->destroy(probe_p);
 		}
-		synchronize_rcu();
 		/**
 		 * TODO: kernel-ps is statically allocated, but not all
 		 * probes will be. some probes will need to be kfreed()'d
 		 **/
+		rcu_read_lock();
+		probe_p = list_first_or_null_rcu(&sensor->probes,
+									 struct probe,
+									 l_node);
+		rcu_read_unlock();
 	}
-	spin_unlock_irqrestore(&sensor->lock, flags);
 	synchronize_rcu();
-	spin_lock_irqsave(&sensor->lock, flags);
-	while (NULL !=
-		   (conn_c = list_first_or_null_rcu(&sensor->listeners,
-											struct connection,
-											l_node))) {
-		list_del_rcu(&probe_p->l_node);
-		if (__FLAG_IS_SET(probe_p->flags, PROBE_LISTEN)) {
+	rcu_read_lock();
+	conn_c = list_first_or_null_rcu(&sensor->listeners,
+									struct connection,
+									l_node);
+	rcu_read_unlock();
+	while (conn_c != NULL) {
+		spin_lock_irqsave(&sensor->lock, flags);
+		list_del_rcu(&conn_c->l_node);
+		spin_unlock_irqrestore(&sensor->lock, flags);
+		synchronize_rcu();
+		if (__FLAG_IS_SET(conn_c->flags, PROBE_LISTEN)) {
 			/**
 			 * the listener is statically allocated, no need to
 			 * free the memory
 			 **/
-			probe_p->destroy(probe_p);
+			conn_c->_destroy(conn_c);
 		}
 		synchronize_rcu();
+		rcu_read_lock();
+		conn_c = list_first_or_null_rcu(&sensor->listeners,
+										struct connection,
+										l_node);
+		rcu_read_unlock();
 	}
+	conn_c = NULL;
 
-	spin_unlock_irqrestore(&sensor->lock, flags);
-	synchronize_rcu();
-
-
-	spin_lock_irqsave(&sensor->lock, flags);
-	while (NULL !=
-		   (conn_c = list_first_or_null_rcu(&sensor->connections,
-											struct connection,
-											l_node))) {
-		list_del_rcu(&probe_p->l_node);
-		if (__FLAG_IS_SET(probe_p->flags, PROBE_CONNECT)) {
+	rcu_read_lock();
+	conn_c = list_first_or_null_rcu(&sensor->connections,
+									struct connection,
+									l_node);
+	rcu_read_unlock();
+	while (conn_c != NULL) {
+		spin_lock_irqsave(&sensor->lock, flags);
+        list_del_rcu(&conn_c->l_node);
+	    spin_unlock_irqrestore(&sensor->lock, flags);
+		if (__FLAG_IS_SET(conn_c->flags, PROBE_CONNECT)) {
 			/**
 			 * a connection is dynamically allocated, so
 			 * need to kfree the memory
 			 **/
-			probe_p->destroy(probe_p);
+			conn_c->_destroy(conn_c);
 			synchronize_rcu();
-			kfree(probe_p);
+			kfree(conn_c);
+			conn_c = NULL;
 		}
+		rcu_read_lock();
+		conn_c = list_first_or_null_rcu(&sensor->connections,
+										struct connection,
+										l_node);
+		rcu_read_unlock();
 	}
-	spin_unlock_irqrestore(&sensor->lock, flags);
-	synchronize_rcu();
-
 /* now destroy the sensor's anonymous probe struct */
 	probe_p = (struct probe *)sensor;
 	destroy_probe(probe_p);
@@ -853,7 +872,7 @@ static int __init kcontrol_init(void)
 {
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
-	struct kernel_lsof_probe *lsof_probe = NULL;
+//	struct kernel_lsof_probe *lsof_probe = NULL;
 
 	unsigned long flags;
 
@@ -882,14 +901,14 @@ static int __init kcontrol_init(void)
     /**
      * initialize the lsof probe
 	 **/
-
+#ifdef NOTHING
 	lsof_probe = init_kernel_lsof_probe(&klsof_probe,
 										"Kernel LSOF Probe",
 										strlen("Kernel LSOF Probe") + 1,
 										print_kernel_lsof);
 
 
-
+#endif
 	return ccode;
 
 err_exit:
