@@ -2,7 +2,7 @@
 
 
 # Get certificates
-python3 /var/tools/get_certificates.py --cfssl-host cfssl --hostname kafka -d $KAFKA_HOME/certs
+python3 /var/tools/get_certificates.py --cfssl-host cfssl --hostname sensing-kafka.savior.internal -d $KAFKA_HOME/certs
 
 # Build the certs into a java trust store and certificate store
 

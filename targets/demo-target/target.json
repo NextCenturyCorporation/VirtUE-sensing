@@ -6,7 +6,8 @@
   "startup_scripts_directory": "./sensor_startup",
   "kernel_mod_directory": "./kmods",
   "sensors": [
-    "lsof-sensor"
+    "lsof-sensor",
+    "ps-sensor"
   ],
   "kernel_modules": [
     
