@@ -201,6 +201,14 @@ Tear down the network
 > sudo docker network rm apinet
 ```
 
+## Load Configurations
+
+If this is the first run for the API on this swarm, the database may need to be seeded with sensor configurations:
+
+```bash
+> ./bin/load_sensor_configurations.py
+```
+
 ## OPS
 
 ### Restarting Services
