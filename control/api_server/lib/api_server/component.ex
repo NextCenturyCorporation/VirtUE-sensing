@@ -50,7 +50,7 @@ defmodule ApiServer.Component do
     component
     |> Ecto.Changeset.cast(params, [:name, :context, :os, :description])
     |> Ecto.Changeset.validate_inclusion(:context, ["virtue", "unikernel", "hypervisor"])
-    |> Ecto.Changeset.validate_inclusion(:os, ["linux", "windows", "rump"])
+    |> Ecto.Changeset.validate_inclusion(:os, ApiServer.Constants.sensor_os())
     |> Ecto.Changeset.validate_required([:name, :context, :os])
   end
 

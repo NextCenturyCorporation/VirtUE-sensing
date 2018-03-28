@@ -413,8 +413,9 @@ defmodule ApiServer.ValidationPlug do
   """
   def valid_component_os(%Plug.Conn{params: %{"os" => raw_os}} = conn, _) do
     os = String.downcase(raw_os)
+    valid_os = os in ApiServer.Constants.sensor_os()
     case os do
-      os when os in ["linux", "windows", "rump"] ->
+      os when valid_os ->
         conn
         |> assign(:component_os, os)
       os when os == nil ->

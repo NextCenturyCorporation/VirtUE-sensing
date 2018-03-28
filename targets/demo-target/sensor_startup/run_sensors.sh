@@ -1,2 +1,3 @@
 #!/bin/bash
 /opt/sensor_startup/run_lsof_sensor.sh &
+/opt/sensor_startup/run_ps_sensor.sh &

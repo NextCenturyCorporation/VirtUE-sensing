@@ -117,7 +117,7 @@ async def ps(message_stub, config, message_queue):
 
 
 if __name__ == "__main__":
-    wrapper = SensorWrapper("ps-sensor", [ps, assess_ps])
+    wrapper = SensorWrapper("ps", [ps, assess_ps])
 
     wrapper.argparser.add_argument("--ps-path", dest="ps_path", default="ps", help="Path to the PS command")
     wrapper.start()
