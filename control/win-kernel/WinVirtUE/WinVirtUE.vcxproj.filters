@@ -127,6 +127,9 @@
     <ClInclude Include="FltMgrCallbacks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="WinVirtUE.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Templates\CopyrightAndFuncDocTemplate.txt">

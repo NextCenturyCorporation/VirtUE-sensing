@@ -229,6 +229,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="FltMgrReg.h" />
+    <ClInclude Include="WinVirtUE.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Templates\CopyrightAndFuncDocTemplate.txt" />

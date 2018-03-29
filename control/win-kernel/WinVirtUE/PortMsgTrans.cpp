@@ -2,10 +2,6 @@
 #include "PortMsgTrans.h"
 #include "Driver.h"
 
-//
-//  Assign text sections for each routine.
-//
-
 /**
 * @brief Filter Manager calls this routine whenever a user-mode application calls FilterConnectCommunicationPort to send a connection request to the mini-filter driver
 * @param ClientPort Opaque handle for the new client port that is established between the user-mode application and the kernel-mode mini-filter driver.

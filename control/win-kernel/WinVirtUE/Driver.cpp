@@ -116,8 +116,6 @@ DriverEntry(
 
 	WVUDebugBreakPoint();
 
-	ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
-
 	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 
 	CallGlobalInitializers();
