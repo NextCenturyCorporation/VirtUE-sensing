@@ -125,6 +125,8 @@ def get_keys(opts):
         "CN": opts.hostname
     }
 
+    log(opts, "  = requesting certificate for hostname[%s]" % (opts.hostname,))
+    
     priv_key_res = requests.post("http://%s:%d/api/v1/cfssl/newkey" % (opts.cfssl_host, opts.cfssl_port), json=private_key_request)
 
     # HTTP errors?
