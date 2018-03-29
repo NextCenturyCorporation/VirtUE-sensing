@@ -138,7 +138,6 @@ again:
 							  MAX_TOKENS);
 		if (m->count == JSMN_ERROR_PART && len_save < CONNECTION_MAX_MESSAGE) {
             /* it may be valid to realloc and try again */
-			DMSG();
 			printk(KERN_INFO "kernel sensor read part of a JSON object, " \
 				   "attempting to realloc and read the remainder\n");
 			m->line = krealloc(m->line, CONNECTION_MAX_MESSAGE, GFP_KERNEL);
@@ -154,7 +153,6 @@ again:
 		/* set ccode to the number of tokens */
 		ccode = m->count;
 	} else {
-		DMSG();
 		printk(KERN_INFO "kernel sensor error reading from socket\n");
 	}
 	return ccode;
@@ -208,7 +206,6 @@ k_read_write(struct kthread_work *work)
  * running as a kernel thread, can't return an error code to the caller,
  * so we need to log this error info.
  **/
-		DMSG();
 		printk(KERN_INFO "kernel sensor error - no memory, kernel thread exiting\n");
 		return;
 	}
@@ -231,7 +228,6 @@ again:
 	m->count = read_parse_message(m);
 	if (m->count < 0) {
     /* for some reason, didn't read a valid json object */
-		DMSG();
 		printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
 			   "connection is being closed\n");
 		goto err_out0;
@@ -247,7 +243,6 @@ again:
 	 **/
 	ccode = parse_json_message(m);
 	if (ccode < 0) {
-		DMSG();
 		printk(KERN_INFO "kernel sensor error parsing a protocol message, " \
 			   "connection is being closed\n");
 		goto err_out0;
@@ -352,7 +347,7 @@ link_new_connection_work(struct connection *c,
 	if (!SHOULD_SHUTDOWN) {
 		unsigned long flags;
 		spin_lock_irqsave(&k_sensor.lock, flags);
-		list_add_rcu(&c->l_node, &k_sensor.connections);
+		list_add_rc'u(&c->l_node, &k_sensor.connections);
 		spin_unlock_irqrestore(&k_sensor.lock, flags);
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
@@ -449,7 +444,6 @@ err_exit:
 
 static int __init socket_interface_init(void)
 {
-	DMSG();
 	init_jsonl_parser();
 	init_connection(&listener, PROBE_LISTEN, socket_name);
 
