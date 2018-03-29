@@ -347,7 +347,7 @@ link_new_connection_work(struct connection *c,
 	if (!SHOULD_SHUTDOWN) {
 		unsigned long flags;
 		spin_lock_irqsave(&k_sensor.lock, flags);
-		list_add_rc'u(&c->l_node, &k_sensor.connections);
+		list_add_rcu(&c->l_node, &k_sensor.connections);
 		spin_unlock_irqrestore(&k_sensor.lock, flags);
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
