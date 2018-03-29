@@ -250,6 +250,7 @@ free_session(struct jsmn_session *s)
 	{
 		struct jsmn_message *m;
 		spin_lock_irqsave(&sessions_lock, sessions_flag);
+		rcu_read_lock();
 		list_del_rcu(&s->session_entry);
 		while ((m = list_first_or_null_rcu(&s->h_replies,
 										   struct jsmn_message,
@@ -258,6 +259,7 @@ free_session(struct jsmn_session *s)
 			synchronize_rcu();
 			free_message(m);
 		}
+		rcu_read_unlock();
 		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
 		if (s->req) {
 			free_message(s->req);
@@ -467,7 +469,9 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 #else
 		INIT_LIST_HEAD_RCU(&ns->h_replies);
 		spin_lock_irqsave(&sessions_lock, sessions_flag);
+		rcu_read_lock();
 		list_add_rcu(&ns->session_entry, &h_sessions);
+		rcu_read_unlock();
 		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
 #endif
 		return ns;
