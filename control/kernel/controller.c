@@ -406,7 +406,6 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		rcu_read_unlock();
 	}
 	conn_c = NULL;	
-
 	rcu_read_lock();
 	conn_c = list_first_or_null_rcu(&sensor->connections,
 									struct connection,
