@@ -136,7 +136,7 @@
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <DiagnosticMode>true</DiagnosticMode>
     <IncludePath>$(ProjectDir)CPPRuntime;$(ProjectDir)Common;$(ProjectDir);$(SolutionDir)inc;$(IncludePath)</IncludePath>
-    <CodeAnalysisRuleSet>..\..\..\..\..\..\..\..\Program Files (x86)\Windows Kits\10\CodeAnalysis\DriverMinimumRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
     <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
