@@ -23,14 +23,14 @@
 
 #pragma warning( pop )
 
+#include "config.h"
 #include "CPPRuntime.h"
 #include "cmn_pool_tag.h"
 #include "types.h"
-#include "externs.h"
 #include "cmn.h"
 #include "UnDoc.h"
-#include "config.h"
 #include "debug.h"
+#include "WVUKernelUserComms.h"
 
 #pragma prefast(disable:__WARNING_ENCODE_MEMBER_FUNCTION_POINTER, "Not valid for kernel mode drivers")
 
@@ -58,3 +58,13 @@
 
 #define ALLOC_POOL(PoolType, Size) ExAllocatePoolWithTag(PoolType, Size, COMMON_POOL_TAG)
 #define FREE_POOL(Buffer)  ExFreePoolWithTag(Buffer, COMMON_POOL_TAG);
+
+/** The header block size */
+CONST ULONG HEADER_BLOCK_SIZE = 1024 * 4;
+/** Encrypt Page size */
+CONST ULONG ENCRYPT_PAGE_SIZE = 512;
+
+/** When File Allocation Stream Size is Not Applicable */
+CONST LONGLONG FILE_ALLOCATION_NA = 0;
+/** When File Attributes are not used */
+CONST ULONG FILE_ATTRIBUTES_NA = 0;

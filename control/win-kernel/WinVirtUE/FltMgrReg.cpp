@@ -1,9 +1,9 @@
 /**
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
-* @brief main module of the WVU miniFilter driver.
+* @brief filter registeration module
 */
-#include "WinVUFilterRegistration.h"
+#include "FltMgrReg.h"
 #define COMMON_POOL_TAG WVU_FLT_REG_POOL_TAG
 
 #pragma region Filter Registration
@@ -25,11 +25,11 @@ CONST FLT_REGISTRATION FilterRegistration = {
 #if defined(WVU_DEBUG)
     NULL,                             //  Flags - changes filter behavior
 #else
-    FLTFL_REGISTRATION_DO_NOT_SUPPORT_SERVICE_STOP,  // Flags - do NOT allow a service stop 
+    FLTFL_REGISTRATION_DO_NOT_SUPPORT_SERVICE_STOP,  // Flags - do NOT allow a service stop when not compiled with WVU_DEBUG
 #endif
 
     ContextRegistrationData,            //  ContextRegistration
-    OperationCallbacks,                 //  Operation callbacks
+    NULL,                 //  Operation callbacks
 
     (PFLT_FILTER_UNLOAD_CALLBACK)WVUUnload,                              //  MiniFilterUnload
 
@@ -275,17 +275,17 @@ WVUUnload(
 
     if (FLTFL_FILTER_UNLOAD_MANDATORY == (FLTFL_FILTER_UNLOAD_MANDATORY & Flags))
     {
-        WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "---===> *Mandatory* ObsidianWaveFilter Unload In Progress!!!\n");
+        WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "---===> *Mandatory* Windows VirtUE File System Filter Unload In Progress!!!\n");
     }
     else if (FALSE == Globals.AllowFilterUnload)       
     {
-        WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "ObsidianWave Filter Unload Aborted Because AllowFilterUnload is FALSE!\n");
+        WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE File System Filter Unload Aborted Because AllowFilterUnload is FALSE!\n");
         Status = STATUS_FLT_DO_NOT_DETACH;
 		goto Error;
         
     }
 
-    WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "ObsidianWave Filter Unload Proceeding . . .\n");
+    WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
     WVUDebugBreakPoint();
 

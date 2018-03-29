@@ -2,7 +2,7 @@
 * @file types.h
 * @version 0.1.0.1
 * @copyright (2018) TwoSix Labs
-* @brief Define simple typedefs here; no structs, unions or class definitions
+* @brief Define simple typedefs, structs, unions or classes
 */
 #pragma once
 #include "common.h"
@@ -12,7 +12,7 @@ typedef PUCHAR PBYTE;
 typedef UCHAR BYTE;
 
 /**
-* @brief cache dadta
+* @brief cache data
 */
 typedef struct _CACHE_DATA
 {
@@ -30,7 +30,7 @@ typedef struct _CACHE_DATA
 typedef VOID (*FreeEntryDataCallback)(PCACHE_DATA EntryData);
 
 //
-// ObsidianWave Device Extension
+// Windows VirtUE Device Extension
 //
 typedef struct _WVUDeviceExtension
 {
@@ -48,10 +48,14 @@ typedef enum _InstanceFlags : LONG
     InstanceFlagRemovableMedia  = 1 << 2    // Indicates instance is Removable Media
 } InstanceFlags;
 
+
+/*
+** Shadow Object Type 
+*/
 typedef enum _NodeTypeCode
 {
     StreamContext       = 1 << 0,
-    FileObjectContext   = 1 << 1
+    FileObjectContext   = 1 << 1,	
 } NodeTypeCode;
 
 
@@ -155,11 +159,12 @@ typedef struct _WVUGlobals
 
     EX_RUNDOWN_REF RunDownRef;
 #if defined(WVU_DEBUG)
-    volatile LONG StreamContextLookasideAllocateCnt;
+	volatile LONG StreamContextLookasideAllocateCnt;
 #endif
     RTL_OSVERSIONINFOEXW lpVersionInformation;
     KEVENT WVUThreadStartEvent;
     BOOLEAN AllowFilterUnload;  // if true, then allow the filter to be unloaded else don't allow
     BOOLEAN EnableProtection;   // if true then the driver is protecting
+	PDRIVER_OBJECT DriverObject;	
 } WVUGlobals, *PWVUGlobals;
 

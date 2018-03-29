@@ -37,13 +37,19 @@
   <ItemGroup>
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="Driver.cpp" />
+    <ClCompile Include="FltMgrCallbacks.cpp" />
+    <ClCompile Include="FltMgrCtxReg.cpp" />
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="PortMsgTrans.cpp" />
-    <ClCompile Include="WinVUFilterRegistration.cpp" />
-    <ResourceCompile Include="WinVirtUE.rc" />
+    <ClCompile Include="WinVirtUE.cpp">
+      <DeploymentContent>false</DeploymentContent>
+      <FileType>CppCode</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FltMgrReg.cpp" />
     <ClCompile Include="CPPRuntime\CPPRuntime.cpp" />
     <ClCompile Include="CPPRuntime\new.cpp" />
-    <ClCompile Include="WinVirtUE.cpp" />
     <Inf Include="WinVirtUE.inf" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -130,6 +136,8 @@
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <DiagnosticMode>true</DiagnosticMode>
     <IncludePath>$(ProjectDir)CPPRuntime;$(ProjectDir)Common;$(ProjectDir);$(SolutionDir)inc;$(IncludePath)</IncludePath>
+    <CodeAnalysisRuleSet>..\..\..\..\..\..\..\..\Program Files (x86)\Windows Kits\10\CodeAnalysis\DriverMinimumRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -165,6 +173,10 @@
     <Inf>
       <EnableVerbose>true</EnableVerbose>
     </Inf>
+    <ClCompile>
+      <EnablePREfast>true</EnablePREfast>
+      <PreprocessorDefinitions>POOL_NX_OPTIN=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
@@ -173,6 +185,9 @@
     <Inf>
       <EnableVerbose>true</EnableVerbose>
     </Inf>
+    <ClCompile>
+      <PreprocessorDefinitions>POOL_NX_OPTIN=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
@@ -208,9 +223,12 @@
     <ClInclude Include="CPPRuntime\CPPRuntime.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="Driver.h" />
+    <ClInclude Include="FltMgrCallbacks.h" />
+    <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="PortMsgTrans.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="UnDoc.h" />
-    <ClInclude Include="WinVUFilterRegistration.h" />
+    <ClInclude Include="FltMgrReg.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Templates\CopyrightAndFuncDocTemplate.txt" />
@@ -219,9 +237,13 @@
     <None Include="..\DESIGN.md" />
     <None Include="..\README.md" />
     <None Include="..\TODO.md" />
+    <None Include="NOTES.md" />
   </ItemGroup>
   <ItemGroup>
     <MessageCompile Include="Messages.mc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="WinVirtUE.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

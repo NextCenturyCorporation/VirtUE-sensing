@@ -16,3 +16,5 @@
 #define WVU_FLT_REG_POOL_TAG            'grlf'
 #define WVU_QUERY_VOLUME_NAME_POOL_TAG	'lovq'
 #define WVU_DEBUG_POOL_TAG              'gbed'
+#define WVU_CONTEXT_POOL_TAG            ' xtc'
+#define FLTMGR_OP_CALLBACK_POOL_TAG     'bcpo'
