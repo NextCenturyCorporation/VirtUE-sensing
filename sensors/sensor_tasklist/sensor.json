@@ -6,10 +6,6 @@
     {
       "source": "sensor_tasklist.py",
       "dest": "sensor_tasklist.py"
-    },
-    {
-      "source": "gen_key.py",
-      "dest": "gen_key.py"
     }
   ],
   "startup_script": "run_tasklist_sensor.ps1",
