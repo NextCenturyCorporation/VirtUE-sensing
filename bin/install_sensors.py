@@ -649,7 +649,7 @@ def options():
 
     # are we installing? are we listing?
     parser.add_argument("mode", metavar="M", nargs='?', default="install", help="Top level interaction",
-                        choices=["install", "list"])
+                        choices=["install", "validate"])
 
     # skip certain components
     parser.add_argument("--skip-sensor", dest="skip_sensors", default=[], nargs="*", help="Sensors to skip")
