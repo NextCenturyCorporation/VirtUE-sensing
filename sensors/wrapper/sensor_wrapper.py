@@ -1061,6 +1061,16 @@ class SensorWrapper(object):
 
             self.opts.sensor_hostname = socket.getfqdn()
 
+            # we'll do something funky on Windows, assuming we're on EC2
+            p = platform.system().lower()
+            if p in ["windows", "nt"]:
+                if self.opts.sensor_hostname.endswith("ec2.internal"):
+
+                    # ok - we're going to manually build our hostname from our
+                    # IP address
+                    ip = socket.gethostbyname(socket.gethostname())
+                    self.opts.sensor_hostname = "ip-%s.ec2.internal" % ("-".join(ip.split(".")))
+
             # bork bork bork
             if self.opts.sensor_hostname is None:
                 raise ValueError("Can't identify the current hostname, bailing out")
