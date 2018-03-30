@@ -1,6 +1,6 @@
 {
 	"hosts": [
-		"savior-ca"
+		"sensing-ca.savior.internal"
 	],
 	"key": {
 		"algo": "rsa",
