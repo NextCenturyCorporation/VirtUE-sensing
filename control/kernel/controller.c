@@ -335,10 +335,9 @@ void *destroy_probe(struct probe *probe)
 	}
 	if (probe->id &&
 		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
-		uint8_t *tmp = probe->id;
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
+		kfree(probe->id);
 		probe->id = NULL;
-		kfree(tmp);
 	}
 	return probe;
 }
@@ -905,6 +904,10 @@ static int __init kcontrol_init(void)
 										"Kernel LSOF Probe",
 										strlen("Kernel LSOF Probe") + 1,
 										print_kernel_lsof);
+	spin_lock_irqsave(&k_sensor.lock, flags);
+	/* link this probe to the sensor struct */
+	list_add_rcu(&lsof_probe->l_node, &k_sensor.probes);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
 
 
 #endif

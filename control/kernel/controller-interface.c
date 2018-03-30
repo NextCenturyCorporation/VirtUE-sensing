@@ -280,7 +280,7 @@ static void k_accept(struct kthread_work *work)
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 
 	sock = connection->connected;
-	if ((sock->ops->accept(sock, newsock, 0)) < 0) {
+	if ((sock->ops->SOCK_ACCEPT(sock, newsock, 0)) < 0) {
 		SHOULD_SHUTDOWN = 1;
 	}
 

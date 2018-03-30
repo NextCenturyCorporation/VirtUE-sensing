@@ -60,6 +60,18 @@ if (( $VERSION >= 4 )) ; then
     fi
 fi
 
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 11 )); then
+	ACCEPT_API=old
+	echo "#define OLD_ACCEPT_API 1" >> $FILENAME
+	echo "#define SOCK_ACCEPT(s, ns, i) accept((s), (ns), (i))" >> $FILENAME
+    else
+	ACCEPT_API=new
+	echo "#define NEW_ACCEPT_API 1" >> $FILENAME
+	echo "#define SOCK_ACCEPT(s, ns, i) accept((s), (ns), (i), 1)" >> $FILENAME
+    fi
+fi
+
 
 #socket interface changes:
 # version 4.1.13:
@@ -75,3 +87,4 @@ echo "#endif /* _UNAME_CONTROLLER_H */" >> $FILENAME
 
 echo "kthreads api: $API"
 echo "sock api: $SOCKAPI"
+echo "accept api: $ACCEPT_API"
