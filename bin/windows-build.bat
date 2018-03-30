@@ -52,5 +52,8 @@ COPY /Y run.ps1 %SystemDrive%\app
 @ECHO POP back to .\savior
 POPD
 
+@ECHO Opening Port 11020 in the firewall for sensor communications
+netsh advfirewall firewall add rule name="Open Port 11020" dir=in action=allow protocol=TCP localport=11020
+
 @ECHO Running Sensors . . .
 %POWERSHELL% %SystemDrive%\app\run.ps1
