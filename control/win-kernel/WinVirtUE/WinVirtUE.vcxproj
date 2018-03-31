@@ -41,11 +41,10 @@
     <ClCompile Include="FltMgrCtxReg.cpp" />
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="PortMsgTrans.cpp" />
+    <ClCompile Include="ObjectCreateNotifyCB.cpp" />
     <ClCompile Include="WinVirtUE.cpp">
       <DeploymentContent>false</DeploymentContent>
       <FileType>CppCode</FileType>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="FltMgrReg.cpp" />
     <ClCompile Include="CPPRuntime\CPPRuntime.cpp" />
@@ -226,6 +225,7 @@
     <ClInclude Include="FltMgrCallbacks.h" />
     <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="PortMsgTrans.h" />
+    <ClInclude Include="ObjectCreateNotifyCB.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="FltMgrReg.h" />
