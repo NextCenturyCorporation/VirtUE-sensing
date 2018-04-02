@@ -24,22 +24,22 @@ async def assess_tasklist(message_stub, config, message_queue):
     print(" ::starting tasklist check-summing")
     print("    $ repeat-interval = %d" % (repeat_delay,))
 
-    ps_canonical_path = which_file("tasklist")
+    tasklist_canonical_path = which_file("tasklist")
 
-    print("    $ canonical path = %s" % (ps_canonical_path,))
+    print("    $ canonical path = %s" % (tasklist_canonical_path,))
 
     while True:
 
         # let's profile our ps command
-        ps_profile = await report_on_file(ps_canonical_path)
+        tasklist_profile = await report_on_file(tasklist_canonical_path)
         psp_logmsg = {
             "timestamp": datetime.datetime.now().isoformat(),
             "level": "info",
-            "message": ps_profile
+            "message": tasklist_profile
         }
         psp_logmsg.update(message_stub)
 
-        await message_queue.put(json.dumps(psp_logmsg))
+        await message_queue.put(json.dumps(tasklist_logmsg))
 
         # sleep
         await sleep(repeat_delay)
@@ -58,47 +58,60 @@ async def tasklist(message_stub, config, message_queue):
 
     print(" ::starting tasklist")
     print("    $ repeat-interval = %d" % (repeat_delay,))
+    tasklist_path = which_file("tasklist.exe")
+    tasklist_args = [" -FO table -NH"]
+    self_pid = os.getpid()
 
-    # map the LSOF types to log levels
-    tasklist_type_map = {
-        "CHR": "debug",
-        "DIR": "debug",
-        "IPv4": "info",
-        "KQUEUE": "info",
-        "NPOLICY": "debug",
-        "REG": "debug",
-        "systm": "warn",
-        "unix": "info",
-        "vnode:": "warn"
-    }
+    print(" ::starting tasklist %s (pid=%d)" % (tasklist_path, self_pid,))
 
-    # just read from the subprocess and append to the log_message queue
-    p = subprocess.Popen(["tasklist", "-r", "%d" % (repeat_delay,)], stdout=subprocess.PIPE)
-    async for line in p.stdout:
+    full_ps_command = [tasklist_path] + tasklist_args
 
-        # slice out the TYPE of the tasklist message
-        line_bits = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")
+    while True:
 
-        if len(line_bits) < 4:
-            continue
+        # run the command and get our output
+        p = subprocess.Popen(full_ps_command, stdout=subprocess.PIPE)
 
-        line_type = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")[4]
+        async for line in p.stdout:
 
-        log_level = "debug"
-        if line_type in tasklist_type_map:
-            log_level = tasklist_type_map[line_type]
+            # pull apart our line into something interesting. We want the
+            # user, PID, and command for now. Our basic PS line looks like:
+            #
+            #       root         1  0.0  0.0  21748  1808 pts/0    Ss+  19:54   0:00 /bin/bash /usr/src/app/run.sh
 
-        # build our log message
-        logmsg = {
-            "message": line.decode("utf-8"),
-            "timestamp": datetime.datetime.now().isoformat(),
-            "level": log_level
-        }
+            # we'll split everything apart and drop out whitespace
+            line_bits = line.decode("utf-8").split(" ")
+            line_bits = [bit for bit in line_bits if bit != '']
 
-        # interpolate everything from our message stub
-        logmsg.update(message_stub)
+            # now let's pull apart the interesting fields
+            proc_image_name = line_bits[0]
+            proc_pid = line_bits[1]
+            proc_session_name = line_bits[2]
+            proc_session_number = line_bits[3]
+            proc_memory_usage = line_bits[4]
 
-        await message_queue.put(json.dumps(logmsg))
+            # don't report on ourself
+            if int(proc_pid) == self_pid:
+                continue
+
+            # report
+            logmsg = {
+                "timestamp": datetime.datetime.now().isoformat(),
+                "level": "info",
+                "message": {
+                    "ImageName": proc_image_name,
+                    "PID": proc_pid,
+                    "SessionName": proc_session_name,
+                    "SessionNumber": proc_session_number,
+                    "MemUsage": proc_memory_usage
+                }
+            }
+            logmsg.update(message_stub)
+
+            await message_queue.put(json.dumps(logmsg))
+
+        # sleep
+        await sleep(repeat_delay)
+
 
 if __name__ == "__main__":
 
