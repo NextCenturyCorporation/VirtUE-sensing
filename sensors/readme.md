@@ -109,3 +109,68 @@ Sensors in the Linux `context` (inside Virtues) will use the following local por
 
  - `lsof` sensor: `11001`
  - `ps` sensor: `11002`
+
+## Manually Installing Sensors on Debian
+
+When manually installing the sensors (for instance in the "master" image used for Virtue creation), use the following instructions:
+
+1. Get the required packages installed:
+
+```bash
+apt-get update
+apt-get install python3 python3-pip
+apt-get install git-all
+```
+
+2. Clone the repository (you'll need your credentials to do the clone operation):
+
+```bash
+git clone https://github.com/twosixlabs/savior.git
+```
+
+3. Setup python package dependencies and libraries, first the sensor wrapper:
+
+```bash
+cd savior/sensors/wrapper
+pip3 install -r sensor_wrapper_requirements.txt
+pip3 install .
+```
+
+4. Then the `lsof` python requirements
+
+```bash
+cd ../sensor_lsof
+pip3 install -r lsof_requirements.txt
+```
+
+5. And finally the `ps` python requiremtns:
+
+```bash
+cd ../sensor_ps
+pip3 install -r ps_requirements.txt
+```
+
+6. Setup the sensors directories, from which we'll run our sensors:
+
+```bash
+mkdir -p /opt/sensors
+mkdir -p /opt/sensors/lsof/certs
+mkdir -p /opt/sensors/ps/certs
+```
+
+7. Copy the sensors into place:
+
+```bash
+cp sensor_ps.py /opt/sensors/ps
+cd ../sensor_lsof
+cp sensor_lsof.py /opt/sensors/lsof
+```
+
+8. Create a `run_sensors.sh` script in `/home/user/run_sensors.sh` with the content:
+
+```bash
+#!/usr/bin/env bash
+python3 /opt/sensors/lsof/sensor_lsof.py --public-key-path /opt/sensors/lsof/certs/rsa_key.pub --private-key-path /opt/sensors/lsof/certs/rsa_key --ca-key-path /opt/sensors/lsof/certs/ --api-host sensing-api.savior.internal --sensor-port 11001 &
+python3 /opt/sensors/ps/sensor_ps.py --public-key-path /opt/sensors/ps/certs/rsa_key.pub --private-key-path /opt/sensors/ps/certs/rsa_key --ca-key-path /opt/sensors/ps/certs/ --api-host sensing-api.savior.internal --sensor-port 11002 &
+```
+
