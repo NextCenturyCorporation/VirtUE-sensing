@@ -329,7 +329,7 @@ defmodule ApiServer.CertificateController do
 
           {:unverified, reason} ->
             IO.puts("  - HTTP-01-SAVIOR challenge failed, requester not verified: #{reason}")
-            conn |> req_error(401, reason)
+            conn |> req_error(401, "  - HTTP-01-SAVIOR challenge failed, requester not verified: #{reason}")
 
         end
 
@@ -368,6 +368,18 @@ defmodule ApiServer.CertificateController do
            error: :true,
            timestamp: DateTime.to_string(DateTime.utc_now()),
            messages: [msg]
+         }
+       )
+  end
+
+  defp req_error(conn, code, :nxdomain) do
+    conn
+    |> put_status(code)
+    |> json(
+         %{
+          error: :true,
+          timestamp: DateTime.to_string(DateTime.utc_now()),
+          message: "No such domain"
          }
        )
   end

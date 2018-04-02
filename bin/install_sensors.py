@@ -1,10 +1,12 @@
 #!/usr/bin/python
 
+from argparse import ArgumentParser
 import json
 import os
 import shutil
 import sys
 import types
+
 
 """
 Enumerate available sensors, and install them into targets
@@ -660,7 +662,29 @@ def install_sensor_wrapper(target, wrapper_dir):
     )
 
 
+def options():
+    """
+    Let's parse our CLI options...
+
+    :return:
+    """
+    parser = ArgumentParser("Install sensors, modules, and supporting files into build targets")
+
+    # are we installing? are we listing?
+    parser.add_argument("mode", metavar="M", nargs='?', default="install", help="Top level interaction",
+                        choices=["install", "validate"])
+
+    # skip certain components
+    parser.add_argument("--skip-sensor", dest="skip_sensors", default=[], nargs="*", help="Sensors to skip")
+    parser.add_argument("--skip-module", dest="skip_modules", default=[], nargs="*", help="Modules to skip")
+    parser.add_argument("--skip-target", dest="skip_targets", default=[], nargs="*", help="Targets to skip")
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+
+    opts = options()
 
     sensor_dir = "./sensors"
     targets_dir = "./targets"
@@ -676,9 +700,21 @@ if __name__ == "__main__":
 
     print "Finding Sensors"
 
+    # find all of the sensors on our path
     sensors = find_sensors(os.path.abspath(sensor_dir))
 
+    # as we iterate and validate our sensors, we build up a list of sensors
+    # we're including in further actions. This can be affected by the --skip-sensor
+    # flag
+    sensor_skip_set = set(opts.skip_sensors)
+    included_sensors = []
+
     for sensor in sensors:
+
+        if sensor["name"] in sensor_skip_set:
+            print "  # %s (version %s) - skipped" % (sensor["name"], sensor["sensor"]["version"])
+            continue
+
         print "  + %s (version %s)" % (sensor["name"], sensor["sensor"]["version"])
         errors = validate_sensor(sensor)
         if len(errors) != 0:
@@ -687,12 +723,24 @@ if __name__ == "__main__":
                 print "      - %s" % (err,)
             sys.exit(1)
 
+        included_sensors.append(sensor)
+
     print ""
     print "Finding kernel modules"
 
+    # find all of the sensors on our path
     kmods = find_kmods(kernel_dir)
 
+    # we can elide modules while we iterate, as controlled by the --skip-module flag
+    skip_module_set = set(opts.skip_modules)
+    included_modules = []
+
     for kmod in kmods:
+
+        if kmod["name"] in skip_module_set:
+            print "  # %s (version %s) - skipped" % (kmod["name"], kmod["kernel_module"]["version"])
+            continue
+
         print "  + %s (version %s)" % (kmod["name"], kmod["kernel_module"]["version"])
         errors = validate_kmod(kmod)
         if len(errors) != 0:
@@ -700,22 +748,36 @@ if __name__ == "__main__":
             for err in errors:
                 print "      - %s" % (err,)
             sys.exit(1)
+        included_modules.append(kmod)
 
     print ""
     print "Finding Targets"
 
+    # find all of the targets on the system
     targets = find_targets(targets_dir)
 
+    # like modules and sensors, we can skip targets, as specified with the --skip-target flag
+    skip_target_set = set(opts.skip_targets)
+    included_targets = []
+
     for target in targets:
-        print "  + %s " % (target["name"],)
-        errors = validate_target(target, sensors, kmods)
+        if target["name"] in skip_target_set:
+            print "  # %s - skipped" % (target["name"],)
+            continue
+
+        print "  + %s" % (target["name"],)
+        errors = validate_target(target, included_sensors, included_modules)
         if len(errors) != 0:
             print "    ! errors detected in target.json"
             for err in errors:
                 print "      - %s" % (err,)
             sys.exit(1)
 
+        included_targets.append(target)
+
     print ""
 
-    for target in targets:
-        install_sensors_in_target(target, kmods, sensors, wrapper_dir)
+    if opts.mode == "install":
+        print "Installing components in Targets"
+        for target in included_targets:
+            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir)
