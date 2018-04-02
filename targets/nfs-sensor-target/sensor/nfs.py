@@ -8,7 +8,7 @@
 ## https://tools.ietf.org/html/rfc1813
 ##
 
-## Requirements: grab scapy v2.4.0 rc4 via
+## Requirements: grab recent scapy via
 ##   git submodule init
 ##   git submodule update
 ##
@@ -922,7 +922,6 @@ class NFS3_FSSTAT_ReplyOk( Packet ):
                     PacketField( "afiles", None, NFS3_size ),
 
                     IntField(  "invarsec",    0 ), ]
-
 
 class NFS3_FSSTAT_ReplyFail( Packet ):
     name = "NFS FSSTAT reply fail"

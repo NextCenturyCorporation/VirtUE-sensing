@@ -64,17 +64,3 @@ services:
       POSTGRES_USER: "postgres"
       PGDATA: "/var/lib/postgresql/data/pgdata"
       POSTGRES_DB: "api_server_postgres"
-  #nfs_sensor:
-  #  build: "./targets/nfs-sensor-target"
-  #  privileged: true
-  #  #  #networks:
-  #  #  #  host: {}
-  #  #  network_mode: "host"
-  #  environment:
-  #    NFS_SENSOR_SNIFF_INTERFACE: "vif3.0"
-  #    NFS_SENSOR_STANDALONE: ""
-  #    CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
-#networks:
-#  hostnet:
-#    external:
-#      name: host

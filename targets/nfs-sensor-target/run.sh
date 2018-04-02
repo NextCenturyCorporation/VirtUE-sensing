@@ -13,7 +13,7 @@ echo " [bash] env NFS_SENSOR_SNIFF_INTERFACE: \"$NFS_SENSOR_SNIFF_INTERFACE\""
 echo " [bash] env NFS_SENSOR_STANDALONE     : \"$NFS_SENSOR_STANDALONE\""
 echo " [bash] env NFS_SENSOR_PCAP_FILE      : \"$NFS_SENSOR_PCAP_FILE\""
 
-# Move to yml file which will put this in our env
+# Matches /docker-compose.yml
 export CFSSL_SHARED_SECRET="de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
 
 if [ -z "$NFS_SENSOR_SNIFF_INTERFACE" && -z  ]
@@ -52,6 +52,5 @@ else
                --ca-key-path      $_dsensor/certs          \
                --public-key-path  $_dsensor/certs/cert.pem \
                --private-key-path $_dsensor/certs/cert-key.pem
-
     fi
 fi
