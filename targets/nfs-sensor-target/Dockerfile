@@ -46,6 +46,4 @@ RUN  mkdir  /opt/sensor/certs
 # Service components
 COPY run.sh /usr/src/app
 
-RUN echo "127.0.0.1         api" >> /etc/hosts
-
 CMD ["/bin/bash", "/usr/src/app/run.sh"]

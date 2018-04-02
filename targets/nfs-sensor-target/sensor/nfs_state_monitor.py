@@ -50,8 +50,10 @@ def _destroy_handle_mapping( path=None, handle=None ):
     logging.debug( "Invalidating handle {}".format( handle ) )
     logging.debug( "Invalidating path {}".format( path ) )
 
-    del handle_name_map[ handle ]
-    del name_handle_map[ path ]
+    if handle in handle_name_map:
+        del handle_name_map[ handle ]
+    if path in name_handle_map:
+        del name_handle_map[ path ]
 
 
 def _create_mount_mapping( path, handle, rpc_call ):
@@ -63,7 +65,8 @@ def _destroy_mount_mapping( path ):
     for k in [ p for p in name_handle_map.keys()
                if str(p).startswith( str(path) ) ]:
         _destroy_handle_mapping( path=k )
-    del active_mount_map[ path ]
+    if path in active_mount_map:
+        del active_mount_map[ path ]
 
 
 def get_path( handle ):
