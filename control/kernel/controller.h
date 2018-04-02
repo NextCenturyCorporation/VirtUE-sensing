@@ -417,9 +417,9 @@ struct kernel_sensor {
 
 #define CONT_CPU_ANY -1
 struct kthread_worker *
-kthread_create_worker(unsigned int flags, const char namefmt[], ...);
+controller_create_worker(unsigned int flags, const char namefmt[], ...);
 
-void kthread_destroy_worker(struct kthread_worker *worker);
+void controller_destroy_worker(struct kthread_worker *worker);
 
 struct probe *init_probe(struct probe *probe,
 						 uint8_t *id,  int id_size);

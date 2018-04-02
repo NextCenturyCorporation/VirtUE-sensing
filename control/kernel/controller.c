@@ -330,7 +330,7 @@ void *destroy_probe(struct probe *probe)
 	__CLEAR_FLAG(probe->flags, PROBE_INITIALIZED);
 
 	if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
-		kthread_destroy_worker(&probe->worker);
+		controller_destroy_worker(&probe->worker);
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
 	}
 	if (probe->id &&
@@ -438,64 +438,13 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 }
 
 
-
-struct kthread_worker *
-__cont_create_worker(int cpu, unsigned int flags,
-					 const char namefmt[], va_list args)
-{
-	struct kthread_worker *worker;
-	struct task_struct *task;
-	int node = -1;
-
-	worker = kzalloc(sizeof(*worker), GFP_KERNEL);
-	if (!worker)
-		return ERR_PTR(-ENOMEM);
-
-	CONT_INIT_WORKER(worker);
-
-	if (cpu >= 0)
-		node = cpu_to_node(cpu);
-	task = kthread_create_on_node(kthread_worker_fn, worker, cpu, namefmt, args);
-
-	if (IS_ERR(task))
-		goto fail_task;
-
-	if (cpu >= 0)
-		kthread_bind(task, cpu);
-#ifdef NEW_API
-	worker->flags = flags;
-#endif
-	worker->task = task;
-	wake_up_process(task);
-	return worker;
-
-fail_task:
-	kfree(worker);
-	return ERR_CAST(task);
-}
-
-
-#ifdef OLD_API
-struct kthread_worker *
-kthread_create_worker(unsigned int flags, const char namefmt[], ...)
-{
-	struct kthread_worker *worker;
-	va_list args;
-
-	va_start(args, namefmt);
-	worker = __cont_create_worker(CONT_CPU_ANY, flags, namefmt, args);
-	va_end(args);
-
-	return worker;
-}
-
 /**
  * shuts down a kthread worker, but does not free the
  * memory - part of the transisiton to the worker belonging
  * inside the probe struct.
  **/
 void
-kthread_destroy_worker(struct kthread_worker *worker)
+controller_destroy_worker(struct kthread_worker *worker)
 
 {
 	struct task_struct *task;
@@ -510,8 +459,6 @@ kthread_destroy_worker(struct kthread_worker *worker)
 	WARN_ON(!list_empty(&worker->work_list));
 	return;
 }
-
-#endif
 
 
 /**
