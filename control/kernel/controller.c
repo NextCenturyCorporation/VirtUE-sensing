@@ -454,7 +454,7 @@ controller_destroy_worker(struct kthread_worker *worker)
 		return;
 	}
 
-	flush_kthread_worker(worker);
+	CONT_FLUSH_WORKER(worker);
 	kthread_stop(task);
 	WARN_ON(!list_empty(&worker->work_list));
 	return;

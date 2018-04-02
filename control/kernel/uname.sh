@@ -36,6 +36,7 @@ if (( $VERSION >= 4 )) ; then
 	echo "#define CONT_INIT_WORK init_kthread_work"  >> $FILENAME
 	echo "#define CONT_INIT_WORKER init_kthread_worker"  >> $FILENAME
 	echo "#define CONT_FLUSH_WORK flush_kthread_work" >> $FILENAME
+	echo "#define CONT_FLUSH_WORKER flush_kthread_worker" >> $FILENAME
 	echo "#define CONT_QUEUE_WORK queue_kthread_work"  >> $FILENAME
     else
 	API=new
@@ -43,6 +44,7 @@ if (( $VERSION >= 4 )) ; then
 	echo "#define CONT_INIT_WORK kthread_init_work"  >> $FILENAME
         echo "#define CONT_INIT_WORKER kthread_init_worker"  >> $FILENAME
 	echo "#define CONT_FLUSH_WORK kthread_flush_work" >> $FILENAME
+	echo "#define CONT_FLUSH_WORKER kthread_flush_worker" >> $FILENAME
 	echo "#define CONT_QUEUE_WORK kthread_queue_work"  >> $FILENAME
     fi
 fi
