@@ -81,3 +81,31 @@ Installing os(linux) context(virtue) name(kernel-ps)
 ```
 
 That's all there is too it. You can find more command line options with the `--help` flag.
+
+# Deploying Sensors
+
+When deployed to the AWS environment, we use a port mapping mechanism to route data between the Sensing API, Sensing Infrastructure, and Virtue embedded sensors. Each Linux based sensor is run as a Xen guest, which has an IP address from the Dom 0/host DHCP server, which is separate from the AWS IP address space for the VPC. Because of this, the Sensing API cannot directly route traffic to Sensors. 
+
+To get around this, the Dom0 will forward ports from the Dom0 interface into the DHCP network. Sensors will get certificates based on the Dom0 address and hostname (eventually individual hostnames that all route to the Dom0 IP address). The sensors need to be aware of how they'll be receiving data, and how to match up ports and addresses.
+
+Each Virtue, therefor, should have a `/home/user/ports.properties` file, which looks like:
+
+```ini
+#
+#localport=exteralport
+hostname=ip-10-0-5-21.ec2.internal
+11001=12001
+11002=12002
+11003=12003
+```
+
+This file lays out the `hostname` of the Dom0, which will become the hostnamr the Sensor advertises to the API. The numeric listings are a map of Virtue local ports to Dom0 ports. It can be read as "local port 11001 will receive forwarded data from Dom0 port 12001" for the first line.
+
+This also necessitates that Sensors don't try and claim the same local port. To solve _this_ part of the problem, the various sensors are hard coded to use addresses, starting with 11001. 
+
+## Sensor Port Assignments
+
+Sensors in the Linux `context` (inside Virtues) will use the following local ports when running:
+
+ - `lsof` sensor: `11001`
+ - `ps` sensor: `11002`
