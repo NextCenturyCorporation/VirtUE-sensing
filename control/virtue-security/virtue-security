@@ -4306,6 +4306,7 @@ async def api_monitor(opts):
             if msg.value["action"] == "heartbeat":
                 print("💓 - (timestamp=%s)" % (msg.value["timestamp"]))
             elif msg.value["action"] == "sensor-registration":
+                print(msg.value)
                 print("+ REGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, username=%s, sensor_name=%s, os=%s)" % (
                     msg.value["timestamp"],
                     msg.value["sensor_id"],
