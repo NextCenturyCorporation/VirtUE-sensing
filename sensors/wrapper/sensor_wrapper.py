@@ -108,7 +108,7 @@ class SensorWrapper(object):
         if p in ["linux", "darwin"]:
             self.operating_system = "linux"
         elif p in ["windows", "nt"]:
-            self.operating_system = "nt"
+            self.operating_system = "windows"
         else:
             self.operating_system = "linux"
 
