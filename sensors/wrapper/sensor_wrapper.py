@@ -1090,6 +1090,8 @@ class SensorWrapper(object):
         # different from our bind port...
         if os.path.exists("/home/user/ports.properties"):
 
+            print("  % using ports.properties")
+
             # we could use configparser, but the ports.properties isn't a full INI
             # file, so we resort to scanning it ourselves. Sigh.
             ports_dict = read_properties("/home/user/ports.properties")
@@ -1100,10 +1102,10 @@ class SensorWrapper(object):
             self.opts.sensor_advertised_hostname = ports_dict["hostname"]
 
             # let's find our advertised port
-            if self.opts.sensor_port not in ports_dict:
+            if str(self.opts.sensor_port) not in ports_dict:
                 raise ValueError("Sensor local port (port=%d) doesn't have a key in ports.properties" % (self.opts.sensor_port,))
 
-            self.opts.sensor_advertised_port = int(ports_dict[self.opts.sensor_port])
+            self.opts.sensor_advertised_port = int(ports_dict[str(self.opts.sensor_port)])
 
         else:
             # our advertised and base host/port are the same, map them over
