@@ -6,26 +6,21 @@ import sys
 import pywintypes
 
 from enum import Enum, IntEnum
-from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, 
-c_size_t, c_byte, c_ubyte, c_char, c_wchar
-from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, 
-c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
+from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar
+from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
 from ctypes import c_float, c_double, c_longdouble
-from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, 
-cdll, byref, sizeof, Structure, WINFUNCTYPE, pointer, windll
-from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, 
-SHORT, BOOLEAN
+from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, pointer, windll
+from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, SHORT, BOOLEAN
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
 from win32api import OpenProcess, DuplicateHandle, GetCurrentProcess
-from win32security import LookupPrivilegeValue, OpenProcessToken, 
-AdjustTokenPrivileges, TOKEN_ALL_ACCESS
+from win32security import LookupPrivilegeValue, OpenProcessToken, AdjustTokenPrivileges, TOKEN_ALL_ACCESS
 from json import JSONEncoder, JSONDecoder, JSONDecodeError, dumps
 
 PROCESS_DUP_HANDLE = 0x0040
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-     
+
 class CtypesEnum(IntEnum):
     """A ctypes-compatible IntEnum superclass."""
     @classmethod
@@ -45,13 +40,13 @@ class SmartStructure(Structure):
                      c_uint16, c_int32, c_uint32, c_int64, c_uint64, 
                      c_longlong, c_ulonglong]
     float_types = [c_float, c_double, c_longdouble]
-    
+
     def __init__(self):
         '''
         Initialize this instance
         '''
         pass
-    
+
     def __str__(self):
         '''
         returns a string that shows this instances internal state
@@ -64,9 +59,9 @@ class SmartStructure(Structure):
             state += "{0}={1},".format( this_name, this_value,)            
         state = state[:len(state)-1]
         return state
-    
+
     __repr__ = __str__
-    
+
     def ToDict(self):
         '''
         returns a dictionary object representative of this object instance internal state
@@ -78,7 +73,7 @@ class SmartStructure(Structure):
             this_value = getattr(self, this_name)                           
             instance[this_name] = this_value   
         return instance        
-    
+
     def Encode(self):
         '''
         Encode an instance of this class into a JSON representation
@@ -106,7 +101,7 @@ class SmartStructure(Structure):
                     print("result={0}\n".format(result,))                        
         encoded_data = dumps(result, indent=4)
         return encoded_data
-    
+
     @classmethod                  
     def Decode(clz, obj):
         '''
@@ -114,7 +109,7 @@ class SmartStructure(Structure):
         '''
         if not issubclass(clz, SmartStructure) or not isinstance(obj, str):
             return None
-        
+
         decoder = JSONDecoder()
         data = decoder.decode(obj)
         clazzname = data["__class__"]
@@ -141,13 +136,13 @@ class SmartStructure(Structure):
             setattr(clazz, _name, value)
             value = getattr(clazz, _name)        
         return clazz    
-    
+
 class UNICODE_STRING(SmartStructure):
     _fields_ = [ 
         ("Length", c_ushort),
         ("MaximumLength", c_ushort),
         ("Buffer", c_wchar_p)
-        ]
+    ]
 
 class PARAM_FLAG(CtypesEnum):
     '''
@@ -157,7 +152,7 @@ class PARAM_FLAG(CtypesEnum):
     FOUT  = (1 << 1)
     FLCID = (1 << 2)
     COMBINED = FIN | FOUT | FLCID
-    
+
 class OBJECT_INFORMATION(CtypesEnum):
     '''
     Object Information Enumeration
@@ -165,7 +160,7 @@ class OBJECT_INFORMATION(CtypesEnum):
     ObjectBasicInformation = 0x0000
     ObjectNameInformation = 0x0001
     ObjectTypeInformation = 0x0002 
-    
+
 class SYSTEM_INFORMATION_CLASS(CtypesEnum):
     SystemBasicInformation=0x0000,
     SystemProcessorInformation=0x0001
@@ -317,7 +312,7 @@ class SYSTEM_INFORMATION_CLASS(CtypesEnum):
     SystemPortableWorkspaceEfiLauncherInformation=0x0093
     SystemFullProcessInformation=0x0094
     MaxSystemInfoClass=0x0095
-    
+
 
 class CLIENT_ID(SmartStructure):
     '''
@@ -326,7 +321,7 @@ class CLIENT_ID(SmartStructure):
     _fields_ = [
         ("UniqueProcess", c_void_p),
         ("UniqueThread", c_void_p)
-        ]
+    ]
 
 class SYSTEM_THREAD_INFORMATION(SmartStructure):
     '''
@@ -344,12 +339,12 @@ class SYSTEM_THREAD_INFORMATION(SmartStructure):
         ("ContextSwitches", ULONG),
         ("ThreadState", ULONG),
         ("WaitReason", ULONG),
-        ]    
+    ]    
 
 class SYSTEM_HANDLE_FLAGS(CtypesEnum):
     PROTECT_FROM_CLOSE = 1
     INHERIT = 2    
-    
+
 class SYSTEM_HANDLE_TABLE_ENTRY_INFO(SmartStructure):
     _fields_ = [ 
         ("UniqueProcessId", c_ushort),
@@ -359,12 +354,12 @@ class SYSTEM_HANDLE_TABLE_ENTRY_INFO(SmartStructure):
         ("HandleValue", c_ushort),
         ("Object", c_void_p),
         ("GrantedAccess", ULONG)
-        ]    
+    ]    
 class SYSTEM_HANDLE_INFORMATION(SmartStructure):
     _fields_ = [ 
         ("NumberOfHandles", ULONG),
         ("Handles", SYSTEM_HANDLE_TABLE_ENTRY_INFO)
-        ]      
+    ]      
 
 class SYSTEM_PROCESS_INFORMATION(SmartStructure):
     _fields_ = [
@@ -402,7 +397,7 @@ class SYSTEM_PROCESS_INFORMATION(SmartStructure):
         ("ReadTransferCount", LARGE_INTEGER), 
         ("WriteTransferCount", LARGE_INTEGER), 
         ("OtherTransferCount", LARGE_INTEGER)
-        ]
+    ]
 
 class SYSTEM_BASIC_INFORMATION(SmartStructure):
     _fields_ = [
@@ -417,16 +412,16 @@ class SYSTEM_BASIC_INFORMATION(SmartStructure):
         ("MaximumUserModeAddress", c_void_p),         
         ("ActiveProcessorsAffinityMask", c_void_p),
         ("NumberOfProcessors", BYTE)
-        ]
-                           
-    
+    ]
+
+
 class GENERIC_MAPPING(SmartStructure):
     _fields_ = [("GenericRead", ULONG),
                 ("GenericWrite", ULONG),
                 ("GenericExecute", ULONG),
                 ("GenericAll", ULONG)
                 ]               
-    
+
 class OBJECT_TYPE_INFORMATION(SmartStructure):
     _fields_ = [("Name", UNICODE_STRING ),
                 ("TotalNumberOfObjects", ULONG),
@@ -513,11 +508,11 @@ def _get_process_handle(pid):
     '''
     if not pid or not isinstance(pid, int) or 0 != pid % 4:
         return None    
-                   
+
     process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
     if not process_handle:    
         return None               
-    
+
     IsCritical = BOOLEAN()
     success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
     process_handle.close()
@@ -526,14 +521,14 @@ def _get_process_handle(pid):
         return None            
     if True == IsCritical:        
         return None  
-    
+
     try:
         process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
     except pywintypes.error as err:
         lasterr = GetLastError()
         print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
         process_handle = None
-               
+
     return process_handle 
 
 def get_process_objects(pid=None):
@@ -546,7 +541,7 @@ def get_process_objects(pid=None):
                                                 byref(sysprocinfo),
                                                 sizeof(sysprocinfo),
                                                 byref(return_length))
-    
+
     buf = create_string_buffer(return_length.value)
     res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
                                                 buf,
@@ -554,11 +549,11 @@ def get_process_objects(pid=None):
                                                 byref(return_length))
     if STATUS_SUCCESS != res:
         return None
-    
+
     SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
     sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)
     array_of_spi = bytearray(memoryview(buf))
-    
+
     begin = 0
     end = sz_spi
     while True:
@@ -581,11 +576,11 @@ def _get_process_handle(pid):
     '''
     if not pid or not isinstance(pid, int) or 0 != pid % 4:
         return None    
-                   
+
     process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
     if not process_handle:    
         return None               
-    
+
     IsCritical = BOOLEAN()
     success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
     process_handle.close()
@@ -594,14 +589,14 @@ def _get_process_handle(pid):
         return None            
     if True == IsCritical:        
         return None  
-    
+
     try:
         process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
     except pywintypes.error as err:
         lasterr = GetLastError()
         print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
         process_handle = None
-               
+
     return process_handle  
 
 def get_process_ids():
@@ -614,7 +609,7 @@ def get_process_ids():
                                                 byref(sysprocinfo),
                                                 sizeof(sysprocinfo),
                                                 byref(return_length))
-    
+
     buf = create_string_buffer(return_length.value)
     res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemProcessInformation,
                                                 buf,
@@ -622,11 +617,11 @@ def get_process_ids():
                                                 byref(return_length))
     if STATUS_SUCCESS != res:
         return None
-    
+
     SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
     sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)
     array_of_spi = bytearray(memoryview(buf))
-    
+
     begin = 0
     end = sz_spi
     pid = 0
@@ -649,17 +644,17 @@ def get_system_handle_information(pid=None):
     '''
     System Handle Iterator with pid filter
     '''
-    
+
     if not pid or not isinstance(pid, int) or 0 != pid % 4:
         return None
-    
+
     return_length = ULONG()            
     syshdnfo = SYSTEM_HANDLE_INFORMATION()
     res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemHandleInformation,
                                                 byref(syshdnfo),
                                                 sizeof(syshdnfo),
                                                 byref(return_length))
-    
+
     buf = create_string_buffer(return_length.value)
     res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemHandleInformation,
                                                 buf,
@@ -672,11 +667,11 @@ def get_system_handle_information(pid=None):
     HdlEntry = POINTER(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
 
     SystemHandleInfo = cast(buf, SysHdlNfo)
-    
+
     sz_shtei = sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
     initial_offset = addressof(SystemHandleInfo.contents.Handles) - addressof(SystemHandleInfo.contents) 
     array_of_shtei = bytearray(memoryview(buf)[initial_offset:])
-    
+
     for ndx in range(0, SystemHandleInfo.contents.NumberOfHandles): 
         begin = sz_shtei * ndx
         end = begin + sz_shtei
@@ -697,7 +692,7 @@ def get_handle_information(pid=None):
     process_handle = _get_process_handle(pid)
     if not process_handle:
         return []
-    
+
     current_process_handle = GetCurrentProcess()
 
     try:
@@ -719,7 +714,7 @@ def _get_object_info(handle, obj_info_enum):
         or not hasattr(handle, "handle") 
         or not isinstance(obj_info_enum, OBJECT_INFORMATION)):
         return None
-    
+
     return_length = ULONG()            
     object_information = OBJECT_TYPE_INFORMATION()
     res = windll.ntdll.NtQueryObject(handle.handle,
@@ -734,10 +729,10 @@ def _get_object_info(handle, obj_info_enum):
                                          object_information,
                                          sizeof(object_information),
                                          byref(return_length))
-    
+
     if STATUS_SUCCESS != res:
         return None   
-    
+
     ObjTypNfo = POINTER(OBJECT_TYPE_INFORMATION)
     sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
     array_of_oti = bytearray(memoryview(object_information))    
@@ -778,12 +773,12 @@ if __name__ == "__main__":
         (LookupPrivilegeValue(None, SE_CREATE_PERMANENT_NAME), SE_PRIVILEGE_ENABLED), 
         (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
     )  
-    
+
     success = acquire_privileges(new_privs)
     if not success:
         print("Failed to acquire privs!\n")
         sys.exit(-1)    
-        
+
     pid = 72
     for proc_obj in get_process_objects(pid):
         print(proc_obj)        
@@ -800,14 +795,14 @@ if __name__ == "__main__":
             print(hdlinfo)
         new_proc_obj = SYSTEM_PROCESS_INFORMATION.Decode(proc_data)
         print(new_proc_obj)         
-                    
+
     sys.exit(0)
-    
-    
+
+
     #try:        
         #sbi = get_basic_system_information()
         #print("System Basic Info = {0}\n".format(sbi,))
-    
+
         #for pid in get_process_ids():                    
             #try:
                 #proc_obj = get_process_objects(pid)
@@ -819,10 +814,10 @@ if __name__ == "__main__":
                     #dupHandle.Close()            
             #except pywintypes.error as err:
                 #print("Unable to get handle information from pid {0} - {1}\n"
-                      #.format(pid, err,))
+                        #.format(pid, err,))
     #finally:
         #success = release_privileges(new_privs)        
-      
-    
-   
-    
+
+
+
+
