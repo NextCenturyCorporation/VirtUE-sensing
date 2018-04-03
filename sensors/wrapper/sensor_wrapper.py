@@ -15,7 +15,9 @@ import json
 from kafka import KafkaProducer
 import os
 import platform
-import pwd
+pltfrm = platform.system().lower()
+if pltfrm not in ["windows", "nt"]:
+    import pwd
 import requests
 from routes import Mapper
 import signal
@@ -1043,9 +1045,10 @@ class SensorWrapper(object):
         if self.opts.username is None:
 
             # try and resolve the user from the PWD
-            pstruct = pwd.getpwuid(os.getuid())
-            if pstruct is not None:
-                self.opts.username = pstruct[0]
+            if pltfrm not in ["windows", "nt"]:
+                pstruct = pwd.getpwuid(os.getuid())
+                if pstruct is not None:
+                    self.opts.username = pstruct[0]
 
             # no? maybe it's in the environment
             if self.opts.username is None:

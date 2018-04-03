@@ -1,6 +1,6 @@
 {
-  "name": "tasklist-sensor",
-  "version": "0.1",
+  "name": "tasklist",
+  "version": "1.0",
   "target_folder": "tasklist",
   "files": [
     {
@@ -11,5 +11,5 @@
   "startup_script": "run_tasklist_sensor.ps1",
   "requirements_files": ["tasklist_requirements.txt"],
   "required_sub_directories": ["certs"],
-  "pip": ["tasklist"]
+  "apt-get": [""]
 }
