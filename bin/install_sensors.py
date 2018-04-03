@@ -512,7 +512,7 @@ def create_support_library_install_script(target):
     install_script = "install.ps1" if target["target"]["os"] == "Windows" else "install.sh"
     with open(os.path.abspath(os.path.join(lib_dir, install_script)), "w") as installer:
         for pip_install in pip_installs:
-            installer.write("pip install ./%s\n" % (pip_install,))
+            installer.write("pip install ./%s --upgrade\n" % (pip_install,))
 
 def create_requirements_master(target):
     """
