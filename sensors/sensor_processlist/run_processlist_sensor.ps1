@@ -1,4 +1,4 @@
-echo "Running Sensor TaskList . . ."
+echo "Running Sensor ProcesList . . ."
 
 pushd c:\opt\sensors\processlist\certs
 Remove-Item -Force .\rsa_key
