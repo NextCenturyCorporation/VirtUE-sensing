@@ -1,12 +1,13 @@
 {
   "name": "site-visit-win-target",
-  "library_directory": ".\\sensor_libraries",
-  "sensors_directory": ".\\sensors",
-  "requirements_directory": ".\\requirements",
-  "startup_scripts_directory": ".\\sensor_startup",
-  "kernel_mod_directory": ".\\drivers",
+  "os": "Windows",
+  "library_directory": "./sensor_libraries",
+  "sensors_directory": "./sensors",
+  "requirements_directory": "./requirements",
+  "startup_scripts_directory": "./sensor_startup",
+  "kernel_mod_directory": "./drivers",
   "sensors": [
-    "tasklist-sensor"
+    "tasklist"
   ],
   "kernel_modules": [
     

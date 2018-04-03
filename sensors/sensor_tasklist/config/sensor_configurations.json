@@ -1,7 +1,7 @@
 {
   "name": "tasklist",
   "context": "virtue",
-  "os": "nt",
+  "os": "windows",
   "description": "Sensing running tasklist based on the user space `tasklist` command line tool",
   "configurations": [
     {
