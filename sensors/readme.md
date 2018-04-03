@@ -170,7 +170,7 @@ cp sensor_lsof.py /opt/sensors/lsof
 
 ```bash
 #!/usr/bin/env bash
-python3 /opt/sensors/lsof/sensor_lsof.py --public-key-path /opt/sensors/lsof/certs/rsa_key.pub --private-key-path /opt/sensors/lsof/certs/rsa_key --ca-key-path /opt/sensors/lsof/certs/ --api-host sensing-api.savior.internal --sensor-port 11001 &
-python3 /opt/sensors/ps/sensor_ps.py --public-key-path /opt/sensors/ps/certs/rsa_key.pub --private-key-path /opt/sensors/ps/certs/rsa_key --ca-key-path /opt/sensors/ps/certs/ --api-host sensing-api.savior.internal --sensor-port 11002 &
+python3 /opt/sensors/lsof/sensor_lsof.py --public-key-path /opt/sensors/lsof/certs/rsa_key.pub --private-key-path /opt/sensors/lsof/certs/rsa_key --ca-key-path /opt/sensors/lsof/certs/ --api-host sensing-api.savior.internal --sensor-port 11001 --sensor-host 0.0.0.0 &
+python3 /opt/sensors/ps/sensor_ps.py --public-key-path /opt/sensors/ps/certs/rsa_key.pub --private-key-path /opt/sensors/ps/certs/rsa_key --ca-key-path /opt/sensors/ps/certs/ --api-host sensing-api.savior.internal --sensor-port 11002 --sensor-host 0.0.0.0 &
 ```
 

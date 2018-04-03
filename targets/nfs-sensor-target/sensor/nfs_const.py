@@ -4,7 +4,7 @@
 # Copyright (C) Matt Leinhos, 2018
 
 ##
-## NFS/RPC constants, especially NFSv3 
+## NFS/RPC constants, especially NFSv3
 ## https://tools.ietf.org/html/rfc1813
 ##
 
@@ -40,6 +40,9 @@ ValAcceptStatMap = {
 }
 
 AcceptStatValMap = {v: k for k, v in ValAcceptStatMap.items()}
+
+RPC_ACCEPT_SUCCESS = AcceptStatValMap[ 'SUCCESS' ]
+
 
 # Auth types
 ValAuthMap = {
@@ -215,12 +218,12 @@ Nfs3_FtypeValMap = {
     'NF3SOCK' : 6,
     'NF3FIFO' : 7,
 }
-    
+
 Nfs3_ValFtypeMap = {v: k for k, v in Nfs3_FtypeValMap.items() }
 
 Nfs3_ValModeMap = {
     0x00800 : 'SETUID',
-    0x00400 : 'SETGID', 
+    0x00400 : 'SETGID',
     0x00200 : 'STSAVE',
 
     0x00100 : 'OWNER_R',
@@ -228,7 +231,7 @@ Nfs3_ValModeMap = {
     0x00040 : 'OWNER_X',
 
     0x00020 : 'GROUP_R',
-    0x00010 : 'GROUP_W', 
+    0x00010 : 'GROUP_W',
     0x00008 : 'GROUP_X',
 
     0x00004 : 'OTHER_R',
