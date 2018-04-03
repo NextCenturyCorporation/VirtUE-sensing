@@ -817,4 +817,4 @@ if __name__ == "__main__":
     if opts.mode == "install":
         print "Installing components in Targets"
         for target in included_targets:
-            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir, ntquersys_dir)
+            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir, ntquerysys_dir)
