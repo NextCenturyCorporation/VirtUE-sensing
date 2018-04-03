@@ -2,7 +2,8 @@ SHELL := /bin/bash
 MY_CCFLAGS += -std=gnu99 -fms-extensions -g -DDEBUG
 ccflags-y += ${MY_CCFLAGS}
 CC += ${MY_CCFLAGS}
-obj-m += controller.o controller-interface.o
+obj-m += controller.o
+controller-y := controller-common.o controller-interface.o
 .PHONY: uname
 uname:
 	@./uname.sh

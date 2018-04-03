@@ -23,7 +23,7 @@
 #ifndef _CONTROLLER_H
 #define _CONTROLLER_H
 #include "controller-linux.h"
-#include "uname.h"
+//#include "uname.h"
 #include "controller-flags.h"
 #define _MODULE_LICENSE "GPL v2"
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"

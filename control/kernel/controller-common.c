@@ -23,16 +23,19 @@
 
 #include "controller-linux.h"
 #include "controller.h"
-
+#include "uname.h"
 
 struct kernel_sensor k_sensor;
 EXPORT_SYMBOL(k_sensor);
+struct connection listener;
+EXPORT_SYMBOL(listener);
 
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
 
 static unsigned int ps_repeat = 1;
 static unsigned int ps_timeout = 1;
+char *socket_name = "/var/run/kernel_sensor";
 
 module_param(ps_repeat, uint, 0644);
 module_param(ps_timeout, uint, 0644);
@@ -41,7 +44,7 @@ MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
 MODULE_PARM_DESC(ps_timeout,
 				 "How many seconds to sleep in between calls to the kernel " \
 				 "ps function");
-
+module_param(socket_name, charp, 0644);
 
 
 

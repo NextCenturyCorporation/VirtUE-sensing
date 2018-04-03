@@ -22,11 +22,11 @@ echo "#ifndef _UNAME_CONTROLLER_H" > $FILENAME
 echo "#define _UNAME_CONTROLLER_H" >> $FILENAME
 echo "/*this file is generated automatically in the makefile */" >> $FILENAME
 echo "/*NB: I always assume you are running the same kernel you are building!*/">>$FILENAME
-echo "const char *cont_long_version = \"$FULL_VERSION\";" >> $FILENAME
-echo "const char *cont_short_version = \"$SHORT_VERSION\";" >> $FILENAME
-echo "const int version = $VERSION;" >> $FILENAME
-echo "const int patchlevel = $PATCHLEVEL;" >> $FILENAME
-echo "const int sublevel = $SUBLEVEL;" >> $FILENAME
+echo "static const char *cont_long_version __attribute__((used)) = \"$FULL_VERSION\";" >> $FILENAME
+echo "static const char *cont_short_version __attribute__((used)) = \"$SHORT_VERSION\";" >> $FILENAME
+echo "static const int version __attribute__((used)) = $VERSION;" >> $FILENAME
+echo "static const int patchlevel __attribute__((used)) = $PATCHLEVEL;" >> $FILENAME
+echo "static const int sublevel __attribute__((used)) = $SUBLEVEL;" >> $FILENAME
 
 
 if (( $VERSION >= 4 )) ; then
@@ -84,7 +84,7 @@ fi
 # version 4.7:
 #int sock_recvmsg(struct socket *sock, struct msghdr *msg, int flags);
 
-echo "const char *cont_api = \"$API\";" >> $FILENAME
+echo "static const char *cont_api __attribute__((used)) = \"$API\";" >> $FILENAME
 echo "#endif /* _UNAME_CONTROLLER_H */" >> $FILENAME
 
 echo "kthreads api: $API"

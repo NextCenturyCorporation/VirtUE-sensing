@@ -2,6 +2,7 @@
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
+#include "uname.h"
 #include "controller.h"
 #include "jsmn/jsmn.h"
 #include "jsmn/jsmn.c"
@@ -9,10 +10,8 @@
 
 /* hold socket JSON probe interface */
 extern struct kernel_sensor k_sensor;
-static struct connection listener;
-static char *socket_name = "/var/run/kernel_sensor";
-
-module_param(socket_name, charp, 0644);
+extern char *socket_name;
+extern struct connection listener;
 
 struct connection *
 init_connection(struct connection *, uint64_t, void *);
@@ -463,10 +462,11 @@ static void __exit socket_interface_exit(void)
 
 	return;
 }
-
+#ifdef NOTHING
 module_init(socket_interface_init);
 module_exit(socket_interface_exit);
 
 MODULE_LICENSE(_MODULE_LICENSE);
 MODULE_AUTHOR(_MODULE_AUTHOR);
 MODULE_DESCRIPTION(_MODULE_INFO "interface");
+#endif
