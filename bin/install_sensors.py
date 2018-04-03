@@ -326,7 +326,9 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_di
 
     # support libraries
     install_sensor_wrapper(target, wrapper_dir)
-    install_ntquerysys(target, ntquerysys_dir)
+
+    if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
+        install_ntquerysys(target, ntquerysys_dir)
 
     # individual sensors
     for sensor_name in target["target"]["sensors"]:
@@ -633,7 +635,6 @@ def install_ntquerysys(target, ntquerysys_dir):
     :param target:
     :return:
     """
-
     # define our directories
     root = target["root"]
     reqs_dir = os.path.abspath(os.path.join(root, target["target"]["requirements_directory"]))
@@ -656,7 +657,7 @@ def install_ntquerysys(target, ntquerysys_dir):
     # install requirements.txt file
     print "    + requirements.txt file"
     shutil.copy(
-        os.path.abspath(os.path.join(wrapper_dir, "ntquerysys_requirements.txt")),
+        os.path.abspath(os.path.join(ntquerysys_dir, "ntquerysys_requirements.txt")),
         os.path.abspath(os.path.join(reqs_dir, "ntquerysys_requirements.txt"))
     )
 
