@@ -778,7 +778,7 @@ class SensorWrapper(object):
             # now spin up the http server so we can respond to the challenge
             challenge_server = await g.spawn(
                 tcp_server(
-                    self.opts.sensor_advertised_hostname,
+                    self.opts.sensor_hostname,
                     self.opts.sensor_advertised_port,
                     self.configure_http_handler(http_routes, secure=False)
                 )
@@ -816,7 +816,7 @@ class SensorWrapper(object):
             ]
             await g.spawn(
                 tcp_server(
-                    self.opts.sensor_advertised_hostname,
+                    self.opts.sensor_hostname,
                     self.opts.sensor_advertised_port,
                     self.configure_http_handler(https_routes, secure=True),
                     ssl=ssl_context
