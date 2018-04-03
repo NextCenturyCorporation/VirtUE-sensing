@@ -9,7 +9,7 @@ from sensor_wrapper import SensorWrapper, report_on_file, which_file
 
 
 """
-Sensor that wraps the system processlist command.
+Sensor that wraps the ntquerysystem process list
 """
 
 
