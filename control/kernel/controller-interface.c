@@ -340,6 +340,7 @@ err_exit:
 
 static inline void
 link_new_connection_work(struct connection *c,
+						 struct list_head *l,
 						 void (*f)(struct kthread_work *),
 						 uint8_t *d)
 {
@@ -347,7 +348,7 @@ link_new_connection_work(struct connection *c,
 	if (!SHOULD_SHUTDOWN) {
 		unsigned long flags;
 		spin_lock_irqsave(&k_sensor.lock, flags);
-		list_add_rcu(&c->l_node, &k_sensor.connections);
+		list_add_rcu(&c->l_node, l);
 		spin_unlock_irqrestore(&k_sensor.lock, flags);
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
@@ -414,7 +415,10 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		 * it as work
 		 **/
 
-		link_new_connection_work(c, k_accept, "kcontrol accept");
+		link_new_connection_work(c,
+								 &k_sensor.listeners,
+								 k_accept,
+								 "kcontrol accept");
 
 
 	} else { /**
@@ -429,7 +433,10 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		printk(KERN_INFO "connected socket at %p\n", sock);
 		/** now we need to read and write messages **/
 
-		link_new_connection_work(c, k_read_write, "kcontrol read & write");
+		link_new_connection_work(c,
+								 &k_sensor.connections,
+								 k_read_write,
+								 "kcontrol read & write");
 	}
 	return c;
 
