@@ -558,7 +558,8 @@ void  run_klsof_probe(struct kthread_work *work)
 		schedule();
 	}
 /**
- *  call print_kernel_ps by default. But, in the future there will be other             *  options, notably outputting in json format to a socket
+ *  call print by default. But, in the future there will be other
+ *  options, notably outputting in json format to a socket
  **/
 	probe_struct->print(probe_struct, "kernel-lsof", nonce, ++count);
 
@@ -821,7 +822,7 @@ static int __init kcontrol_init(void)
 {
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
-//	struct kernel_lsof_probe *lsof_probe = NULL;
+	struct kernel_lsof_probe *lsof_probe = NULL;
 
 	unsigned long flags;
 
@@ -850,7 +851,7 @@ static int __init kcontrol_init(void)
     /**
      * initialize the lsof probe
 	 **/
-#ifdef NOTHING
+
 	lsof_probe = init_kernel_lsof_probe(&klsof_probe,
 										"Kernel LSOF Probe",
 										strlen("Kernel LSOF Probe") + 1,
@@ -861,7 +862,6 @@ static int __init kcontrol_init(void)
 	spin_unlock_irqrestore(&k_sensor.lock, flags);
 
 
-#endif
 	return ccode;
 
 err_exit:

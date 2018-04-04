@@ -183,16 +183,30 @@ struct kernel_ps_data {
 
 /**
  * workspace for kernel-lsof probe data
- * line numbers from kernel version 4.1.3
- * struct file in include/linux/fs.h:828
- * struct path in include/linux/path.h:7
- * struct file_operations in include/linux/fs.h:1573
+ * line numbers from kernel version 4.16
+ * struct file in include/linux/fs.h:857
+ * struct path in include/linux/path.h:8
+ * struct file_operations in include/linux/fs.h:1702
+ * struct inode_operations in include/linux/fs.h:1743
  * count, flags, mode
- * struct fown_struct f_owner in include/linux/fs.h:797
+ * struct fown_struct f_own_struct in include/linux/fs.h:826
  * struct cred f_cred in include/linux/cred.h
  * typedef unsigned __bitwise__ fmode_t in include/linux/types.h
  *
  **/
+
+/**
+ * Filesystem information:
+ *	struct fs_struct		*fs;
+ *
+ * Open file information:
+ *	struct files_struct		*files;
+ *
+ * Namespaces:
+ * struct nsproxy			*nsproxy;
+ *
+ * task.files->fd_array[].path
+**/
 struct kernel_lsof_data {
 	uint64_t index, nonce;
 	kuid_t user_id;
@@ -220,10 +234,6 @@ struct kernel_lsof_data {
 	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
 
 #define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
-
-
-
-
 
 
 /**
