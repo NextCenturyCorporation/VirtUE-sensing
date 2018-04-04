@@ -5,7 +5,6 @@
 #include "uname.h"
 #include "controller.h"
 #include "jsmn/jsmn.h"
-#include "jsmn/jsmn.c"
 #include "jsonl-parse.include.c"
 
 /* hold socket JSON probe interface */

@@ -23,6 +23,7 @@
 
 #include "controller-linux.h"
 #include "controller.h"
+#include "jsmn/jsmn.h"
 #include "uname.h"
 
 struct kernel_sensor k_sensor;

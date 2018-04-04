@@ -3,7 +3,7 @@ MY_CCFLAGS += -std=gnu99 -fms-extensions -g -DDEBUG
 ccflags-y += ${MY_CCFLAGS}
 CC += ${MY_CCFLAGS}
 obj-m += controller.o
-controller-y := controller-common.o controller-interface.o
+controller-y := controller-common.o controller-interface.o jsmn/jsmn.o
 .PHONY: uname
 uname:
 	@./uname.sh
