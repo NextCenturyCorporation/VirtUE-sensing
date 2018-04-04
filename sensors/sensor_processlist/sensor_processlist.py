@@ -51,6 +51,10 @@ async def _thread_monitor(message_stub, config, message_queue, notification_type
             }
         }
 
+        print("   *** Thread {0} Subordinate to Process {1} has been {2}\n"
+                .format(thread_notify.Handle, thread_notify.ProcessHandle, 
+                    notification_type))
+
         logmsg.update(message_stub)
 
         await message_queue.put(json.dumps(logmsg))
@@ -122,6 +126,10 @@ async def _process_monitor(message_stub, config, message_queue, notification_typ
                 "WriteTransferCount": process_notify.WriteTransferCount
             }
         }
+
+        print("   *** Process {0} Named {1} has been {2}\n"
+                .format(process_notify.Handle, process_notify.Name, 
+                    notification_type))
 
         logmsg.update(message_stub)
 
