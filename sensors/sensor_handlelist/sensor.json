@@ -1,0 +1,15 @@
+{
+  "name": "handlelist",
+  "version": "1.0",
+  "target_folder": "handlelist",
+  "files": [
+    {
+      "source": "sensor_handlelist.py",
+      "dest": "sensor_handlelist.py"
+    }
+  ],
+  "startup_script": "run_handlelist_sensor.ps1",
+  "requirements_files": ["handlelist_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": [""]
+}
