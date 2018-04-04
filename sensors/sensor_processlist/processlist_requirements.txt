@@ -1,3 +1,4 @@
 pywin32==223
 pycryptodome==3.5.1
 curio==0.9
+wmi==1.4.9
