@@ -25,18 +25,11 @@ async def assess_processlist(message_stub, config, message_queue):
     print(" ::starting processlist check-summing")
     print("    $ repeat-interval = %d" % (repeat_delay,))
 
-    processlist_canonical_path = which_file("processlist.exe")
-
-    print("    $ canonical path = %s" % (processlist_canonical_path,))
-
     while True:
-
-        # let's profile our ps command
-        processlist_profile = await report_on_file(processlist_canonical_path)
         processlist_logmsg = {
             "timestamp": datetime.datetime.now().isoformat(),
             "level": "info",
-            "message": processlist_profile
+            "message": {}   # TODO:  What kind of message should I put here?
         }
         processlist_logmsg.update(message_stub)
 
@@ -45,6 +38,12 @@ async def assess_processlist(message_stub, config, message_queue):
         # sleep
         await sleep(repeat_delay)
 
+
+import pywintypes
+from win32security import LookupPrivilegeValue
+from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
+from win32con import SE_PRIVILEGE_ENABLED
+from ntquerysys import get_basic_system_information, get_process_ids, get_process_objects, acquire_privileges, release_privileges
 
 async def processlist(message_stub, config, message_queue):
     """
@@ -59,13 +58,38 @@ async def processlist(message_stub, config, message_queue):
 
     print(" ::starting processlist")
     print("    $ repeat-interval = %d" % (repeat_delay,))
-    processlist_path = which_file("processlist.exe")
-    processlist_args = ["/FO","CSV","/NH"]
     self_pid = os.getpid()
 
-    print(" ::starting processlist %s (pid=%d)" % (processlist_path, self_pid,))
+    new_privs = (
+        (LookupPrivilegeValue(None, SE_SECURITY_NAME), SE_PRIVILEGE_ENABLED),
+        (LookupPrivilegeValue(None, SE_CREATE_PERMANENT_NAME), SE_PRIVILEGE_ENABLED), 
+        (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
+    )  
+    
+    success = acquire_privileges(new_privs)
+    if not success:
+        print("Failed to acquire privs!\n")
+        sys.exit(-1)    
+        
+    print(" ::starting processlist (pid=%d)" % (self_pid,))
 
-    full_processlist_command = [processlist_path] + processlist_args
+
+    try:        
+        sbi = get_basic_system_information()
+        print("System Basic Info = {0}\n".format(sbi,))
+
+        while True:
+            for pid in get_process_ids():                    
+                try:
+                    proc_obj = get_process_objects(pid)
+                    print("Process ID {0} Handle Information: {1}\n"
+                            .format(pid,proc_obj,))                
+                except pywintypes.error as err:
+                    print("Unable to get handle information from pid {0} - {1}\n"
+                            .format(pid, err,))
+    finally:
+        success = release_privileges(new_privs)
+
 
     while True:
 

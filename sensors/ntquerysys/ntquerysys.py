@@ -779,24 +779,40 @@ if __name__ == "__main__":
         print("Failed to acquire privs!\n")
         sys.exit(-1)    
 
-    pid = 72
-    for proc_obj in get_process_objects(pid):
-        print(proc_obj)        
-        proc_data = proc_obj.Encode()
-        for hdlinfo in get_system_handle_information(pid):            
-            type_name = get_nt_object_type_info(hdlinfo)            
-            object_name = get_nt_object_name_info(hdlinfo)
-            hdl = proc_obj.ToDict()
-            hdl["type_name"] = type_name
-            hdl["object_name"] = object_name
-            serdata = hdlinfo.Encode()
-            print(serdata)
-            new_test_instance = SYSTEM_HANDLE_TABLE_ENTRY_INFO.Decode(serdata)
-            print(hdlinfo)
-        new_proc_obj = SYSTEM_PROCESS_INFORMATION.Decode(proc_data)
-        print(new_proc_obj)         
+    try:        
+        sbi = get_basic_system_information()
+        print("System Basic Info = {0}\n".format(sbi,))
 
-    sys.exit(0)
+        for proc_obj in get_process_objects():
+            proc_obj_bits = repr(proc_obj).split(",")
+            proc_obj_bits = [bit for bit in proc_obj_bits if bit != '']
+            logmsg
+            for ndx in range(2, sizeof(proc_obj) - 2):
+                kvp = proc_obj_bits[ndx].strip().split('=')                    
+                print("Name={0},Value={1}\n".format(kvp[0], kvp[1],))
+            
+
+    finally:
+        success = release_privileges(new_privs)        
+        
+    #pid = 72
+    #for proc_obj in get_process_objects(pid):
+        #print(proc_obj)        
+        #proc_data = proc_obj.Encode()
+        #for hdlinfo in get_system_handle_information(pid):            
+            #type_name = get_nt_object_type_info(hdlinfo)            
+            #object_name = get_nt_object_name_info(hdlinfo)
+            #hdl = proc_obj.ToDict()
+            #hdl["type_name"] = type_name
+            #hdl["object_name"] = object_name
+            #serdata = hdlinfo.Encode()
+            #print(serdata)
+            #new_test_instance = SYSTEM_HANDLE_TABLE_ENTRY_INFO.Decode(serdata)
+            #print(hdlinfo)
+        #new_proc_obj = SYSTEM_PROCESS_INFORMATION.Decode(proc_data)
+        #print(new_proc_obj)         
+
+    #sys.exit(0)
 
 
     #try:        
