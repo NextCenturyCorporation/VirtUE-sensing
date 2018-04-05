@@ -108,7 +108,7 @@ class SensorWrapper(object):
         if p in ["linux", "darwin"]:
             self.operating_system = "linux"
         elif p in ["windows", "nt"]:
-            self.operating_system = "nt"
+            self.operating_system = "windows"
         else:
             self.operating_system = "linux"
 
@@ -272,8 +272,8 @@ class SensorWrapper(object):
 
         uri = self.construct_api_uri("/ca/register/private_key/new")
         payload = {
-            "hostname": self.opts.sensor_hostname,
-            "port": self.opts.sensor_port
+            "hostname": self.opts.sensor_advertised_hostname,
+            "port": self.opts.sensor_advertised_port
         }
         ca_path = os.path.join(self.opts.ca_key_path, "ca.pem")
 
@@ -368,8 +368,8 @@ class SensorWrapper(object):
             "virtue": self.opts.virtue_id,
             "user": self.opts.username,
             "public_key": pubkey_b64,
-            "hostname": self.opts.sensor_hostname,
-            "port": self.opts.sensor_port,
+            "hostname": self.opts.sensor_advertised_hostname,
+            "port": self.opts.sensor_advertised_port,
             "name": "%s-%s" % (self.sensor_name, __VERSION__,),
             "os": self.operating_system
         }
@@ -999,8 +999,15 @@ class SensorWrapper(object):
         self.argparser.add_argument("--sensor-id", dest="sensor_id", default=None, help="ID of the sensor, auto-generated if absent")
         self.argparser.add_argument("--virtue-id", dest="virtue_id", default=None, help="ID of the current Virtue, auto-generated if absent")
         self.argparser.add_argument("--username", dest="username", default=None, help="Name of the observed user, inferred if absent")
+
+        # We have multiple ways of identifying our self, which is super fun. We have a local port and possibly a
+        # different _advertised_ host and port, which is used when we need to route traffic through a Dom0 into
+        # a nested Xen guest
         self.argparser.add_argument("--sensor-hostname", dest="sensor_hostname", default=None, help="Addressable name of the sensor host")
         self.argparser.add_argument("--sensor-port", dest="sensor_port", type=int, default=11000, help="Port on sensor host where sensor is listening for API actuations")
+
+        self.argparser.add_argument("--sensor-advertised-hostname", dest="sensor_advertised_hostname", default=None, help="Advertised hostname for communications")
+        self.argparser.add_argument("--sensor-advertised-port", dest="sensor_advertised_port", default=None, help="Advertised port for communications")
 
         # for testing and time management/dependency management
         self.argparser.add_argument("--delay-start", dest="delay_start", type=int, default=0, help="Number of seconds to delay before startup")
@@ -1064,9 +1071,52 @@ class SensorWrapper(object):
 
             self.opts.sensor_hostname = socket.getfqdn()
 
+            # we'll do something funky on Windows, assuming we're on EC2
+            p = platform.system().lower()
+            if p in ["windows", "nt"]:
+                if self.opts.sensor_hostname.endswith("ec2.internal"):
+
+                    # ok - we're going to manually build our hostname from our
+                    # IP address
+                    ip = socket.gethostbyname(socket.gethostname())
+                    self.opts.sensor_hostname = "ip-%s.ec2.internal" % ("-".join(ip.split(".")))
+
             # bork bork bork
             if self.opts.sensor_hostname is None:
                 raise ValueError("Can't identify the current hostname, bailing out")
+
+        # Is there a ~/ports.properties file? If so, we're on a Linux Virtue (DomU), in
+        # which case we need to use info from this file to re-assign our sensor port and
+        # sensor host. We've got a pre-defined port we got off the command line, which we
+        # need to try and map to a Dom0 external port from this file. This Dom0 port is
+        # port-forwarded to our internal port. So we've got an advertised port, which is
+        # different from our bind port...
+        if os.path.exists("/home/user/ports.properties"):
+
+            print("  % using ports.properties")
+
+            # we could use configparser, but the ports.properties isn't a full INI
+            # file, so we resort to scanning it ourselves. Sigh.
+            ports_dict = read_properties("/home/user/ports.properties")
+
+            # pull out our hostname
+            if "hostname" not in ports_dict:
+                raise ValueError("No 'hostname' key in ports.properties file!")
+            self.opts.sensor_advertised_hostname = ports_dict["hostname"]
+
+            # let's find our advertised port
+            if str(self.opts.sensor_port) not in ports_dict:
+                raise ValueError("Sensor local port (port=%d) doesn't have a key in ports.properties" % (self.opts.sensor_port,))
+
+            self.opts.sensor_advertised_port = int(ports_dict[str(self.opts.sensor_port)])
+
+        else:
+            # our advertised and base host/port are the same, map them over
+            if self.opts.sensor_advertised_hostname is None:
+                self.opts.sensor_advertised_hostname = self.opts.sensor_hostname
+            if self.opts.sensor_advertised_port is None:
+                self.opts.sensor_advertised_port = self.opts.sensor_port
+
 
         # report
         print("Sensor Identification")
@@ -1082,8 +1132,11 @@ class SensorWrapper(object):
         print("\tversion    == %s" % (self.opts.api_version,))
 
         print("Sensor Interface")
-        print("\thostname  == %s" % (self.opts.sensor_hostname,))
-        print("\tport      == %d" % (self.opts.sensor_port,))
+        print("\thostname   == %s" % (self.opts.sensor_hostname,))
+        print("\tport       == %d" % (self.opts.sensor_port,))
+        print("Advertised Interface")
+        print("\thostname   == %s" % (self.opts.sensor_advertised_hostname,))
+        print("\tport       == %d" % (self.opts.sensor_advertised_port,))
 
     def start(self):
         """
@@ -1104,6 +1157,44 @@ class SensorWrapper(object):
 
         # let's jump right into async land
         run(self.main)
+
+
+def read_properties(filename):
+    """
+    Read in a basic key=value properties file, which may also have comments in it.
+
+    :param filename:
+    :return: dictionary
+    """
+    raw = open(filename, "r").read()
+
+    return_dict = {}
+
+    for line in raw.split("\n"):
+        line = line.strip()
+
+        # skip blank lines
+        if len(line) == 0:
+            continue
+
+        # skip comments
+        if line.startswith("#"):
+            continue
+
+        # skip anything that doesn't have an equal sign
+        if "=" not in line:
+            continue
+
+        # ok - let's parse it, first equal is the one we want
+        bits = line.split("=")
+        key = bits[0]
+
+        # rejoin the remainder on '='
+        val = "=".join(bits[1:])
+
+        return_dict[key] = val
+
+    return return_dict
 
 
 def which_file(name):
