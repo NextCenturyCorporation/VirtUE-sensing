@@ -441,6 +441,40 @@ bool init_and_queue_work(struct kthread_work *work,
 					void (*function)(struct kthread_work *));
 
 
+void *destroy_probe(struct probe *probe);
+
+/********************************************************************************
+ * lsof probe
+ *******************************************************************************/
+
+extern struct kernel_lsof_probe klsof_probe;
+extern unsigned int lsof_repeat;
+extern unsigned int lsof_timeout;
+extern unsigned int lsof_level;
+
+int
+print_kernel_lsof(struct kernel_lsof_probe *parent,
+				  uint8_t *tag,
+				  uint64_t nonce,
+				  int count);
+
+int
+kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce);
+
+void
+run_klsof_probe(struct kthread_work *work);
+
+struct kernel_lsof_probe *
+init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
+					   uint8_t *id, int id_len,
+					   int (*print)(struct kernel_lsof_probe *,
+									uint8_t *, uint64_t, int));
+
+
+void *
+destroy_kernel_lsof_probe(struct probe *probe);
+
+
 /**
  *
  * "more stable" api from here onward
