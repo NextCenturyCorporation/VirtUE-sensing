@@ -94,6 +94,43 @@ defmodule ApiServer.StreamController do
     end
   end
 
+  def stream_all(conn, _) do
+
+    # log targeting data
+    ApiServer.TargetingUtils.log_targeting()
+
+    # Select all of our sensors
+    sensors = ApiServer.Sensor |> ApiServer.Repo.all
+
+    case sensors do
+
+      [] ->
+        IO.puts("  0 sensors found for streaming")
+        conn
+        |> put_status(500)
+        |> json(
+             %{
+               error: true,
+               timestamp: DateTime.to_string(DateTime.utc_now()),
+               reason: "No sensors found when targeting all available sensors",
+             }
+           )
+      sensor_structs ->
+
+        stream_topics = Enum.map(sensor_structs, fn (s) -> s.kafka_topic end)
+        stream_remote_ip = remote_ip_to_string(conn.remote_ip)
+
+        # Basic logging so we know what's going on
+        IO.puts("  #{length(sensor_structs)} sensors found for streaming")
+        IO.puts("  <> attempting to stream from #{length sensor_structs} sensors to #{stream_remote_ip}")
+
+        # spin up all of the streams, this will return a Plug.Conn when the stream is broken
+        spawn_stream(send_chunked(conn, 200), stream_topics)
+
+    end
+
+  end
+
   @doc """
   Setup tasks to monitor each topic stream and a gather task that collates
   the messages from the streaming tasks into a single output stream to the

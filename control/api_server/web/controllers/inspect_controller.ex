@@ -59,19 +59,35 @@ defmodule ApiServer.InspectController do
 
     # well, this is easy, isn't it? We only need to make sure we sanitize the sensor records before
     # releasing them.
-    conn
-      |> put_status(200)
-      |> json(
-          Map.merge(
-            %{
-              "error": :false,
-              "timestamp": DateTime.to_string(DateTime.utc_now()),
-              "sensors": Enum.map(sensors, fn (s) -> ApiServer.Sensor.clean_json(s) end)
-            },
-            summarize_targeting(conn.assigns)
-          )
-         )
+    inspection_results(conn, sensors)
+  end
+
+  def inspect_all(conn, opts) do
+
+    ApiServer.TargetingUtils.log_targeting()
+
+    # gather all of the sensors
+    sensors = ApiServer.Sensor |> ApServer.Repo.all
+
+    # stream the results
+    inspection_results(conn, sensors)
 
   end
+
+  defp inspection_results(conn, sensors) do
+    conn
+    |> put_status(200)
+    |> json(
+         Map.merge(
+           %{
+             "error": :false,
+             "timestamp": DateTime.to_string(DateTime.utc_now()),
+             "sensors": Enum.map(sensors, fn (s) -> ApiServer.Sensor.clean_json(s) end)
+           },
+           summarize_targeting(conn.assigns)
+         )
+       )
+  end
+
 
 end

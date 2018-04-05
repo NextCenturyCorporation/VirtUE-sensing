@@ -263,6 +263,8 @@ defmodule ApiServer.Router do
      put "/sensor/:sensor/validate/:action", ValidateController, :trigger, name: "sensor-validate-trigger"
      get "/sensor/:sensor/inspect", InspectController, :inspect, name: "sensor-inspect"
      get "/sensor/:sensor/stream", StreamController, :stream, name: "sensor-stream"
+     get "/sensors/all/inspect", InspectController, :inspect_all, name: "sensor-inspect-all"
+     get "/sensors/all/stream", StreamController, :stream_all, name: "sensor-stream-all"
 
   end
 end
