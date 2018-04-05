@@ -36,27 +36,34 @@ struct kernel_lsof_probe klsof_probe;
 
 static unsigned int lsof_repeat = 1;
 static unsigned int lsof_timeout = 1;
+static unsigned int lsof_level = 1;
 
 static unsigned int ps_repeat = 1;
 static unsigned int ps_timeout = 1;
+static unsigned int ps_level = 1;
 
 char *socket_name = "/var/run/kernel_sensor";
 
 module_param(lsof_repeat, uint, 0644);
 module_param(lsof_timeout, uint, 0644);
+module_param(lsof_level, uint, 0644);
 
-MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel lsof function");
-MODULE_PARM_DESC(ps_timeout,
+MODULE_PARM_DESC(lsof_repeat, "How many times to run the kernel lsof function");
+MODULE_PARM_DESC(lsof_timeout,
 				 "How many seconds to sleep in between calls to the kernel " \
 				 "lsof function");
+MODULE_PARM_DESC(lsof_level, "How invasively to probe open files");
 
 module_param(ps_repeat, uint, 0644);
 module_param(ps_timeout, uint, 0644);
+module_param(ps_level, uint, 0644);
 
 MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
 MODULE_PARM_DESC(ps_timeout,
 				 "How many seconds to sleep in between calls to the kernel " \
 				 "ps function");
+MODULE_PARM_DESC(ps_level, "How invasively to probe processes");
+
 module_param(socket_name, charp, 0644);
 
 
