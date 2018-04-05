@@ -147,93 +147,6 @@ static inline void task_cputime(struct task_struct *t,
 }
 #endif
 
-struct kernel_ps_data {
-	int index; /* used for access to using flex_array.h */
-	uint64_t nonce;
-	kuid_t user_id;
-	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
-	uint64_t load_avg;
-	uint64_t util_avg; /* see struct sched_avg in linux/sched.h */
-	struct files_struct *files;
-#define TASK_STATE_LEN 24
-	uint8_t state[TASK_STATE_LEN];
-	uint64_t start_time; /* task->start_time */
-	uint64_t u_time;
-	uint64_t s_time;
-	uint64_t task_time;
-	spinlock_t sl;
-	uint8_t comm[TASK_COMM_LEN+1];
-};
-
-
-#define PS_DATA_SIZE sizeof(struct kernel_ps_data)
-
-/**
- * see include/linux/flex_array.h for the definitions of
- * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
- * this is a conservatice calculation to ensure we don't try to
- * pre allocate a flex_array with too many elements
- **/
-
-#define PS_APPARENT_ARRAY_SIZE											\
-	(FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
-
-#define PS_ARRAY_SIZE ((PS_APPARENT_ARRAY_SIZE) - 1)
-
-
-/**
- * workspace for kernel-lsof probe data
- * line numbers from kernel version 4.16
- * struct file in include/linux/fs.h:857
- * struct path in include/linux/path.h:8
- * struct file_operations in include/linux/fs.h:1702
- * struct inode_operations in include/linux/fs.h:1743
- * count, flags, mode
- * struct fown_struct f_own_struct in include/linux/fs.h:826
- * struct cred f_cred in include/linux/cred.h
- * typedef unsigned __bitwise__ fmode_t in include/linux/types.h
- *
- **/
-
-/**
- * Filesystem information:
- *	struct fs_struct		*fs;
- *
- * Open file information:
- *	struct files_struct		*files;
- *
- * Namespaces:
- * struct nsproxy			*nsproxy;
- *
- * task.files->fd_array[].path
-**/
-struct kernel_lsof_data {
-	uint64_t index, nonce;
-	kuid_t user_id;
-	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
-	struct file f;
-	struct path p;
-	struct fown_struct owner;
-	atomic_long_t count;
-	unsigned int flags;
-	fmode_t mode;
-	uint8_t comm[TASK_COMM_LEN+1];
-};
-
-
-#define LSOF_DATA_SIZE sizeof(struct kernel_lsof_data)
-
-/**
- * see include/linux/flex_array.h for the definitions of
- * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
- * this is a conservatice calculation to ensure we don't try to
- * pre allocate a flex_array with too many elements
- **/
-
-#define LSOF_APPARENT_ARRAY_SIZE										   \
-	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
-
-#define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
 
 
 /**
@@ -297,59 +210,6 @@ struct probe {
 	struct kthread_worker worker;
 	struct kthread_work work;
 	struct list_head l_node;
-};
-
-
-/**
- * @brief a probe that produces a list of kernel processes similar to the
- *        ps command.
- *
- *  members:
- *
- *  - probe is an anonymous struct probe (see above)
- *
- *  - flex_array is a kernel flex_array, which will be pre-allocated
- *    to hold data from the kernel's process list
- *
- *  - print is a function pointer - it may be initialized with custom
- *    output functions. The default is to printk kernel process data
- *    to /var/log/messages using printk
- *
- *  - ps is a function pointer - it may be initialized with a custom
- *    process probe function. The default is to collect process information
- *    from the kernel's scheduler.
- *
- *  - _init is a function pointer, it points to a function to initialize
- *    the ps probe. It calls a struct probe->init function to initialize
- *    the probe anonymous structure.
- *
- *  - _destroy is a function pointer, it points to a function for destroying
- *    the ps probe. It calls probe->destroy to tear down the anonymous
- *    struct probe.
- **/
-struct kernel_ps_probe {
-	struct probe;
-	struct flex_array *kps_data_flex_array;
-	int (*print)(struct kernel_ps_probe *, uint8_t *, uint64_t, int);
-	int (*ps)(struct kernel_ps_probe *, int, uint64_t);
-	struct kernel_ps_probe *(*_init)(struct kernel_ps_probe *,
-									 uint8_t *, int,
-		                             int (*print)(struct kernel_ps_probe *,
-												  uint8_t *, uint64_t, int));
-	void *(*_destroy)(struct probe *);
-};
-
-
-struct kernel_lsof_probe {
-	struct probe;
-	struct flex_array *klsof_data_flex_array;
-	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
-	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
-	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
-									 uint8_t *, int,
-		                             int (*print)(struct kernel_lsof_probe *,
-												  uint8_t *, uint64_t, int));
-	void *(*_destroy)(struct probe *);
 };
 
 
@@ -421,6 +281,149 @@ struct kernel_sensor {
 };
 
 
+/*******************************************************************************
+ * ps probe
+ *
+ ******************************************************************************/
+struct kernel_ps_data {
+	int index; /* used for access to using flex_array.h */
+	uint64_t nonce;
+	kuid_t user_id;
+	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
+	uint64_t load_avg;
+	uint64_t util_avg; /* see struct sched_avg in linux/sched.h */
+	struct files_struct *files;
+#define TASK_STATE_LEN 24
+	uint8_t state[TASK_STATE_LEN];
+	uint64_t start_time; /* task->start_time */
+	uint64_t u_time;
+	uint64_t s_time;
+	uint64_t task_time;
+	spinlock_t sl;
+	uint8_t comm[TASK_COMM_LEN+1];
+};
+
+
+#define PS_DATA_SIZE sizeof(struct kernel_ps_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define PS_APPARENT_ARRAY_SIZE											\
+	(FLEX_ARRAY_ELEMENTS_PER_PART(PS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
+
+#define PS_ARRAY_SIZE ((PS_APPARENT_ARRAY_SIZE) - 1)
+
+/**
+ * @brief a probe that produces a list of kernel processes similar to the
+ *        ps command.
+ *
+ *  members:
+ *
+ *  - probe is an anonymous struct probe (see above)
+ *
+ *  - flex_array is a kernel flex_array, which will be pre-allocated
+ *    to hold data from the kernel's process list
+ *
+ *  - print is a function pointer - it may be initialized with custom
+ *    output functions. The default is to printk kernel process data
+ *    to /var/log/messages using printk
+ *
+ *  - ps is a function pointer - it may be initialized with a custom
+ *    process probe function. The default is to collect process information
+ *    from the kernel's scheduler.
+ *
+ *  - _init is a function pointer, it points to a function to initialize
+ *    the ps probe. It calls a struct probe->init function to initialize
+ *    the probe anonymous structure.
+ *
+ *  - _destroy is a function pointer, it points to a function for destroying
+ *    the ps probe. It calls probe->destroy to tear down the anonymous
+ *    struct probe.
+ **/
+struct kernel_ps_probe {
+	struct probe;
+	struct flex_array *kps_data_flex_array;
+	int (*print)(struct kernel_ps_probe *, uint8_t *, uint64_t, int);
+	int (*ps)(struct kernel_ps_probe *, int, uint64_t);
+	struct kernel_ps_probe *(*_init)(struct kernel_ps_probe *,
+									 uint8_t *, int,
+		                             int (*print)(struct kernel_ps_probe *,
+												  uint8_t *, uint64_t, int));
+	void *(*_destroy)(struct probe *);
+};
+
+
+/**
+ * workspace for kernel-lsof probe data
+ * line numbers from kernel version 4.16
+ * struct file in include/linux/fs.h:857
+ * struct path in include/linux/path.h:8
+ * struct file_operations in include/linux/fs.h:1702
+ * struct inode_operations in include/linux/fs.h:1743
+ * count, flags, mode
+ * struct fown_struct f_own_struct in include/linux/fs.h:826
+ * struct cred f_cred in include/linux/cred.h
+ * typedef unsigned __bitwise__ fmode_t in include/linux/types.h
+ *
+ **/
+
+/**
+ * Filesystem information:
+ *	struct fs_struct		*fs;
+ *
+ * Open file information:
+ *	struct files_struct		*files;
+ *
+ * Namespaces:
+ * struct nsproxy			*nsproxy;
+ *
+ * task.files->fd_array[].path
+**/
+struct kernel_lsof_data {
+	uint64_t index, nonce;
+	kuid_t user_id;
+	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
+	struct file f;
+	struct path p;
+	struct fown_struct owner;
+	atomic_long_t count;
+	unsigned int flags;
+	fmode_t mode;
+	uint8_t comm[TASK_COMM_LEN+1];
+};
+
+
+#define LSOF_DATA_SIZE sizeof(struct kernel_lsof_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define LSOF_APPARENT_ARRAY_SIZE										   \
+	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
+
+#define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
+
+
+struct kernel_lsof_probe {
+	struct probe;
+	struct flex_array *klsof_data_flex_array;
+	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
+	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
+	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
+									 uint8_t *, int,
+		                             int (*print)(struct kernel_lsof_probe *,
+												  uint8_t *, uint64_t, int));
+	void *(*_destroy)(struct probe *);
+};
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
  */
