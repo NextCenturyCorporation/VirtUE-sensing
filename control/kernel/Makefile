@@ -9,7 +9,7 @@ uname:
 	@./uname.sh
 
 .PHONY: all
-all: clean test-module
+all: clean lint test-module
 
 test-module : ccflags-y +=  -g -DDEBUG -fno-inline
 test-module : uname
