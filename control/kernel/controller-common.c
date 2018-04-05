@@ -34,9 +34,21 @@ EXPORT_SYMBOL(listener);
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
 
+static unsigned int lsof_repeat = 1;
+static unsigned int lsof_timeout = 1;
+
 static unsigned int ps_repeat = 1;
 static unsigned int ps_timeout = 1;
+
 char *socket_name = "/var/run/kernel_sensor";
+
+module_param(lsof_repeat, uint, 0644);
+module_param(lsof_timeout, uint, 0644);
+
+MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel lsof function");
+MODULE_PARM_DESC(ps_timeout,
+				 "How many seconds to sleep in between calls to the kernel " \
+				 "lsof function");
 
 module_param(ps_repeat, uint, 0644);
 module_param(ps_timeout, uint, 0644);

@@ -1,18 +1,28 @@
 SHELL := /bin/bash
-MY_CCFLAGS += -std=gnu99 -fms-extensions -g -DDEBUG
+MY_CCFLAGS += -std=gnu99 -fms-extensions
 ccflags-y += ${MY_CCFLAGS}
-CC += ${MY_CCFLAGS}
 obj-m += controller.o
 controller-y := controller-common.o controller-interface.o jsmn/jsmn.o
+
 .PHONY: uname
 uname:
 	@./uname.sh
 
-all: uname
-		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
+.PHONY: all
+all: clean test-module
+
+test-module : ccflags-y +=  -g -DDEBUG -fno-inline
+test-module : uname
+	@echo ${ccflags-y}
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 clean:
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
 		rm uname.h &>/dev/null  ||:
+
+module : ccflags-y +=  -02 -f-inline
+module : uname
+	@echo ${ccflags-y}
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 
 .PHONY: jsonl-clean
 jsonl-clean:
