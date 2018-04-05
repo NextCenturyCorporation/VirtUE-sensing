@@ -1,13 +1,12 @@
 #!/bin/bash
 
-make clean; make all
-sudo insmod ./controller.ko ps_repeat=1 ps_timeout=1
+make all
+sudo insmod ./controller.ko ps_repeat=1 ps_timeout=1 ps_level=2 lsof_level=2
 read -n 1 -s -r -p "Press any key to continue"
 echo ""
 
-sudo dmesg | grep kernel-ps
+sudo dmesg | grep "kernel-ps 1:0"
 sudo lsmod | grep controller
-echo ""
-read -n 1 -s -r -p "Press any key to continue"
-echo ""
+echo "unloading..."
 sudo rmmod controller
+sudo lsmod | grep controller
