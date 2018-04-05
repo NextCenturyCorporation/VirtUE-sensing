@@ -55,7 +55,8 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 	return index;
 }
 
-int kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
+int
+kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 {
 	int index = 0;
 	struct task_struct *task;
@@ -87,7 +88,8 @@ unlock_out:
 
 }
 
-void  run_klsof_probe(struct kthread_work *work)
+void
+run_klsof_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
 	struct kernel_lsof_probe *probe_struct =
@@ -118,7 +120,8 @@ void  run_klsof_probe(struct kthread_work *work)
 }
 
 
-void *destroy_kernel_lsof_probe(struct probe *probe)
+void *
+destroy_kernel_lsof_probe(struct probe *probe)
 {
 	struct kernel_lsof_probe *lsof_p = (struct kernel_lsof_probe *)probe;
 	assert(lsof_p && __FLAG_IS_SET(lsof_p->flags, PROBE_KLSOF));
@@ -135,10 +138,11 @@ void *destroy_kernel_lsof_probe(struct probe *probe)
 	return lsof_p;
 }
 
-struct kernel_lsof_probe *init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
-											 uint8_t *id, int id_len,
-											 int (*print)(struct kernel_lsof_probe *,
-														  uint8_t *, uint64_t, int))
+struct kernel_lsof_probe *
+init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
+					   uint8_t *id, int id_len,
+					   int (*print)(struct kernel_lsof_probe *,
+									uint8_t *, uint64_t, int))
 {
 	int ccode = 0;
 	struct probe *tmp;
@@ -212,4 +216,3 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
-
