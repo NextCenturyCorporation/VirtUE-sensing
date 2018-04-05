@@ -67,7 +67,7 @@ defmodule ApiServer.InspectController do
     ApiServer.TargetingUtils.log_targeting()
 
     # gather all of the sensors
-    sensors = ApiServer.Sensor |> ApServer.Repo.all
+    sensors = ApiServer.Sensor |> ApiServer.Repo.all
 
     # stream the results
     inspection_results(conn, sensors)
