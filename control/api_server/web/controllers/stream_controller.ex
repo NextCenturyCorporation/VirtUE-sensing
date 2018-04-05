@@ -14,9 +14,9 @@ defmodule ApiServer.StreamController do
   import ApiServer.TargetingUtils, only: [summarize_targeting: 1]
   import ApiServer.ValidationPlug, only: [valid_log_level: 2, valid_follow: 2, valid_since: 2]
 
-  plug :valid_log_level when action in [:stream]
-  plug :valid_follow when action in [:stream]
-  plug :valid_since when action in [:stream]
+  plug :valid_log_level when action in [:stream, :stream_all]
+  plug :valid_follow when action in [:stream, :stream_all]
+  plug :valid_since when action in [:stream, :stream_all]
   plug :extract_targeting when action in [:stream]
   plug :extract_targeting_scope when action in [:stream]
 
