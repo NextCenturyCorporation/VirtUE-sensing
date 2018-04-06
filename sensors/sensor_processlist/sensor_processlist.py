@@ -34,7 +34,7 @@ async def process_monitor(message_stub, config, message_queue):
     
     print(" ::starting process monitor")    
     print("    $ repeat-interval = %d" % (repeat_delay,))
-    print("    $ sensor-config-level = %d" % (sensor_config_level,))
+    print("    $ sensor-config-level = %s" % (sensor_config_level,))
     
     while True: 
         processlist_logmsg = {}
