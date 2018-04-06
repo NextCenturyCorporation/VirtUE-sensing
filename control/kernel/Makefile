@@ -11,6 +11,9 @@ uname:
 .PHONY: all
 all: clean lint test-module
 
+.PHONY: rebuild
+rebuild: clean test-module
+
 test-module : ccflags-y +=  -g -DDEBUG -fno-inline
 test-module : uname
 	@echo ${ccflags-y}

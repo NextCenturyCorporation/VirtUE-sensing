@@ -26,6 +26,12 @@
 #include "jsmn/jsmn.h"
 #include "uname.h"
 
+int lsof_filter(struct kernel_lsof_probe *p, void *data, size_t l)
+{
+	return 1;
+}
+
+
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
 							 uint8_t *tag,
@@ -99,7 +105,7 @@ run_klsof_probe(struct kthread_work *work)
 	get_random_bytes(&nonce, sizeof(uint64_t));
 
 	/**
-	 * if another process is reading the ps flex_array, kernel_ps
+	 * if another process is reading the lsof flex_array, kernel_lsof
 	 * will return -EFAULT. therefore, reschedule and try again.
 	 */
 	while( probe_struct->lsof(probe_struct, count, nonce) == -EAGAIN) {
@@ -142,7 +148,9 @@ struct kernel_lsof_probe *
 init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 					   uint8_t *id, int id_len,
 					   int (*print)(struct kernel_lsof_probe *,
-									uint8_t *, uint64_t, int))
+									uint8_t *, uint64_t, int),
+					   int (*filter)(struct kernel_lsof_probe *,
+									 void *, size_t))
 {
 	int ccode = 0;
 	struct probe *tmp;
@@ -163,9 +171,8 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 
 
 	/** init timeout and repeat
-	 * they are passed on the command line, or (eventually) read
+	 * they are passed on the command line, or read
 	 * from sysfs
-	 * TODO: these need to be separate from the kps probe
 	 **/
 	__SET_FLAG(lsof_p->flags, PROBE_KLSOF);
 

@@ -501,8 +501,6 @@ void  run_kps_probe(struct kthread_work *work)
 	return;
 }
 
-
-
 /**
  * init_probe - initialize a probe that has already been allocated.
  * struct probe is usually used as an anonymous structure in a more
@@ -690,7 +688,9 @@ static int __init kcontrol_init(void)
 	lsof_probe = init_kernel_lsof_probe(&klsof_probe,
 										"Kernel LSOF Probe",
 										strlen("Kernel LSOF Probe") + 1,
-										print_kernel_lsof);
+										print_kernel_lsof,
+										lsof_filter);
+	
 	spin_lock_irqsave(&k_sensor.lock, flags);
 	/* link this probe to the sensor struct */
 	list_add_rcu(&lsof_probe->l_node, &k_sensor.probes);

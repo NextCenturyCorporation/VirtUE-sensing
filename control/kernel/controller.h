@@ -358,72 +358,6 @@ struct kernel_ps_probe {
 };
 
 
-/**
- * workspace for kernel-lsof probe data
- * line numbers from kernel version 4.16
- * struct file in include/linux/fs.h:857
- * struct path in include/linux/path.h:8
- * struct file_operations in include/linux/fs.h:1702
- * struct inode_operations in include/linux/fs.h:1743
- * count, flags, mode
- * struct fown_struct f_own_struct in include/linux/fs.h:826
- * struct cred f_cred in include/linux/cred.h
- * typedef unsigned __bitwise__ fmode_t in include/linux/types.h
- *
- **/
-
-/**
- * Filesystem information:
- *	struct fs_struct		*fs;
- *
- * Open file information:
- *	struct files_struct		*files;
- *
- * Namespaces:
- * struct nsproxy			*nsproxy;
- *
- * task.files->fd_array[].path
-**/
-struct kernel_lsof_data {
-	uint64_t index, nonce;
-	kuid_t user_id;
-	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
-	struct file f;
-	struct path p;
-	struct fown_struct owner;
-	atomic_long_t count;
-	unsigned int flags;
-	fmode_t mode;
-	uint8_t comm[TASK_COMM_LEN+1];
-};
-
-
-#define LSOF_DATA_SIZE sizeof(struct kernel_lsof_data)
-
-/**
- * see include/linux/flex_array.h for the definitions of
- * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
- * this is a conservatice calculation to ensure we don't try to
- * pre allocate a flex_array with too many elements
- **/
-
-#define LSOF_APPARENT_ARRAY_SIZE										   \
-	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
-
-#define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
-
-
-struct kernel_lsof_probe {
-	struct probe;
-	struct flex_array *klsof_data_flex_array;
-	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
-	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
-	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
-									 uint8_t *, int,
-		                             int (*print)(struct kernel_lsof_probe *,
-												  uint8_t *, uint64_t, int));
-	void *(*_destroy)(struct probe *);
-};
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
  */
@@ -450,10 +384,84 @@ void *destroy_probe(struct probe *probe);
  * lsof probe
  *******************************************************************************/
 
+
+
+/**
+ * workspace for kernel-lsof probe data
+ * line numbers from kernel version 4.16
+ * struct file in include/linux/fs.h:857
+ * struct path in include/linux/path.h:8
+ * struct file_operations in include/linux/fs.h:1702
+ * struct inode_operations in include/linux/fs.h:1743
+ * count, flags, mode
+ * struct fown_struct f_own_struct in include/linux/fs.h:826
+ * struct cred f_cred in include/linux/cred.h
+ * typedef unsigned __bitwise__ fmode_t in include/linux/types.h
+ *
+ **/
+
+/**
+ * Filesystem information:
+ *	struct fs_struct		*fs;
+ *
+ * Open file information:
+ *	struct files_struct		*files;
+ *
+ * Namespaces:
+ * struct nsproxy			*nsproxy;
+ *
+ * task.files->fd_array[].path
+ **/
+struct kernel_lsof_data {
+	uint64_t index, nonce;
+	kuid_t user_id;
+	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
+	struct file f;
+	struct path p;
+	struct fown_struct owner;
+	atomic_long_t count;
+	unsigned int flags;
+	fmode_t mode;
+	uint8_t comm[TASK_COMM_LEN+1];
+};
+
+
+#define LSOF_DATA_SIZE sizeof(struct kernel_lsof_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define LSOF_APPARENT_ARRAY_SIZE										\
+	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
+
+#define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
+
+
+struct kernel_lsof_probe {
+	struct probe;
+	struct flex_array *klsof_data_flex_array;
+	int (*filter)(struct kernel_lsof_probe *, void *data, size_t data_size);
+	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
+	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
+	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
+									   uint8_t *, int,
+									   int (*print)(struct kernel_lsof_probe *,
+													uint8_t *, uint64_t, int),
+									   int (*filter)(struct kernel_lsof_probe *,
+													 void *, size_t));
+	void *(*_destroy)(struct probe *);
+};
+
 extern struct kernel_lsof_probe klsof_probe;
 extern unsigned int lsof_repeat;
 extern unsigned int lsof_timeout;
 extern unsigned int lsof_level;
+/* default lsof filter */
+int lsof_filter(struct kernel_lsof_probe *p, void *data, size_t l);
 
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
@@ -471,7 +479,9 @@ struct kernel_lsof_probe *
 init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 					   uint8_t *id, int id_len,
 					   int (*print)(struct kernel_lsof_probe *,
-									uint8_t *, uint64_t, int));
+									uint8_t *, uint64_t, int),
+					   int (*filter)(struct kernel_lsof_probe *,
+									 void *, size_t));
 
 
 void *
