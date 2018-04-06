@@ -2,7 +2,9 @@
 ntquerysys.py - query the windows nt user space runtime for critical
 system data.
 '''
+import gc;gc.disable()
 import sys
+import json
 import pywintypes
 
 from enum import Enum, IntEnum
@@ -69,73 +71,24 @@ class SmartStructure(Structure):
         instance = {}
         szfields = len(type(self)._fields_)        
         for ndx in range(0, szfields):            
-            this_name = type(self)._fields_[ndx][0];
-            this_value = getattr(self, this_name)                           
-            instance[this_name] = this_value   
+            this_name = type(self)._fields_[ndx][0]
+            this_value = getattr(self, this_name)
+            instance[this_name] = this_value
+            if type(this_value) == str:
+                instance[this_name] = this_value #.encode('ascii', 'ignore').decode('ascii')
+            elif type(this_value) == UNICODE_STRING:
+                try:
+                    instance[this_name] = this_value.Buffer  # .encode('utf-8', 'ignore').decode('ascii')
+                except Exception:
+                    instance[this_name] = "None"
+            elif type(this_value) == CLIENT_ID:
+                instance["UniqueProcess"] = this_value.UniqueProcess
+                instance["UniqueThread"] = this_value.UniqueThread
+                del(instance["ClientId"])
+            else:
+                instance[this_name] = this_value
         return instance        
 
-    def Encode(self):
-        '''
-        Encode an instance of this class into a JSON representation
-        '''
-        encoder = JSONEncoder()
-        result = {}
-        anonymous = getattr(self, '_anonymous_', [])        
-        clazz = getattr(self, '__class__', None)        
-        result['__class__'] = clazz.__name__
-        for _name, _type in getattr(self, '_fields_', []):
-            value = getattr(self, _name)            
-            # don't Encode private fields
-            if _name.startswith('_'):
-                continue
-            if _name in anonymous:
-                result.update(encoder.encode(value))
-            else:
-                try:
-                    result[_name] = encoder.encode(value)
-                except TypeError as te:
-                    value = getattr(self,_name)
-                    if isinstance(value, UNICODE_STRING):
-                        result[_name] = value.Buffer
-                    print("value={0}\n".format(value,))                        
-                    print("result={0}\n".format(result,))                        
-        encoded_data = dumps(result, indent=4)
-        return encoded_data
-
-    @classmethod                  
-    def Decode(clz, obj):
-        '''
-        Decode a JSON representation into an instance of this class
-        '''
-        if not issubclass(clz, SmartStructure) or not isinstance(obj, str):
-            return None
-
-        decoder = JSONDecoder()
-        data = decoder.decode(obj)
-        clazzname = data["__class__"]
-        if clazzname != clz.__name__:
-            raise TypeError("{0} != {1} - class or type mismatch on deserialization!"
-                            .format(clazzname, clz.__name__,))
-        clazz = clz()
-        for _name, _type in clazz._fields_:            
-            value_as_a_string = data[_name]
-            if _type in SmartStructure.integer_types:              
-                value = _type(int(value_as_a_string))
-            elif _type in SmartStructure.float_types:
-                value = _type(float(value_as_a_string))
-            elif _type in SmartStructure.pointer_types:
-                if value_as_a_string in ["null","None"]:
-                    value = _type(int(0))
-                else:
-                    value = _type(int(value_as_a_string))                
-            elif _type in SmartStructure.string_types:
-                value = value_as_a_string
-            else:
-                value = _type()
-
-            setattr(clazz, _name, value)
-            value = getattr(clazz, _name)        
-        return clazz    
 
 class UNICODE_STRING(SmartStructure):
     _fields_ = [ 
@@ -531,6 +484,28 @@ def _get_process_handle(pid):
 
     return process_handle 
 
+
+def get_thread_objects(number_of_threads, array_of_sti):
+    '''
+    thread object iterator
+    @param process_object the process that we'll derive the thread data from
+    @param thread_data the thread data to iterate over
+    @returns yields thread object information
+    '''
+    sz_sti = sizeof(SYSTEM_THREAD_INFORMATION)
+    SystemThreadInfo = POINTER(SYSTEM_THREAD_INFORMATION)        
+    nThds = number_of_threads  # Number of Threads
+    szThdData = sz_sti * nThds              # Size of this processes thread data
+    
+    
+    for ndx in range(0, nThds):                        
+        begin = ndx * sz_sti  # point at frame start
+        end = begin + sz_sti
+        buf = (BYTE * sz_sti).from_buffer_copy(array_of_sti[begin:end]) # buffer definition
+        sti = cast(buf, SystemThreadInfo)
+        thd = sti.contents.ToDict() 
+        yield thd
+        
 def get_process_objects(pid=None):
     '''
     process object iterator
@@ -551,19 +526,19 @@ def get_process_objects(pid=None):
         return None
 
     SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
-    sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)
+    sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)    
+    sz_sti = sizeof(SYSTEM_THREAD_INFORMATION)
     array_of_spi = bytearray(memoryview(buf))
 
     begin = 0
     end = sz_spi
     while True:
         buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
-        spi = cast(buf, SystemProcInfo)                                       
-        if not not pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:
-            yield spi.contents
+        spi = cast(buf, SystemProcInfo) 
+        proc = spi.contents.ToDict()         
+        yield proc, array_of_spi[end:end + sz_sti * spi.contents.NumberOfThreads]
+        if not not pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:            
             break
-        elif not pid:
-            yield spi.contents                  
         next_entry_offset = spi.contents.NextEntryOffset
         if(0 == next_entry_offset):
             break        
@@ -779,19 +754,24 @@ if __name__ == "__main__":
         print("Failed to acquire privs!\n")
         sys.exit(-1)    
 
-    try:        
-        sbi = get_basic_system_information()
-        print("System Basic Info = {0}\n".format(sbi,))
-
-        for proc_obj in get_process_objects():
-            proc_obj_bits = repr(proc_obj).split(",")
-            proc_obj_bits = [bit for bit in proc_obj_bits if bit != '']
-            logmsg
-            for ndx in range(2, sizeof(proc_obj) - 2):
-                kvp = proc_obj_bits[ndx].strip().split('=')                    
-                print("Name={0},Value={1}\n".format(kvp[0], kvp[1],))
+    try:                
+        proc_dict = {}
+        for proc_obj, thd_obj in get_process_objects():
+            pid = proc_obj["UniqueProcessId"]
+            if not pid:
+                continue                                    
+            proc_dict[pid] = proc_obj
             
-
+            thd_dict = {}
+            number_of_threads = proc_obj["NumberOfThreads"]
+            for thd in get_thread_objects(number_of_threads, thd_obj):
+                thd_id = thd["UniqueThread"]
+                thd_dict[thd_id] = thd
+            proc_dict[pid]["Threads"] = thd_dict
+        print(json.dumps(proc_dict,indent=3))
+    except Exception as exc:
+        print(exc)
+        
     finally:
         success = release_privileges(new_privs)        
         

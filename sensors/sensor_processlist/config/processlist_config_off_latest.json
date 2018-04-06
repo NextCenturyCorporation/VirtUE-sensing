@@ -1,3 +1,4 @@
 {
-  "repeat-interval": 86400
+  "repeat-interval": 86400,
+  "sensor-config-level": "off"
 }

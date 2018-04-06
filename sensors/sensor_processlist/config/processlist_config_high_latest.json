@@ -1,3 +1,4 @@
 {
-  "repeat-interval": 15
+  "repeat-interval": 15,
+  "sensor-config-level": "high"
 }

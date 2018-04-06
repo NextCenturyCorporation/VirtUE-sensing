@@ -1,3 +1,4 @@
 {
-  "repeat-interval": 5
+  "repeat-interval": 5,
+  "sensor-config-level": "adversarial"
 }

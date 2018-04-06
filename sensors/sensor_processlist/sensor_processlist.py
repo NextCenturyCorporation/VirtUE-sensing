@@ -1,193 +1,91 @@
 #!"c:\program files\python\python36\python.exe"
 import datetime
 import json
-import wmi
+import sys
 import re
 import os
 from curio import sleep
-import subprocess
-from sensor_wrapper import SensorWrapper, report_on_file, which_file
+
+from sensor_wrapper import SensorWrapper
+
+from win32security import LookupPrivilegeValue
+from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
+from win32con import SE_PRIVILEGE_ENABLE
+
+from ntquerysys import acquire_privileges, release_privileges, get_process_objects, get_thread_objects
 
 __VERSION__ = "1.20180404"
 
 """
-Sensor that sends process and thread deletion and creation
+Sensor that monitors process and thread information
 """
 
-async def _thread_monitor(message_stub, config, message_queue, notification_type):
+async def process_monitor(message_stub, config, message_queue):
     """
-    Listen for WMI Thread Creation/Deletion Events and report them
+    poll the operating system for process and thread data
 
     :param message_stub: Fields that we need to interpolate into every message
     :param config: Configuration from our sensor, from the Sensing API
     :param message_queue: Shared Queue for messages
-    :param notification_type: creation or deletion
     :return: None
     """
     repeat_delay = config.get("repeat-interval", 15)
+    sensor_config_level = config.get("sensor-config-level", "default")
+    
+    print(" ::starting process monitor")    
     print("    $ repeat-interval = %d" % (repeat_delay,))
-    c = wmi.WMI()
-
-    while True:
-
-        thread_notify = c.watch_for(notification_type=notification_type, wmi_class="Win32_Process")
-
-        logmsg = {
-            "timestamp": datetime.datetime.now().isoformat(),
-            "level": "info",
-            "message": {
-                "CSName": thread_notify.CSName,
-                "ElapsedTime": thread_notify.ElapsedTime,
-                "Handle": thread_notify.Handle,
-                "KernelModeTime": thread_notify.KernelModeTime,
-                "OSName": thread_notify.OSName,
-                "Priority": thread_notify.Priority,
-                "PriorityBase": thread_notify.PriorityBase,
-                "ProcessHandle": thread_notify.ProcessHandle,
-                "StartAddress": thread_notify.StartAddress,
-                "ThreadState": thread_notify.ThreadState,
-                "ThreadWaitReason": thread_notify.ThreadWaitReason,
-                "UserModeTime": thread_notify.UserModeTime,
-            }
-        }
-
-        print("   *** Thread {0} Subordinate to Process {1} has been {2}\n"
-                .format(thread_notify.Handle, thread_notify.ProcessHandle, 
-                    notification_type))
-
-        logmsg.update(message_stub)
-
-        await message_queue.put(json.dumps(logmsg))
-
+    print("    $ sensor-config-level = %d" % (sensor_config_level,))
+    
+    while True: 
+        processlist_logmsg = {}
+        proc_dict = {}
+        try:                
+            for proc_obj, thd_obj in get_process_objects():
+                pid = proc_obj["UniqueProcessId"]
+                if not pid:
+                    continue                                    
+                proc_dict[pid] = proc_obj
+                
+                if sensor_config_level in ["high", "adversarial"]:
+                    thd_dict = {}
+                    number_of_threads = proc_obj["NumberOfThreads"]
+                    for thd in get_thread_objects(number_of_threads, thd_obj):
+                        thd_id = thd["UniqueThread"]
+                        thd_dict[thd_id] = thd
+                    proc_dict[pid]["Threads"] = thd_dict
+                    
+        except Exception as exc:
+            processlist_logmsg = {
+                "timestamp": datetime.datetime.now().isoformat(),
+                "level": "error",
+                "message": str(exc)
+            }                         
+        else:               
+            processlist_logmsg = {
+                "timestamp": datetime.datetime.now().isoformat(),
+                "level": "info",
+                "message": proc_dict
+            }                                                
+            
+        processlist_logmsg.update(message_stub)                                    
+        
+        await message_queue.put(json.dumps(processlist_logmsg))                     
+        
         # sleep
-        repeat_delay = config.get("repeat-interval", 15)
         await sleep(repeat_delay)
 
-
-async def _process_monitor(message_stub, config, message_queue, notification_type):
-    """
-    Listen for WMI Process Creation/Deletion Events and report them
-
-    :param message_stub: Fields that we need to interpolate into every message
-    :param config: Configuration from our sensor, from the Sensing API
-    :param message_queue: Shared Queue for messages
-    :param notification_type: creation or deletion
-    :return: None
-    """
-    repeat_delay = config.get("repeat-interval", 15)
-    print("    $ repeat-interval = %d" % (repeat_delay,))
-    c = wmi.WMI()
-
-    while True:
-
-        process_notify = c.watch_for(notification_type=notification_type, wmi_class="Win32_Process")
-
-        logmsg = {
-            "timestamp": datetime.datetime.now().isoformat(),
-            "level": "info",
-            "message": {
-                "Caption": process_notify.Caption,
-                "CommandLine": process_notify.CommandLine,
-                "CreationDate": process_notify.CreationDate,
-                "CSName": process_notify.CSName,
-                "Description": process_notify.Description,
-                "ExecutablePath": process_notify.ExecutablePath,
-                "Handle": process_notify.Handle,
-                "HandleCount": process_notify.HandleCount,
-                "KernelModeTime": process_notify.KernelModeTime,
-                "MaximumWorkingSetSize": process_notify.MaximumWorkingSetSize,
-                "MinimumWorkingSetSize": process_notify.MinimumWorkingSetSize,
-                "Name": process_notify.Name,
-                "OSName": process_notify.OSName,
-                "OtherOperationCount": process_notify.OtherOperationCount,
-                "OtherTransferCount": process_notify.OtherTransferCount,
-                "PageFaults": process_notify.PageFaults,
-                "PageFileUsage": process_notify.PageFileUsage,
-                "ParentProcessId": process_notify.ParentProcessId,
-                "PeakPageFileUsage": process_notify.PeakPageFileUsage,
-                "PeakVirtualSize": process_notify.PeakVirtualSize,
-                "PeakWorkingSetSize": process_notify.PeakWorkingSetSize,
-                "Priority": process_notify.Priority,
-                "PrivatePageCount": process_notify.PrivatePageCount,
-                "ProcessId": process_notify.ProcessId,
-                "QuotaNonPagedPoolUsage": process_notify.QuotaNonPagedPoolUsage,
-                "QuotaPagedPoolUsage": process_notify.QuotaPagedPoolUsage,
-                "QuotaPeakNonPagedPoolUsage": process_notify.QuotaPeakNonPagedPoolUsage,
-                "QuotaPeakPagedPoolUsage": process_notify.QuotaPeakPagedPoolUsage,
-                "ReadOperationCount": process_notify.ReadOperationCount,
-                "ReadTransferCount": process_notify.ReadTransferCount,
-                "SessionId": process_notify.SessionId ,
-                "ThreadCount": process_notify.ThreadCount,
-                "UserModeTime": process_notify.UserModeTime,
-                "VirtualSize": process_notify.VirtualSize,
-                "WindowsVersion": process_notify.WindowsVersion,
-                "WorkingSetSize": process_notify.WorkingSetSize,
-                "WriteOperationCount": process_notify.WriteOperationCount,
-                "WriteTransferCount": process_notify.WriteTransferCount
-            }
-        }
-
-        print("   *** Process {0} Named {1} has been {2}\n"
-                .format(process_notify.Handle, process_notify.Name, 
-                    notification_type))
-
-        logmsg.update(message_stub)
-
-        await message_queue.put(json.dumps(logmsg))
-
-        # sleep
-        repeat_delay = config.get("repeat-interval", 15)
-        await sleep(repeat_delay)
-
-async def process_deletion(message_stub, config, message_queue):
-    """
-    Listen for WMI Process Deletion Events and report them
-
-    :param message_stub: Fields that we need to interpolate into every message
-    :param config: Configuration from our sensor, from the Sensing API
-    :param message_queue: Shared Queue for messages
-    :return: None
-    """
-    print(" ::starting process deletion monitor\n")
-    _process_monitor(message_stub, config, message_queue, "Deletion")
-
-async def process_creation(message_stub, config, message_queue):
-    """
-    Listen for WMI Process Creation Events and report them
-
-    :param message_stub: Fields that we need to interpolate into every message
-    :param config: Configuration from our sensor, from the Sensing API
-    :param message_queue: Shared Queue for messages
-    :return: None
-    """
-    print(" ::starting process creation monitor\n")
-    _process_monitor(message_stub, config, message_queue, "Creation")
-
-async def thread_deletion(message_stub, config, message_queue):
-    """
-    Listen for WMI Thread Deletion Events and report them
-
-    :param message_stub: Fields that we need to interpolate into every message
-    :param config: Configuration from our sensor, from the Sensing API
-    :param message_queue: Shared Queue for messages
-    :return: None
-    """
-    print(" ::starting process deletion monitor\n")
-    _thread_monitor(message_stub, config, message_queue, "Deletion")
-
-async def thread_creation(message_stub, config, message_queue):
-    """
-    Listen for WMI Thread Creation Events and report them
-
-    :param message_stub: Fields that we need to interpolate into every message
-    :param config: Configuration from our sensor, from the Sensing API
-    :param message_queue: Shared Queue for messages
-    :return: None
-    """
-    print(" ::starting process creation monitor\n")
-    _thread_monitor(message_stub, config, message_queue, "Creation")
 
 if __name__ == "__main__":
+    new_privs = (
+        (LookupPrivilegeValue(None, SE_SECURITY_NAME), SE_PRIVILEGE_ENABLED),
+        (LookupPrivilegeValue(None, SE_CREATE_PERMANENT_NAME), SE_PRIVILEGE_ENABLED), 
+        (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
+    )  
 
-    wrapper = SensorWrapper("processlist", [process_creation, process_deletion, thread_creation, thread_deletion])
+    success = acquire_privileges(new_privs)
+    if not success:
+        print("Failed to acquire privs!\n")
+        sys.exit(-1)   
+    
+    wrapper = SensorWrapper("processlist", [process_monitor])
     wrapper.start()
