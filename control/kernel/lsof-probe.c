@@ -26,9 +26,20 @@
 #include "jsmn/jsmn.h"
 #include "uname.h"
 
+
+/**
+ * default, dummy filter, for development and test
+ * hard-wired to filter out all processes with a
+ * pid > 1, which means systemd
+ **/
 int lsof_filter(struct kernel_lsof_probe *p, void *data, size_t l)
 {
-	return 1;
+	struct kernel_lsof_data *klsofd_p;
+	pid_t target = 1;
+
+	assert(data && l == sizeof(sizeof(struct kernel_lsof_data)));
+	klsofd_p = (struct kernel_lsof_data *)data;
+	return (klsofd_p->pid_nr == target) ? 1 : 0;
 }
 
 
@@ -78,6 +89,10 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
 		klsofd.pid_nr = task->pid;
+		if (! (parent->filter(parent, &klsofd,
+							  sizeof(struct kernel_lsof_data)))){
+			continue;
+		}
 		memcpy(klsofd.comm, task->comm, TASK_COMM_LEN);
 		if (index <  PS_ARRAY_SIZE) {
 			flex_array_put(parent->klsof_data_flex_array, index, &klsofd, GFP_ATOMIC);
