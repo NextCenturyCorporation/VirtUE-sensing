@@ -36,8 +36,6 @@ int lsof_filter(struct kernel_lsof_probe *p, void *data, size_t l)
 {
 	struct kernel_lsof_data *klsofd_p;
 	pid_t target = 1;
-
-	assert(data && l == sizeof(sizeof(struct kernel_lsof_data)));
 	klsofd_p = (struct kernel_lsof_data *)data;
 	return (klsofd_p->pid_nr == target) ? 1 : 0;
 }
@@ -90,9 +88,16 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		klsofd.user_id = task_uid(task);
 		klsofd.pid_nr = task->pid;
 		if (! (parent->filter(parent, &klsofd,
-							  sizeof(struct kernel_lsof_data)))){
+							  sizeof(struct kernel_lsof_data)))) {
 			continue;
+
 		}
+		/**
+		 * TODO:
+		 * 1) make the filter function always inlined, don't call
+		 *    through a pointer unless the pointer is non-null (not default)
+		 * 2) don't copy the command-line by default
+		 **/
 		memcpy(klsofd.comm, task->comm, TASK_COMM_LEN);
 		if (index <  PS_ARRAY_SIZE) {
 			flex_array_put(parent->klsof_data_flex_array, index, &klsofd, GFP_ATOMIC);
@@ -118,7 +123,6 @@ run_klsof_probe(struct kthread_work *work)
 	static int count;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
-
 	/**
 	 * if another process is reading the lsof flex_array, kernel_lsof
 	 * will return -EFAULT. therefore, reschedule and try again.
@@ -126,6 +130,7 @@ run_klsof_probe(struct kthread_work *work)
 	while( probe_struct->lsof(probe_struct, count, nonce) == -EAGAIN) {
 		schedule();
 	}
+
 /**
  *  call print by default. But, in the future there will be other
  *  options, notably outputting in json format to a socket
@@ -133,6 +138,7 @@ run_klsof_probe(struct kthread_work *work)
 	probe_struct->print(probe_struct, "kernel-lsof", nonce, ++count);
 
 	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
+		DMSG();
 		probe_struct->repeat--;
 		sleep(probe_struct->timeout);
 		init_and_queue_work(work, co_worker, run_klsof_probe);
@@ -201,7 +207,11 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	} else {
 		lsof_p->print = print_kernel_lsof;
 	}
-
+	if (filter) {
+		lsof_p->filter = filter;
+	} else {
+		lsof_p->filter = lsof_filter;
+	}
 	lsof_p->lsof = kernel_lsof;
 	lsof_p->klsof_data_flex_array =
 		flex_array_alloc(LSOF_DATA_SIZE, LSOF_ARRAY_SIZE, GFP_KERNEL);
