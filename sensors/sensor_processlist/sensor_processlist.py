@@ -1,5 +1,6 @@
 #!"c:\program files\python\python36\python.exe"
 import datetime
+import logging
 import json
 import sys
 import re
@@ -15,6 +16,14 @@ from win32con import SE_PRIVILEGE_ENABLED
 from ntquerysys import acquire_privileges, release_privileges, get_process_objects, get_thread_objects
 
 __VERSION__ = "1.20180404"
+__MODULE__ = "sensor_processlist"
+
+#
+logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
+logging.basicConfig(format=logfmt,filename="processlist.log", filemode="w", level=logging.CRITICAL)
+# create logger
+logger = logging.getLogger(__MODULE__)
+logger.setLevel(logging.CRITICAL)
 
 """
 Sensor that monitors process and thread information
@@ -32,9 +41,9 @@ async def process_monitor(message_stub, config, message_queue):
     repeat_delay = config.get("repeat-interval", 15)
     sensor_config_level = config.get("sensor-config-level", "default")
     
-    print(" ::starting process monitor")    
-    print("    $ repeat-interval = %d" % (repeat_delay,))
-    print("    $ sensor-config-level = %s" % (sensor_config_level,))
+    logger.info(" ::starting process monitor")    
+    logger.info("    $ repeat-interval = %d" % (repeat_delay,))
+    logger.info("    $ sensor-config-level = %s" % (sensor_config_level,))
     
     while True: 
         processlist_logmsg = {}
@@ -46,7 +55,7 @@ async def process_monitor(message_stub, config, message_queue):
                     continue                                    
                 proc_dict[pid] = proc_obj
                 
-                if sensor_config_level in ["high", "adversarial"]:
+                if sensor_config_level == "adversarial":
                     thd_dict = {}
                     number_of_threads = proc_obj["NumberOfThreads"]
                     for thd in get_thread_objects(number_of_threads, thd_obj):
@@ -55,6 +64,7 @@ async def process_monitor(message_stub, config, message_queue):
                     proc_dict[pid]["Threads"] = thd_dict
                     
         except Exception as exc:
+            logger.error("Caught Exception {0}\n".format(exc,))
             processlist_logmsg = {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "level": "error",
@@ -68,9 +78,13 @@ async def process_monitor(message_stub, config, message_queue):
             }                                                
             
         processlist_logmsg.update(message_stub)                                    
+
+        logger.debug(json.dumps(processlist_logmsg, indent=3))
         
         await message_queue.put(json.dumps(processlist_logmsg))                     
-        
+       
+        logger.info("Sleeping for {0} seconds\n".format(repeat_delay,))
+
         # sleep
         await sleep(repeat_delay)
 
@@ -82,10 +96,13 @@ if __name__ == "__main__":
         (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
     )  
 
+    logger.info("Acquiring Privileges . . .")
     success = acquire_privileges(new_privs)
     if not success:
-        print("Failed to acquire privs!\n")
+        logger.error("Failed to acquire privs!\n")
         sys.exit(-1)   
-    
+
+    logger.info("Creating the Sensor Wrapper . . .")
     wrapper = SensorWrapper("processlist", [process_monitor])
+    logger.info("Starting the Sensor Wrapper . . .")
     wrapper.start()
