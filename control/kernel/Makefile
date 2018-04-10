@@ -10,7 +10,7 @@ uname:
 
 .PHONY: import-header
 import-header:
-	@sudo ./import-kernel-symbols.py import-header.h.in /boot/System.map-`uname -r` > import-header.h
+	@sudo python import-kernel-symbols.py import-header.h.in /boot/System.map-`uname -r` > import-header.h
 
 .PHONY: all
 all: clean lint test-module

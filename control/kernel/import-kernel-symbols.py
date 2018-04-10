@@ -1,4 +1,3 @@
-#! /bin/python
 # -*- coding: utf-8 -*-
 #  Copyright (C) 2014 Yusuke Suzuki <yusuke.suzuki@sslab.ics.keio.ac.jp>
 #
