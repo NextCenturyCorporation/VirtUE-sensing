@@ -412,18 +412,22 @@ void *destroy_probe(struct probe *probe);
  *
  * task.files->fd_array[].path
  **/
+
+#define MAX_DENTRY_LEN 0x400
 struct kernel_lsof_data {
 	uint64_t index, nonce;
 	kuid_t user_id;
 	pid_t pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
 	struct files_struct *files;
-	struct file f;
-	struct path p;
+	struct fdtable *files_table;
+	unsigned int *fds;
+	struct path files_path;
 	struct fown_struct owner;
 	atomic_long_t count;
 	unsigned int flags;
 	fmode_t mode;
-	uint8_t comm[TASK_COMM_LEN+1];
+	char *dp;
+	uint8_t dpath[MAX_DENTRY_LEN];
 };
 
 

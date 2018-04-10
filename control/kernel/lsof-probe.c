@@ -91,7 +91,7 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 int
 kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 {
-	int index = 0;
+	int index = 0, fd_index = 0;
 	struct task_struct *task;
 	struct kernel_lsof_data klsofd;
 	unsigned long flags;
@@ -132,15 +132,17 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 
 		klsofd.files = IMPORTED(get_files_struct)(task);
 
-
+		klsofd.files_table = files_fdtable(klsofd.files);
+		while(klsofd.files_table->fd[fd_index] != NULL) {
+			klsofd.files_path = klsofd.files_table->fd[fd_index]->f_path;
+			klsofd.dp = d_path(&klsofd.files_path,
+						   klsofd.dpath, MAX_DENTRY_LEN - 1);
+			printk(KERN_INFO "klsof path: %s\n", klsofd.dp);\
+			fd_index++;
+		}
 
 		IMPORTED(put_files_struct)(klsofd.files);
 
-		/**
-		 * TODO:
-		 * 2) don't copy the command-line by default
-		 **/
-		memcpy(klsofd.comm, task->comm, TASK_COMM_LEN);
 		if (index <  PS_ARRAY_SIZE) {
 			flex_array_put(parent->klsof_data_flex_array, index, &klsofd, GFP_ATOMIC);
 		} else {
