@@ -54,7 +54,7 @@ async def process_monitor(message_stub, config, message_queue):
             for proc_obj, thd_obj in get_process_objects():
                 pid = proc_obj["UniqueProcessId"]
                 # if the idle process or the process no longer exists
-                if not pid or not proc_obj["ImageName"]:
+                if not pid:
                     continue                                    
                 proc_dict[pid] = proc_obj                
                 if sensor_config_level == "adversarial":
@@ -80,11 +80,9 @@ async def process_monitor(message_stub, config, message_queue):
             }                                                
             
         processlist_logmsg.update(message_stub)                                    
-
         logger.debug(json.dumps(processlist_logmsg, indent=3))
         
         await message_queue.put(json.dumps(processlist_logmsg))                     
-       
         logger.debug("Sleeping for {0} seconds\n".format(repeat_delay,))
 
         # sleep
