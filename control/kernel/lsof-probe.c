@@ -181,7 +181,6 @@ run_klsof_probe(struct kthread_work *work)
 	probe_struct->print(probe_struct, "kernel-lsof", nonce, ++count);
 
 	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
-		DMSG();
 		probe_struct->repeat--;
 		sleep(probe_struct->timeout);
 		init_and_queue_work(work, co_worker, run_klsof_probe);
