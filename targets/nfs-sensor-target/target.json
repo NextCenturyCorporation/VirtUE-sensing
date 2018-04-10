@@ -1,6 +1,6 @@
 {
     "name": "nfs-sensor-target",
-    "os": "Linux",
+    "os" : "Linux",
     "library_directory": "./common_libraries",
     "sensors_directory": "./.dummy_sensors",
     "requirements_directory": "./requirements",
