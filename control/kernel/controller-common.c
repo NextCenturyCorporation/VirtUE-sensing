@@ -226,7 +226,7 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;
 	}
-
+	rcu_read_lock();
 	for_each_process(task) {
 		kpsd.nonce = nonce;
 		kpsd.index = index;
@@ -243,6 +243,7 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 	}
 
 unlock_out:
+	rcu_read_unlock();
 	spin_unlock_irqrestore(&parent->lock, flags);
 	return index;
 }
@@ -689,7 +690,7 @@ static int __init kcontrol_init(void)
 										"Kernel LSOF Probe",
 										strlen("Kernel LSOF Probe") + 1,
 										print_kernel_lsof,
-										lsof_filter);
+										NULL);
 	
 	spin_lock_irqsave(&k_sensor.lock, flags);
 	/* link this probe to the sensor struct */

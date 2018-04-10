@@ -27,17 +27,35 @@
 #include "uname.h"
 
 
+/* default lsof filter */
+
 /**
  * default, dummy filter, for development and test
  * hard-wired to filter out all processes with a
  * pid > 1, which means systemd
  **/
-int lsof_filter(struct kernel_lsof_probe *p, void *data, size_t l)
+int
+lsof_pid_filter(struct kernel_lsof_probe *p,
+				struct kernel_lsof_data* d,
+				void *cmp)
+
 {
-	struct kernel_lsof_data *klsofd_p;
-	pid_t target = 1;
-	klsofd_p = (struct kernel_lsof_data *)data;
-	return (klsofd_p->pid_nr == target) ? 1 : 0;
+	return (d->pid_nr == *(pid_t *)cmp) ? 1 : 0;
+}
+
+
+/**
+ * hard-wired to filter out all processes with a
+ * uid != *data
+ **/
+int
+lsof_uid_filter(struct kernel_lsof_probe *p,
+				struct kernel_lsof_data *d,
+				void *cmp)
+{
+	kuid_t *user_id  = (kuid_t *)cmp;
+
+	return (d->user_id.val == user_id->val) ? 1 : 0;
 }
 
 
@@ -60,8 +78,8 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 		if (klsof_p->nonce != nonce) {
 			break;
 		}
-		printk(KERN_INFO "%s %d:%d \n",
-			   tag, count, index);
+		printk(KERN_INFO "%s %d:dme%d uid: %d pid: %d\n",
+			   tag, count, index, klsof_p->user_id.val, klsof_p->pid_nr);
 	}
 	spin_unlock_irqrestore(&parent->lock, flags);
 	if (index == LSOF_ARRAY_SIZE) {
@@ -81,21 +99,39 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;
 	}
+	rcu_read_lock();
 
 	for_each_process(task) {
 		klsofd.nonce = nonce;
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
 		klsofd.pid_nr = task->pid;
-		if (! (parent->filter(parent, &klsofd,
-							  sizeof(struct kernel_lsof_data)))) {
-			continue;
+		if (parent->filter == lsof_pid_filter) {
+/**
+ * TODO: pid is hard-coded to 1. Make it a configurable parameter
+ *       as is, we only look for files opened by PID 1 (systemd)
+ *       make it configurable via sysfs
+ **/
+			static pid_t process_id = 1;
+			if (! lsof_pid_filter(parent, &klsofd, &process_id))
+				continue;
+		} else if (parent->filter == lsof_uid_filter){
+/**
+ * TODO: user id is hard-coded to 0. Make it a configurable parameter
+ *       as is, we only look for files opened by root (uid 0)
+ *       make it configurable via sysfs
+ **/
+			kuid_t user_id = {0};
 
+			if (! lsof_uid_filter(parent, &klsofd, &user_id))
+				continue;
+		} else {
+			if (! parent->filter(parent, &klsofd, NULL))
+				continue;
 		}
+
 		/**
 		 * TODO:
-		 * 1) make the filter function always inlined, don't call
-		 *    through a pointer unless the pointer is non-null (not default)
 		 * 2) don't copy the command-line by default
 		 **/
 		memcpy(klsofd.comm, task->comm, TASK_COMM_LEN);
@@ -109,6 +145,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	}
 
 unlock_out:
+	rcu_read_unlock();
 	spin_unlock_irqrestore(&parent->lock, flags);
 	return index;
 
@@ -171,7 +208,8 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 					   int (*print)(struct kernel_lsof_probe *,
 									uint8_t *, uint64_t, int),
 					   int (*filter)(struct kernel_lsof_probe *,
-									 void *, size_t))
+									 struct kernel_lsof_data *,
+									 void *))
 {
 	int ccode = 0;
 	struct probe *tmp;
@@ -210,7 +248,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	if (filter) {
 		lsof_p->filter = filter;
 	} else {
-		lsof_p->filter = lsof_filter;
+		lsof_p->filter = lsof_pid_filter;
 	}
 	lsof_p->lsof = kernel_lsof;
 	lsof_p->klsof_data_flex_array =

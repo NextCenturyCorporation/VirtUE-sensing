@@ -444,7 +444,9 @@ struct kernel_lsof_data {
 struct kernel_lsof_probe {
 	struct probe;
 	struct flex_array *klsof_data_flex_array;
-	int (*filter)(struct kernel_lsof_probe *, void *data, size_t data_size);
+	int (*filter)(struct kernel_lsof_probe *,
+				  struct kernel_lsof_data *,
+				  void *);
 	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
 	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
 	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
@@ -452,7 +454,8 @@ struct kernel_lsof_probe {
 									   int (*print)(struct kernel_lsof_probe *,
 													uint8_t *, uint64_t, int),
 									   int (*filter)(struct kernel_lsof_probe *,
-													 void *, size_t));
+													 struct kernel_lsof_data *,
+													 void *));
 	void *(*_destroy)(struct probe *);
 };
 
@@ -460,8 +463,6 @@ extern struct kernel_lsof_probe klsof_probe;
 extern unsigned int lsof_repeat;
 extern unsigned int lsof_timeout;
 extern unsigned int lsof_level;
-/* default lsof filter */
-int lsof_filter(struct kernel_lsof_probe *p, void *data, size_t l);
 
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
@@ -481,7 +482,8 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 					   int (*print)(struct kernel_lsof_probe *,
 									uint8_t *, uint64_t, int),
 					   int (*filter)(struct kernel_lsof_probe *,
-									 void *, size_t));
+									 struct kernel_lsof_data *,
+									 void *));
 
 
 void *
