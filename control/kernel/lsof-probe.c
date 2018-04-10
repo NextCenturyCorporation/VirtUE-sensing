@@ -25,7 +25,7 @@
 #include "controller.h"
 #include "jsmn/jsmn.h"
 #include "uname.h"
-
+#include "import-header.h"
 
 /* default lsof filter */
 
@@ -129,6 +129,12 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			if (! parent->filter(parent, &klsofd, NULL))
 				continue;
 		}
+
+		klsofd.files = IMPORTED(get_files_struct)(task);
+
+
+
+		IMPORTED(put_files_struct)(klsofd.files);
 
 		/**
 		 * TODO:

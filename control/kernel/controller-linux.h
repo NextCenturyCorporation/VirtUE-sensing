@@ -9,6 +9,7 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
+#include <linux/fdtable.h>
 #include <linux/cred.h>
 #include <linux/init.h>
 #include <linux/init_task.h>

@@ -8,6 +8,10 @@ controller-y := controller-common.o controller-interface.o lsof-probe.o jsmn/jsm
 uname:
 	@./uname.sh
 
+.PHONY: import-header
+import-header:
+	@sudo ./import-kernel-symbols.py import-header.h.in /boot/System.map-`uname -r` > import-header.h
+
 .PHONY: all
 all: clean lint test-module
 
@@ -16,14 +20,17 @@ rebuild: clean test-module
 
 test-module : ccflags-y +=  -g -DDEBUG -fno-inline
 test-module : uname
+test-module : import-header
 	@echo ${ccflags-y}
 	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 clean:
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
 		rm uname.h &>/dev/null  ||:
+		rm import-header.h &>/dev/null  ||:
 
 module : ccflags-y +=  -02 -f-inline
 module : uname
+module : import-header
 	@echo ${ccflags-y}
 	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 

@@ -416,6 +416,7 @@ struct kernel_lsof_data {
 	uint64_t index, nonce;
 	kuid_t user_id;
 	pid_t pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
+	struct files_struct *files;
 	struct file f;
 	struct path p;
 	struct fown_struct owner;
