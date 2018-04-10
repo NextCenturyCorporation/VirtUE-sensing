@@ -2,34 +2,33 @@
 ntquerysys.py - query the windows nt user space runtime for critical
 system data.
 '''
-import gc;gc.disable()
-import sys
-import json
-import pywintypes
 
-from enum import Enum, IntEnum
+from enum import IntEnum
 from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar
 from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
 from ctypes import c_float, c_double, c_longdouble
-from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, pointer, windll
-from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, SHORT, BOOLEAN
+from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, windll
+from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, BOOLEAN
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
 from win32api import OpenProcess, DuplicateHandle, GetCurrentProcess
-from win32security import LookupPrivilegeValue, OpenProcessToken, AdjustTokenPrivileges, TOKEN_ALL_ACCESS
-from json import JSONEncoder, JSONDecoder, JSONDecodeError, dumps
+from win32security import LookupPrivilegeValue, OpenProcessToken, AdjustTokenPrivileges, TOKEN_ALL_ACCESS, ImpersonateLoggedOnUser
+
+import pywintypes
 
 PROCESS_DUP_HANDLE = 0x0040
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
 class CtypesEnum(IntEnum):
-    """A ctypes-compatible IntEnum superclass."""
+    '''
+    A ctypes-compatible IntEnum superclass
+    '''
     @classmethod
     def from_param(cls, obj):
         return int(obj)
 
-class SmartStructure(Structure):
+class SaviorStruct(Structure):
     '''
     Implement a base class that takes care of JSON serialization/deserialization, 
     internal object instance state and other housekeeping chores
@@ -56,15 +55,15 @@ class SmartStructure(Structure):
         szfields = len(type(self)._fields_)
         state = "{0}@{1}: ".format(type(self),hex(id(self)),)
         for ndx in range(0, szfields):            
-            this_name = type(self)._fields_[ndx][0];
+            this_name = type(self)._fields_[ndx][0]
             this_value = getattr(self, this_name)                           
-            state += "{0}={1},".format( this_name, this_value,)            
+            state += "{0}={1},".format( this_name, this_value,)
         state = state[:len(state)-1]
         return state
 
     __repr__ = __str__
 
-    def ToDict(self):
+    def to_dict(self):
         '''
         returns a dictionary object representative of this object instance internal state
         '''
@@ -74,23 +73,27 @@ class SmartStructure(Structure):
             this_name = type(self)._fields_[ndx][0]
             this_value = getattr(self, this_name)
             instance[this_name] = this_value
-            if type(this_value) == str:
-                instance[this_name] = this_value #.encode('ascii', 'ignore').decode('ascii')
-            elif type(this_value) == UNICODE_STRING:
+            if isinstance(this_value, str):
+                instance[this_name] = this_value
+            elif isinstance(this_value, UNICODE_STRING):
                 try:
-                    instance[this_name] = this_value.Buffer  # .encode('utf-8', 'ignore').decode('ascii')
-                except Exception:
-                    instance[this_name] = "None"
-            elif type(this_value) == CLIENT_ID:
+                    instance[this_name] = this_value.Buffer.encode('utf-8', 'ignore').decode('ascii')
+                    instance[this_name] = instance[this_name][0:127]
+                except Exception as exc:
+                    instance[this_name] = None
+            elif isinstance(this_value, CLIENT_ID):
                 instance["UniqueProcess"] = this_value.UniqueProcess
                 instance["UniqueThread"] = this_value.UniqueThread
-                del(instance["ClientId"])
+                del instance["ClientId"]
             else:
                 instance[this_name] = this_value
         return instance        
 
 
-class UNICODE_STRING(SmartStructure):
+class UNICODE_STRING(SaviorStruct):
+    '''
+    Windows UNICODE Structure
+    '''
     _fields_ = [ 
         ("Length", c_ushort),
         ("MaximumLength", c_ushort),
@@ -267,7 +270,7 @@ class SYSTEM_INFORMATION_CLASS(CtypesEnum):
     MaxSystemInfoClass=0x0095
 
 
-class CLIENT_ID(SmartStructure):
+class CLIENT_ID(SaviorStruct):
     '''
     The CLIENT ID Structure
     '''
@@ -276,7 +279,7 @@ class CLIENT_ID(SmartStructure):
         ("UniqueThread", c_void_p)
     ]
 
-class SYSTEM_THREAD_INFORMATION(SmartStructure):
+class SYSTEM_THREAD_INFORMATION(SaviorStruct):
     '''
     The SYSTEM_THREAD_INFORMATION Structure
     '''
@@ -298,7 +301,7 @@ class SYSTEM_HANDLE_FLAGS(CtypesEnum):
     PROTECT_FROM_CLOSE = 1
     INHERIT = 2    
 
-class SYSTEM_HANDLE_TABLE_ENTRY_INFO(SmartStructure):
+class SYSTEM_HANDLE_TABLE_ENTRY_INFO(SaviorStruct):
     _fields_ = [ 
         ("UniqueProcessId", c_ushort),
         ("CreatorBackTraceIndex", c_ushort),
@@ -308,13 +311,13 @@ class SYSTEM_HANDLE_TABLE_ENTRY_INFO(SmartStructure):
         ("Object", c_void_p),
         ("GrantedAccess", ULONG)
     ]    
-class SYSTEM_HANDLE_INFORMATION(SmartStructure):
+class SYSTEM_HANDLE_INFORMATION(SaviorStruct):
     _fields_ = [ 
         ("NumberOfHandles", ULONG),
         ("Handles", SYSTEM_HANDLE_TABLE_ENTRY_INFO)
     ]      
 
-class SYSTEM_PROCESS_INFORMATION(SmartStructure):
+class SYSTEM_PROCESS_INFORMATION(SaviorStruct):
     _fields_ = [
         ("NextEntryOffset", ULONG),
         ("NumberOfThreads", ULONG),        
@@ -352,7 +355,7 @@ class SYSTEM_PROCESS_INFORMATION(SmartStructure):
         ("OtherTransferCount", LARGE_INTEGER)
     ]
 
-class SYSTEM_BASIC_INFORMATION(SmartStructure):
+class SYSTEM_BASIC_INFORMATION(SaviorStruct):
     _fields_ = [
         ("Reserved", ULONG),
         ("TimerResolution", ULONG),
@@ -368,14 +371,14 @@ class SYSTEM_BASIC_INFORMATION(SmartStructure):
     ]
 
 
-class GENERIC_MAPPING(SmartStructure):
+class GENERIC_MAPPING(SaviorStruct):
     _fields_ = [("GenericRead", ULONG),
                 ("GenericWrite", ULONG),
                 ("GenericExecute", ULONG),
                 ("GenericAll", ULONG)
-                ]               
+                ]
 
-class OBJECT_TYPE_INFORMATION(SmartStructure):
+class OBJECT_TYPE_INFORMATION(SaviorStruct):
     _fields_ = [("Name", UNICODE_STRING ),
                 ("TotalNumberOfObjects", ULONG),
                 ("TotalNumberOfHandles", ULONG),
@@ -397,18 +400,6 @@ class OBJECT_TYPE_INFORMATION(SmartStructure):
                 ("DefaultPagedPoolCharge", ULONG),
                 ("DefaultNonPagedPoolCharge", ULONG)
                 ]     
-class SaviorJSONEncoder(JSONEncoder):
-    '''
-    Encode Savior Objects in JSON
-    '''
-    def default(self, obj):
-        '''
-        Handles non-standard object types for Savior
-        '''
-        if isinstance(obj, UNICODE_STRING):
-            return [obj.Length, obj.MaximumLength, obj.Buffer]
-        # Let the base class default method raise the TypeError
-        return JSONEncoder.default(self, obj)
 
 STATUS_SUCCESS=0x0
 STATUS_INFO_LENGTH_MISMATCH=0xc0000004
@@ -429,35 +420,44 @@ NtQuerySystemInformation = prototype(("NtQuerySystemInformation", windll.ntdll),
 def _change_privileges(disable_privilege, privs):
     '''
     change privilges common code
+    :param disable_privilege: true if privs are to be disabled else false for enable
+    :param privs: the privileges to be released
+    :return: true if success else false
     '''
-    bSuccess = False
+    success = False
     hProcToken = OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS)
     try:
         if not hProcToken:
             return None            
-        bSuccess = AdjustTokenPrivileges(hProcToken,  disable_privilege , privs)    
+        success = AdjustTokenPrivileges(hProcToken,  disable_privilege, privs)    
     finally:
-        if not not hProcToken:
+        if hProcToken:
             hProcToken.Close()
-    return bSuccess        
+    return success        
 
 def acquire_privileges(privs):
     '''
     attempt to acquire privileges
+    :param privs: the privileges to be acquired
+    :return: true if success else false
     '''
-    bSuccess = _change_privileges(False, privs)
-    return bSuccess
+    success = _change_privileges(False, privs)
+    return success
 
 def release_privileges(privs):
     '''
-    attempt to release previously acquired privileges
+    attempt to release previously acquired privileges    
+    :param privs: the privileges to be released
+    :return: true if success else false
     '''
-    bSuccess = _change_privileges(True, privs)
-    return bSuccess
+    success = _change_privileges(True, privs)
+    return success
 
 def _get_process_handle(pid):
     '''
     Given a PID return its process handle
+    :param pid: the process id
+    :return: the process handle associated with the pid
     '''
     if not pid or not isinstance(pid, int) or 0 != pid % 4:
         return None    
@@ -466,13 +466,14 @@ def _get_process_handle(pid):
     if not process_handle:    
         return None               
 
-    IsCritical = BOOLEAN()
-    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
+    is_critical = BOOLEAN()
+    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(is_critical))
     process_handle.close()
     del process_handle
     if not success:        
-        return None            
-    if True == IsCritical:        
+        return None
+    # yeah, I know but is_critical is a byte, not an int
+    if is_critical:   
         return None  
 
     try:
@@ -488,27 +489,28 @@ def _get_process_handle(pid):
 def get_thread_objects(number_of_threads, array_of_sti):
     '''
     thread object iterator
-    @param process_object the process that we'll derive the thread data from
-    @param thread_data the thread data to iterate over
-    @returns yields thread object information
+    :param number_of_threads: the number of threads to iterate over
+    :param array_of_sti: the thread data to iterate over
+    :return: yields thread object information
     '''
     sz_sti = sizeof(SYSTEM_THREAD_INFORMATION)
     SystemThreadInfo = POINTER(SYSTEM_THREAD_INFORMATION)        
-    nThds = number_of_threads  # Number of Threads
-    szThdData = sz_sti * nThds              # Size of this processes thread data
+    number_of_threads = number_of_threads  # Number of Threads    
     
-    
-    for ndx in range(0, nThds):                        
+    for ndx in range(0, number_of_threads):                        
         begin = ndx * sz_sti  # point at frame start
         end = begin + sz_sti
         buf = (BYTE * sz_sti).from_buffer_copy(array_of_sti[begin:end]) # buffer definition
         sti = cast(buf, SystemThreadInfo)
-        thd = sti.contents.ToDict() 
+        thd = sti.contents.to_dict() 
         yield thd
         
 def get_process_objects(pid=None):
     '''
     process object iterator
+    :param pid: the single pid to return else all pids
+    :return: iterator over selected or all processes
+    :note: yields dictionary represenation of the process and thread data for that process
     '''        
     return_length = ULONG()            
     sysprocinfo = SYSTEM_PROCESS_INFORMATION()
@@ -535,48 +537,20 @@ def get_process_objects(pid=None):
     while True:
         buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
         spi = cast(buf, SystemProcInfo) 
-        proc = spi.contents.ToDict()         
+        proc = spi.contents.to_dict()         
         yield proc, array_of_spi[end:end + sz_sti * spi.contents.NumberOfThreads]
-        if not not pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:            
+        if pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:            
             break
         next_entry_offset = spi.contents.NextEntryOffset
-        if(0 == next_entry_offset):
+        if 0 == next_entry_offset:
             break        
         begin = begin + next_entry_offset
         end = begin + sz_spi        
 
-def _get_process_handle(pid):
-    '''
-    Given a PID return its process handle
-    '''
-    if not pid or not isinstance(pid, int) or 0 != pid % 4:
-        return None    
-
-    process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
-    if not process_handle:    
-        return None               
-
-    IsCritical = BOOLEAN()
-    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(IsCritical))
-    process_handle.close()
-    del process_handle
-    if not success:        
-        return None            
-    if True == IsCritical:        
-        return None  
-
-    try:
-        process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
-    except pywintypes.error as err:
-        lasterr = GetLastError()
-        print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
-        process_handle = None
-
-    return process_handle  
-
 def get_process_ids():
     '''
-    process id iterator
+    process id iterator    
+    :return: iterator over all process ids
     '''        
     return_length = ULONG()            
     sysprocinfo = SYSTEM_PROCESS_INFORMATION()
@@ -603,13 +577,15 @@ def get_process_ids():
     while True:
         buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
         spi = cast(buf, SystemProcInfo)
+        next_entry_offset = spi.contents.NextEntryOffset
         if not spi.contents.UniqueProcessId:
-            pid = 0
+            begin = begin + next_entry_offset
+            end = begin + sz_spi            
+            continue  # don't return the idle process
         else:
             pid = spi.contents.UniqueProcessId                           
-        yield pid
-        next_entry_offset = spi.contents.NextEntryOffset
-        if(0 == next_entry_offset):
+        yield pid        
+        if 0 == next_entry_offset:
             break        
         begin = begin + next_entry_offset
         end = begin + sz_spi        
@@ -618,8 +594,12 @@ def get_process_ids():
 def get_system_handle_information(pid=None):
     '''
     System Handle Iterator with pid filter
+    :param pid: a single pid to return handle info for that pid else all handle info
+    :return: an iterator over the selected system handles
     '''
 
+    # return if pid 0, not an integer or not a mod 4 pid
+    # all windows process are % 4
     if not pid or not isinstance(pid, int) or 0 != pid % 4:
         return None
 
@@ -638,10 +618,10 @@ def get_system_handle_information(pid=None):
     if STATUS_SUCCESS != res:
         return None
 
-    SysHdlNfo = POINTER(SYSTEM_HANDLE_INFORMATION)
-    HdlEntry = POINTER(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
+    system_handle_info = POINTER(SYSTEM_HANDLE_INFORMATION)
+    handle_entry = POINTER(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
 
-    SystemHandleInfo = cast(buf, SysHdlNfo)
+    SystemHandleInfo = cast(buf, system_handle_info)
 
     sz_shtei = sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
     initial_offset = addressof(SystemHandleInfo.contents.Handles) - addressof(SystemHandleInfo.contents) 
@@ -651,22 +631,20 @@ def get_system_handle_information(pid=None):
         begin = sz_shtei * ndx
         end = begin + sz_shtei
         buf = (BYTE * sz_shtei).from_buffer_copy(array_of_shtei[begin:end])
-        shi = cast(buf, HdlEntry)
-        if not not pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:
-            yield shi.contents
+        shi = cast(buf, handle_entry)
+        yield shi.contents
+        if pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:            
             break
-        elif not pid:
-            yield shi.contents
-        else:
-            continue    
 
 def get_handle_information(pid=None):
     '''
-    syste handle iterator with a pid filter
+    iterate over selected for the given pid or all handles
+    :param pid: pid (handles for only that pid) or handles for all pids
+    :return: an iterator over the selected dup'd system handles
     '''    
     process_handle = _get_process_handle(pid)
     if not process_handle:
-        return []
+        return None
 
     current_process_handle = GetCurrentProcess()
 
@@ -674,19 +652,22 @@ def get_handle_information(pid=None):
         for shi in get_system_handle_information(pid):
             try:            
                 duped_handle = DuplicateHandle(process_handle, shi.HandleValue, current_process_handle, PROCESS_DUP_HANDLE, False, 0)                
-            except pywintypes.error as err:
+            except pywintypes.error:
                 pass
             else:
                 yield duped_handle                
     finally:
-        process_handle.close()
+        process_handle.close()    
 
 def _get_object_info(handle, obj_info_enum):
     '''
     common code to retrieve either object type or object information
+    :param handle: the handle to return information on 
+    :param obj_info_enum: either name or type information to be returned
+    :return: object name or type information
     '''
     if (not handle 
-        or not hasattr(handle, "handle") 
+        or not hasattr(handle, "handle")
         or not isinstance(obj_info_enum, OBJECT_INFORMATION)):
         return None
 
@@ -708,17 +689,19 @@ def _get_object_info(handle, obj_info_enum):
     if STATUS_SUCCESS != res:
         return None   
 
-    ObjTypNfo = POINTER(OBJECT_TYPE_INFORMATION)
+    object_type_info = POINTER(OBJECT_TYPE_INFORMATION)
     sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
     array_of_oti = bytearray(memoryview(object_information))    
     buf = (BYTE * sz_oti).from_buffer_copy(array_of_oti)
-    object_information = cast(buf, ObjTypNfo)   
+    object_information = cast(buf, object_type_info)   
     object_name = object_information.contents.Name.Buffer    
     return object_name
 
 def get_nt_object_name_info(handle):
     '''
     given a handle return the objects name
+    :param handle: the handle to return information on     
+    :return: object name information
     '''
     object_value = _get_object_info(handle, OBJECT_INFORMATION.ObjectNameInformation)
     return object_value
@@ -726,6 +709,8 @@ def get_nt_object_name_info(handle):
 def get_nt_object_type_info(handle):
     '''
     given a handle return the objects type
+    :param handle: the handle to return information on     
+    :return: object type information    
     '''
     object_value = _get_object_info(handle, OBJECT_INFORMATION.ObjectTypeInformation)
     return object_value
@@ -733,86 +718,16 @@ def get_nt_object_type_info(handle):
 def get_basic_system_information():
     '''
     System Basic Information
+    :return: basic system information
     '''   
     return_length = ULONG()        
     sbi = SYSTEM_BASIC_INFORMATION()    
-    res = windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemBasicInformation.value,
-                                                byref(sbi),
-                                                sizeof(sbi),
-                                                byref(return_length))
+    windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemBasicInformation.value,
+                                          byref(sbi),
+                                          sizeof(sbi),
+                                          byref(return_length))
     return sbi
 
-if __name__ == "__main__": 
-    new_privs = (
-        (LookupPrivilegeValue(None, SE_SECURITY_NAME), SE_PRIVILEGE_ENABLED),
-        (LookupPrivilegeValue(None, SE_CREATE_PERMANENT_NAME), SE_PRIVILEGE_ENABLED), 
-        (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
-    )  
-
-    success = acquire_privileges(new_privs)
-    if not success:
-        print("Failed to acquire privs!\n")
-        sys.exit(-1)    
-
-    try:                
-        proc_dict = {}
-        for proc_obj, thd_obj in get_process_objects():
-            pid = proc_obj["UniqueProcessId"]
-            if not pid:
-                continue                                    
-            proc_dict[pid] = proc_obj
-            
-            thd_dict = {}
-            number_of_threads = proc_obj["NumberOfThreads"]
-            for thd in get_thread_objects(number_of_threads, thd_obj):
-                thd_id = thd["UniqueThread"]
-                thd_dict[thd_id] = thd
-            proc_dict[pid]["Threads"] = thd_dict
-        print(json.dumps(proc_dict,indent=3))
-    except Exception as exc:
-        print(exc)
-        
-    finally:
-        success = release_privileges(new_privs)        
-        
-    #pid = 72
-    #for proc_obj in get_process_objects(pid):
-        #print(proc_obj)        
-        #proc_data = proc_obj.Encode()
-        #for hdlinfo in get_system_handle_information(pid):            
-            #type_name = get_nt_object_type_info(hdlinfo)            
-            #object_name = get_nt_object_name_info(hdlinfo)
-            #hdl = proc_obj.ToDict()
-            #hdl["type_name"] = type_name
-            #hdl["object_name"] = object_name
-            #serdata = hdlinfo.Encode()
-            #print(serdata)
-            #new_test_instance = SYSTEM_HANDLE_TABLE_ENTRY_INFO.Decode(serdata)
-            #print(hdlinfo)
-        #new_proc_obj = SYSTEM_PROCESS_INFORMATION.Decode(proc_data)
-        #print(new_proc_obj)         
-
-    #sys.exit(0)
-
-
-    #try:        
-        #sbi = get_basic_system_information()
-        #print("System Basic Info = {0}\n".format(sbi,))
-
-        #for pid in get_process_ids():                    
-            #try:
-                #proc_obj = get_process_objects(pid)
-                #print("Process ID {0} Handle Information: {1}\n".format(pid,proc_obj,))                
-                #for dupHandle in get_handle_information(pid):
-                    #type_name = get_nt_object_type_info(dupHandle)
-                    #object_name = get_nt_object_name_info(dupHandle)            
-                    #print("\tHandle={0},type_name={1},object_name={2}\n".format(dupHandle, type_name,object_name,))           
-                    #dupHandle.Close()            
-            #except pywintypes.error as err:
-                #print("Unable to get handle information from pid {0} - {1}\n"
-                        #.format(pid, err,))
-    #finally:
-        #success = release_privileges(new_privs)        
 
 
 

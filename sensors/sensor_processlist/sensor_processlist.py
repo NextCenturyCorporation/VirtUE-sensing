@@ -1,18 +1,20 @@
 #!"c:\program files\python\python36\python.exe"
-import datetime
-import json
-import sys
-import re
-import os
+'''
+process list sensor
+'''
 from curio import sleep
-
 from sensor_wrapper import SensorWrapper
 
 from win32security import LookupPrivilegeValue
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
 
-from ntquerysys import acquire_privileges, release_privileges, get_process_objects, get_thread_objects
+from ntquerysys import acquire_privileges, get_process_objects, get_thread_objects
+
+import datetime
+import json
+import sys
+
 
 __VERSION__ = "1.20180404"
 
