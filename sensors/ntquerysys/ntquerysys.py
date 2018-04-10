@@ -7,7 +7,7 @@ from enum import IntEnum
 from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar
 from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
 from ctypes import c_float, c_double, c_longdouble
-from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, windll
+from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, windll, create_unicode_buffer
 from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, BOOLEAN
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
@@ -77,14 +77,20 @@ class SaviorStruct(Structure):
                 instance[this_name] = this_value
             elif isinstance(this_value, UNICODE_STRING):
                 try:
-                    instance[this_name] = this_value.Buffer.encode('utf-8', 'ignore').decode('ascii')
-                    instance[this_name] = instance[this_name][0:127]
+                    value = this_value.Buffer.encode('utf-8', 'ignore').decode('ascii')
+                    instance[this_name] = value
                 except Exception as exc:
                     instance[this_name] = None
             elif isinstance(this_value, CLIENT_ID):
                 instance["UniqueProcess"] = this_value.UniqueProcess
                 instance["UniqueThread"] = this_value.UniqueThread
                 del instance["ClientId"]
+            elif isinstance(this_value, GENERIC_MAPPING):
+                instance["GenericRead"] = this_value.GenericRead
+                instance["GenericWrite"] = this_value.GenericWrite
+                instance["GenericExecute"] = this_value.GenericExecute
+                instance["GenericAll"] = this_value.GenericAll
+                del instance["GenericMapping"]
             else:
                 instance[this_name] = this_value
         return instance        
@@ -462,25 +468,15 @@ def _get_process_handle(pid):
     if not pid or not isinstance(pid, int) or 0 != pid % 4:
         return None    
 
-    process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)   
+    process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not process_handle:    
         return None               
-
-    is_critical = BOOLEAN()
-    success = cdll.kernel32.IsProcessCritical(process_handle.handle, byref(is_critical))
     process_handle.close()
-    del process_handle
-    if not success:        
-        return None
-    # yeah, I know but is_critical is a byte, not an int
-    if is_critical:   
-        return None  
 
     try:
-        process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
+       process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
     except pywintypes.error as err:
         lasterr = GetLastError()
-        print("Error opening PID {0} Last Error {1} - {2}\n".format(pid, lasterr, err,))
         process_handle = None
 
     return process_handle 
@@ -500,11 +496,11 @@ def get_thread_objects(number_of_threads, array_of_sti):
     for ndx in range(0, number_of_threads):                        
         begin = ndx * sz_sti  # point at frame start
         end = begin + sz_sti
-        buf = (BYTE * sz_sti).from_buffer_copy(array_of_sti[begin:end]) # buffer definition
+        buf = (BYTE * sz_sti).from_buffer(array_of_sti[begin:end]) # buffer definition
         sti = cast(buf, SystemThreadInfo)
         thd = sti.contents.to_dict() 
         yield thd
-        
+
 def get_process_objects(pid=None):
     '''
     process object iterator
@@ -527,22 +523,24 @@ def get_process_objects(pid=None):
     if STATUS_SUCCESS != res:
         return None
 
+    sb = create_string_buffer(buf.raw)
     SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
     sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)    
     sz_sti = sizeof(SYSTEM_THREAD_INFORMATION)
-    array_of_spi = bytearray(memoryview(buf))
+    array_of_spi = bytearray(memoryview(sb))
 
     begin = 0
     end = sz_spi
     while True:
-        buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
-        spi = cast(buf, SystemProcInfo) 
-        proc = spi.contents.to_dict()         
-        yield proc, array_of_spi[end:end + sz_sti * spi.contents.NumberOfThreads]
-        if pid and isinstance(pid, int) and pid == spi.contents.UniqueProcessId:            
-            break
-        next_entry_offset = spi.contents.NextEntryOffset
+        slc = (BYTE * sz_spi).from_buffer(array_of_spi[begin:end])
+        spi = cast(slc, SystemProcInfo)
+        process = spi.contents
+        next_entry_offset = process.NextEntryOffset
         if 0 == next_entry_offset:
+            break                
+        proc = process.to_dict()        
+        yield proc, array_of_spi[end:end + sz_sti * process.NumberOfThreads]
+        if pid and isinstance(pid, int) and pid == process.UniqueProcessId:
             break        
         begin = begin + next_entry_offset
         end = begin + sz_spi        
@@ -567,24 +565,23 @@ def get_process_ids():
     if STATUS_SUCCESS != res:
         return None
 
+    sb = create_string_buffer(buf.raw)
     SystemProcInfo = POINTER(SYSTEM_PROCESS_INFORMATION)
     sz_spi = sizeof(SYSTEM_PROCESS_INFORMATION)
-    array_of_spi = bytearray(memoryview(buf))
+    array_of_spi = bytearray(memoryview(sb))
 
     begin = 0
     end = sz_spi
     pid = 0
     while True:
-        buf = (BYTE * sz_spi).from_buffer_copy(array_of_spi[begin:end])
-        spi = cast(buf, SystemProcInfo)
-        next_entry_offset = spi.contents.NextEntryOffset
+        slc = (BYTE * sz_spi).from_buffer(array_of_spi[begin:end])
+        spi = cast(slc, SystemProcInfo)
         if not spi.contents.UniqueProcessId:
-            begin = begin + next_entry_offset
-            end = begin + sz_spi            
-            continue  # don't return the idle process
+            pid = 0
         else:
             pid = spi.contents.UniqueProcessId                           
         yield pid        
+        next_entry_offset = spi.contents.NextEntryOffset
         if 0 == next_entry_offset:
             break        
         begin = begin + next_entry_offset
@@ -618,6 +615,7 @@ def get_system_handle_information(pid=None):
     if STATUS_SUCCESS != res:
         return None
 
+    sb = create_string_buffer(buf.raw)
     system_handle_info = POINTER(SYSTEM_HANDLE_INFORMATION)
     handle_entry = POINTER(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
 
@@ -625,15 +623,15 @@ def get_system_handle_information(pid=None):
 
     sz_shtei = sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO)
     initial_offset = addressof(SystemHandleInfo.contents.Handles) - addressof(SystemHandleInfo.contents) 
-    array_of_shtei = bytearray(memoryview(buf)[initial_offset:])
+    array_of_shtei = bytearray(memoryview(sb)[initial_offset:])
 
     for ndx in range(0, SystemHandleInfo.contents.NumberOfHandles): 
         begin = sz_shtei * ndx
         end = begin + sz_shtei
-        buf = (BYTE * sz_shtei).from_buffer_copy(array_of_shtei[begin:end])
-        shi = cast(buf, handle_entry)
+        slc = (BYTE * sz_shtei).from_buffer(array_of_shtei[begin:end])
+        shi = cast(slc, handle_entry)
         yield shi.contents
-        if pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:            
+        if pid and isinstance(pid, int) and pid == shi.contents.UniqueProcessId:
             break
 
 def get_handle_information(pid=None):
@@ -659,6 +657,19 @@ def get_handle_information(pid=None):
     finally:
         process_handle.close()    
 
+def get_basic_system_information():
+    '''
+    System Basic Information
+    :return: basic system information
+    '''   
+    return_length = ULONG()        
+    sbi = SYSTEM_BASIC_INFORMATION()    
+    windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemBasicInformation.value,
+                                          byref(sbi),
+                                          sizeof(sbi),
+                                          byref(return_length))
+    return sbi
+
 def _get_object_info(handle, obj_info_enum):
     '''
     common code to retrieve either object type or object information
@@ -670,7 +681,7 @@ def _get_object_info(handle, obj_info_enum):
         or not hasattr(handle, "handle")
         or not isinstance(obj_info_enum, OBJECT_INFORMATION)):
         return None
-
+ 
     return_length = ULONG()            
     object_information = OBJECT_TYPE_INFORMATION()
     res = windll.ntdll.NtQueryObject(handle.handle,
@@ -685,17 +696,21 @@ def _get_object_info(handle, obj_info_enum):
                                          object_information,
                                          sizeof(object_information),
                                          byref(return_length))
-
+ 
     if STATUS_SUCCESS != res:
         return None   
-
+ 
     object_type_info = POINTER(OBJECT_TYPE_INFORMATION)
     sz_oti = sizeof(OBJECT_TYPE_INFORMATION)
     array_of_oti = bytearray(memoryview(object_information))    
     buf = (BYTE * sz_oti).from_buffer_copy(array_of_oti)
     object_information = cast(buf, object_type_info)   
-    object_name = object_information.contents.Name.Buffer    
-    return object_name
+    retval = None
+    if OBJECT_INFORMATION.ObjectNameInformation == obj_info_enum:
+        retval = object_information.contents.Name.Buffer
+    else:
+        retval = object_information.contents
+    return retval
 
 def get_nt_object_name_info(handle):
     '''
@@ -703,32 +718,13 @@ def get_nt_object_name_info(handle):
     :param handle: the handle to return information on     
     :return: object name information
     '''
-    object_value = _get_object_info(handle, OBJECT_INFORMATION.ObjectNameInformation)
-    return object_value
-
+    object_name = _get_object_info(handle, OBJECT_INFORMATION.ObjectNameInformation)
+    return object_name
+ 
 def get_nt_object_type_info(handle):
     '''
-    given a handle return the objects type
     :param handle: the handle to return information on     
     :return: object type information    
     '''
     object_value = _get_object_info(handle, OBJECT_INFORMATION.ObjectTypeInformation)
-    return object_value
-
-def get_basic_system_information():
-    '''
-    System Basic Information
-    :return: basic system information
-    '''   
-    return_length = ULONG()        
-    sbi = SYSTEM_BASIC_INFORMATION()    
-    windll.ntdll.NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS.SystemBasicInformation.value,
-                                          byref(sbi),
-                                          sizeof(sbi),
-                                          byref(return_length))
-    return sbi
-
-
-
-
-
+    return object_value.to_dict()
