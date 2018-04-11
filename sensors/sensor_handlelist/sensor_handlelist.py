@@ -16,7 +16,7 @@ __MODULE__ = "sensor_handlelist"
 
 # set up prefix formatting
 logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
-logging.basicConfig(format=logfmt,filename="handlelist.log", filemode="w", level=logging.CRITICAL)
+logging.basicConfig(format=logfmt,filename="handlelist.log", filemode="w")
 # create logger
 logger = logging.getLogger(__MODULE__)
 logger.setLevel(logging.CRITICAL)
@@ -83,8 +83,7 @@ async def handlelist(message_stub, config, message_queue):
         for line in p.stdout:        
             if not line:
                 break            
-            if line[0] == '\n':
-                continue
+            line = line.decode('utf-8').strip('\n\r')
             if True == parse_proc_info_next:
                 parse_proc_info_next = False
                 parsed_line = line.split()
@@ -105,7 +104,7 @@ async def handlelist(message_stub, config, message_queue):
                         "message": proc_dict
                     }            
                     handlelist_logmsg.update(message_stub)
-                    logger.debug(json.dumps(handlelist_logmsg, indent=3))   
+                    logger.debug(json.dumps(handlelist_logmsg))
                     await message_queue.put(json.dumps(handlelist_logmsg))
                     proc_dict.clear()
                     proc_dict = {}
@@ -126,7 +125,7 @@ async def handlelist(message_stub, config, message_queue):
 
             entry_dict = {"Handle": handle, "HandleType": handle_type, 
                           "ObjectAccess": obj_access, "ObjectPath": obj_path}
-            
+
             proc_dict[pid]["Handles"][handle] = entry_dict
 
         logger.debug("Sleeping for {0} seconds\n".format(repeat_delay,))
