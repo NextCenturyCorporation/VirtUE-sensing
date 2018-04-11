@@ -16,10 +16,10 @@ __MODULE__ = "sensor_tasklist"
 
 # set up prefix formatting
 logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
-logging.basicConfig(format=logfmt,filename="handlelist.log", filemode="w")
+logging.basicConfig(format=logfmt,filename="tasklist.log", filemode="w")
 # create logger
 logger = logging.getLogger(__MODULE__)
-logger.setLevel(logging.CRITICAL)
+logger.setLevel(logging.INFO)
 
 async def assess_tasklist(message_stub, config, message_queue):
     """
