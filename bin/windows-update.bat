@@ -39,6 +39,10 @@ XCOPY /Y /S /F /V sensor_startup\*.* %SystemDrive%\opt\sensor_startup\
 
 @ECHO Installing Service Components
 COPY /Y run.ps1 %SystemDrive%\app
+@ECHO Download the handles.exe from SysInternals/MS 
+@ECHO *** NOTE: This files URI could be moved without warning ***
+%POWERSHELL% Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Handle.zip" -OutFile %TEMP%\Handle.zip
+%POWERSHELL% Expand-Archive %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\sensor_handlelist
 
 @ECHO POP back to .\savior
 POPD
