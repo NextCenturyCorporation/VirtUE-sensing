@@ -44,6 +44,9 @@ COPY /Y run.ps1 %SystemDrive%\app
 %POWERSHELL% Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Handle.zip" -OutFile %TEMP%\Handle.zip
 %POWERSHELL% Expand-Archive %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\handlelist
 
+@ECHO Agree to the license on the dialog box
+%SystemDrive%\opt\sensors\handlelist\handle.exe
+
 @ECHO POP back to .\savior
 POPD
 
