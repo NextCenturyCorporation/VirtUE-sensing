@@ -1,6 +1,6 @@
 @echo off
 @ECHO Configuring execution environment . . .
-SET WORKDIR=C:\app
+SET WORKDIR=%SystemDrive%:\app
 SET TEMP=%SystemDrive%\Temp
 SET PYTHONUNBUFFERED=0
 SET PYTHONVER=3.6.4
@@ -20,6 +20,11 @@ DEL /F /Q %TEMP%\vs_BuildTools.exe
 DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
 SET PATH=%SystemDrive%\Python%PYTHONVER%\Scripts;%SystemDrive%\Python%PYTHONVER%;%PATH%
 python -m pip install --upgrade pip
+
+@ECHO Download the handles.exe from SysInternals/MS 
+@ECHO *** NOTE: This files URI could be moved without warning ***
+%POWERSHELL% Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Handle.zip" -OutFile %TEMP%\Handle.zip
+%POWERSHELL% Expand-Archive %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\sensor_handlelist
 
 @ECHO Go to the windows target directory from .\savior
 PUSHD targets\win-target
