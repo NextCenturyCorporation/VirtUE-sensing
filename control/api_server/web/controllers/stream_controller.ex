@@ -197,13 +197,17 @@ defmodule ApiServer.StreamController do
   """
   def gather_new_streams(parent, conn) do
 
+    IO.puts("  <> starting stream auto-subscriber")
+
     cks_stream = Stream.map(
        KafkaEx.stream(
          Application.get_env(:api_server, :c2_kafka_topic), 0,
-         no_wait_at_logend: !conn.assigns.follow_log
+         no_wait_at_logend: :false
        ),
        fn (msg) ->
 
+         IO.puts("  <> auto-subscriber got C2 message (#{msg})")
+         
          # try and decode the incoming message. We've got NOP :ok's all
          # over the place in here, mostly because we want to just elide
          # messages that either don't decode or don't meet our filter level
