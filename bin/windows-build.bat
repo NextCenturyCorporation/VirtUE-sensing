@@ -54,7 +54,7 @@ COPY /Y run.ps1 %SystemDrive%\app
 %POWERSHELL% Expand-Archive %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\handlelist
 
 @ECHO Agree to the license on the dialog box
-%SystemDrive%\opt\sensors\handlelist\handle.exe
+%SystemDrive%\opt\sensors\handlelist\handle.exe > nul:
 
 @ECHO POP back to .\savior
 POPD
