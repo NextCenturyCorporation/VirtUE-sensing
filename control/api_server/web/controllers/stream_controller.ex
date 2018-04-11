@@ -230,6 +230,7 @@ defmodule ApiServer.StreamController do
                  case parsed_message["action"] do
                     "sensor-registration" ->
 
+                      IO.puts("  <> + adding topic to existing stream #{parsed_message["topic"]}")
                       # now we can spawn a new stream task
                       Task.async(__MODULE__, :stream_task, [parent, conn, parsed_message["topic"]])
                       :ok
