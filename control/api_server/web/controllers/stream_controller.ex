@@ -206,8 +206,8 @@ defmodule ApiServer.StreamController do
        ),
        fn (msg) ->
 
-         IO.puts("  <> auto-subscriber got C2 message (#{msg})")
-         
+         IO.puts("  <> auto-subscriber got C2 message (#{msg.value})")
+
          # try and decode the incoming message. We've got NOP :ok's all
          # over the place in here, mostly because we want to just elide
          # messages that either don't decode or don't meet our filter level
