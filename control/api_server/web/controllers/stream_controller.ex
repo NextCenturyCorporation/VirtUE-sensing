@@ -110,18 +110,7 @@ defmodule ApiServer.StreamController do
     sensors = ApiServer.Sensor |> ApiServer.Repo.all
 
     case sensors do
-
-      [] ->
-        IO.puts("  0 sensors found for streaming")
-        conn
-        |> put_status(500)
-        |> json(
-             %{
-               error: true,
-               timestamp: DateTime.to_string(DateTime.utc_now()),
-               reason: "No sensors found when targeting all available sensors",
-             }
-           )
+      
       sensor_structs ->
 
         stream_topics = Enum.map(sensor_structs, fn (s) -> s.kafka_topic end)
