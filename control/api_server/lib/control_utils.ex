@@ -26,9 +26,9 @@ defmodule ApiServer.ControlUtils do
   """
   def announce_new_sensor(sensor_struct_data) do
 
-    produce_nonce_message(sensor_struct_data.kafka_topic)
+    produce_nonce_message(sensor_struct_data)
 
-    
+
     case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
       %{
         error: false,
@@ -47,8 +47,8 @@ defmodule ApiServer.ControlUtils do
 
   # Create a nonce style message against the topic we're announcing, or anyone who subscribes too early will
   # get booted from that topic, as it doesn't technically exist yet.
-  defp produce_nonce_message(topic) do
-    case KafkaEx.produce(topic, 0, Poison.encode!(
+  defp produce_nonce_message(sensor_struct_data) do
+    case KafkaEx.produce(sensor_struct_data.kafka_topic, 0, Poison.encode!(
       %{
         error: false,
         type: "nonce",
