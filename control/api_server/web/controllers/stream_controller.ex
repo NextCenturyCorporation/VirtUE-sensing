@@ -110,7 +110,7 @@ defmodule ApiServer.StreamController do
     sensors = ApiServer.Sensor |> ApiServer.Repo.all
 
     case sensors do
-      
+
       sensor_structs ->
 
         stream_topics = Enum.map(sensor_structs, fn (s) -> s.kafka_topic end)
@@ -200,7 +200,6 @@ defmodule ApiServer.StreamController do
     cks_stream = Stream.map(
        KafkaEx.stream(
          Application.get_env(:api_server, :c2_kafka_topic), 0,
-         offset: 0,
          no_wait_at_logend: !conn.assigns.follow_log
        ),
        fn (msg) ->
