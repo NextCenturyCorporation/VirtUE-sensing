@@ -21,10 +21,10 @@ __MODULE__ = "sensor_processlist"
 
 # set up prefix formatting
 logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
-logging.basicConfig(format=logfmt,filename="processlist.log", filemode="w", level=logging.CRITICAL)
+logging.basicConfig(format=logfmt,filename="processlist.log", filemode="w")
 # create logger
 logger = logging.getLogger(__MODULE__)
-logger.setLevel(logging.CRITICAL)
+logger.setLevel(logging.INFO)
 
 async def process_monitor(message_stub, config, message_queue):
     """

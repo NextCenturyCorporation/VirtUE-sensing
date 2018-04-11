@@ -19,7 +19,7 @@ logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
 logging.basicConfig(format=logfmt,filename="handlelist.log", filemode="w")
 # create logger
 logger = logging.getLogger(__MODULE__)
-logger.setLevel(logging.CRITICAL)
+logger.setLevel(logging.INFO)
 
 async def assess_handlelist(message_stub, config, message_queue):
     """

@@ -16,7 +16,7 @@ __MODULE__ = "sensor_tasklist"
 
 # set up prefix formatting
 logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
-logging.basicConfig(format=logfmt,filename="handlelist.log", filemode="w", level=logging.CRITICAL)
+logging.basicConfig(format=logfmt,filename="handlelist.log", filemode="w")
 # create logger
 logger = logging.getLogger(__MODULE__)
 logger.setLevel(logging.CRITICAL)
