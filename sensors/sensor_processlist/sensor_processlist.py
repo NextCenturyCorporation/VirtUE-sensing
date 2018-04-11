@@ -1,35 +1,30 @@
 #!"c:\program files\python\python36\python.exe"
 '''
-process list sensor
+Sensor that monitors process and thread information
 '''
+import os
+import sys
+import json
+import logging
+import datetime
+import subprocess
+
 from curio import sleep
 from sensor_wrapper import SensorWrapper
-
 from win32security import LookupPrivilegeValue
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
-
 from ntquerysys import acquire_privileges, get_process_objects, get_thread_objects
 
-import datetime
-import logging
-import json
-import sys
-import re
-
-__VERSION__ = "1.20180404"
+__VERSION__ = "1.20180411"
 __MODULE__ = "sensor_processlist"
 
-#
+# set up prefix formatting
 logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
 logging.basicConfig(format=logfmt,filename="processlist.log", filemode="w", level=logging.CRITICAL)
 # create logger
 logger = logging.getLogger(__MODULE__)
 logger.setLevel(logging.CRITICAL)
-
-"""
-Sensor that monitors process and thread information
-"""
 
 async def process_monitor(message_stub, config, message_queue):
     """
@@ -71,23 +66,24 @@ async def process_monitor(message_stub, config, message_queue):
                 "timestamp": datetime.datetime.now().isoformat(),
                 "level": "error",
                 "message": str(exc)
-            }                         
+            }                                                        
         else:               
             processlist_logmsg = {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "level": "info",
                 "message": proc_dict
             }                                                
-            
-        processlist_logmsg.update(message_stub)                                    
-        logger.debug(json.dumps(processlist_logmsg, indent=3))
-        
-        await message_queue.put(json.dumps(processlist_logmsg))                     
+        finally:
+            processlist_logmsg.update(message_stub)                                    
+            logger.debug(json.dumps(processlist_logmsg, indent=3))        
+            await message_queue.put(json.dumps(processlist_logmsg))             
+            processlist_logmsg.clear()
+            proc_dict.clear()            
+                     
         logger.debug("Sleeping for {0} seconds\n".format(repeat_delay,))
 
         # sleep
         await sleep(repeat_delay)
-
 
 if __name__ == "__main__":
     new_privs = (
