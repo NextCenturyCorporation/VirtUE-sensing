@@ -1,6 +1,10 @@
-Windows Sensors - Dummy Sensor Installation and Run Instructions
+Windows Sensors - Windows User Space Sensor Installation and Run Instructions
 Mark Sanderson
 mark.sanderson@twosixlabs.com
+
+``` NOTE:
+In order to run the sensors from a pre-built AWS image, execute bin\run-all.bat from the c:\users\administrator\savior directory
+```
 
 # Differences And Caveats
 ## Docker Issues
@@ -12,15 +16,14 @@ curio 0.9 appears to be comptable (at least partially) with windows.  This will 
 
 # Building and running the Windows Dummy Sensor
 
-1. Ensure that you have a virtual machine running Windows 10 x64 w/git for windows installed.
+1. Ensure that you have a virtual machine running Windows 10 x64 w/git for windows and python 2.7 installed.
 2. Log on to the windows 10 target, and clone this respository.
-3. Switch the branch to 'enh-create-win10-dummy-sensor':
 ```Cmd
-git checkout enh-win10-basic-sensors
+git checkout master
 ```
-4. from the savior subdirectory on the virtual machine execute the sensor installation/staging script
+3. from the savior subdirectory on the virtual machine execute the sensor installation/staging script
 ```Cmd
-c:\python27\python bin\install_sensors.py
+bin\install_sensors.py
 ```
 5. From the same savior directory execute windows build batch file:
 ```Cmd
@@ -30,5 +33,4 @@ bin\windows-build.bat
 6. Python 3.6.4 will be installed next, and you will need to be there to click through some of the UAC and python installation menu prompts.  The choices should be obvious, let me know if there is something unexpected in the installer prompting.
 7. Python requirements will be installed after the the python installer exits.  There are at least one required python packages that require the VS build enviornment, notably the http package.
 8. After the prerequisites are installed, then the build script will create target environment almost completely modeled on the Linux model.  Since there is no docker container running, sensor installation is handled statically.
-9. The last notable step to occur is the executable of the tasklist sensor.  This sensor is based (loosely) on the lsof dummy sensor.  It does not function, it merely starts up, and attempts repeatedly to connect to api services.
-10. After spending 30 seconds or so failing to connect to the API, the dummy sensor will terminate.
+9. Finally, execute all the of the sensors by running bin\run-all.bat  All sensors will appear as minimized windows.
