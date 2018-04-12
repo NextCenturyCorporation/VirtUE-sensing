@@ -78,8 +78,13 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 		if (klsof_p->nonce != nonce) {
 			break;
 		}
-		printk(KERN_INFO "%s %d:dme%d uid: %d pid: %d\n",
-			   tag, count, index, klsof_p->user_id.val, klsof_p->pid_nr);
+		printk(KERN_INFO "%s %d:%d uid: %d pid: %d %s\n",
+			   tag,
+			   count,
+			   index,
+			   klsof_p->user_id.val,
+			   klsof_p->pid_nr,
+			   klsof_p->dpath + klsof_p->dp_offset);
 	}
 	spin_unlock_irqrestore(&parent->lock, flags);
 	if (index == LSOF_ARRAY_SIZE) {
@@ -106,6 +111,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
 		klsofd.pid_nr = task->pid;
+
 		if (parent->filter == lsof_pid_filter) {
 /**
  * TODO: pid is hard-coded to 1. Make it a configurable parameter
@@ -136,27 +142,30 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		while(klsofd.files_table->fd[fd_index] != NULL) {
 			klsofd.files_path = klsofd.files_table->fd[fd_index]->f_path;
 			klsofd.dp = d_path(&klsofd.files_path,
-						   klsofd.dpath, MAX_DENTRY_LEN - 1);
-			printk(KERN_INFO "klsof path: %s\n", klsofd.dp);\
+							   klsofd.dpath, MAX_DENTRY_LEN - 1);
+			klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
+			klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
+//		printk(KERN_INFO "klsof path: %s\n", klsofd.dp);
+			if (index <  LSOF_ARRAY_SIZE) {
+				flex_array_put(parent->klsof_data_flex_array,
+							   index,
+							   &klsofd,
+							   GFP_ATOMIC);
+				index++;
+			} else {
+				index = -ENOMEM;
+				goto unlock_out;
+			}
 			fd_index++;
 		}
 
 		IMPORTED(put_files_struct)(klsofd.files);
-
-		if (index <  PS_ARRAY_SIZE) {
-			flex_array_put(parent->klsof_data_flex_array, index, &klsofd, GFP_ATOMIC);
-		} else {
-			index = -ENOMEM;
-			goto unlock_out;
-		}
-		index++;
 	}
 
 unlock_out:
 	rcu_read_unlock();
 	spin_unlock_irqrestore(&parent->lock, flags);
 	return index;
-
 }
 
 void

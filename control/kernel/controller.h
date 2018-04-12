@@ -426,7 +426,8 @@ struct kernel_lsof_data {
 	atomic_long_t count;
 	unsigned int flags;
 	fmode_t mode;
-	char *dp;
+	uint8_t *dp;
+	int dp_offset;
 	uint8_t dpath[MAX_DENTRY_LEN];
 };
 
