@@ -88,7 +88,7 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 		printk(KERN_INFO "%s %d:%d uid: %d pid: %d %s\n",
 			   tag,
 			   count,
-			   index,d
+			   index,
 			   klsof_p->user_id.val,
 			   klsof_p->pid_nr,
 			   klsof_p->dpath + klsof_p->dp_offset);
@@ -147,7 +147,8 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		klsofd.files = IMPORTED(get_files_struct)(task);
 
 		klsofd.files_table = files_fdtable(klsofd.files);
-		while(klsofd.files_table->fd[fd_index] != NULL) {
+		while(klsofd.files_table != NULL &&
+			  klsofd.files_table->fd[fd_index] != NULL) {
 			klsofd.files_path = klsofd.files_table->fd[fd_index]->f_path;
 			klsofd.dp = d_path(&klsofd.files_path,
 							   klsofd.dpath, MAX_DENTRY_LEN - 1);
