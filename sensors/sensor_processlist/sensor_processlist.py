@@ -43,10 +43,9 @@ async def process_monitor(message_stub, config, message_queue):
     logger.info("    $ sensor-config-level = %s" % (sensor_config_level,))
     
     while True: 
-        processlist_logmsg = {}
-        proc_dict = {}
         try:                
             for proc_obj, thd_obj in get_process_objects():
+                proc_dict = {}
                 pid = proc_obj["UniqueProcessId"]
                 # if the idle process or the process no longer exists
                 if not pid:
@@ -59,7 +58,15 @@ async def process_monitor(message_stub, config, message_queue):
                         thd_id = thd["UniqueThread"]
                         thd_dict[thd_id] = thd
                     proc_dict[pid]["Threads"] = thd_dict
-                    
+
+                processlist_logmsg = {
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "level": "info",
+                    "message": proc_dict
+                }                                                
+                processlist_logmsg.update(message_stub)
+                logger.debug(json.dumps(processlist_logmsg, indent=3))        
+                await message_queue.put(json.dumps(processlist_logmsg))             
         except Exception as exc:
             logger.error("Caught Exception {0}\n".format(exc,))
             processlist_logmsg = {
@@ -67,18 +74,9 @@ async def process_monitor(message_stub, config, message_queue):
                 "level": "error",
                 "message": str(exc)
             }                                                        
-        else:               
-            processlist_logmsg = {
-                "timestamp": datetime.datetime.now().isoformat(),
-                "level": "info",
-                "message": proc_dict
-            }                                                
-        finally:
             processlist_logmsg.update(message_stub)                                    
             logger.debug(json.dumps(processlist_logmsg, indent=3))        
             await message_queue.put(json.dumps(processlist_logmsg))             
-            processlist_logmsg.clear()
-            proc_dict.clear()            
                      
         logger.debug("Sleeping for {0} seconds\n".format(repeat_delay,))
 
