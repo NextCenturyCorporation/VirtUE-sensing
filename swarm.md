@@ -1,3 +1,5 @@
+[toc]
+
 # Running API on docker swarm (Linux)
 
 If a swarm is already running, jump to [deploying the api](#deploy-the-api-stack), otherwise use the instructions below to get the swarm running.

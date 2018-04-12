@@ -120,8 +120,11 @@ defmodule ApiServer.StreamController do
         IO.puts("  #{length(sensor_structs)} sensors found for streaming")
         IO.puts("  <> attempting to stream from #{length sensor_structs} sensors to #{stream_remote_ip}")
 
-        # spin up all of the streams, this will return a Plug.Conn when the stream is broken
-        spawn_stream(send_chunked(conn, 200), stream_topics, auto_subscribe_all: true)
+        # spin up all of the streams, this will return a Plug.Conn when the stream is broken - we'll
+        # also update the context assignments to we always follow the log
+        spawn_stream(
+          conn |> send_chunked(200) |> assign(:follow_log, :true),
+          stream_topics, auto_subscribe_all: true)
 
     end
 
