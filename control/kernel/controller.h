@@ -471,6 +471,17 @@ extern unsigned int lsof_timeout;
 extern unsigned int lsof_level;
 
 int
+lsof_all_files(struct kernel_lsof_probe *p,
+				   struct kernel_lsof_data *d,
+			   void *cmp);
+
+
+int
+lsof_uid_filter(struct kernel_lsof_probe *p,
+				struct kernel_lsof_data *d,
+				void *cmp);
+
+int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
 				  uint8_t *tag,
 				  uint64_t nonce,

@@ -58,12 +58,19 @@ lsof_uid_filter(struct kernel_lsof_probe *p,
 	return (d->user_id.val == user_id->val) ? 1 : 0;
 }
 
+int
+lsof_all_files(struct kernel_lsof_probe *p,
+				   struct kernel_lsof_data *d,
+				   void *cmp)
+{
+	return 1;
+}
 
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
-							 uint8_t *tag,
-							 uint64_t nonce,
-							 int count)
+				  uint8_t *tag,
+				  uint64_t nonce,
+				  int count)
 {
 
 	int index;
@@ -81,7 +88,7 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 		printk(KERN_INFO "%s %d:%d uid: %d pid: %d %s\n",
 			   tag,
 			   count,
-			   index,
+			   index,d
 			   klsof_p->user_id.val,
 			   klsof_p->pid_nr,
 			   klsof_p->dpath + klsof_p->dp_offset);
@@ -111,6 +118,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
 		klsofd.pid_nr = task->pid;
+
 
 		if (parent->filter == lsof_pid_filter) {
 /**
@@ -181,9 +189,10 @@ run_klsof_probe(struct kthread_work *work)
 	 * if another process is reading the lsof flex_array, kernel_lsof
 	 * will return -EFAULT. therefore, reschedule and try again.
 	 */
-	while( probe_struct->lsof(probe_struct, count, nonce) == -EAGAIN) {
-		schedule();
-	}
+	probe_struct->lsof(probe_struct, count, nonce);
+	schedule();
+	if (SHOULD_SHUTDOWN)
+		return;
 
 /**
  *  call print by default. But, in the future there will be other
