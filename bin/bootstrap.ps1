@@ -1,5 +1,5 @@
 # On the target machine, open a priviliged command prompt, execute
-# "notepad bootstrap.ps1"  (not double-quotes).  Copy and paste this
+# "notepad bootstrap.ps1"  (excluding double-quotes).  Copy and paste this
 # files' contents into the notepads window on the target machine; save
 # and exit notepad to write out this file on the target machine
 # To run this script, copy and paste the text between <# and #> Below
