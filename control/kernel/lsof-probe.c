@@ -105,16 +105,16 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 {
 	int index = 0, fd_index = 0;
 	struct task_struct *task;
-	struct kernel_lsof_data klsofd;
-	struct lsof_filter filter = {{0}, -1};
+	static struct kernel_lsof_data klsofd;
+	static struct lsof_filter filter = {{0}, -1};
 
 	unsigned long flags;
 
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;
 	}
+again:
 	rcu_read_lock();
-
 	for_each_process(task) {
 		if (task_uid(task).val != filter.user_id.val) continue;
 		if (task->pid == filter.lastpid) continue;
@@ -175,7 +175,8 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		}
 
 		IMPORTED(put_files_struct)(klsofd.files);
-		break;
+		rcu_read_unlock();
+		goto again;
 	}
 
 unlock_out:
