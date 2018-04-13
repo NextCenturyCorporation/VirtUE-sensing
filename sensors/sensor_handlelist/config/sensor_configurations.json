@@ -1,0 +1,43 @@
+{
+  "name": "handlelist",
+  "context": "virtue",
+  "os": "windows",
+  "description": "Sensing object handles based on the NtQuery Windows System Calls",
+  "configurations": [
+    {
+      "version": "latest",
+      "level": "default",
+      "format": "json",
+      "source": "handlelist_config_default_latest.json",
+      "description": "Default configuration includes moderately frequent monitoring"
+    },
+    {
+      "version": "latest",
+      "level": "off",
+      "format": "json",
+      "source": "handlelist_config_off_latest.json",
+      "description": "Off configuration sets an arbitrarily long resample frequency"
+    },
+    {
+      "version": "latest",
+      "level": "low",
+      "format": "json",
+      "source": "handlelist_config_low_latest.json",
+      "description": "Low configuration sets a resample on the scale of multiple minutes"
+    },
+    {
+      "version": "latest",
+      "level": "high",
+      "format": "json",
+      "source": "handlelist_config_high_latest.json",
+      "description": "High configuration sets a resample on the scale of 10s of seconds"
+    },
+    {
+      "version": "latest",
+      "level": "adversarial",
+      "format": "json",
+      "source": "handlelist_config_adversarial_latest.json",
+      "description": "Adversarial configuration sets a resample on the scale of seconds"
+    }
+  ]
+}

@@ -1,10 +1,12 @@
 #!/usr/bin/python
 
+from argparse import ArgumentParser
 import json
 import os
 import shutil
 import sys
 import types
+
 
 """
 Enumerate available sensors, and install them into targets
@@ -198,9 +200,12 @@ def validate_target(target, sensors, kmods):
         if req_kmod not in kmod_idx:
             errors.append("required kernel module [%s] does not exist" % (req_kmod,))
 
-    for dir_key in ["sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory"]:
+    for dir_key in ["os", "sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory"]:
         if dir_key not in target["target"]:
             errors.append("Required directory definition field missing [%s]" % (dir_key,))
+    if ("os" in target["target"] 
+        and target["target"]["os"] not in ["Linux", "Windows"]):
+        errors.append("Platform %s is Invalid!" % target["target"]["os"],)
     return errors
 
 
@@ -296,7 +301,7 @@ def prep_target(target):
         os.makedirs(path)
 
 
-def install_sensors_in_target(target, kmods, sensors, wrapper_dir):
+def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_dir):
     """
     Install all of the required sensors for the target.
 
@@ -321,6 +326,9 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir):
 
     # support libraries
     install_sensor_wrapper(target, wrapper_dir)
+
+    if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
+        install_ntquerysys(target, ntquerysys_dir)
 
     # individual sensors
     for sensor_name in target["target"]["sensors"]:
@@ -351,6 +359,10 @@ def create_apt_get_script(target, sensors, kmods):
     :param sensors:
     :return:
     """
+
+    if target["target"]["os"] == "Windows":
+        return
+    
     print "  + Finding apt-get requirements for installed sensors"
 
     # directory were we'll create the apt_get_install.sh script
@@ -396,11 +408,17 @@ def create_sensor_startup_master(target):
     start_dir = os.path.abspath(os.path.join(target["root"], target["target"]["startup_scripts_directory"]))
 
     scripts = os.listdir(start_dir)
-    with open(os.path.abspath(os.path.join(start_dir, "run_sensors.sh")), "w") as master_script:
-        master_script.write("#!/bin/bash\n")
+    run_script = "run_sensors.ps1" if target["target"]["os"] == "Windows" else "run_sensors.sh"
+    with open(os.path.abspath(os.path.join(start_dir, run_script)), "w") as master_script:
+        if target["target"]["os"] == "Linux":
+            master_script.write("#!/bin/bash\n")
 
         for script in scripts:
-            master_script.write("/opt/sensor_startup/%s &\n" % (script,))
+            if target["target"]["os"] == "Linux":
+                master_script.write("/opt/sensor_startup/%s &\n" % (script,))
+            elif target["target"]["os"] == "Windows":
+                master_script.write("powershell -NoProfile -ExecutionPolicy Bypass c:/opt/sensor_startup/%s\n" 
+                        % (script,))
 
     print "    + %d startup scripts added" % (len(scripts),)
 
@@ -425,6 +443,13 @@ def create_kernel_module_install_script(target, kmods):
 
     build_steps = []
 
+    if target["target"]["os"] == "Windows":
+        shell = "powershell -NoProfile -ExecutionPolicy Bypass" 
+    elif target["target"]["os"] == "Linux":
+        shell = "bash"
+    else:
+        shell = None
+
     for req_kmod in target["target"]["kernel_modules"]:
         kmod = kmod_idx[req_kmod]["kernel_module"]
 
@@ -445,16 +470,19 @@ def create_kernel_module_install_script(target, kmods):
             up_rel_dir = os.path.relpath(kmod_root_dir, os.path.dirname(inst_file))
 
             # add the actual build step
-            build_steps.append("cd %s\nbash %s\ncd %s\n" % (inst_rel_dir, inst_run_file, up_rel_dir))
+            build_steps.append("cd %s\n%s ./%s\ncd %s\n" % (inst_rel_dir, shell, inst_run_file, up_rel_dir))
 
     # write out the install file
     print "  + Writing install file"
-    with open(os.path.join(kmod_root_dir, "install.sh"), "w") as kmod_installer:
-        kmod_installer.write("#!/bin/bash\n")
+    install_script = "install.ps1" if target["target"]["os"] == "Windows" else "install.sh"
+    with open(os.path.join(kmod_root_dir, install_script), "w") as kmod_installer:
+        if target["target"]["os"] == "Linux":
+            kmod_installer.write("#!/bin/bash\n")
+        elif target["target"]["os"] == "Windows":
+            pass
 
         for build_step in build_steps:
             kmod_installer.write(build_step)
-
 
 def create_support_library_install_script(target):
     """
@@ -481,10 +509,10 @@ def create_support_library_install_script(target):
 
     print "    + Writing install script"
 
-    with open(os.path.abspath(os.path.join(lib_dir, "install.sh")), "w") as installer:
+    install_script = "install.ps1" if target["target"]["os"] == "Windows" else "install.sh"
+    with open(os.path.abspath(os.path.join(lib_dir, install_script)), "w") as installer:
         for pip_install in pip_installs:
-            installer.write("pip install ./%s\n" % (pip_install,))
-
+            installer.write("pip install ./%s --upgrade\n" % (pip_install,))
 
 def create_requirements_master(target):
     """
@@ -600,6 +628,39 @@ def install_sensor(target, sensor):
             os.path.abspath(os.path.join(reqs_dir, require_txt))
         )
 
+def install_ntquerysys(target, ntquerysys_dir):
+    """
+    Install the ntquerysys library files into the target.
+
+    :param target:
+    :return:
+    """
+    # define our directories
+    root = target["root"]
+    reqs_dir = os.path.abspath(os.path.join(root, target["target"]["requirements_directory"]))
+    lib_dir = os.path.abspath(os.path.join(root, target["target"]["library_directory"]))
+
+    # install lib files
+    print "  + installing ntquerysys library"
+    ntquerysys_dest_dir = os.path.abspath(os.path.join(lib_dir, "ntquerysys"))
+    os.makedirs(ntquerysys_dest_dir)
+
+    print "    + library files"
+    lib_files = ["ntquerysys.py", "setup.py"]
+
+    for lib_file in lib_files:
+        shutil.copy(
+            os.path.abspath(os.path.join(ntquerysys_dir, lib_file)),
+            os.path.abspath(os.path.join(ntquerysys_dest_dir, lib_file))
+        )
+
+    # install requirements.txt file
+    print "    + requirements.txt file"
+    shutil.copy(
+        os.path.abspath(os.path.join(ntquerysys_dir, "ntquerysys_requirements.txt")),
+        os.path.abspath(os.path.join(reqs_dir, "ntquerysys_requirements.txt"))
+    )
+
 
 def install_sensor_wrapper(target, wrapper_dir):
     """
@@ -637,15 +698,39 @@ def install_sensor_wrapper(target, wrapper_dir):
     )
 
 
+def options():
+    """
+    Let's parse our CLI options...
+
+    :return:
+    """
+    parser = ArgumentParser("Install sensors, modules, and supporting files into build targets")
+
+    # are we installing? are we listing?
+    parser.add_argument("mode", metavar="M", nargs='?', default="install", help="Top level interaction",
+                        choices=["install", "validate"])
+
+    # skip certain components
+    parser.add_argument("--skip-sensor", dest="skip_sensors", default=[], nargs="*", help="Sensors to skip")
+    parser.add_argument("--skip-module", dest="skip_modules", default=[], nargs="*", help="Modules to skip")
+    parser.add_argument("--skip-target", dest="skip_targets", default=[], nargs="*", help="Targets to skip")
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+
+    opts = options()
 
     sensor_dir = "./sensors"
     targets_dir = "./targets"
     wrapper_dir = "./sensors/wrapper"
+    ntquerysys_dir = "./sensors/ntquerysys"
     kernel_dir = "./"
 
     print "Running install_sensors"
     print "  wrapper(%s)" % (wrapper_dir,)
+    print "  ntquerysys(%s)" % (ntquerysys_dir,)
     print "  sensors(%s)" % (sensor_dir,)
     print "  targets(%s)" % (targets_dir,)
     print "  kernel_mods(%s)" % (kernel_dir,)
@@ -653,9 +738,21 @@ if __name__ == "__main__":
 
     print "Finding Sensors"
 
+    # find all of the sensors on our path
     sensors = find_sensors(os.path.abspath(sensor_dir))
 
+    # as we iterate and validate our sensors, we build up a list of sensors
+    # we're including in further actions. This can be affected by the --skip-sensor
+    # flag
+    sensor_skip_set = set(opts.skip_sensors)
+    included_sensors = []
+
     for sensor in sensors:
+
+        if sensor["name"] in sensor_skip_set:
+            print "  # %s (version %s) - skipped" % (sensor["name"], sensor["sensor"]["version"])
+            continue
+
         print "  + %s (version %s)" % (sensor["name"], sensor["sensor"]["version"])
         errors = validate_sensor(sensor)
         if len(errors) != 0:
@@ -664,12 +761,24 @@ if __name__ == "__main__":
                 print "      - %s" % (err,)
             sys.exit(1)
 
+        included_sensors.append(sensor)
+
     print ""
     print "Finding kernel modules"
 
+    # find all of the sensors on our path
     kmods = find_kmods(kernel_dir)
 
+    # we can elide modules while we iterate, as controlled by the --skip-module flag
+    skip_module_set = set(opts.skip_modules)
+    included_modules = []
+
     for kmod in kmods:
+
+        if kmod["name"] in skip_module_set:
+            print "  # %s (version %s) - skipped" % (kmod["name"], kmod["kernel_module"]["version"])
+            continue
+
         print "  + %s (version %s)" % (kmod["name"], kmod["kernel_module"]["version"])
         errors = validate_kmod(kmod)
         if len(errors) != 0:
@@ -677,22 +786,36 @@ if __name__ == "__main__":
             for err in errors:
                 print "      - %s" % (err,)
             sys.exit(1)
+        included_modules.append(kmod)
 
     print ""
     print "Finding Targets"
 
+    # find all of the targets on the system
     targets = find_targets(targets_dir)
 
+    # like modules and sensors, we can skip targets, as specified with the --skip-target flag
+    skip_target_set = set(opts.skip_targets)
+    included_targets = []
+
     for target in targets:
+        if target["name"] in skip_target_set:
+            print "  # %s - skipped" % (target["name"],)
+            continue
+
         print "  + %s" % (target["name"],)
-        errors = validate_target(target, sensors, kmods)
+        errors = validate_target(target, included_sensors, included_modules)
         if len(errors) != 0:
             print "    ! errors detected in target.json"
             for err in errors:
                 print "      - %s" % (err,)
             sys.exit(1)
 
+        included_targets.append(target)
+
     print ""
 
-    for target in targets:
-        install_sensors_in_target(target, kmods, sensors, wrapper_dir)
+    if opts.mode == "install":
+        print "Installing components in Targets"
+        for target in included_targets:
+            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir, ntquerysys_dir)

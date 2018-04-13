@@ -2,7 +2,7 @@ async-generator==1.8
 certifi==2017.11.5
 chardet==3.0.4
 curequests==0.4.0
-curio==0.8
+curio==0.9
 h11==0.7.0
 httptools==0.0.9
 idna==2.6
