@@ -10,7 +10,11 @@ read -n 1 -s -r -p "Press any key to continue"
 echo ""
 
 sudo dmesg | grep -i "lsof"
+read -n 1 -s -r -p "Press any key to continue"
+echo ""
+sudo dmesg | grep -i "kernel-ps"
 sudo lsmod | grep controller
 echo "unloading..."
 sudo rmmod controller
 sudo lsmod | grep controller
+
