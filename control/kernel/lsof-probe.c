@@ -113,11 +113,13 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;
 	}
-again:
+
 	rcu_read_lock();
 	for_each_process(task) {
+		int count = 0;
 		if (task_uid(task).val != filter.user_id.val) continue;
 		if (task->pid == filter.lastpid) continue;
+
 		filter.lastpid = task->pid;
 		klsofd.nonce = nonce;
 		klsofd.index = index;
@@ -159,7 +161,8 @@ again:
 							   klsofd.dpath, MAX_DENTRY_LEN - 1);
 			klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
 			klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
-			printk(KERN_INFO "klsof path: %s\n", klsofd.dp);
+			printk(KERN_INFO "klsof pid: %d path:  %s\n",
+				   filter.lastpid, klsofd.dp);
 			if (index <  LSOF_ARRAY_SIZE) {
 				flex_array_put(parent->klsof_data_flex_array,
 							   index,
@@ -172,10 +175,10 @@ again:
 			}
 			fd_index++;
 		}
-
 		IMPORTED(put_files_struct)(klsofd.files);
-		rcu_read_unlock();
-		goto again;
+		count++;
+		if (count > 1)
+			break;
 	}
 
 unlock_out:
