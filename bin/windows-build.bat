@@ -51,7 +51,7 @@ COPY /Y run.ps1 %SystemDrive%\app
 @ECHO Download the handles.exe from SysInternals/MS 
 @ECHO *** NOTE: This files URI could be moved without warning ***
 %POWERSHELL% Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Handle.zip" -OutFile %TEMP%\Handle.zip
-%POWERSHELL% Expand-Archive %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\handlelist
+%POWERSHELL% Expand-Archive -Force %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\handlelist
 
 @ECHO Agree to the license on the dialog box
 %SystemDrive%\opt\sensors\handlelist\handle.exe > nul:
