@@ -85,10 +85,8 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 		if (klsof_p->nonce != nonce) {
 			break;
 		}
-		printk(KERN_INFO "%s %d:%d uid: %d pid: %d %s\n",
+		printk(KERN_INFO "%s uid: %d pid: %d %s\n",
 			   tag,
-			   count,
-			   index,
 			   klsof_p->user_id.val,
 			   klsof_p->pid_nr,
 			   klsof_p->dpath + klsof_p->dp_offset);
@@ -116,7 +114,6 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 
 	rcu_read_lock();
 	for_each_process(task) {
-		int __count = 0;
 		if (task_uid(task).val != filter.user_id.val) continue;
 		if (task->pid == filter.lastpid) continue;
 
@@ -152,7 +149,8 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		}
 #endif
 		klsofd.files = IMPORTED(get_files_struct)(task);
-
+		assert(klsofd.files);
+		
 		klsofd.files_table = files_fdtable(klsofd.files);
 		while(klsofd.files_table != NULL &&
 			  klsofd.files_table->fd[fd_index] != NULL) {
@@ -166,8 +164,6 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
 			klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
 
-			printk(KERN_INFO "klsof pid: %d path:  %s\n",
-				   filter.lastpid, klsofd.dp);
 			if (index <  LSOF_ARRAY_SIZE) {
 				flex_array_put(parent->klsof_data_flex_array,
 							   index,
@@ -181,9 +177,6 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			fd_index++;
 		}
 		IMPORTED(put_files_struct)(klsofd.files);
-		__count++;
-		if (__count > 1)
-			break;
 	}
 
 unlock_out:
