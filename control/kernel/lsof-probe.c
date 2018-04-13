@@ -114,12 +114,14 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	rcu_read_lock();
 
 	for_each_process(task) {
+		if (task_uid(task).val != 0) continue;
+
 		klsofd.nonce = nonce;
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
 		klsofd.pid_nr = task->pid;
 
-
+#ifdef NOTHING
 		if (parent->filter == lsof_pid_filter) {
 /**
  * TODO: pid is hard-coded to 1. Make it a configurable parameter
@@ -143,7 +145,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			if (! parent->filter(parent, &klsofd, NULL))
 				continue;
 		}
-
+#endif
 		klsofd.files = IMPORTED(get_files_struct)(task);
 
 		klsofd.files_table = files_fdtable(klsofd.files);
@@ -169,6 +171,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		}
 
 		IMPORTED(put_files_struct)(klsofd.files);
+		break;
 	}
 
 unlock_out:
@@ -200,10 +203,12 @@ run_klsof_probe(struct kthread_work *work)
  *  options, notably outputting in json format to a socket
  **/
 	probe_struct->print(probe_struct, "kernel-lsof", nonce, ++count);
-
-	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
-		probe_struct->repeat--;
-		sleep(probe_struct->timeout);
+	probe_struct->repeat--;
+	if (probe_struct->repeat > 0 &&  !SHOULD_SHUTDOWN) {
+		int i;
+		for(i = 0; i < probe_struct->timeout && !SHOULD_SHUTDOWN; i++) {
+			sleep(1);
+		}
 		init_and_queue_work(work, co_worker, run_klsof_probe);
 	}
 	return;

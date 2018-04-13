@@ -206,7 +206,8 @@ struct probe {
 	int (*send_msg)(struct probe *, int, void *);
 	int (*rcv_msg)(struct probe *, int, void **);
 	int (*start_stop)(struct probe *, uint64_t flags);
-	uint64_t flags, timeout, repeat; /* expect that flags will contain level bits */
+	uint64_t flags;  /* expect that flags will contain level bits */
+	int timeout, repeat;
 	struct kthread_worker worker;
 	struct kthread_work work;
 	struct list_head l_node;
