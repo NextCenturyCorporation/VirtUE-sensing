@@ -91,7 +91,6 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 				   klsof_p->user_id.val,
 				   klsof_p->pid_nr,
 				   klsof_p->dpath + klsof_p->dp_offset);
-			flex_array_clear(parent->klsof_data_flex_array, index);
 		} else {
 			printk(KERN_INFO "array indexing error in print lsof\n");
 			spin_unlock_irqrestore(&parent->lock, flags);
@@ -121,16 +120,12 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 
 	rcu_read_lock();
 	for_each_process(task) {
-		if (task_uid(task).val != filter.user_id.val) continue;
-		if (task->pid == filter.lastpid) continue;
-
 		filter.lastpid = task->pid;
 		klsofd.nonce = nonce;
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
 		klsofd.pid_nr = task->pid;
 
-#ifdef NOTHING
 		if (parent->filter == lsof_pid_filter) {
 /**
  * TODO: pid is hard-coded to 1. Make it a configurable parameter
@@ -154,10 +149,10 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			if (! parent->filter(parent, &klsofd, NULL))
 				continue;
 		}
-#endif
+
 		klsofd.files = IMPORTED(get_files_struct)(task);
 		assert(klsofd.files);
-		
+
 		klsofd.files_table = files_fdtable(klsofd.files);
 		while(klsofd.files_table != NULL &&
 			  klsofd.files_table->fd[fd_index] != NULL) {

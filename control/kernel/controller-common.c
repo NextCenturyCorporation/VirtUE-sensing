@@ -693,7 +693,7 @@ static int __init kcontrol_init(void)
 										"Kernel LSOF Probe",
 										strlen("Kernel LSOF Probe") + 1,
 										print_kernel_lsof,
-										lsof_uid_filter);
+										lsof_pid_filter);
 
 	spin_lock_irqsave(&k_sensor.lock, flags);
 	/* link this probe to the sensor struct */

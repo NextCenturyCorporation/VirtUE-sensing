@@ -480,6 +480,11 @@ extern unsigned int lsof_repeat;
 extern unsigned int lsof_timeout;
 extern unsigned int lsof_level;
 
+int lsof_pid_filter(struct kernel_lsof_probe *p,
+					struct kernel_lsof_data *d,
+					void *cmp);
+
+
 int
 lsof_all_files(struct kernel_lsof_probe *p,
 				   struct kernel_lsof_data *d,
