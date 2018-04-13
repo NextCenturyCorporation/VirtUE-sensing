@@ -116,7 +116,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 
 	rcu_read_lock();
 	for_each_process(task) {
-		int count = 0;
+		int __count = 0;
 		if (task_uid(task).val != filter.user_id.val) continue;
 		if (task->pid == filter.lastpid) continue;
 
@@ -156,11 +156,16 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		klsofd.files_table = files_fdtable(klsofd.files);
 		while(klsofd.files_table != NULL &&
 			  klsofd.files_table->fd[fd_index] != NULL) {
+
+			klsofd.file = get_file(klsofd.files_table->fd[fd_index]);
 			klsofd.files_path = klsofd.files_table->fd[fd_index]->f_path;
 			klsofd.dp = d_path(&klsofd.files_path,
 							   klsofd.dpath, MAX_DENTRY_LEN - 1);
+
+			fput_atomic(klsofd.file);
 			klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
 			klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
+
 			printk(KERN_INFO "klsof pid: %d path:  %s\n",
 				   filter.lastpid, klsofd.dp);
 			if (index <  LSOF_ARRAY_SIZE) {
@@ -176,8 +181,8 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			fd_index++;
 		}
 		IMPORTED(put_files_struct)(klsofd.files);
-		count++;
-		if (count > 1)
+		__count++;
+		if (__count > 1)
 			break;
 	}
 
@@ -200,8 +205,8 @@ run_klsof_probe(struct kthread_work *work)
 	 * if another process is reading the lsof flex_array, kernel_lsof
 	 * will return -EFAULT. therefore, reschedule and try again.
 	 */
-	probe_struct->lsof(probe_struct, count, nonce);
-	schedule();
+	probe_struct->lsof(probe_struct, count++, nonce);
+
 	if (SHOULD_SHUTDOWN)
 		return;
 
