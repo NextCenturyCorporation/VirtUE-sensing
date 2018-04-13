@@ -107,7 +107,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	struct task_struct *task;
 	struct kernel_lsof_data klsofd;
 	struct lsof_filter filter = {{0}, -1};
-		
+
 	unsigned long flags;
 
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
@@ -119,7 +119,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 		if (task_uid(task).val != filter.user_id.val) continue;
 		if (task->pid == filter.lastpid) continue;
 		filter.lastpid = task->pid;
-		
+
 		klsofd.nonce = nonce;
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
@@ -160,7 +160,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 							   klsofd.dpath, MAX_DENTRY_LEN - 1);
 			klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
 			klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
-//		printk(KERN_INFO "klsof path: %s\n", klsofd.dp);
+			printk(KERN_INFO "klsof path: %s\n", klsofd.dp);
 			if (index <  LSOF_ARRAY_SIZE) {
 				flex_array_put(parent->klsof_data_flex_array,
 							   index,
@@ -213,7 +213,8 @@ run_klsof_probe(struct kthread_work *work)
 		for(i = 0; i < probe_struct->timeout && !SHOULD_SHUTDOWN; i++) {
 			sleep(1);
 		}
-		init_and_queue_work(work, co_worker, run_klsof_probe);
+		if (!SHOULD_SHUTDOWN)
+			init_and_queue_work(work, co_worker, run_klsof_probe);
 	}
 	return;
 }

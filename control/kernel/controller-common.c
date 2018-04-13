@@ -493,11 +493,14 @@ void  run_kps_probe(struct kthread_work *work)
  *  call print_kernel_ps by default. But, in the future there will be other             *  options, notably outputting in json format to a socket
  **/
 	probe_struct->print(probe_struct, "kernel-ps", nonce, ++count);
-
-	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
-		probe_struct->repeat--;
-		sleep(probe_struct->timeout);
-		init_and_queue_work(work, co_worker, run_kps_probe);
+	probe_struct->repeat--;
+	if (probe_struct->repeat > 0 && !SHOULD_SHUTDOWN) {
+		int i;
+		for (i = 0; i < probe_struct->timeout && !SHOULD_SHUTDOWN; i++) {
+			sleep(1);
+		}
+		if (!SHOULD_SHUTDOWN)
+			init_and_queue_work(work, co_worker, run_kps_probe);
 	}
 	return;
 }
