@@ -16,7 +16,7 @@ echo " [bash] env NFS_SENSOR_PCAP_FILE      : \"$NFS_SENSOR_PCAP_FILE\""
 # Matches /docker-compose.yml
 export CFSSL_SHARED_SECRET="de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
 
-if [ -z "$NFS_SENSOR_SNIFF_INTERFACE" && -z "$NFS_SENSOR_PCAP_FILE" ]
+if [ -z "$NFS_SENSOR_SNIFF_INTERFACE" ] && [ -z "$NFS_SENSOR_PCAP_FILE" ]
 then
     echo "Environment variables NFS_SENSOR_SNIFF_INTERFACE and NFS_SENSOR_PCAP_FILE undefined!"
     echo "I don't know where to read packets from."
