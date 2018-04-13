@@ -31,6 +31,5 @@ Write-Output "Clone, fetch and checkout savior . . . "
 git clone -v https://github.com/twosixlabs/savior.git
 cd ./savior
 git fetch -v origin
-# Comment out or remove this branch checkout when its merged
-git checkout enh-win10-handles-list-sensor
+
 
