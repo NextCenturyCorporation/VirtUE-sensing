@@ -414,6 +414,14 @@ void *destroy_probe(struct probe *probe);
  * task.files->fd_array[].path
  **/
 
+
+struct lsof_filter 
+{
+	kuid_t user_id;
+	pid_t lastpid;
+};
+	
+
 #define MAX_DENTRY_LEN 0x400
 struct kernel_lsof_data {
 	uint64_t index, nonce;

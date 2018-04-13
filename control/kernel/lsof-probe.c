@@ -106,6 +106,8 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	int index = 0, fd_index = 0;
 	struct task_struct *task;
 	struct kernel_lsof_data klsofd;
+	struct lsof_filter filter = {{0}, -1};
+		
 	unsigned long flags;
 
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
@@ -114,8 +116,10 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	rcu_read_lock();
 
 	for_each_process(task) {
-		if (task_uid(task).val != 0) continue;
-
+		if (task_uid(task).val != filter.user_id.val) continue;
+		if (task->pid == filter.lastpid) continue;
+		filter.lastpid = task->pid;
+		
 		klsofd.nonce = nonce;
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
