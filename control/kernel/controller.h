@@ -422,7 +422,7 @@ struct lsof_filter
 };
 	
 
-#define MAX_DENTRY_LEN 0x400
+#define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
 	uint64_t index, nonce;
 	kuid_t user_id;

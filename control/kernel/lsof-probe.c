@@ -82,14 +82,21 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 	}
 	for (index = 0; index < LSOF_ARRAY_SIZE; index++)  {
 		klsof_p = flex_array_get(parent->klsof_data_flex_array, index);
-		if (klsof_p->nonce != nonce) {
-			break;
+		if (klsof_p) {
+			if (klsof_p->nonce != nonce) {
+				break;
+			}
+			printk(KERN_INFO "%s uid: %d pid: %d %s\n",
+				   tag,
+				   klsof_p->user_id.val,
+				   klsof_p->pid_nr,
+				   klsof_p->dpath + klsof_p->dp_offset);
+			flex_array_clear(parent->klsof_data_flex_array, index);
+		} else {
+			printk(KERN_INFO "array indexing error in print lsof\n");
+			spin_unlock_irqrestore(&parent->lock, flags);
+			return -ENOMEM;
 		}
-		printk(KERN_INFO "%s uid: %d pid: %d %s\n",
-			   tag,
-			   klsof_p->user_id.val,
-			   klsof_p->pid_nr,
-			   klsof_p->dpath + klsof_p->dp_offset);
 	}
 	spin_unlock_irqrestore(&parent->lock, flags);
 	if (index == LSOF_ARRAY_SIZE) {
@@ -171,6 +178,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 							   GFP_ATOMIC);
 				index++;
 			} else {
+				printk(KERN_INFO "lsof flex array over-run\n");
 				index = -ENOMEM;
 				goto unlock_out;
 			}
