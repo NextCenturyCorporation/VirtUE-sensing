@@ -30,7 +30,7 @@ defmodule ApiServer.ControlUtils do
       %{
         error: false,
         action: "sensor-registration",
-        sensor: ApiServer.Sensor.clean_json(sensor_struct_data),
+        sensor: ApiServer.Sensor.clean_json(sensor_struct_data, include_component: true, include_configuration: true),
         topic: sensor_struct_data.kafka_topic,
         timestamp: DateTime.to_string(DateTime.utc_now())
       }
@@ -67,7 +67,7 @@ defmodule ApiServer.ControlUtils do
       %{
         error: false,
         action: "sensor-deregistration",
-        sensor: ApiServer.Sensor.clean_json(sensor_struct_data),
+        sensor: ApiServer.Sensor.clean_json(sensor_struct_data, include_component: true, include_configuration: true),
         topic: sensor_struct_data.kafka_topic,
         timestamp: DateTime.to_string(DateTime.utc_now())
       }

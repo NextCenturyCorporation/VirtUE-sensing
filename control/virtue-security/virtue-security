@@ -4306,18 +4306,22 @@ async def api_monitor(opts):
             if msg.value["action"] == "heartbeat":
                 print("💓 - (timestamp=%s)" % (msg.value["timestamp"]))
             elif msg.value["action"] == "sensor-registration":
-                print("+ REGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, name=%s)" % (
+                print("+ REGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, username=%s, sensor_name=%s, os=%s)" % (
                     msg.value["timestamp"],
-                    msg.value["sensor"]["sensor"],
-                    msg.value["topic"],
-                    msg.value["sensor"]["sensor_name"]
+                    msg.value["sensor"]["sensor_id"],
+                    msg.value["sensor"]["kafka_topic"],
+                    msg.value["sensor"]["username"],
+                    msg.value["sensor"]["sensor_name"],
+                    msg.value["sensor"]["sensor_os"]
                 ))
             elif msg.value["action"] == "sensor-deregistration":
-                print("- DEREGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, name=%s)" % (
+                print("- DEREGISTRATION - (timestamp=%s, sensor_id=%s, topic=%s, username=%s, sensor_name=%s, os=%s)" % (
                     msg.value["timestamp"],
-                    msg.value["sensor"]["sensor"],
-                    msg.value["topic"],
-                    msg.value["sensor"]["sensor_name"]
+                    msg.value["sensor"]["sensor_id"],
+                    msg.value["sensor"]["kafka_topic"],
+                    msg.value["sensor"]["username"],
+                    msg.value["sensor"]["sensor_name"],
+                    msg.value["sensor"]["sensor_os"]
                 ))
             else:
                 print("!! (timestamp=%s, action=%s) unrecognized monitor action" % (

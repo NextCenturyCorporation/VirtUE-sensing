@@ -120,6 +120,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 
 	rcu_read_lock();
 	for_each_process(task) {
+		task_lock(task);
 		filter.lastpid = task->pid;
 		klsofd.nonce = nonce;
 		klsofd.index = index;
@@ -134,7 +135,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
  **/
 			static pid_t process_id = 1;
 			if (! lsof_pid_filter(parent, &klsofd, &process_id))
-				continue;
+				goto task_unlock;
 		} else if (parent->filter == lsof_uid_filter){
 /**
  * TODO: user id is hard-coded to 0. Make it a configurable parameter
@@ -144,13 +145,14 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			kuid_t user_id = {0};
 
 			if (! lsof_uid_filter(parent, &klsofd, &user_id))
-				continue;
+				goto task_unlock;
 		} else {
 			if (! parent->filter(parent, &klsofd, NULL))
-				continue;
+				goto task_unlock;;
 		}
 
-		klsofd.files = IMPORTED(get_files_struct)(task);
+		klsofd.files = task->files;
+
 		assert(klsofd.files);
 
 		klsofd.files_table = files_fdtable(klsofd.files);
@@ -175,11 +177,13 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			} else {
 				printk(KERN_INFO "lsof flex array over-run\n");
 				index = -ENOMEM;
+				task_unlock(task);
 				goto unlock_out;
 			}
 			fd_index++;
 		}
-		IMPORTED(put_files_struct)(klsofd.files);
+	task_unlock:
+		task_unlock(task);
 	}
 
 unlock_out:

@@ -228,6 +228,8 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 	}
 	rcu_read_lock();
 	for_each_process(task) {
+		task_lock(task);
+
 		kpsd.nonce = nonce;
 		kpsd.index = index;
 		kpsd.user_id = task_uid(task);
@@ -237,11 +239,12 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 			flex_array_put(parent->kps_data_flex_array, index, &kpsd, GFP_ATOMIC);
 		} else {
 			index = -ENOMEM;
+			task_unlock(task);
 			goto unlock_out;
 		}
 		index++;
+		task_unlock(task);
 	}
-
 unlock_out:
 	rcu_read_unlock();
 	spin_unlock_irqrestore(&parent->lock, flags);
