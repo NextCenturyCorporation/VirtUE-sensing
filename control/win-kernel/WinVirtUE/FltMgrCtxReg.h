@@ -11,16 +11,16 @@ _Success_(NULL != return)
 _Must_inspect_result_
 PVOID
 InstanceContextAllocate(
-    __in POOL_TYPE PoolType,
-    __in SIZE_T Size,
-    __in FLT_CONTEXT_TYPE ContextType);
+    _In_ POOL_TYPE PoolType,
+	_In_ SIZE_T Size,
+	_In_ FLT_CONTEXT_TYPE ContextType);
 
 _Success_(NULL != return)
 _Must_inspect_result_
 PVOID StreamContextAllocate(
-    __in POOL_TYPE PoolType,
-    __in SIZE_T Size,
-    __in FLT_CONTEXT_TYPE ContextType);
+	_In_ POOL_TYPE PoolType,
+	_In_ SIZE_T Size,
+	_In_ FLT_CONTEXT_TYPE ContextType);
 
 _Success_(NULL != return)
 _Must_inspect_result_

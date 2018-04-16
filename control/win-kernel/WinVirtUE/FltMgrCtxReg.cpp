@@ -112,12 +112,11 @@ const FLT_CONTEXT_REGISTRATION ContextRegistrationData[] =
 *
 * @return NULL if insufficient resources else pointer to instance context
 */
-_Success_(NULL != return)
-_Must_inspect_result_
+_Use_decl_annotations_
 PVOID InstanceContextAllocate(
-    _In_ POOL_TYPE PoolType,
-    _In_ SIZE_T Size,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    POOL_TYPE PoolType,
+    SIZE_T Size,
+    FLT_CONTEXT_TYPE ContextType)
 {
     PVOID pVoid = NULL;
     PWVU_INSTANCE_CONTEXT pInstanceContext = NULL;
@@ -263,8 +262,7 @@ static SIZE_T g_SizeOfFltrMgrStrmCtx = 0;
 * @return NULL if insufficient resources else pointer to stream contexts
 *
 */
-_Success_(NULL != return)
-_Must_inspect_result_
+_Use_decl_annotations_
 PVOID StreamContextAllocate(
     _In_ POOL_TYPE PoolType,
     _In_ SIZE_T Size,
@@ -450,10 +448,7 @@ StreamContextFree(
 *
 * @return pointer to a an allocated stream context
 */
-_Success_(NULL != return)
-_Must_inspect_result_
-_IRQL_requires_max_(APC_LEVEL)
-_IRQL_raises_(APC_LEVEL)
+_Use_decl_annotations_
 PWVU_STREAM_CONTEXT
 CreateStreamContext(
     _In_ PFLT_CALLBACK_DATA          Data,

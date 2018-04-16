@@ -96,6 +96,7 @@ DriverEntry(
 	_In_ PDRIVER_OBJECT DriverObject,
 	_In_ PUNICODE_STRING RegistryPath)
 {
+	UNREFERENCED_PARAMETER(RegistryPath);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	OBJECT_ATTRIBUTES WVUThdObjAttr = { 0,0,0,0,0,0 };
 	OBJECT_ATTRIBUTES WVUPortObjAttr = { 0,0,0,0,0,0 };
@@ -104,17 +105,15 @@ DriverEntry(
 	HANDLE ThreadHandle = (HANDLE)-1;
 #endif
 	CLIENT_ID ClientId = { (HANDLE)-1,(HANDLE)-1 };
-	UNICODE_STRING usPortName = { 0,0,NULL };
+	UNICODE_STRING usPortName = { 0,0,NULL };	
 
-	UNREFERENCED_PARAMETER(RegistryPath);
+	WVUDebugBreakPoint();
 
 	ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
 
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
 
 	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
-
-	WVUDebugBreakPoint();
 
 	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 

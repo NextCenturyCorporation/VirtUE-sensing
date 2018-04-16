@@ -35,7 +35,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AbstractVirtueProbe.cpp" />
+    <ClCompile Include="AbstractVirtueProbe.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="RegistryModificationCB.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="Driver.cpp" />
@@ -215,7 +218,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inc\WVUKernelUserComms.h" />
-    <ClInclude Include="AbstractVirtueProbe.h" />
+    <ClInclude Include="AbstractVirtueProbe.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="Common\cmn.h" />
     <ClInclude Include="Common\cmn_pool_tag.h" />
     <ClInclude Include="Common\common.h" />

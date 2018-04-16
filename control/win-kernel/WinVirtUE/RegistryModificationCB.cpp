@@ -26,9 +26,14 @@ NTSTATUS RegistryModificationCB(
 	PVOID Argument1,
 	PVOID Argument2)
 {
+	PDRIVER_OBJECT pDrvObject = (PDRIVER_OBJECT)CallbackContext;
+
 	UNREFERENCED_PARAMETER(CallbackContext);
 	UNREFERENCED_PARAMETER(Argument1);
 	UNREFERENCED_PARAMETER(Argument2);
 
+	WVU_DEBUG_PRINT(LOG_NOTIFY_PROCS, TRACE_LEVEL_ID,
+		"Callback Driver Object Context %p, Registry Notification Class=%p, Arg2=%p\n", pDrvObject, Argument1, Argument2);
+		
 	return STATUS_SUCCESS;
 }

@@ -19,6 +19,9 @@ ProcessNotifyCallbackEx(
 	_In_ HANDLE  ProcessId,
 	_Inout_opt_ PPS_CREATE_NOTIFY_INFO  CreateInfo)
 {
+	UNREFERENCED_PARAMETER(Process);
+	UNREFERENCED_PARAMETER(ProcessId);
+	UNREFERENCED_PARAMETER(CreateInfo);
 
     // Take a rundown reference 
     (VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -55,8 +58,12 @@ ImageLoadNotificationRoutine(
 	_In_ HANDLE ProcessId,
 	_In_ PIMAGE_INFO pImageInfo)
 {
-	PEPROCESS  pProcess = NULL;
+	UNREFERENCED_PARAMETER(FullImageName);
+	UNREFERENCED_PARAMETER(ProcessId);
 	UNREFERENCED_PARAMETER(pImageInfo);
+
+	PEPROCESS  pProcess = NULL;
+
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -86,10 +93,14 @@ Done:
 * @param Create TRUE if thread was created else FALSE it was terminated
 */
 VOID ThreadCreateCallback(
-	HANDLE ProcessId, 
-	HANDLE ThreadId, 
-	BOOLEAN Create)
+	_In_ HANDLE ProcessId, 
+	_In_ HANDLE ThreadId,
+	_In_ BOOLEAN Create)
 {
+	UNREFERENCED_PARAMETER(ProcessId);
+	UNREFERENCED_PARAMETER(ThreadId);
+	UNREFERENCED_PARAMETER(Create);
+
 	WVU_DEBUG_PRINT(LOG_NOTIFY_PROCS, TRACE_LEVEL_ID,
 		"Thread %p within ProcessId %p was %s\n",
 		ThreadId, ProcessId, Create ? "Created" : "Terminated");	
