@@ -425,6 +425,7 @@ struct lsof_pid_el
 {
 	kuid_t uid;
 	pid_t pid;
+	uint64_t nonce;
 	struct pid *p;
 	struct task_struct *t;
 };

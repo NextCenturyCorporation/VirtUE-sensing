@@ -119,6 +119,48 @@ struct task_struct *get_task_by_pid_number(pid_t pid)
 }
 
 
+
+int lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
+{
+	int index = 0;
+	struct task_struct *task;
+	unsigned long flags;
+	static struct lsof_pid_el pid_el;
+
+	if (!spin_trylock_irqsave(&p->lock, flags)) {
+		return -EAGAIN;
+	}
+
+	for_each_process(task) {
+		task_lock(task);
+        pid_el.pid = task->pid;
+		pid_el.uid = task_uid(task);
+		pid_el.nonce = nonce;
+
+		if (index <  LSOF_PID_EL_ARRAY_SIZE) {
+			flex_array_put(p->klsof_pid_flex_array,
+						   index,
+						   &pid_el,
+						   GFP_ATOMIC);
+			index++;
+		} else {
+			printk(KERN_INFO "lsof pid index array over-run\n");
+			index = -ENOMEM;
+			task_unlock(task);
+			goto task_unlock_task;
+		}
+
+	task_unlock_task:
+		task_unlock(task);
+
+	}
+	spin_unlock_irqrestore(&p->lock, flags);
+
+	return index;
+}
+
+
+
 int
 kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 {
