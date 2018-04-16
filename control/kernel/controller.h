@@ -38,8 +38,8 @@ enum json_array_chars {
 static inline void sleep(unsigned sec)
 {
 	if (! SHOULD_SHUTDOWN) {
-	__set_current_state(TASK_INTERRUPTIBLE);
-	schedule_timeout(sec * HZ);
+		__set_current_state(TASK_INTERRUPTIBLE);
+		schedule_timeout(sec * HZ);
 	}
 }
 
@@ -375,8 +375,8 @@ void *destroy_probe_work(struct kthread_work *work);
 void *destroy_k_probe(struct probe *probe);
 
 bool init_and_queue_work(struct kthread_work *work,
-					struct kthread_worker *worker,
-					void (*function)(struct kthread_work *));
+						 struct kthread_worker *worker,
+						 void (*function)(struct kthread_work *));
 
 
 void *destroy_probe(struct probe *probe);
@@ -417,10 +417,29 @@ void *destroy_probe(struct probe *probe);
 
 struct lsof_filter
 {
-	kuid_t user_id;
-	pid_t lastpid;
+	kuid_t uid;
+	pid_t pid;
 };
 
+struct lsof_pid_el
+{
+	kuid_t uid;
+	pid_t pid;
+	struct pid *p;
+	struct task_struct *t;
+};
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define LSOF_PID_EL_SIZE sizeof(struct lsof_pid_el)
+#define LSOF_PID_APPARENT_ARRAY_SIZE \
+	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_PID_EL_SIZE) * (FLEX_ARRAY_NR_BASE_PTRS))
+#define LSOF_PID_EL_ARRAY_SIZE ((LSOF_PID_APPARENT_ARRAY_SIZE) - 1)
 
 #define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
@@ -459,6 +478,8 @@ struct kernel_lsof_data {
 
 struct kernel_lsof_probe {
 	struct probe;
+	struct flex_array *klsof_pid_flex_array;
+
 	struct flex_array *klsof_data_flex_array;
 	int (*filter)(struct kernel_lsof_probe *,
 				  struct kernel_lsof_data *,

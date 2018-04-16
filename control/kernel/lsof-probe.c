@@ -104,6 +104,21 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 	return index;
 }
 
+
+
+struct task_struct *get_task_by_pid_number(pid_t pid)
+{
+	struct pid *p = NULL;
+	struct task_struct *ts = NULL;
+	p = find_get_pid(pid);
+	if (p) {
+		ts = get_pid_task(p, PIDTYPE_PID);
+	}
+
+	return ts;
+}
+
+
 int
 kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 {
@@ -121,7 +136,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 	rcu_read_lock();
 	for_each_process(task) {
 		task_lock(task);
-		filter.lastpid = task->pid;
+		filter.pid = task->pid;
 		klsofd.nonce = nonce;
 		klsofd.index = index;
 		klsofd.user_id = task_uid(task);
@@ -239,6 +254,11 @@ destroy_kernel_lsof_probe(struct probe *probe)
 		destroy_probe(probe);
 	}
 
+
+	if (lsof_p->klsof_pid_flex_array) {
+		flex_array_free(lsof_p->klsof_pid_flex_array);
+	}
+
 	if (lsof_p->klsof_data_flex_array) {
 		flex_array_free(lsof_p->klsof_data_flex_array);
 	}
@@ -311,6 +331,21 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 		goto err_free_flex_array;
 	}
 
+	lsof_p->klsof_pid_flex_array =
+		flex_array_alloc(LSOF_PID_EL_SIZE, LSOF_PID_EL_ARRAY_SIZE, GFP_KERNEL);
+	if (!lsof_p->klsof_pid_flex_array) {
+		ccode = -ENOMEM;
+		goto err_free_flex_array;
+	}
+
+	ccode = flex_array_prealloc(lsof_p->klsof_pid_flex_array, 0,
+								LSOF_PID_EL_ARRAY_SIZE,
+								GFP_KERNEL | __GFP_ZERO);
+	if(ccode) {
+		/* ccode will be zero for success, -ENOMEM otherwise */
+		goto err_free_pid_flex_array;
+	}
+
 	printk(KERN_INFO "kernel-lsof LSOF_DATA_SIZE %ld LSOF_ARRAY_SIZE %ld\n",
 		   LSOF_DATA_SIZE, LSOF_ARRAY_SIZE);
 
@@ -324,7 +359,8 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	kthread_run(kthread_worker_fn, &lsof_p->worker,
 				"kernel-lsof");
 	return lsof_p;
-
+err_free_pid_flex_array:
+	flex_array_free(lsof_p->klsof_pid_flex_array);
 err_free_flex_array:
 	flex_array_free(lsof_p->klsof_data_flex_array);
 err_exit:
