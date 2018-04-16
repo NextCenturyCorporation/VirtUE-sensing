@@ -284,8 +284,53 @@ defmodule ApiServer.Sensor do
 
   end
 
-  def clean_json(%ApiServer.Sensor{} = sensor) do
-    Map.drop(Map.from_struct(sensor), [:"__meta__", :configuration, :component, :id, :authchallenges])
+  @doc """
+  Clean up the Sensor into a map suitable for JSON serialization, optionally including
+  the component and configuration information.
+
+  Opts:
+
+    include_component: true/false
+    include_configuration: true/false
+  """
+  def clean_json(%ApiServer.Sensor{} = sensor, opts \\ []) do
+
+    sensor_map = Map.drop(Map.from_struct(sensor), [:"__meta__", :configuration, :component, :id, :authchallenges])
+
+    sensor_map
+      |> Map.merge(clean_component_data(sensor, opts))
+      |> Map.merge(clean_configuration_data(sensor, opts))
+
+  end
+
+  defp clean_component_data(%ApiServer.Sensor{} = sensor, opts \\ [] ) do
+
+    case Keyword.get(opts, :include_component, false) do
+      true ->
+        loaded_sensor = ApiServer.Repo.preload(sensor, :component)
+        %{
+          sensor_name: loaded_sensor.component.name,
+          sensor_os: loaded_sensor.component.os,
+          sensor_context: loaded_sensor.component.context
+        }
+      false ->
+        %{}
+    end
+  end
+
+  defp clean_configuration_data(%ApiServer.Sensor{} = sensor, opts \\ []) do
+
+    case Keyword.get(opts, :include_configuration, false) do
+      true ->
+        loaded_sensor = ApiServer.Repo.preload(sensor, :configuration)
+        %{
+          configuration_level: loaded_sensor.configuration.level,
+          configuration_version: loaded_sensor.configuration.version,
+          configuraiton_format: loaded_sensor.configuration.format
+        }
+      false ->
+        %{}
+    end
   end
 
   @doc """

@@ -192,6 +192,7 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 			} else {
 				printk(KERN_INFO "lsof flex array over-run\n");
 				index = -ENOMEM;
+				task_unlock(task);
 				goto unlock_out;
 			}
 			fd_index++;
@@ -199,7 +200,6 @@ kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
 
 	unlock_task:
 		task_unlock(task);
-
 	}
 
 unlock_out:

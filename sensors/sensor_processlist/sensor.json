@@ -1,0 +1,15 @@
+{
+  "name": "processlist",
+  "version": "1.0",
+  "target_folder": "processlist",
+  "files": [
+    {
+      "source": "sensor_processlist.py",
+      "dest": "sensor_processlist.py"
+    }
+  ],
+  "startup_script": "run_processlist_sensor.ps1",
+  "requirements_files": ["processlist_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": [""]
+}
