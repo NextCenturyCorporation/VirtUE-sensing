@@ -16,6 +16,7 @@ import json
 
 import datetime
 
+from curio import sleep
 import asyncio
 import selectors
 import subprocess
@@ -34,6 +35,11 @@ from sensor_wrapper import SensorWrapper
 
 # Keep sniffing?
 sniff_sockets = True
+
+
+# Global timeouts (in seconds)
+select_timeout = 0.10
+sleep_timeout  = 0.01
 
 # This breaks parts of TCP or UDP parsers
 # conf.debug_dissector = 1
@@ -74,6 +80,7 @@ async def nfs3_sniff_iface(message_stub, config, message_queue):
     # the cleaner loop.add_reader(). Think of this block as a poor
     # man's sniff() function.
 
+    # @TODO: cleanup this loop, make better use of coroutines
     with selectors.DefaultSelector() as sel:
         sel.register( sock, selectors.EVENT_READ )
 
@@ -82,8 +89,12 @@ async def nfs3_sniff_iface(message_stub, config, message_queue):
                 p = sock.recv()
                 if not p:
                     break
+
+                # There's a packet to process: receive it and yield
+                # for message_queue.put()
                 p.sniffed_on = sock
                 await recv_pkt( p, message_stub, message_queue )
+                await sleep( sleep_timeout )
 
 async def nfs3_process_pkts( message_stub, config, message_queue ):
     pkts = rdpcap( wrapper.opts.pcap )
