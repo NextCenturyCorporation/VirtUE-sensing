@@ -35,6 +35,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AbstractVirtueProbe.cpp" />
+    <ClCompile Include="RegistryModificationCB.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="Driver.cpp" />
     <ClCompile Include="FltMgrCallbacks.cpp" />
@@ -213,6 +215,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inc\WVUKernelUserComms.h" />
+    <ClInclude Include="AbstractVirtueProbe.h" />
     <ClInclude Include="Common\cmn.h" />
     <ClInclude Include="Common\cmn_pool_tag.h" />
     <ClInclude Include="Common\common.h" />
@@ -226,6 +229,7 @@
     <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="PortMsgTrans.h" />
     <ClInclude Include="ObjectCreateNotifyCB.h" />
+    <ClInclude Include="RegistryModificationCB.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="FltMgrReg.h" />
