@@ -39,13 +39,18 @@ XCOPY /Y /S /F /V sensor_startup\*.* %SystemDrive%\opt\sensor_startup\
 
 @ECHO Installing Service Components
 COPY /Y run.ps1 %SystemDrive%\app
+@ECHO Download the handles.exe from SysInternals/MS 
+@ECHO *** NOTE: This files URI could be moved without warning ***
+%POWERSHELL% Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Handle.zip" -OutFile %TEMP%\Handle.zip
+%POWERSHELL% Expand-Archive -Force %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\handlelist
+
+@ECHO Agree to the license on the dialog box
+%SystemDrive%\opt\sensors\handlelist\handle.exe > nul:
 
 @ECHO POP back to .\savior
 POPD
 
-@ECHO Opening Port 11020 in the firewall for sensor communications
+@ECHO Opening Port 11020-11022 in the firewall for sensor communications
 netsh advfirewall firewall add rule name="Open Port 11020" dir=in action=allow protocol=TCP localport=11020
 netsh advfirewall firewall add rule name="Open Port 11021" dir=in action=allow protocol=TCP localport=11021
-
-@ECHO Running Sensors . . .
-%POWERSHELL% %SystemDrive%\app\run.ps1
+netsh advfirewall firewall add rule name="Open Port 11022" dir=in action=allow protocol=TCP localport=11022
