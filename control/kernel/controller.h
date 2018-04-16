@@ -415,12 +415,12 @@ void *destroy_probe(struct probe *probe);
  **/
 
 
-struct lsof_filter 
+struct lsof_filter
 {
 	kuid_t user_id;
 	pid_t lastpid;
 };
-	
+
 
 #define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
