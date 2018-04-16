@@ -22,12 +22,6 @@ echo "#ifndef _UNAME_CONTROLLER_H" > $FILENAME
 echo "#define _UNAME_CONTROLLER_H" >> $FILENAME
 echo "/*this file is generated automatically in the makefile */" >> $FILENAME
 echo "/*NB: I always assume you are running the same kernel you are building!*/">>$FILENAME
-echo "const char *cont_long_version = \"$FULL_VERSION\";" >> $FILENAME
-echo "const char *cont_short_version = \"$SHORT_VERSION\";" >> $FILENAME
-echo "const int version = $VERSION;" >> $FILENAME
-echo "const int patchlevel = $PATCHLEVEL;" >> $FILENAME
-echo "const int sublevel = $SUBLEVEL;" >> $FILENAME
-
 
 if (( $VERSION >= 4 )) ; then
     if (( $PATCHLEVEL < 9 )); then
@@ -36,6 +30,7 @@ if (( $VERSION >= 4 )) ; then
 	echo "#define CONT_INIT_WORK init_kthread_work"  >> $FILENAME
 	echo "#define CONT_INIT_WORKER init_kthread_worker"  >> $FILENAME
 	echo "#define CONT_FLUSH_WORK flush_kthread_work" >> $FILENAME
+	echo "#define CONT_FLUSH_WORKER flush_kthread_worker" >> $FILENAME
 	echo "#define CONT_QUEUE_WORK queue_kthread_work"  >> $FILENAME
     else
 	API=new
@@ -43,6 +38,7 @@ if (( $VERSION >= 4 )) ; then
 	echo "#define CONT_INIT_WORK kthread_init_work"  >> $FILENAME
         echo "#define CONT_INIT_WORKER kthread_init_worker"  >> $FILENAME
 	echo "#define CONT_FLUSH_WORK kthread_flush_work" >> $FILENAME
+	echo "#define CONT_FLUSH_WORKER kthread_flush_worker" >> $FILENAME
 	echo "#define CONT_QUEUE_WORK kthread_queue_work"  >> $FILENAME
     fi
 fi
@@ -60,6 +56,18 @@ if (( $VERSION >= 4 )) ; then
     fi
 fi
 
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 11 )); then
+	ACCEPT_API=old
+	echo "#define OLD_ACCEPT_API 1" >> $FILENAME
+	echo "#define SOCK_ACCEPT(s, ns, i) accept((s), (ns), (i))" >> $FILENAME
+    else
+	ACCEPT_API=new
+	echo "#define NEW_ACCEPT_API 1" >> $FILENAME
+	echo "#define SOCK_ACCEPT(s, ns, i) accept((s), (ns), (i), 1)" >> $FILENAME
+    fi
+fi
+
 
 #socket interface changes:
 # version 4.1.13:
@@ -70,8 +78,9 @@ fi
 # version 4.7:
 #int sock_recvmsg(struct socket *sock, struct msghdr *msg, int flags);
 
-echo "const char *cont_api = \"$API\";" >> $FILENAME
+echo "static const char *cont_api __attribute__((used)) = \"$API\";" >> $FILENAME
 echo "#endif /* _UNAME_CONTROLLER_H */" >> $FILENAME
 
 echo "kthreads api: $API"
 echo "sock api: $SOCKAPI"
+echo "accept api: $ACCEPT_API"

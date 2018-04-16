@@ -2,17 +2,15 @@
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
+#include "uname.h"
 #include "controller.h"
 #include "jsmn/jsmn.h"
-#include "jsmn/jsmn.c"
 #include "jsonl-parse.include.c"
 
 /* hold socket JSON probe interface */
 extern struct kernel_sensor k_sensor;
-static struct connection listener;
-static char *socket_name = "/var/run/kernel_sensor";
-
-module_param(socket_name, charp, 0644);
+extern char *socket_name;
+extern struct connection listener;
 
 struct connection *
 init_connection(struct connection *, uint64_t, void *);
@@ -91,6 +89,9 @@ static int k_socket_write(struct socket *s, int n, void *out)
 }
 
 /**
+ * @brief read_parse_message - read a message from the connected
+ * domain socket and see if it can be parsed as a JSON object.
+ *
  * struct message is assumed to be partially initialized:
  * m->spinlock
  * m->line points to a buffer
@@ -104,11 +105,12 @@ static int k_socket_write(struct socket *s, int n, void *out)
  * the initial buffer size is expected to be CONNECTION_MAX_HEADER,
  * by default 1K.
  *
- * the linux kernel is mostly likely to be acting as a server of the
- * sensor protocol, and request messages are expected to be much smaller
- * than CONNECTION_MAX_HEADER, so it would be good to re-visit the
- * definition of CONNECTION_MAX_HEADER, and even the use or krealloc
- * below.
+ * It is not expected that the realloc loop will run (JSMN_ERROR_PART)
+ * in version 0.1 of the kernel sensor protocol, because the linux kernel
+ * is mostly likely to be acting as a server of the kernel sensor protocol,
+ * and request messages are expected to be smaller than CONNECTION_MAX_HEADER,
+ * so it would be good to re-visit the definition of CONNECTION_MAX_HEADER,
+ * and even the use of krealloc below.
  **/
 static int read_parse_message(struct jsmn_message *m)
 {
@@ -134,6 +136,8 @@ again:
 							  MAX_TOKENS);
 		if (m->count == JSMN_ERROR_PART && len_save < CONNECTION_MAX_MESSAGE) {
             /* it may be valid to realloc and try again */
+			printk(KERN_INFO "kernel sensor read part of a JSON object, " \
+				   "attempting to realloc and read the remainder\n");
 			m->line = krealloc(m->line, CONNECTION_MAX_MESSAGE, GFP_KERNEL);
 			if (m->line) {
 				len_save = CONNECTION_MAX_MESSAGE;
@@ -146,19 +150,38 @@ again:
 		}
 		/* set ccode to the number of tokens */
 		ccode = m->count;
+	} else {
+		printk(KERN_INFO "kernel sensor error reading from socket\n");
 	}
 	return ccode;
 }
 
+/**
+ * @brief k_read_write kernel thread that reads and writes the JSON
+ * kernel sensor protocol over a connected socket.
+ *
+ * If the socket presents a valid JSON object that is also a
+ * sensor protocol message, create struct jsmn_message and dispatch
+ * that message to the json parser.
+ *
+ * The json parser will create a struct jsmn_session which it will use
+ * to organize the response message and eventually to write that response
+ * back to the client over the same socket.
+ *
+ * Te json parser will dispatch the message to the correct
+ * sensor.probe, which is expected to generate a response.
+ *
+ **/
 
 static void
 k_read_write(struct kthread_work *work)
 {
 	int ccode = 0;
+	unsigned long flags;
 	/**
 	 * allocate these buffers dynamically so this function can
 	 * be re-entrant. Also avoid allocation on the stack.
-	 * these buffers are 1k each. if we needs more space, the
+	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
 	uint8_t *read_buf = NULL;
@@ -177,6 +200,11 @@ k_read_write(struct kthread_work *work)
 	sock = connection->connected;
 	read_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
 	if (read_buf == NULL) {
+/**
+ * running as a kernel thread, can't return an error code to the caller,
+ * so we need to log this error info.
+ **/
+		printk(KERN_INFO "kernel sensor error - no memory, kernel thread exiting\n");
 		return;
 	}
 
@@ -186,7 +214,6 @@ again:
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
-		connection->connected = NULL;
 		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
 		goto err_out1;
 	}
@@ -198,16 +225,24 @@ again:
 	m->socket = sock;
 	m->count = read_parse_message(m);
 	if (m->count < 0) {
-		/* for some reason, didn't read a valid json object */
+    /* for some reason, didn't read a valid json object */
+		printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
+			   "connection is being closed\n");
 		goto err_out0;
 	}
 
 	/**
 	 * following call, if successful, will dispatch to the
-	 * correct message handler
+	 * correct message handler, which will call into the correct
+	 * probe, which will usually result in a write to this socket.
+	 *
+	 * parse_json_message accepts responsibility for freeing
+	 * resources when it returns >= 0.fpu
 	 **/
 	ccode = parse_json_message(m);
 	if (ccode < 0) {
+		printk(KERN_INFO "kernel sensor error parsing a protocol message, " \
+			   "connection is being closed\n");
 		goto err_out0;
 	}
 
@@ -215,14 +250,17 @@ again:
 		/* do it all again */
  		init_and_queue_work(work, worker, k_read_write);
  	}
+	return;
 
 err_out0:
 	free_message(m);
-	goto err_out2;
 err_out1:
-	kfree(read_buf);
-err_out2:
-	sock_release(sock);
+	if (read_buf) kfree(read_buf);
+	spin_lock_irqsave(&k_sensor.lock, flags);
+	list_del_rcu(&connection->l_node);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
+	synchronize_rcu();
+	kfree(connection->_destroy(connection));
 	return;
 }
 
@@ -240,7 +278,7 @@ static void k_accept(struct kthread_work *work)
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 
 	sock = connection->connected;
-	if ((sock->ops->accept(sock, newsock, 0)) < 0) {
+	if ((sock->ops->SOCK_ACCEPT(sock, newsock, 0)) < 0) {
 		SHOULD_SHUTDOWN = 1;
 	}
 
@@ -300,11 +338,16 @@ err_exit:
 
 static inline void
 link_new_connection_work(struct connection *c,
+						 struct list_head *l,
 						 void (*f)(struct kthread_work *),
 						 uint8_t *d)
 {
+
 	if (!SHOULD_SHUTDOWN) {
-		llist_add(&c->l_node, &k_sensor.probes);
+		unsigned long flags;
+		spin_lock_irqsave(&k_sensor.lock, flags);
+		list_add_rcu(&c->l_node, l);
+		spin_unlock_irqrestore(&k_sensor.lock, flags);
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
 		CONT_INIT_WORKER(&c->worker);
@@ -313,11 +356,26 @@ link_new_connection_work(struct connection *c,
 	}
 }
 
+/**
+ * tear down the connection but don't free the connection
+ * memory. do free resources, struct sock.
+ **/
+static inline void *destroy_connection(struct connection *c)
+{
+	/* destroy the probe resources */
+	c->destroy((struct probe *)c);
+	if (c->connected) {
+		sock_release(c->connected);
+	}
+	memset(c, 0x00, sizeof(*c));
+	return c;
+}
 
 
 /**
  * return a newly initialized connnection struct,
  * socket will either be bound and listening, or
+
  * accepted and connected, according to flags
  **/
 struct connection *
@@ -336,6 +394,8 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
 	c->flags = flags;
+	c->_destroy = destroy_connection;
+
 	if (__FLAG_IS_SET(flags, PROBE_LISTEN)) {
 		/**
 		 * p is a pointer to a string holding the socket name
@@ -349,11 +409,14 @@ init_connection(struct connection *c, uint64_t flags, void *p)
         /**
 		 * the socket is now bound and listening, we don't want to block
 		 * here so schedule the accept to happen on a separate kernel thread.
-		 * first, link it to the kernel sensor list of probes, then schedule
+		 * first, link it to the kernel sensor list of connections, then schedule
 		 * it as work
 		 **/
 
-		link_new_connection_work(c, k_accept, "kcontrol accept");
+		link_new_connection_work(c,
+								 &k_sensor.listeners,
+								 k_accept,
+								 "kcontrol accept");
 
 
 	} else { /**
@@ -368,7 +431,10 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		printk(KERN_INFO "connected socket at %p\n", sock);
 		/** now we need to read and write messages **/
 
-		link_new_connection_work(c, k_read_write, "kcontrol read & write");
+		link_new_connection_work(c,
+								 &k_sensor.connections,
+								 k_read_write,
+								 "kcontrol read & write");
 	}
 	return c;
 
@@ -383,10 +449,8 @@ err_exit:
 
 static int __init socket_interface_init(void)
 {
-	DMSG();
-	INIT_LIST_HEAD(&h_sessions);
+	init_jsonl_parser();
 	init_connection(&listener, PROBE_LISTEN, socket_name);
-
 
 	return 0;
 }
@@ -397,10 +461,11 @@ static void __exit socket_interface_exit(void)
 
 	return;
 }
-
+#ifdef NOTHING
 module_init(socket_interface_init);
 module_exit(socket_interface_exit);
 
 MODULE_LICENSE(_MODULE_LICENSE);
 MODULE_AUTHOR(_MODULE_AUTHOR);
 MODULE_DESCRIPTION(_MODULE_INFO "interface");
+#endif

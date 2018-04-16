@@ -9,13 +9,14 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
+#include <linux/fdtable.h>
 #include <linux/cred.h>
 #include <linux/init.h>
 #include <linux/init_task.h>
 #include <linux/printk.h>
 #include <linux/spinlock.h>
 /*#include <trace/ftrace.h>*/
-#include <linux/llist.h>
+#include <linux/rculist.h>
 #include <linux/flex_array.h>
 #include <linux/net.h>
 #include <linux/socket.h>
