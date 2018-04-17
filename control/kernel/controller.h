@@ -444,15 +444,10 @@ struct lsof_pid_el
 
 #define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
-	uint64_t index, nonce;
+	uint64_t nonce;
+	int index;
 	kuid_t user_id;
 	pid_t pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
-	struct files_struct *files;
-	struct fdtable *files_table;
-	struct file *file;
-	unsigned int *fds;
-	struct path files_path;
-	struct fown_struct owner;
 	atomic_long_t count;
 	unsigned int flags;
 	fmode_t mode;

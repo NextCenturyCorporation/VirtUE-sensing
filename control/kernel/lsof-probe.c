@@ -86,10 +86,14 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 			if (klsof_p->nonce != nonce) {
 				break;
 			}
-			printk(KERN_INFO "%s uid: %d pid: %d %s\n",
+			printk(KERN_INFO "%s uid: %d pid: %d flags: %x "
+				   "mode: %x count: %lx %s \n",
 				   tag,
 				   klsof_p->user_id.val,
 				   klsof_p->pid_nr,
+				   klsof_p->flags,
+				   klsof_p->mode,
+				   atomic64_read(&klsof_p->count),
 				   klsof_p->dpath + klsof_p->dp_offset);
 		} else {
 			printk(KERN_INFO "array indexing error in print lsof\n");
@@ -105,8 +109,69 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 }
 
 
+/**
+ * caller holds a reference cont on struct task AND
+ * holds a lock on p->lock
+ **/
+int
+lsof_get_files_struct(struct kernel_lsof_probe *p,
+						  struct task_struct *t,
+						  int *start,
+						  uint64_t nonce)
+{
+	struct kernel_lsof_data klsofd;
+	int fd_index = 0;
+	struct files_struct *files;
+	struct file *file;
+	struct fdtable *files_table;
 
-struct task_struct *get_task_by_pid_number(pid_t pid)
+	files = t->files;
+
+	if(!files) {
+		/**
+		 * occasionally there will be a dead task_struct
+		 * due to timing issues.
+		 **/
+		printk(KERN_INFO "task has no files_struct: %d\n", t->pid);
+		return 0;
+	}
+
+	files_table = files_fdtable(files);
+	while(files_table && files_table->fd[fd_index]) {
+		file = get_file(files_table->fd[fd_index]);
+		klsofd.dp = d_path(&file->f_path,
+						   klsofd.dpath, MAX_DENTRY_LEN - 1);
+		klsofd.flags = file->f_flags;
+		klsofd.mode = file->f_mode;
+		/* don't include the probe in the count */
+		klsofd.count = file->f_count;
+		atomic_long_dec(&klsofd.count);
+		fput_atomic(file);
+		klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
+		klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
+		klsofd.user_id = task_uid(t);
+		klsofd.pid_nr = t->pid;
+		klsofd.nonce = nonce;
+		klsofd.index = *start;
+		if (*start <  LSOF_ARRAY_SIZE) {
+			flex_array_put(p->klsof_data_flex_array,
+						   *start,
+						   &klsofd,
+						   GFP_ATOMIC);
+			(*start)++;
+		} else {
+			printk(KERN_INFO "lsof flex array over-run\n");
+			return -ENOMEM;
+		}
+		fd_index++;
+	}
+	return 0;
+}
+
+
+
+struct task_struct *
+get_task_by_pid_number(pid_t pid)
 {
 	struct pid *p = NULL;
 	struct task_struct *ts = NULL;
@@ -118,9 +183,10 @@ struct task_struct *get_task_by_pid_number(pid_t pid)
 	return ts;
 }
 
-int lsof_for_each_pid(struct kernel_lsof_probe *p, uint64_t nonce)
+int
+lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 {
-	int index;
+	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
 	unsigned long flags;
 	struct lsof_pid_el *pid_el_p;
@@ -136,8 +202,10 @@ int lsof_for_each_pid(struct kernel_lsof_probe *p, uint64_t nonce)
 			}
 			task = get_task_by_pid_number(pid_el_p->pid);
 			if (task) {
-				printk(KERN_INFO "pid-index we have the task, pid: %d uid: %d\n",
-					   task->pid, task_uid(task).val);
+				ccode = lsof_get_files_struct(p,
+											  task,
+											  &file_index,
+											  nonce);
 				put_task_struct(task);
 			}
 		} else {
@@ -146,13 +214,14 @@ int lsof_for_each_pid(struct kernel_lsof_probe *p, uint64_t nonce)
 			return -ENOMEM;
 		}
 	}
-	return index;
 	spin_unlock_irqrestore(&p->lock, flags);
+	return file_index;
 }
 
 
 
-int lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
+int
+lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
 {
 	int index = 0;
 	struct task_struct *task;
@@ -176,112 +245,30 @@ int lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
 						   GFP_ATOMIC);
 			index++;
 		} else {
-			printk(KERN_INFO "lsof pid index array over-run\n");
+			printk(KERN_INFO "kernel-lsof pid index array over-run\n");
 			index = -ENOMEM;
 			task_unlock(task);
-			goto task_unlock_task;
+			goto unlock_out;
 		}
 
-	task_unlock_task:
 		task_unlock(task);
-		printk(KERN_INFO "pid-index: %d nonce %llx uid: %d pid %d\n",
+		printk(KERN_INFO "kernel-lsof pid-index built: %d nonce %llx uid: %d pid %d\n",
 			   index, pid_el.nonce, pid_el.uid.val, pid_el.pid);
-
 	}
+unlock_out:
 	spin_unlock_irqrestore(&p->lock, flags);
 
 	return index;
 }
 
 
-
 int
-kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce)
+kernel_lsof(struct kernel_lsof_probe *p, int c, uint64_t nonce)
 {
-	int index = 0, fd_index = 0;
-	struct task_struct *task;
-	static struct kernel_lsof_data klsofd;
-	static struct lsof_filter filter = {{0}, -1};
-
-	unsigned long flags;
-
-	if (!spin_trylock_irqsave(&parent->lock, flags)) {
-		return -EAGAIN;
-	}
-
-	rcu_read_lock();
-	for_each_process(task) {
-		task_lock(task);
-		filter.pid = task->pid;
-		klsofd.nonce = nonce;
-		klsofd.index = index;
-		klsofd.user_id = task_uid(task);
-		klsofd.pid_nr = task->pid;
-
-		if (parent->filter == lsof_pid_filter) {
-/**
- * TODO: pid is hard-coded to 1. Make it a configurable parameter
- *       as is, we only look for files opened by PID 1 (systemd)
- *       make it configurable via sysfs
- **/
-			static pid_t process_id = 1;
-			if (! lsof_pid_filter(parent, &klsofd, &process_id))
-				goto unlock_task;
-		} else if (parent->filter == lsof_uid_filter){
-/**
- * TODO: user id is hard-coded to 0. Make it a configurable parameter
- *       as is, we only look for files opened by root (uid 0)
- *       make it configurable via sysfs
- **/
-			kuid_t user_id = {0};
-
-			if (! lsof_uid_filter(parent, &klsofd, &user_id))
-				goto unlock_task;
-		} else {
-			if (! parent->filter(parent, &klsofd, NULL))
-				goto unlock_task;;
-		}
-
-		klsofd.files = task->files;
-
-		assert(klsofd.files);
-
-		klsofd.files_table = files_fdtable(klsofd.files);
-		while(klsofd.files_table != NULL &&
-			  klsofd.files_table->fd[fd_index] != NULL) {
-
-			klsofd.file = get_file(klsofd.files_table->fd[fd_index]);
-			klsofd.files_path = klsofd.files_table->fd[fd_index]->f_path;
-			klsofd.dp = d_path(&klsofd.files_path,
-							   klsofd.dpath, MAX_DENTRY_LEN - 1);
-
-			fput_atomic(klsofd.file);
-			klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
-			klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
-
-			if (index <  LSOF_ARRAY_SIZE) {
-				flex_array_put(parent->klsof_data_flex_array,
-							   index,
-							   &klsofd,
-							   GFP_ATOMIC);
-				index++;
-			} else {
-				printk(KERN_INFO "lsof flex array over-run\n");
-				index = -ENOMEM;
-				task_unlock(task);
-				goto unlock_out;
-			}
-			fd_index++;
-		}
-
-	unlock_task:
-		task_unlock(task);
-	}
-
-unlock_out:
-	rcu_read_unlock();
-	spin_unlock_irqrestore(&parent->lock, flags);
-	return index;
+	int count;
+	count = lsof_build_pid_index(p, nonce);
+	count = lsof_for_each_pid(p, count, nonce);
+	return count;
 }
 
 void
@@ -290,24 +277,11 @@ run_klsof_probe(struct kthread_work *work)
 	struct kthread_worker *co_worker = work->worker;
 	struct kernel_lsof_probe *probe_struct =
 		container_of(work, struct kernel_lsof_probe, work);
-	static int count;
+	int count = 0;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
 
-	count = lsof_build_pid_index(probe_struct, nonce);
-	count = lsof_for_each_pid(probe_struct, nonce);
-
-
-	return;
-
-     /**
-	 * if another process is reading the lsof flex_array, kernel_lsof
-	 * will return -EFAULT. therefore, reschedule and try again.
-	 */
-	probe_struct->lsof(probe_struct, count++, nonce);
-
-	if (SHOULD_SHUTDOWN)
-		return;
+	probe_struct->lsof(probe_struct, count, nonce);
 
 /**
  *  call print by default. But, in the future there will be other
