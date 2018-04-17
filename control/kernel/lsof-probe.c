@@ -118,6 +118,38 @@ struct task_struct *get_task_by_pid_number(pid_t pid)
 	return ts;
 }
 
+int lsof_for_each_pid(struct kernel_lsof_probe *p, uint64_t nonce)
+{
+	int index;
+	struct task_struct *task;
+	unsigned long flags;
+	struct lsof_pid_el *pid_el_p;
+
+	if (!spin_trylock_irqsave(&p->lock, flags)) {
+		return -EAGAIN;
+	}
+	for (index = 0; index < LSOF_PID_EL_ARRAY_SIZE; index++)  {
+		pid_el_p = flex_array_get(p->klsof_pid_flex_array, index);
+		if (pid_el_p) {
+			if (pid_el_p->nonce != nonce) {
+				break;
+			}
+			task = get_task_by_pid_number(pid_el_p->pid);
+			if (task) {
+				printk(KERN_INFO "pid-index we have the task, pid: %d uid: %d\n",
+					   task->pid, task_uid(task).val);
+				put_task_struct(task);
+			}
+		} else {
+			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
+			spin_unlock_irqrestore(&p->lock, flags);
+			return -ENOMEM;
+		}
+	}
+	return index;
+	spin_unlock_irqrestore(&p->lock, flags);
+}
+
 
 
 int lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
@@ -152,6 +184,8 @@ int lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
 
 	task_unlock_task:
 		task_unlock(task);
+		printk(KERN_INFO "pid-index: %d nonce %llx uid: %d pid %d\n",
+			   index, pid_el.nonce, pid_el.uid.val, pid_el.pid);
 
 	}
 	spin_unlock_irqrestore(&p->lock, flags);
@@ -259,7 +293,14 @@ run_klsof_probe(struct kthread_work *work)
 	static int count;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
-	/**
+
+	count = lsof_build_pid_index(probe_struct, nonce);
+	count = lsof_for_each_pid(probe_struct, nonce);
+
+
+	return;
+
+     /**
 	 * if another process is reading the lsof flex_array, kernel_lsof
 	 * will return -EFAULT. therefore, reschedule and try again.
 	 */
