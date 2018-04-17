@@ -19,7 +19,6 @@ import datetime
 from curio import sleep
 import asyncio
 import selectors
-import subprocess
 
 from scapy.all import * # sniff, rdpcap
 
