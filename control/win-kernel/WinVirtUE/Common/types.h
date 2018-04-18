@@ -41,25 +41,25 @@ typedef struct _WVUDeviceExtension
 } WVUDeviceExtension, *PWVUDeviceExtension;
 
 // Instance Flags
-typedef enum _InstanceFlags : LONG
+typedef enum _Enum_is_bitflag_ _InstanceFlags : LONG
 {
     InstanceFlagNetwork         = 1 << 0,   // Indicates instance is a Network Redirector
     InstanceFlagReadOnly        = 1 << 1,   // Indicates instance is a read only device
     InstanceFlagRemovableMedia  = 1 << 2    // Indicates instance is Removable Media
-} InstanceFlags;
+} _Enum_is_bitflag_ InstanceFlags;
 
 
 /*
 ** Shadow Object Type 
 */
-typedef enum _NodeTypeCode
+typedef enum _Enum_is_bitflag_ _NodeTypeCode
 {
     StreamContext       = 1 << 0,
     FileObjectContext   = 1 << 1,	
-} NodeTypeCode;
+} _Enum_is_bitflag_ NodeTypeCode;
 
 
-typedef enum _StreamFlags : LONG
+typedef enum _Enum_is_bitflag_ _StreamFlags : LONG
 {
     /*
     * No operation
@@ -92,7 +92,7 @@ typedef enum _StreamFlags : LONG
     */
     STREAM_FLAG_READONLY = 1 << 4,
 
-} StreamFlags, *PStreamFlags;
+} _Enum_is_bitflag_ StreamFlags, *PStreamFlags;
 
 
 //
