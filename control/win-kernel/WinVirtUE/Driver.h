@@ -7,6 +7,7 @@
 #pragma once
 #include "common.h"
 #include "PortMsgTrans.h"
+#include "WinVirtUE.h"
 #include "externs.h"
 
 #define DEVICE_TYPE_SHUTDOWN    0xDEADBEEF

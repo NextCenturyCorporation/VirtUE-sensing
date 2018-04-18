@@ -42,14 +42,6 @@ WVUMainThreadStart(PVOID  StartContext)
 		goto ErrorExit;
 	}
 
-	Status = PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx, FALSE);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_WVU_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx, FALSE) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-
 	Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -65,7 +57,6 @@ WVUMainThreadStart(PVOID  StartContext)
 		WVU_DEBUG_PRINT(LOG_WVU_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
 
 	WVU_DEBUG_PRINT(LOG_WVU_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
 #pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh

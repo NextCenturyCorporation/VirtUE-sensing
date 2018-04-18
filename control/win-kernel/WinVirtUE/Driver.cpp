@@ -101,9 +101,8 @@ DriverEntry(
 	OBJECT_ATTRIBUTES WVUThdObjAttr = { 0,0,0,0,0,0 };
 	OBJECT_ATTRIBUTES WVUPortObjAttr = { 0,0,0,0,0,0 };
 	PSECURITY_DESCRIPTOR pWVUPortSecDsc = NULL;
-#if MFS
 	HANDLE ThreadHandle = (HANDLE)-1;
-#endif
+
 	CLIENT_ID ClientId = { (HANDLE)-1,(HANDLE)-1 };
 	UNICODE_STRING usPortName = { 0,0,NULL };	
 
@@ -199,7 +198,7 @@ DriverEntry(
 		}
 	}
 
-#if MFS
+
 	InitializeObjectAttributes(&WVUThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
 	Status = PsCreateSystemThread(&ThreadHandle, GENERIC_ALL, &WVUThdObjAttr, NULL, &ClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
@@ -235,7 +234,6 @@ DriverEntry(
 		goto ErrorExit;
 		break;
 	}
-#endif
 
 	goto Exit;  // normal non-error return
 

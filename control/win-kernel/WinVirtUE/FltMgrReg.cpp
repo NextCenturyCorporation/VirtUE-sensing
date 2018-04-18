@@ -29,7 +29,7 @@ CONST FLT_REGISTRATION FilterRegistration = {
 #endif
 
     ContextRegistrationData,            //  ContextRegistration
-    NULL,                 //  Operation callbacks
+	OperationCallbacks,                 //  Operation callbacks
 
     (PFLT_FILTER_UNLOAD_CALLBACK)WVUUnload,                              //  MiniFilterUnload
 

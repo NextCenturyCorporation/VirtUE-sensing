@@ -7,15 +7,17 @@
 #include "FltMgrCallbacks.h"
 #define COMMON_POOL_TAG FLTMGR_OP_CALLBACK_POOL_TAG
 
+static ULONG_PTR OperationStatusCtx = 1;
+
+#pragma region Operation Registration Data
+
 //
 // The data below is all discardable and pageable.
 //
 
 #pragma data_seg( "INIT" )
 #pragma const_seg( "INIT" )
-
-static ULONG_PTR OperationStatusCtx = 1;
-
+ 
 //
 //  operation registration
 //
@@ -299,6 +301,8 @@ CONST FLT_OPERATION_REGISTRATION OperationCallbacks[] = {
 
 #pragma data_seg()
 #pragma const_seg()
+
+#pragma endregion
 
 /*************************************************************************
 MiniFilter callback routines.

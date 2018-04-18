@@ -6,7 +6,7 @@
 */
 #pragma once
 #include "common.h"
-
+#include "externs.h"
 
 /**
 ** Operation Callbacks
