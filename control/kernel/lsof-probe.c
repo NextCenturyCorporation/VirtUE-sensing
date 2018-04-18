@@ -232,8 +232,8 @@ lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
 		return -EAGAIN;
 	}
 
+	rcu_read_lock();
 	for_each_process(task) {
-		task_lock(task);
         pid_el.pid = task->pid;
 		pid_el.uid = task_uid(task);
 		pid_el.nonce = nonce;
@@ -250,11 +250,9 @@ lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
 			task_unlock(task);
 			goto unlock_out;
 		}
-
-		task_unlock(task);
-		printk(KERN_INFO "kernel-lsof pid-index built: %d nonce %llx uid: %d pid %d\n",
-			   index, pid_el.nonce, pid_el.uid.val, pid_el.pid);
 	}
+	rcu_read_unlock();
+
 unlock_out:
 	spin_unlock_irqrestore(&p->lock, flags);
 
