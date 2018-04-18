@@ -24,6 +24,7 @@
 #pragma warning( pop )
 
 #include "config.h"
+#include "trace.h"
 #include "CPPRuntime.h"
 #include "cmn_pool_tag.h"
 #include "types.h"
@@ -55,9 +56,6 @@
 #define MILLISECONDS( milli ) \
     (((signed __int64) (milli)) * MICROSECONDS(1000L))
 
-_When_((PoolType & NonPagedPoolMustSucceed) != 0,
-	__drv_reportError("Must succeed pool allocations are forbidden. "
-		"Allocation failures cause a system crash"))
 #define ALLOC_POOL(PoolType, Size) ExAllocatePoolWithTag(PoolType, Size, COMMON_POOL_TAG)
 #define FREE_POOL(Buffer)  ExFreePoolWithTag(Buffer, COMMON_POOL_TAG);
 
@@ -70,3 +68,5 @@ CONST ULONG ENCRYPT_PAGE_SIZE = 512;
 CONST LONGLONG FILE_ALLOCATION_NA = 0;
 /** When File Attributes are not used */
 CONST ULONG FILE_ATTRIBUTES_NA = 0;
+
+

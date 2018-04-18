@@ -181,6 +181,9 @@
     <ClCompile>
       <EnablePREfast>true</EnablePREfast>
       <PreprocessorDefinitions>POOL_NX_OPTIN=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WppEnabled>false</WppEnabled>
+      <WppRecorderEnabled>true</WppRecorderEnabled>
+      <WppScanConfigurationData>trace.h</WppScanConfigurationData>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -193,6 +196,9 @@
     </Inf>
     <ClCompile>
       <PreprocessorDefinitions>POOL_NX_OPTIN=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WppEnabled>false</WppEnabled>
+      <WppRecorderEnabled>true</WppRecorderEnabled>
+      <WppScanConfigurationData>trace.h</WppScanConfigurationData>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
@@ -239,6 +245,7 @@
     <ClInclude Include="ObjectCreateNotifyCB.h" />
     <ClInclude Include="RegistryModificationCB.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="trace.h" />
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="FltMgrReg.h" />
     <ClInclude Include="WinVirtUE.h" />

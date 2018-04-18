@@ -33,19 +33,19 @@ static NTSTATUS GetOsVersion()
 		goto Error;
 	}
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, INFO_LEVEL_ID, "******************************\n");
+	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "******************************\n");
 	// TODO:  Generate a proper version number
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, INFO_LEVEL_ID, "***** WinVirtUE.sys Version %d.%d.%d\n", 0, 1, 0);
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, INFO_LEVEL_ID, "***** Windows Version %u.%u.%u Service Pack %u.%u\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** WinVirtUE.sys Version %d.%d.%d\n", 0, 1, 0);
+	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Windows Version %u.%u.%u Service Pack %u.%u\n",
 		Globals.lpVersionInformation.dwMajorVersion, Globals.lpVersionInformation.dwMinorVersion, Globals.lpVersionInformation.dwBuildNumber,
 		Globals.lpVersionInformation.wServicePackMajor, Globals.lpVersionInformation.wServicePackMinor);
 
 	if (Globals.lpVersionInformation.szCSDVersion[0] != (TCHAR)0)
 	{
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, INFO_LEVEL_ID, "***** Service Pack: %ws\n", Globals.lpVersionInformation.szCSDVersion);
+		WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Service Pack: %ws\n", Globals.lpVersionInformation.szCSDVersion);
 	}
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, INFO_LEVEL_ID, "******************************\n");
+	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "******************************\n");
 Error:
 	return Status;
 }
@@ -114,11 +114,11 @@ DriverEntry(
 
 	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 
 	CallGlobalInitializers();
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "CallGlobalInitializers() Completed!\n");
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "CallGlobalInitializers() Completed!\n");
 
 	// initialize the waiter.  Once the WVUThreadStart gets to the end of its
 	// intialization, it will signal and wait simultaneously.  It will continue
@@ -126,13 +126,13 @@ DriverEntry(
 	// continues the objects created will have their destructors called.
 	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
 
 	//  Register with FltMgr to tell it our callback routines
 	Status = FltRegisterFilter(DriverObject, &FilterRegistration, &Globals.FilterHandle);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, ERROR_LEVEL_ID, "FltRegisterFilter() FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltRegisterFilter() FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -141,7 +141,7 @@ DriverEntry(
 	Status = GetOsVersion();
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, WARNING_LEVEL_ID, "RtlGetVersion Failed! Status=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "RtlGetVersion Failed! Status=%08x\n", Status);
 	}
 
 	//
@@ -186,14 +186,14 @@ DriverEntry(
 			Status = FltStartFiltering(Globals.FilterHandle);
 			if (FALSE == NT_SUCCESS(Status))
 			{
-				WVU_DEBUG_PRINT(LOG_WVU_MAIN, ERROR_LEVEL_ID, "FltStartFiltering() Failed! - FAIL=%08x\n", Status);
+				WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltStartFiltering() Failed! - FAIL=%08x\n", Status);
 				FltUnregisterFilter(Globals.FilterHandle);
 				goto ErrorExit;
 			}
 		}
 		else
 		{
-			WVU_DEBUG_PRINT(LOG_WVU_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
+			WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
 			goto ErrorExit;
 		}
 	}
@@ -204,11 +204,11 @@ DriverEntry(
 	Status = PsCreateSystemThread(&ThreadHandle, GENERIC_ALL, &WVUThdObjAttr, NULL, &ClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created system thread %p process %p thread id %p\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created system thread %p process %p thread id %p\n",
 		ThreadHandle, ClientId.UniqueProcess, ClientId.UniqueThread);
 
 	LARGE_INTEGER timeout;
@@ -216,21 +216,21 @@ DriverEntry(
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_WVU_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed! Status=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
 	switch (Status)
 	{
 	case STATUS_SUCCESS:
-		WVU_DEBUG_PRINT(LOG_WVU_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Returned SUCCESS\n");
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Returned SUCCESS\n");
 		break;
 	case STATUS_TIMEOUT:
-		WVU_DEBUG_PRINT(LOG_WVU_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Timed Out\n");
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Timed Out\n");
 		Status = STATUS_TIMEOUT;
 		goto ErrorExit;
 		break;
 	default:
-		WVU_DEBUG_PRINT(LOG_WVU_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Received Status=0x%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Received Status=0x%08x\n", Status);
 		goto ErrorExit;
 		break;
 	}

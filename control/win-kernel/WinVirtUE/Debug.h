@@ -21,22 +21,22 @@
 #define DPFLTR_MASK         0x80000000
 
 /* Module IDs */
-#define LOG_NONE                (1 << 0)
-#define LOG_UTIL                (1 << 1)
-#define LOG_CTX                 (1 << 2)
-#define LOG_WVU_MAIN            (1 << 3)
-#define LOG_CRYPTO              (1 << 4)
-#define LOG_REGISTRY            (1 << 5)
-#define LOG_FLT_MGR             (1 << 6)
-#define LOG_CACHE               (1 << 7)
-#define LOG_FILE_OP             (1 << 8)
-#define LOG_FILE_CREATE         (1 << 9)
-#define LOG_NOTIFY_PROCS        (1 << 10)
-#define LOG_WVU_MAINTHREAD      (1 << 11)
-#define LOG_WVU_CONTAINER       (1 << 12)
-#define LOG_WVU_IOCTL           (1 << 13)
-#define LOG_WVU_PROCESS         (1 << 14)
-#define LOG_WVU_OP_CALLBACKS    (1 << 15)
+#define LOG_NONE            (1 << 0)
+#define LOG_UTIL            (1 << 1)
+#define LOG_CTX             (1 << 2)
+#define LOG_MAIN            (1 << 3)
+#define LOG_CRYPTO          (1 << 4)
+#define LOG_REGISTRY        (1 << 5)
+#define LOG_FLT_MGR         (1 << 6)
+#define LOG_CACHE           (1 << 7)
+#define LOG_FILE_OP         (1 << 8)
+#define LOG_FILE_CREATE     (1 << 9)
+#define LOG_NOTIFY_PROCS    (1 << 10)
+#define LOG_MAINTHREAD		(1 << 11)
+#define LOG_CONTAINER		(1 << 12)
+#define LOG_IOCTL           (1 << 13)
+#define LOG_PROCESS         (1 << 14)
+#define LOG_OP_CALLBACKS    (1 << 15)
 
 /*
 * These are meant to be used when you want to see the logs

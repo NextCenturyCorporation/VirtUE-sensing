@@ -32,7 +32,7 @@ NTSTATUS FLTAPI WVUPortConnect(
 	UNREFERENCED_PARAMETER(SizeOfContext);
 	*ConnectionPortCookie = (PVOID)Globals.DriverObject;
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.UserProcess, Globals.ClientPort);
 
 	return Status;
@@ -51,7 +51,7 @@ VOID FLTAPI WVUPortDisconnect(
 {
 	UNREFERENCED_PARAMETER(ConnectionCookie);
 
-	WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "Port Disconnected - Port 0x%p!\n", Globals.ClientPort);
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Disconnected - Port 0x%p!\n", Globals.ClientPort);
 	// close our handle to the connection 
 	FltCloseClientPort(Globals.FilterHandle, &Globals.ClientPort);
 
@@ -81,12 +81,12 @@ NTSTATUS OnProtectionStateChange(
 	case WVU_COMMAND::WVUDisableProtection:
 		Globals.EnableProtection = FALSE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
 		break;
 	case WVU_COMMAND::WVUEnableProtection:
 		Globals.EnableProtection = TRUE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
 		break;
 	default:
 	case WVU_COMMAND::WVUDisableUnload:
@@ -118,14 +118,14 @@ NTSTATUS OnUnloadStateChange(
 		Globals.DriverObject->DriverUnload = NULL;
 		Globals.AllowFilterUnload = FALSE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Disabled!\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Disabled!\n");
 		break;
 	case WVU_COMMAND::WVUEnableUnload:
 #pragma warning(suppress: 28175)
 		Globals.DriverObject->DriverUnload = DriverUnload;
 		Globals.AllowFilterUnload = TRUE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_WVU_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Enabled!\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Enabled!\n");
 		break;
 	default:
 	case WVU_COMMAND::NOCOMMAND:

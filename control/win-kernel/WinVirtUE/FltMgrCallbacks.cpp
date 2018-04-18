@@ -331,7 +331,7 @@ WinVirtUEPreOperation(
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
-	WVU_DEBUG_PRINT(LOG_WVU_OP_CALLBACKS, TRACE_LEVEL_ID,
+	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEPreOperation: Entered\n");
 
 	//
@@ -349,7 +349,7 @@ WinVirtUEPreOperation(
 			WinVirtUEOperationStatusCallback,
 			(PVOID)(++OperationStatusCtx));
 		if (!NT_SUCCESS(status)) {
-			WVU_DEBUG_PRINT(LOG_WVU_OP_CALLBACKS, TRACE_LEVEL_ID,
+			WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 				"WinVirtUE!WinVirtUEPreOperation: FltRequestOperationStatusCallback Failed, status=%08x\n",
 					status);
 		}
@@ -388,10 +388,10 @@ WinVirtUEOperationStatusCallback(
 {
 	UNREFERENCED_PARAMETER(FltObjects);
 
-	WVU_DEBUG_PRINT(LOG_WVU_OP_CALLBACKS, TRACE_LEVEL_ID,
+	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEOperationStatusCallback: Entered\n");
 
-	WVU_DEBUG_PRINT(LOG_WVU_OP_CALLBACKS, TRACE_LEVEL_ID,
+	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEOperationStatusCallback: Status=%08x ctx=%p IrpMj=%02x.%02x \"%s\"\n",
 			OperationStatus,
 			RequesterContext,
@@ -424,7 +424,7 @@ WinVirtUEPostOperation(
 	UNREFERENCED_PARAMETER(CompletionContext);
 	UNREFERENCED_PARAMETER(Flags);
 
-	WVU_DEBUG_PRINT(LOG_WVU_OP_CALLBACKS, TRACE_LEVEL_ID,
+	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEPostOperation: Entered\n");
 
 	return FLT_POSTOP_FINISHED_PROCESSING;
@@ -451,7 +451,7 @@ WinVirtUEPreOperationNoPostOperation(
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
-	WVU_DEBUG_PRINT(LOG_WVU_OP_CALLBACKS, TRACE_LEVEL_ID,	
+	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,	
 		"WinVirtUE!WinVirtUEPreOperationNoPostOperation: Entered\n");
 
 	return FLT_PREOP_SUCCESS_NO_CALLBACK;
