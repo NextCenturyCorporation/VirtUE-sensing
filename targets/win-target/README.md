@@ -42,6 +42,8 @@ bin\windows-build.bat
 
 4. Registry Modification
 
+5. Security Log
+
 # Sensor Research Ideas
 0.Look at recent AV patent filings for inspiration.  (Thanks Matt!) and look at Volitility and how it analyzes memory and etc.
 
@@ -61,4 +63,14 @@ bin\windows-build.bat
 
 8. Analyze VAD tree, XOrderModuleList, and E/IAT to look for hidden modules and other inconsistencies.
 
+9. TCP/IP Port Utilization by Process
 
+10. Explorer/edge webview DLL usage (embedded web)
+
+11. audio/microphone/video taps.  Includes mixers, filters and etc?
+
+12. Samba mounts/activity  (all volume mount/dismount)
+
+13. tool/software installation (MSI tracking). How to detect an xcopy style installation?  Perhaps:  If a .exe is copied, and does not track to a formal install then flag this as an xcopy install?  Might need additional checks?
+
+14. Device installation/removal 
