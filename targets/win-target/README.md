@@ -32,3 +32,33 @@ bin\windows-build.bat
 8. After the prerequisites are installed, then the build script will create target environment almost completely modeled on the Linux model.  Since there is no docker container running, sensor installation is handled statically.
 9. The last notable step to occur is the executable of the tasklist sensor.  This sensor is based (loosely) on the lsof dummy sensor.  It does not function, it merely starts up, and attempts repeatedly to connect to api services.
 10. After spending 30 seconds or so failing to connect to the API, the dummy sensor will terminate.
+
+# Basic Windows Sensors
+1. Process Creation and Destruction.  
+
+2. Module load (and optional signature analysis)
+
+3. Threads creation and destruction
+
+4. Registry Modification
+
+# Sensor Research Ideas
+0.Look at recent AV patent filings for inspiration.  (Thanks Matt!) and look at Volitility and how it analyzes memory and etc.
+
+1. Analyze driver object utilzation in an effort to determine if any are used in the driver object clone style attack.   This attack has been used for creating keyloggers that have not beeen easily detected by the PatchGuard and AV's.
+
+2. Analyze thread creation parameters.  If a thread entry start address falls outside of known module addresses, then notify possible thread injection attack.  This should be doable for both kernel and user modules(dll's).
+
+3. Analyze module loading to notify if unusual pathing or unsigned dll's/modules are loaded in a process.  
+
+4. Notify when alternate file streams are utilized
+
+5. Notify when system files are modified (or an attempt is made) when installation/updates are not running
+
+6. Notify when unsigned WSH files are loaded (powershell, active state, etc)
+
+7. Monitor registry keys associated with loading dll's. 
+
+8. Analyze VAD tree, XOrderModuleList, and E/IAT to look for hidden modules and other inconsistencies.
+
+
