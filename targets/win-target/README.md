@@ -63,7 +63,7 @@ bin\windows-build.bat
 
 8. Analyze VAD tree, XOrderModuleList, and E/IAT to look for hidden modules and other inconsistencies.
 
-9. TCP/IP Port Utilization by Process
+9. TCP/IP Port Utilization by Process.  Track when/which processes bind to ports
 
 10. Explorer/edge webview DLL usage (embedded web)
 
@@ -74,3 +74,7 @@ bin\windows-build.bat
 13. tool/software installation (MSI tracking). How to detect an xcopy style installation?  Perhaps:  If a .exe is copied, and does not track to a formal install then flag this as an xcopy install?  Might need additional checks?
 
 14. Device installation/removal 
+
+15. policy vs probe - that a probe is active for a specific 'thing' should be different from the policy.  Perhaps we are only interested in the last 'n' things, making that 'n' a policy statement that can be sent down by configuration?
+
+16. Create a network filter driver that can view each net connection, downloads, URL's, and etc. Timestamp these events for proper correlation on module loads, process creations and etc.
