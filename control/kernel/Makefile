@@ -2,7 +2,8 @@ SHELL := /bin/bash
 MY_CCFLAGS += -std=gnu99 -fms-extensions
 ccflags-y += ${MY_CCFLAGS}
 obj-m += controller.o
-controller-y := controller-common.o controller-interface.o lsof-probe.o jsmn/jsmn.o
+controller-y := controller-common.o controller-interface.o lsof-probe.o \
+	jsmn/jsmn.o sysfs-probe.o
 
 .PHONY: uname
 uname:

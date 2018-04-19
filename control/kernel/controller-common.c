@@ -33,20 +33,27 @@ EXPORT_SYMBOL(listener);
 
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
+struct kernel_sysfs_probe sysfs_probe;
 
-unsigned int lsof_repeat = 1;
-unsigned int lsof_timeout = 1;
-unsigned int lsof_level = 1;
+int lsof_repeat = 1;
+int lsof_timeout = 1;
+int lsof_level = 1;
 
-static unsigned int ps_repeat = 1;
-static unsigned int ps_timeout = 1;
-static unsigned int ps_level = 1;
+int ps_repeat = 1;
+int ps_timeout = 1;
+int ps_level = 1;
+
+int sysfs_repeat = 1;
+int sysfs_timeout = 1;
+int sysfs_level = 1;
+
+
 
 char *socket_name = "/var/run/kernel_sensor";
 
-module_param(lsof_repeat, uint, 0644);
-module_param(lsof_timeout, uint, 0644);
-module_param(lsof_level, uint, 0644);
+module_param(lsof_repeat, int, 0644);
+module_param(lsof_timeout, int, 0644);
+module_param(lsof_level, int, 0644);
 
 MODULE_PARM_DESC(lsof_repeat, "How many times to run the kernel lsof function");
 MODULE_PARM_DESC(lsof_timeout,
@@ -54,15 +61,29 @@ MODULE_PARM_DESC(lsof_timeout,
 				 "lsof function");
 MODULE_PARM_DESC(lsof_level, "How invasively to probe open files");
 
-module_param(ps_repeat, uint, 0644);
-module_param(ps_timeout, uint, 0644);
-module_param(ps_level, uint, 0644);
+module_param(ps_repeat, int, 0644);
+module_param(ps_timeout, int, 0644);
+module_param(ps_level, int, 0644);
 
 MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
 MODULE_PARM_DESC(ps_timeout,
 				 "How many seconds to sleep in between calls to the kernel " \
 				 "ps function");
 MODULE_PARM_DESC(ps_level, "How invasively to probe processes");
+
+
+module_param(sysfs_repeat, int, 0644);
+module_param(sysfs_timeout, int, 0644);
+module_param(sysfs_level, int, 0644);
+
+MODULE_PARM_DESC(sysfs_repeat, "How many times to run the kernel sysfs function");
+MODULE_PARM_DESC(sysfs_timeout,
+				 "How many seconds to sleep in between calls to the kernel " \
+				 "sysfs function");
+MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
+
+
+
 
 module_param(socket_name, charp, 0644);
 

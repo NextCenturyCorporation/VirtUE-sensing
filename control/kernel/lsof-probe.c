@@ -309,7 +309,6 @@ destroy_kernel_lsof_probe(struct probe *probe)
 		destroy_probe(probe);
 	}
 
-
 	if (lsof_p->klsof_pid_flex_array) {
 		flex_array_free(lsof_p->klsof_pid_flex_array);
 	}
