@@ -89,6 +89,20 @@ module_param(socket_name, charp, 0644);
 
 
 
+struct task_struct *
+get_task_by_pid_number(pid_t pid)
+{
+	struct pid *p = NULL;
+	struct task_struct *ts = NULL;
+	p = find_get_pid(pid);
+	if (p) {
+		ts = get_pid_task(p, PIDTYPE_PID);
+	}
+
+	return ts;
+}
+
+
 int
 build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
 {

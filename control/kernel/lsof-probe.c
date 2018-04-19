@@ -169,20 +169,6 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 }
 
 
-
-struct task_struct *
-get_task_by_pid_number(pid_t pid)
-{
-	struct pid *p = NULL;
-	struct task_struct *ts = NULL;
-	p = find_get_pid(pid);
-	if (p) {
-		ts = get_pid_task(p, PIDTYPE_PID);
-	}
-
-	return ts;
-}
-
 int
 lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 {
