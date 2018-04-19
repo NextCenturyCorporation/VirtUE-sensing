@@ -78,3 +78,5 @@ bin\windows-build.bat
 15. policy vs probe - that a probe is active for a specific 'thing' should be different from the policy.  Perhaps we are only interested in the last 'n' things, making that 'n' a policy statement that can be sent down by configuration?
 
 16. Create a network filter driver that can view each net connection, downloads, URL's, and etc. Timestamp these events for proper correlation on module loads, process creations and etc.
+
+17. Monitor the creation/modification of win32 and driver shims through the various shim databases (.sdb).  This is another used, but rather obscure, user attack vector.
