@@ -206,7 +206,7 @@ def _handle_nfs3_rename( rpc_call, rpc_reply ):
     return ( info_level,
              { "proto"   : "nfs",
                "command" : "rename",
-               "path"    : str( path ),
+               "path"    : str( from_name ),
                "who"     : state.get_auth_str(rpc_call),
                "status"  : str( rpc_reply.nfs_status ),
                "target"  : to_name } )

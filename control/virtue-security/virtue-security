@@ -4215,7 +4215,10 @@ async def api_inspect(opts):
     :return:
     """
 
-    if opts.var_virtue is not None and opts.var_username is not None:
+    if opts.all_sensors:
+        full_uri = construct_api_uri(opts, "/sensors/all/inspect")
+
+    elif opts.var_virtue is not None and opts.var_username is not None:
         full_uri = construct_api_uri(opts, "/resource/virtue/%s/user/%s/inspect" % (opts.var_virtue, opts.var_username))
 
     elif opts.var_virtue is not None:
@@ -4348,7 +4351,10 @@ async def api_stream(opts):
 
     full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
 
-    if opts.var_username is not None:
+    if opts.all_sensors:
+        full_uri = construct_api_uri(opts, "/sensors/all/stream")
+
+    elif opts.var_username is not None:
         full_uri = construct_api_uri(opts, "/user/%s/stream" % (opts.var_username,))
 
     elif opts.var_sensor is not None:
@@ -4472,6 +4478,8 @@ def options():
     parser.add_argument("--sensor-id", dest="var_sensor", default=None, help="Sensor ID")
     parser.add_argument("--username", dest="var_username", default=None, help="Virtue Username")
     parser.add_argument("--address", dest="var_address", default=None, help="Virtue Address")
+
+    parser.add_argument("--all-sensors", dest="all_sensors", default=False, action="store_true", help="Target all sensors")
 
     # sensor control states
     parser.add_argument("--level", dest="observation_level", default="off", help="Observation level")

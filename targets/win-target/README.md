@@ -1,28 +1,30 @@
-Windows Sensors - Dummy Sensor Installation and Run Instructions
+Windows Sensors - Windows User Space Sensor Installation and Run Instructions
 Mark Sanderson
 mark.sanderson@twosixlabs.com
 
 # Differences And Caveats
+
 ## Docker Issues
 For now, Docker *will not* be used to containerize the Windows Sensors.  The Windows 10 Docker product is still fairly immature, and it is not clear if we'll be able to take advantage of it's functionality in the future.  There were a number of issues including random virtual network malfunctions and etc that prevented Docker from being useful.
-## Cert Directory
-The certs directory keys are now populated properly using RSA from pycryptodome library. 
+
 ## curio
 curio 0.9 appears to be comptable (at least partially) with windows.  This will be proven out as time goes on.
 
-# Building and running the Windows Dummy Sensor
+# Bootstrap a Windows 2016 Server AWS Instance
+1) With an AWS instance in an RDP window ready to boot strap open the .\savior\bin\bootstrap.ps1 and follow the instructions at the top of the file.
+2) Executing this powershell file will install git and python 2.7.x which is required for installing the rest of the system.
 
-1. Ensure that you have a virtual machine running Windows 10 x64 w/git for windows installed.
+# Building Windows Sensors From Scratch
+1. Ensure that you have a virtual machine running Windows 10 x64 w/git for windows and python 2.7 installed.
 2. Log on to the windows 10 target, and clone this respository.
-3. Switch the branch to 'enh-create-win10-dummy-sensor':
 ```Cmd
-git checkout enh-win10-basic-sensors
+git checkout master
 ```
-4. from the savior subdirectory on the virtual machine execute the sensor installation/staging script
+3. from the savior subdirectory on the virtual machine execute the sensor installation/staging script
 ```Cmd
-c:\python27\python bin\install_sensors.py
+c:\Python-2.7.14\python.exe bin\install_sensors.py
 ```
-5. From the same savior directory execute windows build batch file:
+4. From the same savior directory execute windows build batch file:
 ```Cmd
 bin\windows-build.bat
 ```
@@ -30,8 +32,25 @@ bin\windows-build.bat
 6. Python 3.6.4 will be installed next, and you will need to be there to click through some of the UAC and python installation menu prompts.  The choices should be obvious, let me know if there is something unexpected in the installer prompting.
 7. Python requirements will be installed after the the python installer exits.  There are at least one required python packages that require the VS build enviornment, notably the http package.
 8. After the prerequisites are installed, then the build script will create target environment almost completely modeled on the Linux model.  Since there is no docker container running, sensor installation is handled statically.
-9. The last notable step to occur is the executable of the tasklist sensor.  This sensor is based (loosely) on the lsof dummy sensor.  It does not function, it merely starts up, and attempts repeatedly to connect to api services.
-10. After spending 30 seconds or so failing to connect to the API, the dummy sensor will terminate.
+
+# Updating Sensors (If Required)
+1. Stop all sensors by killing all their running windows
+2. From the .\savior directory, pull all changes
+```Cmd
+git pull -v
+```
+3. Execute the windows update script
+```Cmd
+bin\windows-update.bat
+```
+
+# Running All Sensors
+1. Ensure that no sensors are running.  
+2. Run all sensors from the command line:
+```Cmd
+bin\run-all.bat
+```
+3. All three sensors, processlist, tasklist and handlelist sensors should start in their own minimized window.
 
 # Basic Windows Sensors
 1. Process Creation and Destruction.  
@@ -57,7 +76,7 @@ bin\windows-build.bat
 
 5. Notify when system files are modified (or an attempt is made) when installation/updates are not running
 
-6. Notify when unsigned WSH files are loaded (powershell, active state, etc)
+6. Notify when unsigned WSH files are loaded (powershell, active state, et)
 
 7. Monitor registry keys associated with loading dll's. 
 
@@ -79,4 +98,6 @@ bin\windows-build.bat
 
 16. Create a network filter driver that can view each net connection, downloads, URL's, and etc. Timestamp these events for proper correlation on module loads, process creations and etc.
 
-17. Monitor the creation/modification of win32 and driver shims through the various shim databases (.sdb).  This is another used, but rather obscure, user attack vector.
+17. Monitor the creation/modification of win32 and driver shims through the various shim databases (.sdb).  This is another used, but rather obscure, user attack vector. 
+Win32 Shim Information: https://www.geoffchappell.com/studies/windows/win32/apphelp/sdb/index.htm?tx=54 
+Kernel Shim Information: https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/kshim/drvmain.htm?tx=52,53,56,59,67&ts=0,1555

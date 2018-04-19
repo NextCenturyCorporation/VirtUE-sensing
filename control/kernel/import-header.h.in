@@ -1,0 +1,9 @@
+#ifndef __IMPORT_HEADER_
+#define __IMPORT_HEADER_
+
+IMPORT_SYMBOL_PROLOGUE
+
+IMPORT_SYMBOL(get_files_struct);
+IMPORT_SYMBOL(put_files_struct);
+
+#endif /* __IMPORT_HEADER_ */

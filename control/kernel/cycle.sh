@@ -1,19 +1,20 @@
+
+
+
 #!/bin/bash
 
-make clean; make all
-sudo insmod ./controller.ko ps_repeat=1 ps_timeout=1
+make rebuild
+sudo insmod ./controller.ko ps_repeat=1 ps_timeout=1 ps_level=2 lsof_level=2 \
+     lsof_repeat=1 lsof_timeout=1
 read -n 1 -s -r -p "Press any key to continue"
 echo ""
 
-sudo insmod ./controller-interface.ko
+sudo dmesg | grep -i "lsof"
 read -n 1 -s -r -p "Press any key to continue"
 echo ""
-
-#sudo cat /var/log/messages | grep kernel-ps
-sudo dmesg | grep kernel-ps
+sudo dmesg | grep -i "kernel-ps"
 sudo lsmod | grep controller
-echo ""
-read -n 1 -s -r -p "Press any key to continue"
-echo ""
-sudo rmmod controller_interface
+echo "unloading..."
 sudo rmmod controller
+sudo lsmod | grep controller
+

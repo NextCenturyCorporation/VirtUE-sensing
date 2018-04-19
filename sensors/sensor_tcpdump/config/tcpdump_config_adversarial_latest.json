@@ -1,0 +1,4 @@
+{
+  "args": "-i any -n -XX",
+  "repeat-interval": 5
+}
