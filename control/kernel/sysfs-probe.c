@@ -81,7 +81,7 @@ run_sysfs_probe(struct kthread_work *work)
 }
 
 void *
-destroy_kernel_sysfs_probe(struct probe *probe)
+destroy_sysfs_probe(struct probe *probe)
 {
 	struct kernel_sysfs_probe *sysfs_p = (struct kernel_sysfs_probe *)probe;
 	assert(sysfs_p && __FLAG_IS_SET(sysfs_p->flags, PROBE_KSYSFS));

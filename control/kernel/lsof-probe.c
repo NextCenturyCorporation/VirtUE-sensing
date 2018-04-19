@@ -194,7 +194,7 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 	if (!spin_trylock_irqsave(&p->lock, flags)) {
 		return -EAGAIN;
 	}
-	for (index = 0; index < LSOF_PID_EL_ARRAY_SIZE; index++)  {
+	for (index = 0; index < PID_EL_ARRAY_SIZE; index++)  {
 		pid_el_p = flex_array_get(p->klsof_pid_flex_array, index);
 		if (pid_el_p) {
 			if (pid_el_p->nonce != nonce) {
@@ -223,40 +223,7 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 int
 lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
 {
-	int index = 0;
-	struct task_struct *task;
-	unsigned long flags;
-	static struct lsof_pid_el pid_el;
-
-	if (!spin_trylock_irqsave(&p->lock, flags)) {
-		return -EAGAIN;
-	}
-
-	rcu_read_lock();
-	for_each_process(task) {
-        pid_el.pid = task->pid;
-		pid_el.uid = task_uid(task);
-		pid_el.nonce = nonce;
-
-		if (index <  LSOF_PID_EL_ARRAY_SIZE) {
-			flex_array_put(p->klsof_pid_flex_array,
-						   index,
-						   &pid_el,
-						   GFP_ATOMIC);
-			index++;
-		} else {
-			printk(KERN_INFO "kernel-lsof pid index array over-run\n");
-			index = -ENOMEM;
-			task_unlock(task);
-			goto unlock_out;
-		}
-	}
-	rcu_read_unlock();
-
-unlock_out:
-	spin_unlock_irqrestore(&p->lock, flags);
-
-	return index;
+	return build_pid_index((struct probe *)p, p->klsof_pid_flex_array, nonce);
 }
 
 
@@ -386,14 +353,14 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	}
 
 	lsof_p->klsof_pid_flex_array =
-		flex_array_alloc(LSOF_PID_EL_SIZE, LSOF_PID_EL_ARRAY_SIZE, GFP_KERNEL);
+		flex_array_alloc(PID_EL_SIZE, PID_EL_ARRAY_SIZE, GFP_KERNEL);
 	if (!lsof_p->klsof_pid_flex_array) {
 		ccode = -ENOMEM;
 		goto err_free_flex_array;
 	}
 
 	ccode = flex_array_prealloc(lsof_p->klsof_pid_flex_array, 0,
-								LSOF_PID_EL_ARRAY_SIZE,
+								PID_EL_ARRAY_SIZE,
 								GFP_KERNEL | __GFP_ZERO);
 	if(ccode) {
 		/* ccode will be zero for success, -ENOMEM otherwise */

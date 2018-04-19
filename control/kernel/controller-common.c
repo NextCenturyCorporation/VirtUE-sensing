@@ -89,6 +89,49 @@ module_param(socket_name, charp, 0644);
 
 
 
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
+{
+	int index = 0;
+	struct task_struct *task;
+	unsigned long flags;
+	static pid_el pel;
+
+	if (!spin_trylock_irqsave(&p->lock, flags)) {
+		return -EAGAIN;
+	}
+
+	rcu_read_lock();
+	for_each_process(task) {
+        pel.pid = task->pid;
+		pel.uid = task_uid(task);
+		pel.nonce = nonce;
+
+		if (index <  PID_EL_ARRAY_SIZE) {
+			flex_array_put(a,
+						   index,
+						   &pel,
+						   GFP_ATOMIC);
+			index++;
+		} else {
+			printk(KERN_INFO "kernel pid index array over-run\n");
+			index = -ENOMEM;
+			goto unlock_out;
+		}
+	}
+	rcu_read_unlock();
+
+unlock_out:
+	spin_unlock_irqrestore(&p->lock, flags);
+
+	return index;
+
+}
+
+
+
+
+
 /**
  * The discovery buffer needs to be a formatted as a JSON array,
  * with each probe's ID string as an element in the array.

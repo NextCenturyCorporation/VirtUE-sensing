@@ -430,6 +430,12 @@ struct lsof_pid_el
 	struct task_struct *t;
 };
 
+typedef struct lsof_pid_el pid_el;
+
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonc);
+
+
 /**
  * see include/linux/flex_array.h for the definitions of
  * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
@@ -437,10 +443,10 @@ struct lsof_pid_el
  * pre allocate a flex_array with too many elements
  **/
 
-#define LSOF_PID_EL_SIZE sizeof(struct lsof_pid_el)
-#define LSOF_PID_APPARENT_ARRAY_SIZE \
-	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_PID_EL_SIZE) * (FLEX_ARRAY_NR_BASE_PTRS))
-#define LSOF_PID_EL_ARRAY_SIZE ((LSOF_PID_APPARENT_ARRAY_SIZE) - 1)
+#define PID_EL_SIZE sizeof(pid_el)
+#define PID_APPARENT_ARRAY_SIZE \
+	(FLEX_ARRAY_ELEMENTS_PER_PART(PID_EL_SIZE) * (FLEX_ARRAY_NR_BASE_PTRS))
+#define PID_EL_ARRAY_SIZE ((PID_APPARENT_ARRAY_SIZE) - 1)
 
 #define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
