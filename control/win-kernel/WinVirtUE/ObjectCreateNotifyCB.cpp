@@ -8,7 +8,12 @@
 
 /**
 * @brief - Process Notification Callback.
-* @note currently this is just a 'filler' function - more to follow!
+* @note The operating system calls the driver's process-notify routine 
+* at PASSIVE_LEVEL inside a critical region with normal kernel APCs disabled.
+* When a process is created, the process-notify routine runs in the context 
+* of the thread that created the new process. When a process is deleted, the 
+* process-notify routine runs in the context of the last thread to exit from 
+* the process.
 * @param Process  - a pointer to the new processes EPROCESS structure
 * @param ProcessId  - the new processes process id
 * @param CreateInfo  - provides information about a newly created process
@@ -28,13 +33,13 @@ ProcessNotifyCallbackEx(
     
     if (CreateInfo) 
     {    
-        WVU_DEBUG_PRINT(LOG_NOTIFY_PROCS, TRACE_LEVEL_ID,
+        WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
             "***** Process Created: Image File Name=%wZ, EPROCESS=%p, ProcessId=%p\n",
             CreateInfo->ImageFileName, Process, ProcessId);        
     }
     else
     {
-		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCS, TRACE_LEVEL_ID,
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
             "***** Process Destroyed: EPROCESS %p, ProcessId %p, \n",
             Process, ProcessId);
     }
@@ -71,11 +76,11 @@ ImageLoadNotificationRoutine(
 	NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
 	if (FALSE == NT_SUCCESS(Status))
 	{		
-		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCS, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
 		goto Done;
 	}
 	
-	WVU_DEBUG_PRINT(LOG_NOTIFY_PROCS, TRACE_LEVEL_ID, "FullImageName=%wZ,"
+	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "FullImageName=%wZ,"
 		"ProcessId=%p,ImageBase=%p,ImageSize=%p,ImageSectionNumber=%ul\n",
 		FullImageName, ProcessId, pImageInfo->ImageBase, (PVOID)pImageInfo->ImageSize,
 		pImageInfo->ImageSectionNumber);
@@ -101,7 +106,7 @@ VOID ThreadCreateCallback(
 	UNREFERENCED_PARAMETER(ThreadId);
 	UNREFERENCED_PARAMETER(Create);
 
-	WVU_DEBUG_PRINT(LOG_NOTIFY_PROCS, TRACE_LEVEL_ID,
+	WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, TRACE_LEVEL_ID,
 		"Thread %p within ProcessId %p was %s\n",
 		ThreadId, ProcessId, Create ? "Created" : "Terminated");	
 }

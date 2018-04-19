@@ -222,19 +222,19 @@ DriverEntry(
 	switch (Status)
 	{
 	case STATUS_SUCCESS:
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Returned SUCCESS\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Returned SUCCESS\n");
 		break;
 	case STATUS_TIMEOUT:
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Timed Out\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Timed Out\n");
 		Status = STATUS_TIMEOUT;
 		goto ErrorExit;
 		break;
 	default:
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Received Status=0x%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Received Status=0x%08x\n", Status);
 		goto ErrorExit;
 		break;
 	}
-
+	
 	goto Exit;  // normal non-error return
 
 
