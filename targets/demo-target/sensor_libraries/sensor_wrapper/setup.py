@@ -12,7 +12,7 @@ setup(
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='ntquerysys',  # Required
+    name='sensorwrapper',  # Required
 
     # Versions should comply with PEP 440:
     # https://www.python.org/dev/peps/pep-0440/
@@ -25,21 +25,21 @@ setup(
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#summary
-    description='NT Query System Information Library for Savior',  # Required
+    description='Sensor wrapper for the Savior system',  # Required
 
     # This should be a valid link to your project's main homepage.
     #
     # This field corresponds to the "Home-Page" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#home-page-optional
-    url='https://github.com/twosixlabs/savior/tree/master/sensors/ntquerysys',  # Optional
+    url='https://github.com/twosixlabs/savior/tree/master/sensors/wrapper',  # Optional
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='Mark Sanderson / Two Six Labs',  # Optional
+    author='Patrick Dwyer / Two Six Labs',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='mark.sanderson@twosixlabs.com',  # Optional
+    author_email='patrick.dwyer@twosixlabs.com',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
@@ -69,7 +69,7 @@ setup(
     #
     #   py_modules=["my_module"],
     #
-    py_modules=["ntquerysys"],
+    py_modules=["sensor_wrapper"],
 
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
@@ -78,7 +78,6 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-<<<<<<< HEAD:targets/demo-target/sensor_libraries/sensor_wrapper/setup.py
         'async-generator==1.8',
         'certifi==2017.11.5',
         'chardet==3.0.4',
@@ -102,8 +101,4 @@ setup(
         'yarl==0.16.0',
     ],  # Optional
 
-=======
-        'pywin32==223',
-    ],  # Optional
->>>>>>> master:sensors/ntquerysys/setup.py
 )

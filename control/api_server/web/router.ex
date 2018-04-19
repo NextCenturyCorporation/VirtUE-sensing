@@ -50,6 +50,10 @@ defmodule ApiServer.Router do
     put "/configuration/component/configuration/update/", ConfigurationsController, :update_configuration, name: "configuration-update-configuration"
     put "/configuration/component/configuration/create/", ConfigurationsController, :create_configuration, name: "configuration-create-configuration"
     delete "/configuration/component/configuration/", ConfigurationsController, :delete_configuration, name: "configuration-delete-configuration"
+
+    get "/sensors/all/inspect", InspectController, :inspect_all, name: "sensor-inspect-all"
+    get "/sensors/all/stream", StreamController, :stream_all, name: "sensor-stream-all"
+
   end
 
   # SECURE AND UNAUTHENTICATED
