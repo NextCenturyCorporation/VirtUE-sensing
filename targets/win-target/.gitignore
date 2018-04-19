@@ -1,3 +1,4 @@
+*.wpr
 .idea
 *~
 __pycache__
