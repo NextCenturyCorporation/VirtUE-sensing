@@ -23,26 +23,148 @@
 
 #include "controller-linux.h"
 #include "controller.h"
-
+#include "jsmn/jsmn.h"
+#include "uname.h"
 
 struct kernel_sensor k_sensor;
 EXPORT_SYMBOL(k_sensor);
+struct connection listener;
+EXPORT_SYMBOL(listener);
 
 struct kernel_ps_probe kps_probe;
+struct kernel_lsof_probe klsof_probe;
+
+unsigned int lsof_repeat = 1;
+unsigned int lsof_timeout = 1;
+unsigned int lsof_level = 1;
 
 static unsigned int ps_repeat = 1;
 static unsigned int ps_timeout = 1;
+static unsigned int ps_level = 1;
+
+char *socket_name = "/var/run/kernel_sensor";
+
+module_param(lsof_repeat, uint, 0644);
+module_param(lsof_timeout, uint, 0644);
+module_param(lsof_level, uint, 0644);
+
+MODULE_PARM_DESC(lsof_repeat, "How many times to run the kernel lsof function");
+MODULE_PARM_DESC(lsof_timeout,
+				 "How many seconds to sleep in between calls to the kernel " \
+				 "lsof function");
+MODULE_PARM_DESC(lsof_level, "How invasively to probe open files");
 
 module_param(ps_repeat, uint, 0644);
 module_param(ps_timeout, uint, 0644);
+module_param(ps_level, uint, 0644);
 
 MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
 MODULE_PARM_DESC(ps_timeout,
 				 "How many seconds to sleep in between calls to the kernel " \
 				 "ps function");
+MODULE_PARM_DESC(ps_level, "How invasively to probe processes");
+
+module_param(socket_name, charp, 0644);
 
 
-/** locking the kernel-ps flex_array
+
+/**
+ * The discovery buffer needs to be a formatted as a JSON array,
+ * with each probe's ID string as an element in the array.
+ **/
+
+/**
+ * @brief build a JSON array containing the id strings of each parser
+ * registered with the sensor.
+ *
+ * @param uint8_t **buf pointer-to-a-pointer that we will allocate for
+ *        the caller, to hold a json array of probe ids.
+ * @param size_t *len - pointer to an integer that will contain the
+ *        size of the buffer we (re)allocate for the caller.
+ * @return zero upon success, -ENOMEM in case of error.
+ *
+ *
+ * This is ugly for two reasons. First, we don't pre-calculate the length
+ * of the combined id strings. So we allocate a buffer that we _think_
+ * will be large enough, and then realloc it to a smaller buffer at the end,
+ * if we have extra memory (greater than 256.
+ *
+ * if the initial array is too small, we just give up and return -ENOMEM.
+ * The right thing to do would be to krealloc to a larger buffer. That
+ * would mean re-assigning the cursor. Not a lot of work, so it is something
+ * to do if necessary.
+ *
+ * Secondly, building the JSON array is a manual process, so creating the
+ * array one character at a time is needed. And the remaining length calculation
+ * is erring on the the side of being conservative.
+ *
+ * TODO: maintain this buffer array before its needed, by re-constructing it
+ * every time a probe registers or de-registers.
+ *
+ * TODO: krealloc the buffer to a larger size if the initial buffer is too
+ * small.
+ **/
+
+static inline int
+build_discovery_buffer(uint8_t **buf, size_t *len)
+{
+
+	uint8_t *cursor;
+	int remaining, count = 0;
+	struct probe *p_cursor;
+
+	assert(buf && len);
+
+	*len = CONNECTION_MAX_HEADER;
+	*buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (*buf <= 0) {
+		*len = 0;
+		return -ENOMEM;
+	}
+
+	remaining = *len;
+	cursor = *buf;
+	*cursor++ = L_BRACKET; remaining--;
+	*cursor++ = D_QUOTE; remaining--;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(p_cursor, &k_sensor.probes, l_node) {
+		int id_len;
+		if ((remaining - 5) > (id_len = strlen(p_cursor->id))) {
+			if (count > 0) {
+				*cursor++ = COMMA; remaining--;
+				*cursor++ = SPACE; remaining--;
+			}
+			*cursor++ = D_QUOTE; remaining--;
+			strncpy(cursor, p_cursor->id, remaining - 3);
+			remaining -= id_len;
+			cursor += id_len;
+			*cursor++ = D_QUOTE; remaining--;
+			count++;
+		} else {
+			goto err_exit;
+		}
+	}
+	rcu_read_unlock();
+	if (remaining > 1) {
+		*cursor = R_BRACKET; remaining--;
+		*cursor = 0x00; remaining--;
+	}
+	if (remaining > 0x100) {
+		*buf = krealloc(*buf, (*len - (remaining - 1)), GFP_KERNEL);
+		*len -= (remaining - 1);
+	}
+	return 0;
+
+err_exit:
+	if (*buf) kfree(*buf);
+	*len = -ENOMEM;
+	return -ENOMEM;
+}
+
+
+/**
+ * locking the kernel-ps flex_array
  * to write to or read from the pre-allocated flex array parts,
  * one must hold the kps_spinlock. The kernel_ps function will
  * execute a trylock and return with -EAGAIN if it is unable
@@ -104,8 +226,10 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;
 	}
-
+	rcu_read_lock();
 	for_each_process(task) {
+		task_lock(task);
+
 		kpsd.nonce = nonce;
 		kpsd.index = index;
 		kpsd.user_id = task_uid(task);
@@ -115,14 +239,16 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 			flex_array_put(parent->kps_data_flex_array, index, &kpsd, GFP_ATOMIC);
 		} else {
 			index = -ENOMEM;
+			task_unlock(task);
 			goto unlock_out;
 		}
 		index++;
+		task_unlock(task);
 	}
-
 unlock_out:
+	rcu_read_unlock();
 	spin_unlock_irqrestore(&parent->lock, flags);
-    return index;
+	return index;
 }
 
 
@@ -171,16 +297,15 @@ void *destroy_probe(struct probe *probe)
 	assert(probe && __FLAG_IS_SET(probe->flags, PROBE_INITIALIZED));
 	__CLEAR_FLAG(probe->flags, PROBE_INITIALIZED);
 
+	if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
+		controller_destroy_worker(&probe->worker);
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
+	}
 	if (probe->id &&
 		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
 		kfree(probe->id);
 		probe->id = NULL;
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
-	}
-
-	if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
-		kthread_destroy_worker(&probe->worker);
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
 	}
 	return probe;
 }
@@ -188,103 +313,98 @@ void *destroy_probe(struct probe *probe)
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
 
-	struct probe *probe, *tmp_p;
-	struct connection *connection, *tmp_c;
-	struct llist_node *llnode ;
+	struct probe *probe_p;
+	struct connection *conn_c;
+	unsigned long flags;
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
-	if (!llist_empty(&sensor->probes)) {
-		llnode = llist_del_all(&sensor->probes);
-		llist_for_each_entry_safe(probe, tmp_p, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_KPS)) {
-				((struct kernel_ps_probe *)probe)->_destroy(probe);
-			} else {
-				probe->destroy(probe);
-			}
+
+	rcu_read_lock();
+	probe_p = list_first_or_null_rcu(&sensor->probes,
+									 struct probe,
+									 l_node);
+	rcu_read_unlock();
+	while (probe_p != NULL) {
+		spin_lock_irqsave(&sensor->lock, flags);
+		list_del_rcu(&probe_p->l_node);
+		spin_unlock_irqrestore(&sensor->lock, flags);
+		synchronize_rcu();
+		if (__FLAG_IS_SET(probe_p->flags, PROBE_KPS)) {
+			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
+		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KLSOF)) {
+			((struct kernel_lsof_probe *)probe_p)->_destroy(probe_p);
+		} else {
+			probe_p->destroy(probe_p);
+		}
+		/**
+		 * TODO: kernel-ps is statically allocated, but not all
+		 * probes will be. some probes will need to be kfreed()'d
+		 **/
+		rcu_read_lock();
+		probe_p = list_first_or_null_rcu(&sensor->probes,
+									 struct probe,
+									 l_node);
+		rcu_read_unlock();
+	}
+	synchronize_rcu();
+	rcu_read_lock();
+	conn_c = list_first_or_null_rcu(&sensor->listeners,
+									struct connection,
+									l_node);
+	rcu_read_unlock();
+	while (conn_c != NULL) {
+		spin_lock_irqsave(&sensor->lock, flags);
+		list_del_rcu(&conn_c->l_node);
+		spin_unlock_irqrestore(&sensor->lock, flags);
+		synchronize_rcu();
+		if (__FLAG_IS_SET(conn_c->flags, PROBE_LISTEN)) {
 			/**
-			 * we want probes to be statically allocated, no need
-			 * to free them here
+			 * the listener is statically allocated, no need to
+			 * free the memory
 			 **/
+			conn_c->_destroy(conn_c);
 		}
+		synchronize_rcu();
+		rcu_read_lock();
+		conn_c = list_first_or_null_rcu(&sensor->listeners,
+										struct connection,
+										l_node);
+		rcu_read_unlock();
 	}
-
-	if (!llist_empty(&sensor->listeners)) {
-		llnode = llist_del_all(&sensor->listeners);
-		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_LISTEN)) {
-				;
-			}
+	conn_c = NULL;
+	rcu_read_lock();
+	conn_c = list_first_or_null_rcu(&sensor->connections,
+									struct connection,
+									l_node);
+	rcu_read_unlock();
+	while (conn_c != NULL) {
+		spin_lock_irqsave(&sensor->lock, flags);
+        list_del_rcu(&conn_c->l_node);
+	    spin_unlock_irqrestore(&sensor->lock, flags);
+		if (__FLAG_IS_SET(conn_c->flags, PROBE_CONNECT)) {
+			/**
+			 * a connection is dynamically allocated, so
+			 * need to kfree the memory
+			 **/
+			conn_c->_destroy(conn_c);
+			synchronize_rcu();
+			kfree(conn_c);
+			conn_c = NULL;
 		}
+		rcu_read_lock();
+		conn_c = list_first_or_null_rcu(&sensor->connections,
+										struct connection,
+										l_node);
+		rcu_read_unlock();
 	}
-
-	if (!llist_empty(&sensor->connections)) {
-		llnode = llist_del_all(&sensor->connections);
-		llist_for_each_entry_safe(connection, tmp_c, llnode, l_node) {
-			if (__FLAG_IS_SET(probe->flags, PROBE_CONNECT)) {
-				;
-			}
-		}
-	}
-
 /* now destroy the sensor's anonymous probe struct */
-    probe = (struct probe *)sensor;
-	destroy_probe(probe);
+	probe_p = (struct probe *)sensor;
+	destroy_probe(probe_p);
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
 }
 
-
-
-struct kthread_worker *
-__cont_create_worker(int cpu, unsigned int flags,
-					 const char namefmt[], va_list args)
-{
-	struct kthread_worker *worker;
-	struct task_struct *task;
-	int node = -1;
-
-	worker = kzalloc(sizeof(*worker), GFP_KERNEL);
-	if (!worker)
-		return ERR_PTR(-ENOMEM);
-
-	CONT_INIT_WORKER(worker);
-
-	if (cpu >= 0)
-		node = cpu_to_node(cpu);
-	task = kthread_create_on_node(kthread_worker_fn, worker, cpu, namefmt, args);
-
-	if (IS_ERR(task))
-		goto fail_task;
-
-	if (cpu >= 0)
-		kthread_bind(task, cpu);
-#ifdef NEW_API
-	worker->flags = flags;
-#endif
-	worker->task = task;
-	wake_up_process(task);
-	return worker;
-
-fail_task:
-	kfree(worker);
-	return ERR_CAST(task);
-}
-
-
-#ifdef OLD_API
-struct kthread_worker *
-kthread_create_worker(unsigned int flags, const char namefmt[], ...)
-{
-	struct kthread_worker *worker;
-	va_list args;
-
-	va_start(args, namefmt);
-	worker = __cont_create_worker(CONT_CPU_ANY, flags, namefmt, args);
-	va_end(args);
-
-	return worker;
-}
 
 /**
  * shuts down a kthread worker, but does not free the
@@ -292,7 +412,7 @@ kthread_create_worker(unsigned int flags, const char namefmt[], ...)
  * inside the probe struct.
  **/
 void
-kthread_destroy_worker(struct kthread_worker *worker)
+controller_destroy_worker(struct kthread_worker *worker)
 
 {
 	struct task_struct *task;
@@ -302,13 +422,11 @@ kthread_destroy_worker(struct kthread_worker *worker)
 		return;
 	}
 
-	flush_kthread_worker(worker);
+	CONT_FLUSH_WORKER(worker);
 	kthread_stop(task);
 	WARN_ON(!list_empty(&worker->work_list));
 	return;
 }
-
-#endif
 
 
 /**
@@ -325,7 +443,7 @@ kthread_destroy_worker(struct kthread_worker *worker)
  **/
 struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 {
-    if (!sensor) {
+	if (!sensor) {
 		return ERR_PTR(-ENOMEM);
 	}
 	memset(sensor, 0, sizeof(struct kernel_sensor));
@@ -336,16 +454,13 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 	init_probe((struct probe *)sensor,
 			   "Kernel Sensor", strlen("Kernel Sensor") + 1);
 	sensor->_init = init_kernel_sensor;
-	init_llist_head(&sensor->probes);
-	init_llist_head(&sensor->listeners);
-	init_llist_head(&sensor->connections);
+	INIT_LIST_HEAD_RCU(&sensor->probes);
+	INIT_LIST_HEAD_RCU(&sensor->listeners);
+	INIT_LIST_HEAD_RCU(&sensor->connections);
 	sensor->_destroy = destroy_kernel_sensor;
 	/* initialize the socket later when we listen*/
 	return(sensor);
 }
-
-
-
 
 /**
  * A probe routine is a kthread  worker, called from kernel thread.
@@ -361,7 +476,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
  * Each time the sample runs it increments its count, prints probe
  * information, and either reschedules itself or dies.
  **/
-void  k_probe(struct kthread_work *work)
+void  run_kps_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
 	struct kernel_ps_probe *probe_struct =
@@ -381,15 +496,17 @@ void  k_probe(struct kthread_work *work)
  *  call print_kernel_ps by default. But, in the future there will be other             *  options, notably outputting in json format to a socket
  **/
 	probe_struct->print(probe_struct, "kernel-ps", nonce, ++count);
-
-	if (probe_struct->repeat && (! SHOULD_SHUTDOWN)) {
-		probe_struct->repeat--;
-		sleep(probe_struct->timeout);
-		init_and_queue_work(work, co_worker, k_probe);
+	probe_struct->repeat--;
+	if (probe_struct->repeat > 0 && !SHOULD_SHUTDOWN) {
+		int i;
+		for (i = 0; i < probe_struct->timeout && !SHOULD_SHUTDOWN; i++) {
+			sleep(1);
+		}
+		if (!SHOULD_SHUTDOWN)
+			init_and_queue_work(work, co_worker, run_kps_probe);
 	}
 	return;
 }
-
 
 /**
  * init_probe - initialize a probe that has already been allocated.
@@ -412,7 +529,7 @@ struct probe *init_probe(struct probe *probe,
 	if (!probe) {
 		return ERR_PTR(-ENOMEM);
 	}
-
+	INIT_LIST_HEAD_RCU(&probe->l_node);
 	probe->init =  init_probe;
 	probe->destroy = destroy_probe;
 	if (id && id_size > 0) {
@@ -483,7 +600,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	/** init timeout and repeat
 	 * they are passed on the command line, or (eventually) read
 	 * from sysfs
-     **/
+	 **/
 	__SET_FLAG(ps_p->flags, PROBE_KPS);
 
 	ps_p->timeout = ps_timeout;
@@ -518,7 +635,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 
 
 /* now queue the kernel thread work structures */
-	CONT_INIT_WORK(&ps_p->work, k_probe);
+	CONT_INIT_WORK(&ps_p->work, run_kps_probe);
 	__SET_FLAG(ps_p->flags, PROBE_HAS_WORK);
 	CONT_INIT_WORKER(&ps_p->worker);
 	CONT_QUEUE_WORK(&ps_p->worker,
@@ -535,7 +652,6 @@ err_exit:
 }
 
 
-
 /**
  * this init reflects the correct workflow - the struct work needs to be
  * initialized and queued into the worker, before running the worker.
@@ -546,26 +662,47 @@ static int __init kcontrol_init(void)
 {
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
+	struct kernel_lsof_probe *lsof_probe = NULL;
+
+	unsigned long flags;
 
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
 	}
 
+	/**
+	 * initialize the ps probe
+	 **/
 	ps_probe = init_kernel_ps_probe(&kps_probe,
-						 "Kernel PS Probe",
-						 strlen("Kernel PS Probe") + 1,
-						 print_kernel_ps);
+									"Kernel PS Probe",
+									strlen("Kernel PS Probe") + 1,
+									print_kernel_ps);
 
 	if (ps_probe == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
 
+	spin_lock_irqsave(&k_sensor.lock, flags);
 	/* link this probe to the sensor struct */
-	if (! llist_add(&ps_probe->l_node, &k_sensor.probes)) {
-		ccode = -EINVAL;
-		goto err_exit;
-	}
+	list_add_rcu(&ps_probe->l_node, &k_sensor.probes);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
+
+    /**
+     * initialize the lsof probe
+	 **/
+
+	lsof_probe = init_kernel_lsof_probe(&klsof_probe,
+										"Kernel LSOF Probe",
+										strlen("Kernel LSOF Probe") + 1,
+										print_kernel_lsof,
+										lsof_pid_filter);
+
+	spin_lock_irqsave(&k_sensor.lock, flags);
+	/* link this probe to the sensor struct */
+	list_add_rcu(&lsof_probe->l_node, &k_sensor.probes);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
+
 
 	return ccode;
 

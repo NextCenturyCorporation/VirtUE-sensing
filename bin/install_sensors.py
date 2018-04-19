@@ -301,7 +301,7 @@ def prep_target(target):
         os.makedirs(path)
 
 
-def install_sensors_in_target(target, kmods, sensors, wrapper_dir):
+def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_dir):
     """
     Install all of the required sensors for the target.
 
@@ -326,6 +326,9 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir):
 
     # support libraries
     install_sensor_wrapper(target, wrapper_dir)
+
+    if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
+        install_ntquerysys(target, ntquerysys_dir)
 
     # individual sensors
     for sensor_name in target["target"]["sensors"]:
@@ -509,7 +512,7 @@ def create_support_library_install_script(target):
     install_script = "install.ps1" if target["target"]["os"] == "Windows" else "install.sh"
     with open(os.path.abspath(os.path.join(lib_dir, install_script)), "w") as installer:
         for pip_install in pip_installs:
-            installer.write("pip install ./%s\n" % (pip_install,))
+            installer.write("pip install ./%s --upgrade\n" % (pip_install,))
 
 def create_requirements_master(target):
     """
@@ -625,6 +628,39 @@ def install_sensor(target, sensor):
             os.path.abspath(os.path.join(reqs_dir, require_txt))
         )
 
+def install_ntquerysys(target, ntquerysys_dir):
+    """
+    Install the ntquerysys library files into the target.
+
+    :param target:
+    :return:
+    """
+    # define our directories
+    root = target["root"]
+    reqs_dir = os.path.abspath(os.path.join(root, target["target"]["requirements_directory"]))
+    lib_dir = os.path.abspath(os.path.join(root, target["target"]["library_directory"]))
+
+    # install lib files
+    print "  + installing ntquerysys library"
+    ntquerysys_dest_dir = os.path.abspath(os.path.join(lib_dir, "ntquerysys"))
+    os.makedirs(ntquerysys_dest_dir)
+
+    print "    + library files"
+    lib_files = ["ntquerysys.py", "setup.py"]
+
+    for lib_file in lib_files:
+        shutil.copy(
+            os.path.abspath(os.path.join(ntquerysys_dir, lib_file)),
+            os.path.abspath(os.path.join(ntquerysys_dest_dir, lib_file))
+        )
+
+    # install requirements.txt file
+    print "    + requirements.txt file"
+    shutil.copy(
+        os.path.abspath(os.path.join(ntquerysys_dir, "ntquerysys_requirements.txt")),
+        os.path.abspath(os.path.join(reqs_dir, "ntquerysys_requirements.txt"))
+    )
+
 
 def install_sensor_wrapper(target, wrapper_dir):
     """
@@ -689,10 +725,12 @@ if __name__ == "__main__":
     sensor_dir = "./sensors"
     targets_dir = "./targets"
     wrapper_dir = "./sensors/wrapper"
+    ntquerysys_dir = "./sensors/ntquerysys"
     kernel_dir = "./"
 
     print "Running install_sensors"
     print "  wrapper(%s)" % (wrapper_dir,)
+    print "  ntquerysys(%s)" % (ntquerysys_dir,)
     print "  sensors(%s)" % (sensor_dir,)
     print "  targets(%s)" % (targets_dir,)
     print "  kernel_mods(%s)" % (kernel_dir,)
@@ -780,4 +818,4 @@ if __name__ == "__main__":
     if opts.mode == "install":
         print "Installing components in Targets"
         for target in included_targets:
-            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir)
+            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir, ntquerysys_dir)

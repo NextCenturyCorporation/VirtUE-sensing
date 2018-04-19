@@ -7,7 +7,9 @@
   "startup_scripts_directory": "./sensor_startup",
   "kernel_mod_directory": "./drivers",
   "sensors": [
-    "tasklist"
+    "tasklist",
+    "processlist",
+    "handlelist"
   ],
   "kernel_modules": [
     

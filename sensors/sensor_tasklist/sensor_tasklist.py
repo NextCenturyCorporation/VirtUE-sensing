@@ -1,33 +1,41 @@
 #!"c:\program files\python\python36\python.exe"
-import datetime
-import json
-import re
-import os
-from curio import sleep
-import subprocess
-from sensor_wrapper import SensorWrapper, report_on_file, which_file
-
-
 """
 Sensor that wraps the system tasklist command.
 """
+import os
+import json
+import logging
+import datetime
+import subprocess
 
+from curio import sleep
+from sensor_wrapper import SensorWrapper, report_on_file, which_file
+
+__VERSION__ = "1.20180404"
+__MODULE__ = "sensor_tasklist"
+
+# set up prefix formatting
+logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
+logging.basicConfig(format=logfmt,filename="tasklist.log", filemode="w")
+# create logger
+logger = logging.getLogger(__MODULE__)
+logger.setLevel(logging.INFO)
 
 async def assess_tasklist(message_stub, config, message_queue):
     """
-
+    assess task.exe
     :param message_stub:
     :param config:
     :param message_queue:
     :return:
     """
     repeat_delay = config.get("repeat-interval", 15) 
-    print(" ::starting tasklist check-summing")
-    print("    $ repeat-interval = %d" % (repeat_delay,))
+    logger.info(" ::starting tasklist check-summing")
+    logger.info("    $ repeat-interval = %d" % (repeat_delay,))
 
     tasklist_canonical_path = which_file("tasklist.exe")
 
-    print("    $ canonical path = %s" % (tasklist_canonical_path,))
+    logger.info("    $ canonical path = %s" % (tasklist_canonical_path,))
 
     while True:
 
@@ -57,18 +65,17 @@ async def tasklist(message_stub, config, message_queue):
     """
     repeat_delay = config.get("repeat-interval", 15)
 
-    print(" ::starting tasklist")
-    print("    $ repeat-interval = %d" % (repeat_delay,))
+    logger.info(" ::starting tasklist")
+    logger.info("    $ repeat-interval = %d" % (repeat_delay,))
     tasklist_path = which_file("tasklist.exe")
     tasklist_args = ["/FO","CSV","/NH"]
     self_pid = os.getpid()
 
-    print(" ::starting tasklist %s (pid=%d)" % (tasklist_path, self_pid,))
+    logger.info(" ::starting tasklist %s (pid=%d)" % (tasklist_path, self_pid,))
 
     full_tasklist_command = [tasklist_path] + tasklist_args
 
     while True:
-
         # run the command and get our output
         p = subprocess.Popen(full_tasklist_command, stdout=subprocess.PIPE)
         for line in p.stdout:
@@ -93,7 +100,7 @@ async def tasklist(message_stub, config, message_queue):
                 continue
 
             # report
-            logmsg = {
+            tasklist_logmsg = {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "level": "info",
                 "message": {
@@ -104,16 +111,16 @@ async def tasklist(message_stub, config, message_queue):
                     "MemUsage": proc_memory_usage
                 }
             }
-
-            logmsg.update(message_stub)
-
-            await message_queue.put(json.dumps(logmsg))
+            tasklist_logmsg.update(message_stub)            
+            logger.debug(json.dumps(tasklist_logmsg, indent=3))        
+            await message_queue.put(json.dumps(tasklist_logmsg))
 
         # sleep
         await sleep(repeat_delay)
 
 
 if __name__ == "__main__":
-
+    logger.info("Creating the Sensor Wrapper . . .")
     wrapper = SensorWrapper("tasklist", [tasklist, assess_tasklist])
+    logger.info("Starting the Sensor Wrapper . . .")
     wrapper.start()

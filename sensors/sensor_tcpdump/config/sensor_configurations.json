@@ -1,0 +1,43 @@
+{
+  "name": "tcpdump",
+  "context": "virtue",
+  "os": "linux",
+  "description": "Sensing running processes based on the user space `tcpdump` command line tool",
+  "configurations": [
+    {
+      "version": "latest",
+      "level": "default",
+      "format": "json",
+      "source": "tcpdump_config_default_latest.json",
+      "description": "Default configuration includes netflow reporting on all traffic"
+    },
+    {
+      "version": "latest",
+      "level": "off",
+      "format": "json",
+      "source": "tcpdump_config_off_latest.json",
+      "description": "Off configuration disables tcpdump"
+    },
+    {
+      "version": "latest",
+      "level": "low",
+      "format": "json",
+      "source": "tcpdump_config_low_latest.json",
+      "description": "Low configuration includes netflow reporting on external (non-RFC1918) traffic"
+    },
+    {
+      "version": "latest",
+      "level": "high",
+      "format": "json",
+      "source": "tcpdump_config_high_latest.json",
+      "description": "High configuration includes full capture packet on external (non-RFC1918) traffic"
+    },
+    {
+      "version": "latest",
+      "level": "adversarial",
+      "format": "json",
+      "source": "tcpdump_config_adversarial_latest.json",
+      "description": "Adversarial configuration includes full capture packet on all traffic"
+    }
+  ]
+}

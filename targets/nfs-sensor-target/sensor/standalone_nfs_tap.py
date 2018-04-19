@@ -11,10 +11,12 @@ import os
 import sys
 import argparse
 import logging
+import time
 import pdb
 
 import datetime
 
+from curio import sleep
 import asyncio
 import selectors
 
@@ -31,10 +33,13 @@ import nfs_state_monitor as state
 # Keep sniffing?
 sniff_sockets = True
 
+# Global timeouts (in seconds)
+select_timeout = 0.10
+sleep_timeout  = 0.01
+
 # This breaks parts of TCP or UDP parsers
 
 # conf.debug_dissector = 1
-
 
 async def recv_pkt( pkt ):
     r = handler.pkt_handler_standard( pkt )
@@ -49,7 +54,7 @@ async def recv_pkt( pkt ):
     print( logmsg )
 
 
-async def async_sniff( loop,iface ):
+async def async_sniff( loop, iface ):
     """
     Kick off the NFS sniffer (a long-running activity).
     """
@@ -64,18 +69,33 @@ async def async_sniff( loop,iface ):
     # Register the socket with an async-friendly select(). Once
     # there's a packet to read, let the parser deal with it. Our
     # packet handler, recv_pkt, has to be a coroutine, so we can't use
-    # the cleaner loop.add_reader().
+    # the cleaner loop.add_reader(). Think of this block as a poor
+    # man's sniff() function.
 
+    # @TODO: cleanup this loop, make better use of coroutines. Issue
+    # is that sel.select() can't be called as coroutine and doesn't
+    # yeild to allow for message queue processing.
     with selectors.DefaultSelector() as sel:
         sel.register( sock, selectors.EVENT_READ )
 
         while sniff_sockets:
-            for sk, events in sel.select():
-                p = sock.recv()
-                if not p:
-                    break
-                p.sniffed_on = sock
-                await recv_pkt( p )
+            ready = sel.select( 0 )
+            if not ready:
+                # Nothing is ready. Yield without await since
+                # loop.run_until_complete() doesn't seem to play nice
+                # with it.
+                time.sleep( sleep_timeout )
+                continue
+
+            for sk, events in ready:
+                pkt = sk.fileobj.recv()
+                if not pkt:
+                    continue
+
+                # There's a packet to process: receive it
+                pkt.sniffed_on = sk.fileobj
+                await recv_pkt( pkt )
+                # Optional?: sleep here to force queue processing
 
 
 async def proc_all_pkts( pkts ):

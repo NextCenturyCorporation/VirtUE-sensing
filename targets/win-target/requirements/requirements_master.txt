@@ -1,2 +1,5 @@
+-r handlelist_requirements.txt
 -r tasklist_requirements.txt
 -r sensor_wrapper_requirements.txt
+-r ntquerysys_requirements.txt
+-r processlist_requirements.txt
