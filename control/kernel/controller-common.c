@@ -33,7 +33,7 @@ EXPORT_SYMBOL(listener);
 
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
-struct kernel_sysfs_probe sysfs_probe;
+struct kernel_sysfs_probe ksysfs_probe;
 
 int lsof_repeat = 1;
 int lsof_timeout = 1;
@@ -535,6 +535,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
 		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KLSOF)) {
 			((struct kernel_lsof_probe *)probe_p)->_destroy(probe_p);
+		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KSYSFS)) {
+			((struct kernel_sysfs_probe *)probe_p)->_destroy(probe_p);
 		} else {
 			probe_p->destroy(probe_p);
 		}
@@ -544,8 +546,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		 **/
 		rcu_read_lock();
 		probe_p = list_first_or_null_rcu(&sensor->probes,
-									 struct probe,
-									 l_node);
+										 struct probe,
+										 l_node);
 		rcu_read_unlock();
 	}
 	synchronize_rcu();
@@ -864,6 +866,8 @@ static int __init kcontrol_init(void)
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
 	struct kernel_lsof_probe *lsof_probe = NULL;
+	struct kernel_sysfs_probe *sysfs_probe = NULL;
+
 
 	unsigned long flags;
 
@@ -898,10 +902,35 @@ static int __init kcontrol_init(void)
 										strlen("Kernel LSOF Probe") + 1,
 										print_kernel_lsof,
 										lsof_pid_filter);
+	if (lsof_probe == ERR_PTR(-ENOMEM)) {
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+
 
 	spin_lock_irqsave(&k_sensor.lock, flags);
 	/* link this probe to the sensor struct */
 	list_add_rcu(&lsof_probe->l_node, &k_sensor.probes);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
+
+
+/**
+ * initialize the sysfs probe
+ **/
+
+	sysfs_probe = init_sysfs_probe(&ksysfs_probe,
+								    "Kernel Sysfs Probe",
+								   strlen("Kernel Sysfs Probe") + 1,
+								   print_sysfs_data,
+								   filter_sysfs_data);
+
+	if (sysfs_probe == ERR_PTR(-ENOMEM)) {
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+
+	spin_lock_irqsave(&k_sensor.lock, flags);
+	list_add_rcu(&sysfs_probe->l_node, &k_sensor.probes);
 	spin_unlock_irqrestore(&k_sensor.lock, flags);
 
 
@@ -914,6 +943,22 @@ err_exit:
 		}
 		kfree(ps_probe);
 		ps_probe = NULL;
+	}
+
+	if (lsof_probe != ERR_PTR(-ENOMEM)) {
+		if (__FLAG_IS_SET(lsof_probe->flags, PROBE_INITIALIZED)) {
+			lsof_probe->_destroy((struct probe *)lsof_probe);
+		}
+		kfree(lsof_probe);
+		lsof_probe = NULL;
+	}
+
+	if (sysfs_probe != ERR_PTR(-ENOMEM)) {
+		if (__FLAG_IS_SET(sysfs_probe->flags, PROBE_INITIALIZED)) {
+			sysfs_probe->_destroy((struct probe *)sysfs_probe);
+		}
+		kfree(sysfs_probe);
+		sysfs_probe = NULL;
 	}
 	return ccode;
 }

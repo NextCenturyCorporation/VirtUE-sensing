@@ -607,7 +607,7 @@ struct kernel_sysfs_probe {
 	void *(*_destroy)(struct probe *);
 };
 
-extern struct kernel_sysfs_probe sysfs_probe;
+extern struct kernel_sysfs_probe ksysfs_probe;
 
 
 int

@@ -29,6 +29,7 @@
 int
 kernel_sysfs(struct kernel_sysfs_probe *p, int c, uint64_t nonce)
 {
+	DMSG();
 	return 0;
 }
 
