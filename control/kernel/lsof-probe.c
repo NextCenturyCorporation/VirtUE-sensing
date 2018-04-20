@@ -323,6 +323,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 		lsof_p->filter = lsof_pid_filter;
 	}
 	lsof_p->lsof = kernel_lsof;
+
 	lsof_p->klsof_data_flex_array =
 		flex_array_alloc(LSOF_DATA_SIZE, LSOF_ARRAY_SIZE, GFP_KERNEL);
 

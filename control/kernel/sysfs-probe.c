@@ -138,6 +138,41 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 	}
 	sysfs_p->ksysfs  = kernel_sysfs;
 
+
+/**
+ * allocate flex arrays
+ **/
+
+	sysfs_p->ksysfs_flex_array =
+		flex_array_alloc(SYSFS_DATA_SIZE, SYSFS_ARRAY_SIZE, GFP_KERNEL);
+
+	if (!sysfs_p->ksysfs_flex_array) {
+/* flex_array_alloc will return NULL upon failure, a valid pointer otherwise */
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+	ccode = flex_array_prealloc(sysfs_p->ksysfs_flex_array, 0, SYSFS_ARRAY_SIZE,
+								GFP_KERNEL | __GFP_ZERO);
+	if(ccode) {
+		/* ccode will be zero for success, -ENOMEM otherwise */
+		goto err_free_flex_array;
+	}
+
+	sysfs_p->ksysfs_pid_array =
+		flex_array_alloc(PID_EL_SIZE, PID_EL_ARRAY_SIZE, GFP_KERNEL);
+	if (!sysfs_p->ksysfs_flex_array) {
+		ccode = -ENOMEM;
+		goto err_free_flex_array;
+	}
+
+	ccode = flex_array_prealloc(sysfs_p->ksysfs_pid_array, 0,
+								PID_EL_ARRAY_SIZE,
+								GFP_KERNEL | __GFP_ZERO);
+	if(ccode) {
+		/* ccode will be zero for success, -ENOMEM otherwise */
+		goto err_free_pid_flex_array;
+	}
+
 	/* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&sysfs_p->work, run_sysfs_probe);
 	__SET_FLAG(sysfs_p->flags, PROBE_HAS_WORK);
@@ -149,6 +184,10 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 
 	return sysfs_p;
 
+err_free_pid_flex_array:
+	flex_array_free(sysfs_p->ksysfs_pid_array);
+err_free_flex_array:
+	flex_array_free(sysfs_p->ksysfs_flex_array);
 err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);

@@ -588,9 +588,24 @@ struct kernel_sysfs_data {
 	uint8_t dpath[MAX_DENTRY_LEN];
 };
 
+#define SYSFS_DATA_SIZE sizeof(struct kernel_sysfs_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define SYSFS_APPARENT_ARRAY_SIZE										\
+	(FLEX_ARRAY_ELEMENTS_PER_PART(SYSFS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
+
+#define SYSFS_ARRAY_SIZE ((SYSFS_APPARENT_ARRAY_SIZE) - 1)
+
 struct kernel_sysfs_probe {
 	struct probe;
 	struct flex_array *ksysfs_flex_array;
+	struct flex_array *ksysfs_pid_array;
 	int (*print)(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
 	int (*filter)(struct kernel_sysfs_probe *,
 				  struct kernel_sysfs_data *,
