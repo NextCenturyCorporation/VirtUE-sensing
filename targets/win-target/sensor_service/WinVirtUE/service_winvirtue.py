@@ -9,7 +9,8 @@ import win32serviceutil
 class TestService1(win32serviceutil.ServiceFramework):
     _svc_name_ = "TestService1"
     _svc_display_name_ = "Test Service 1"
-
+    _svc_description_ = "Test Service 1 Description"
+    
     def __init__(self, args):
         win32serviceutil.ServiceFramework.__init__(self, args)
         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
@@ -29,6 +30,7 @@ class TestService1(win32serviceutil.ServiceFramework):
 class TestService2(win32serviceutil.ServiceFramework):
     _svc_name_ = "TestService2"
     _svc_display_name_ = "Test Service 2"
+    _svc_description_ = "Test Service 2 Description"
 
     def __init__(self, args):
         win32serviceutil.ServiceFramework.__init__(self, args)
@@ -49,6 +51,7 @@ class TestService2(win32serviceutil.ServiceFramework):
 class TestService3(win32serviceutil.ServiceFramework):
     _svc_name_ = "TestService3"
     _svc_display_name_ = "Test Service 3"
+    _svc_description_ = "Test Service 3 Description"
 
     def __init__(self, args):
         win32serviceutil.ServiceFramework.__init__(self, args)
