@@ -90,6 +90,10 @@ destroy_sysfs_probe(struct probe *probe)
 		destroy_probe(probe);
 	}
 
+	if (sysfs_p->ksysfs_pid_array) {
+		flex_array_free(sysfs_p->ksysfs_pid_array);
+	}
+
 	if (sysfs_p->ksysfs_flex_array) {
 		flex_array_free(sysfs_p->ksysfs_flex_array);
 	}
