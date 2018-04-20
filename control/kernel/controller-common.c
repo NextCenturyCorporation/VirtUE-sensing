@@ -87,6 +87,129 @@ MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
 
 module_param(socket_name, charp, 0644);
 
+ssize_t
+kfs_write_file(char *filename, void *data, ssize_t len)
+{
+	struct file *file;
+	loff_t pos = 0;
+	int fd;
+	ssize_t result = -EBADF;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	fd = IMPORTED(sys_open)(filename, O_WRONLY | O_CREAT, 0644);
+	if (fd > 0) {
+		file = fget(fd);
+		if (file) {
+			result = kfs_write(file, data, len, &pos);
+			fput(file);
+		}
+		IMPORTED(sys_close)(fd);
+	}
+	set_fs(old_fs);
+	return result;
+
+}
+
+
+ssize_t
+kfs_write_to(char *filename, void *data, ssize_t len, loff_t *pos)
+{
+	struct file *file;
+	int fd;
+	ssize_t result = -EBADF;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	fd = IMPORTED(sys_open)(filename, O_WRONLY | O_CREAT, 0644);
+	if (fd > 0) {
+		file = fget(fd);
+		if (file) {
+			result = kfs_write(file, data, len, pos);
+			fput(file);
+		}
+		IMPORTED(sys_close)(fd);
+	}
+	set_fs(old_fs);
+	return result;
+
+}
+
+
+ssize_t
+kfs_read_file(char *filename, void *data, ssize_t len)
+{
+	struct file *file;
+	loff_t pos = 0;
+	int fd;
+	ssize_t result = -EBADF;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	fd = IMPORTED(sys_open)(filename, O_RDONLY | O_CREAT, 0644);
+	if (fd > 0) {
+		file = fget(fd);
+		if (file) {
+			result = kfs_read(file, data, len, &pos);
+			fput(file);
+		}
+		IMPORTED(sys_close)(fd);
+	}
+	set_fs(old_fs);
+	return result;
+
+}
+
+ssize_t
+kfs_read_from(char *filename, void *data, ssize_t len, loff_t *pos)
+{
+	struct file *file;
+	int fd;
+	ssize_t result = -EBADF;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	fd = IMPORTED(sys_open)(filename, O_RDONLY | O_CREAT, 0644);
+	if (fd > 0) {
+		file = fget(fd);
+		if (file) {
+			result = kfs_read(file, data, len, pos);
+			fput(file);
+		}
+		IMPORTED(sys_close)(fd);
+	}
+	set_fs(old_fs);
+	return result;
+}
+
+
+
+ssize_t
+kfs_read(struct file *file, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t result;
+	result = IMPORTED(vfs_read)(file, buf, count, pos);
+	return result;
+}
+
+
+ssize_t
+kfs_write(struct file *file, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t res;
+
+	res = IMPORTED(vfs_write)(file, buf, count, pos);
+
+	return res;
+}
 
 
 struct task_struct *

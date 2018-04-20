@@ -23,7 +23,8 @@
 #ifndef _CONTROLLER_H
 #define _CONTROLLER_H
 #include "controller-linux.h"
-//#include "uname.h"
+#include "uname.h"
+#include "import-header.h"
 #include "controller-flags.h"
 #define _MODULE_LICENSE "GPL v2"
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
@@ -42,6 +43,25 @@ static inline void sleep(unsigned sec)
 		schedule_timeout(sec * HZ);
 	}
 }
+
+
+ssize_t
+kfs_write_file(char *filename, void *data, ssize_t len);
+
+ssize_t
+kfs_write_to(char *filename, void *data, ssize_t len, loff_t *pos);
+
+ssize_t
+kfs_read_file(char *filename, void *data, ssize_t len);
+
+ssize_t
+kfs_read_from(char *filename, void *data, ssize_t len, loff_t *pos);
+
+ssize_t
+kfs_read(struct file *file, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+kfs_write(struct file *file, void *buf, size_t count, loff_t *pos);
 
 /* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.

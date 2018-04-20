@@ -9,6 +9,7 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
+#include <linux/file.h>
 #include <linux/fdtable.h>
 #include <linux/cred.h>
 #include <linux/init.h>
@@ -26,5 +27,7 @@
 #include <linux/moduleparam.h>
 #include <linux/random.h>
 #include <net/af_unix.h>
+#include <asm/segment.h>
+#include <linux/syscalls.h>
 #define assert(s) do{if (!(s)) panic(#s);} while(0);
 #endif // CONTROLLER_LINUX_H
