@@ -992,7 +992,7 @@ class SensorWrapper(object):
         self.argparser.add_argument("-a", "--api-host", dest="api_host", default="sensing-api.savior.internal", help="API host URI")
         self.argparser.add_argument("--api-https-port", dest="api_https_port", default=17504, type=int, help="API host secure port")
         self.argparser.add_argument("--api-http-port", dest="api_http_port", default=17141, type=int,
-                            help="API host insecure port")
+                                    help="API host insecure port")
         self.argparser.add_argument("--api-version", dest="api_version", default="v1", help="API version being called")
 
         # identification
