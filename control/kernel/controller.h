@@ -44,19 +44,13 @@ static inline void sleep(unsigned sec)
 	}
 }
 
+ssize_t
+kfs_write_to_offset(char *filename, void *data, ssize_t len, loff_t *pos);
 
 ssize_t
-kfs_write_file(char *filename, void *data, ssize_t len);
+kfs_read_from_offset(char *filename, void *data, ssize_t len, loff_t *pos);
 
-ssize_t
-kfs_write_to(char *filename, void *data, ssize_t len, loff_t *pos);
-
-ssize_t
-kfs_read_file(char *filename, void *data, ssize_t len);
-
-ssize_t
-kfs_read_from(char *filename, void *data, ssize_t len, loff_t *pos);
-
+/** these take a struct file **/
 ssize_t
 kfs_read(struct file *file, void *buf, size_t count, loff_t *pos);
 
@@ -585,7 +579,12 @@ struct kernel_sysfs_data {
 	uint64_t nonce;
 	int index;
 	pid_t pid;
-	uint8_t dpath[MAX_DENTRY_LEN];
+	struct kstat stat;
+	int fd;
+	void *data;
+	loff_t data_len;
+	int ccode;
+	uint8_t dpath[MAX_DENTRY_LEN + 1];
 };
 
 #define SYSFS_DATA_SIZE sizeof(struct kernel_sysfs_data)
@@ -605,7 +604,7 @@ struct kernel_sysfs_data {
 struct kernel_sysfs_probe {
 	struct probe;
 	struct flex_array *ksysfs_flex_array;
-	struct flex_array *ksysfs_pid_array;
+	struct flex_array *ksysfs_pid_flex_array;
 	int (*print)(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
 	int (*filter)(struct kernel_sysfs_probe *,
 				  struct kernel_sysfs_data *,

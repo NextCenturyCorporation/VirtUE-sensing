@@ -119,7 +119,7 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 						  int *start,
 						  uint64_t nonce)
 {
-	struct kernel_lsof_data klsofd;
+	static struct kernel_lsof_data klsofd;
 	int fd_index = 0;
 	struct files_struct *files;
 	struct file *file;
@@ -135,7 +135,7 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 		printk(KERN_INFO "task has no files_struct: %d\n", t->pid);
 		return 0;
 	}
-
+	memset(&klsofd, 0x00, sizeof(struct kernel_lsof_data));
 	files_table = files_fdtable(files);
 	while(files_table && files_table->fd[fd_index]) {
 		file = get_file(files_table->fd[fd_index]);
@@ -150,9 +150,9 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 		klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
 		klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
 		klsofd.user_id = task_uid(t);
-		klsofd.pid_nr = t->pid;
 		klsofd.nonce = nonce;
 		klsofd.index = *start;
+		klsofd.pid_nr = t->pid;
 		if (*start <  LSOF_ARRAY_SIZE) {
 			flex_array_put(p->klsof_data_flex_array,
 						   *start,

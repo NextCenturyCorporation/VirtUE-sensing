@@ -87,6 +87,14 @@ MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
 
 module_param(socket_name, charp, 0644);
 
+
+/***
+static inline int vfs_fstat(int fd, struct kstat *stat)
+{
+	return vfs_statx_fd(fd, stat, STATX_BASIC_STATS, 0);
+}
+***/
+
 ssize_t
 kfs_write_file(char *filename, void *data, ssize_t len)
 {
@@ -113,9 +121,8 @@ kfs_write_file(char *filename, void *data, ssize_t len)
 
 }
 
-
 ssize_t
-kfs_write_to(char *filename, void *data, ssize_t len, loff_t *pos)
+kfs_write_to_offset(char *filename, void *data, ssize_t len, loff_t *pos)
 {
 	struct file *file;
 	int fd;
@@ -167,7 +174,7 @@ kfs_read_file(char *filename, void *data, ssize_t len)
 }
 
 ssize_t
-kfs_read_from(char *filename, void *data, ssize_t len, loff_t *pos)
+kfs_read_from_offset(char *filename, void *data, ssize_t len, loff_t *pos)
 {
 	struct file *file;
 	int fd;
