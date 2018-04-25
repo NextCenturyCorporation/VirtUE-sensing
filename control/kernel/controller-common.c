@@ -271,10 +271,7 @@ unlock_out:
 	return index;
 
 }
-
-
-
-
+STACK_FRAME_NON_STANDARD(build_pid_index);
 
 /**
  * The discovery buffer needs to be a formatted as a JSON array,
@@ -423,6 +420,7 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 	}
 	return index;
 }
+STACK_FRAME_NON_STANDARD(print_kernel_ps);
 
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 {
@@ -517,6 +515,7 @@ void *destroy_probe(struct probe *probe)
 	}
 	return probe;
 }
+STACK_FRAME_NON_STANDARD(destroy_probe);
 
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
@@ -614,6 +613,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
 }
+STACK_FRAME_NON_STANDARD(destroy_kernel_sensor);
 
 
 /**
@@ -783,6 +783,7 @@ static void *destroy_kernel_ps_probe(struct probe *probe)
 	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
 	return ps_p;
 }
+STACK_FRAME_NON_STANDARD(destroy_kernel_ps_probe);
 
 struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 											 uint8_t *id, int id_len,
@@ -860,6 +861,7 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
+STACK_FRAME_NON_STANDARD(init_kernel_ps_probe);
 
 
 /**
