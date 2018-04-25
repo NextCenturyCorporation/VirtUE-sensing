@@ -68,6 +68,21 @@ if (( $VERSION >= 4 )) ; then
     fi
 fi
 
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 6 )); then
+	FRAME_CHECKING=no
+	echo "#define FRAME_CHECKING 0" >> $FILENAME
+	echo "#define STACK_FRAME_NON_STANDARD(a)" >> $FILENAME
+    else
+	FRAME_CHECKING=yes
+	echo "#define FRAME_CHECKING 1" >> $FILENAME
+	echo "#include <linux/frame.h>" >> $FILENAME
+
+    fi
+fi
+
+
+
 
 #socket interface changes:
 # version 4.1.13:

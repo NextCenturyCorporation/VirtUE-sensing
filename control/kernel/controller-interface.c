@@ -53,6 +53,7 @@ static int k_socket_read(struct socket *s, int n, void *in)
 	set_fs(oldfs);
 	return ccode;
 }
+STACK_FRAME_NON_STANDARD(k_socket_read);
 
 
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -263,9 +264,11 @@ err_out1:
 	kfree(connection->_destroy(connection));
 	return;
 }
+STACK_FRAME_NON_STANDARD(k_read_write);
 
 static void k_accept(struct kthread_work *work)
 {
+
 	struct connection *new_connection = NULL;
 	struct socket *newsock = NULL, *sock = NULL;
 	struct kthread_worker *worker = work->worker;
@@ -298,6 +301,7 @@ static void k_accept(struct kthread_work *work)
 	}
 	return;
 }
+STACK_FRAME_NON_STANDARD(k_accept);
 
 static int start_listener(struct connection *c)
 {
@@ -334,6 +338,8 @@ err_exit:
 	c->connected = NULL;
 	return -ENFILE;
 }
+STACK_FRAME_NON_STANDARD(start_listener);
+
 
 
 static inline void
@@ -445,6 +451,7 @@ err_exit:
 	}
 	return ERR_PTR(ccode);
 }
+STACK_FRAME_NON_STANDARD(init_connection);
 
 
 int

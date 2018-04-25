@@ -1,4 +1,4 @@
-#<qemu:commandline>
+tar#<qemu:commandline>
 #    <qemu:arg value='-gdb'/>
 #    <qemu:arg value='tcp::9000'/>
 #  </qemu:commandline>

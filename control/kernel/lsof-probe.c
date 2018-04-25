@@ -107,6 +107,7 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 	}
 	return index;
 }
+STACK_FRAME_NON_STANDARD(print_kernel_lsof);
 
 
 /**
@@ -167,6 +168,7 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 	}
 	return 0;
 }
+STACK_FRAME_NON_STANDARD(lsof_get_files_struct);
 
 
 int
@@ -203,6 +205,7 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 	spin_unlock_irqrestore(&p->lock, flags);
 	return file_index;
 }
+STACK_FRAME_NON_STANDARD(lsof_for_each_pid);
 
 
 
@@ -273,6 +276,7 @@ destroy_kernel_lsof_probe(struct probe *probe)
 	memset(lsof_p, 0, sizeof(struct kernel_lsof_probe));
 	return lsof_p;
 }
+STACK_FRAME_NON_STANDARD(destroy_kernel_lsof_probe);
 
 struct kernel_lsof_probe *
 init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
@@ -375,3 +379,4 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
+STACK_FRAME_NON_STANDARD(init_kernel_lsof_probe);

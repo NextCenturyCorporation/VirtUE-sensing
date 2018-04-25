@@ -308,6 +308,7 @@ process_records_cmd(struct jsmn_message *m, int index)
 	return 0;
 
 }
+STACK_FRAME_NON_STANDARD(process_records_cmd);
 
 
 
@@ -690,6 +691,7 @@ parse_json_message(struct jsmn_message *m)
 
 	return m->count;
 }
+STACK_FRAME_NON_STANDARD(parse_json_message);
 
 
 static void dump_session(struct jsmn_session *s)
@@ -712,6 +714,7 @@ static void dump_session(struct jsmn_session *s)
 #endif
 	return;
 }
+STACK_FRAME_NON_STANDARD(dump_session);
 
 
 /*
@@ -766,6 +769,7 @@ uint8_t *add_nl_at_end(uint8_t *in, int len)
 	*(c + len + 1) = 0x00;
 	return c;
 }
+STACK_FRAME_NON_STANDARD(add_nl_at_end);
 
 
 /**
@@ -787,6 +791,8 @@ uint8_t *trim_to_nl(uint8_t *in, int len)
 	}
 	return in;
 }
+STACK_FRAME_NON_STANDARD(trim_to_nl);
+
 
 
 uint8_t *unescape_newlines(uint8_t *in, int len)
@@ -823,6 +829,7 @@ uint8_t *unescape_newlines(uint8_t *in, int len)
 	}
 	return save;
 }
+STACK_FRAME_NON_STANDARD(unescape_newlines);
 
 /**
  * really slow and crude, but let's only allocate new memory
@@ -860,3 +867,5 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 	}
 	return in;
 }
+STACK_FRAME_NON_STANDARD(escape_newlines);
+

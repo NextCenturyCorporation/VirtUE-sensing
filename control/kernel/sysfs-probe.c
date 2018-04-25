@@ -108,6 +108,7 @@ err_exit:
 	set_fs(old_fs);
 	return ccode;
 }
+STACK_FRAME_NON_STANDARD(sysfs_read_data);
 
 int
 sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
@@ -148,9 +149,7 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 	spin_unlock_irqrestore(&p->lock, flags);
 	return file_index;
 }
-
-
-
+STACK_FRAME_NON_STANDARD(sysfs_for_each_pid);
 
 int
 kernel_sysfs(struct kernel_sysfs_probe *p, int c, uint64_t nonce)
@@ -232,6 +231,7 @@ destroy_sysfs_probe(struct probe *probe)
 	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_probe));
 	return sysfs_p;
 }
+STACK_FRAME_NON_STANDARD(destroy_sysfs_probe);
 
 struct kernel_sysfs_probe *
 init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
