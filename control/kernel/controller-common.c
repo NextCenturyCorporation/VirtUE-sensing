@@ -941,6 +941,15 @@ static int __init kcontrol_init(void)
 	spin_unlock_irqrestore(&k_sensor.lock, flags);
 
 
+/**
+ * initialize the socket interface
+ * TODO: socket_interface_init always returns zero, it should
+ * return an error code
+ **/
+	socket_interface_init();
+
+
+
 	return ccode;
 
 err_exit:
@@ -979,6 +988,7 @@ static void __exit controller_cleanup(void)
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
 	SHOULD_SHUTDOWN = 1;
+	socket_interface_exit();
 	k_sensor._destroy(&k_sensor);
 
 }

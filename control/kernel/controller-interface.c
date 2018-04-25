@@ -225,7 +225,7 @@ again:
 	m->socket = sock;
 	m->count = read_parse_message(m);
 	if (m->count < 0) {
-    /* for some reason, didn't read a valid json object */
+		/* for some reason, didn't read a valid json object */
 		printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
 			   "connection is being closed\n");
 		goto err_out0;
@@ -447,7 +447,8 @@ err_exit:
 }
 
 
-static int __init socket_interface_init(void)
+int
+__init socket_interface_init(void)
 {
 	init_jsonl_parser();
 	init_connection(&listener, PROBE_LISTEN, socket_name);
@@ -455,7 +456,8 @@ static int __init socket_interface_init(void)
 	return 0;
 }
 
-static void __exit socket_interface_exit(void)
+void
+__exit socket_interface_exit(void)
 {
 	SHOULD_SHUTDOWN = 1;
 
