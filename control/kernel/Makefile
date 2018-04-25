@@ -20,6 +20,7 @@ all: clean lint test-module
 rebuild: clean test-module
 
 test-module : ccflags-y +=  -g -DDEBUG -fno-inline
+test-module : OJECT_FILES_NON_STANDARD := y
 test-module : uname
 test-module : import-header
 	@echo ${ccflags-y}
