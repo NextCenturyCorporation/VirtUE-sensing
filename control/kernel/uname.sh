@@ -71,7 +71,6 @@ fi
 if (( $VERSION >= 4 )) ; then
     if (( $PATCHLEVEL < 6 )); then
 	FRAME_CHECKING=no
-	echo "#define FRAME_CHECKING 0" >> $FILENAME
 	echo "#define STACK_FRAME_NON_STANDARD(a)" >> $FILENAME
     else
 	FRAME_CHECKING=yes

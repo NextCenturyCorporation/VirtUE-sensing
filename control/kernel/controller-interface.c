@@ -303,6 +303,10 @@ static void k_accept(struct kthread_work *work)
 }
 STACK_FRAME_NON_STANDARD(k_accept);
 
+#pragma GCC diagnostic push
+#ifdef FRAME_CHECKING
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+#endif
 static int start_listener(struct connection *c)
 {
 	struct sockaddr_un addr;
@@ -339,6 +343,7 @@ err_exit:
 	return -ENFILE;
 }
 STACK_FRAME_NON_STANDARD(start_listener);
+#pragma GCC diagnostic pop
 
 
 
