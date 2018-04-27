@@ -4,9 +4,10 @@ __VERSION__ = "1.20171117"
 
 import argparse
 import asyncio
+import logging
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl, spawn
+from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, sleep, check_cancellation, ssl, spawn
 import curequests
 import email
 import hashlib
@@ -18,6 +19,7 @@ import platform
 pltfrm = platform.system().lower()
 if pltfrm not in ["windows", "nt"]:
     import pwd
+    from curio import SignalEvent
 import requests
 from routes import Mapper
 import signal
@@ -27,6 +29,9 @@ import time
 from urllib.parse import urlparse
 from uuid import uuid4
 
+logger = logging.getLogger("SensorWrapper")
+logger.setLevel(logging.DEBUG)
+logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
 
 #
 # Crazy monkey-patching so we can get access to the peer cert when we
@@ -127,8 +132,8 @@ class SensorWrapper(object):
         # Keep track of the public certificate of the API server
         self.api_public_certificate = None
 
-        print("Configured with sensing methods:")
-        print(sensing_methods)
+        logger.info("Configured with sensing methods:")
+        logger.info(sensing_methods)
 
     async def get_root_ca_pubkey(self):
         """
@@ -145,7 +150,7 @@ class SensorWrapper(object):
         :param opts: argparse options
         :return: success boolean, PEM encoded CA public key or error message
         """
-        print("  @ Retrieving CA Root public key")
+        logger.info("  @ Retrieving CA Root public key")
 
         uri = self.construct_api_uri("/ca/root/public", secure=False)
 
@@ -155,17 +160,17 @@ class SensorWrapper(object):
             res_json = res.json()
 
             if not res_json["error"]:
-                print("  + got PEM encoded certificate")
+                logger.info("  + got PEM encoded certificate")
 
                 with open(os.path.join(self.opts.ca_key_path, "ca.pem"), "w") as ca_pem:
                     ca_pem.write(res_json["certificate"])
-                    print("  < PEM written to [%s]" % (os.path.join(self.opts.ca_key_path, "ca.pem")))
+                    logger.info("  < PEM written to [%s]" % (os.path.join(self.opts.ca_key_path, "ca.pem")))
                 return True, res_json["certificate"]
             else:
-                print("  ! encountered an error retrieving the certificate: %s" % (res_json["message"],))
+                logger.error("  ! encountered an error retrieving the certificate: %s" % (res_json["message"],))
                 return False, res_json["message"]
         else:
-            print("  ! Encountered an HTTP error retrieving the certificate: status_code(%d)" % (res.status_code,))
+            logger.error("  ! Encountered an HTTP error retrieving the certificate: status_code(%d)" % (res.status_code,))
             return False, "HTTP(%d)" % (res.status_code,)
 
     async def wait_for_sensor_api(self):
@@ -182,7 +187,7 @@ class SensorWrapper(object):
         :return: Return if ready, otherwise raise ConnectionError
         """
 
-        print("  @ Waiting for Sensing API")
+        logger.info("  @ Waiting for Sensing API")
 
         uri = self.construct_api_uri("/ready", secure=False)
 
@@ -201,17 +206,17 @@ class SensorWrapper(object):
 
                     # can we break free?
                     if "ready" in res_json and res_json["ready"]:
-                        print("    + Sensing API is ready")
+                        logger.info("    + Sensing API is ready")
                         return
             except Exception as e:
-                print("  ! Exception while waiting for the Sensing API (%s)" % (str(e),))
+                logger.exception("  ! Exception while waiting for the Sensing API (%s)" % (str(e),))
 
             # have we exceeded our retry time limit?
             if (time.time() - st) > self.opts.api_retry_max:
                 raise ConnectionError("Cannot connect to Sensing API")
 
             # The endpoint isn't ready, we need to sleep on it
-            print("    ~ retrying in %0.2f seconds" % (self.opts.api_retry_wait,))
+            logger.info("    ~ retrying in %0.2f seconds" % (self.opts.api_retry_wait,))
 
             time.sleep(self.opts.api_retry_wait)
 
@@ -236,7 +241,7 @@ class SensorWrapper(object):
         while True:
 
             # try and hit the sync end point
-            print("syncing with [%s]" % (uri,))
+            logger.info("syncing with [%s]" % (uri,))
 
             ca_path = os.path.join(self.opts.ca_key_path, "ca.pem")
 
@@ -245,11 +250,11 @@ class SensorWrapper(object):
             if reg_res.status_code == 200:
                 if not self.is_pinned_api(reg_res):
                     sys.exit(1)
-                print("Synced sensor with Sensing API")
+                logger.info("Synced sensor with Sensing API")
             else:
-                print("Couldn't sync sensor with Sensing API")
-                print("  status_code == %d" % (reg_res.status_code,))
-                print(reg_res.json())
+                logger.warning("Couldn't sync sensor with Sensing API")
+                logger.warning("  status_code == %d" % (reg_res.status_code,))
+                logger.warning(reg_res.json())
 
             # sleep
             await sleep(60 * 2)
@@ -268,7 +273,7 @@ class SensorWrapper(object):
         :param root_cert: Savior CA public root
         :return: success, private_key, csr, challenge data
         """
-        print("  @ Requesting Private Key and Certificate Signing Request from the Sensing API")
+        logger.info("  @ Requesting Private Key and Certificate Signing Request from the Sensing API")
 
         uri = self.construct_api_uri("/ca/register/private_key/new")
         payload = {
@@ -280,19 +285,19 @@ class SensorWrapper(object):
         pki_priv_res = await curequests.put(uri, json=payload, verify=ca_path)
 
         if pki_priv_res.status_code == 200:
-            print("  + got private key response from Sensing API")
+            logger.info("  + got private key response from Sensing API")
             pki_priv_json = pki_priv_res.json()
 
             self.api_public_certificate = pki_priv_res.peercert
-            print("  + storing API public certificate for pinning (%d bytes)" % (len(self.api_public_certificate),))
+            logger.info("  + storing API public certificate for pinning (%d bytes)" % (len(self.api_public_certificate),))
 
             return True, pki_priv_json["private_key"], pki_priv_json["certificate_request"], pki_priv_json["challenge"]
         else:
-            print("  ! got status_code(%d) from the Sensing API" % (pki_priv_res.status_code,))
+            logger.warning("  ! got status_code(%d) from the Sensing API" % (pki_priv_res.status_code,))
             res_json = pki_priv_res.json()
             if "messages" in res_json:
                 for msg in res_json["messages"]:
-                    print("    - %s" % (msg,))
+                    logger.warning("    - %s" % (msg,))
             return False, "", "", {}
 
     async def get_signed_public_key(self, csr):
@@ -309,7 +314,7 @@ class SensorWrapper(object):
         :param csr: certificate signing request PEM data
         :return: success, key
         """
-        print("  @ Requesting Signed Public Key from the Sensing API")
+        logger.info("  @ Requesting Signed Public Key from the Sensing API")
 
         uri = self.construct_api_uri("/ca/register/public_key/signed")
         payload = {
@@ -325,17 +330,17 @@ class SensorWrapper(object):
             if not self.is_pinned_api(pub_key_res):
                 return False, ""
 
-            print("  + got a signed public key from the Sensing API")
+            logger.info("  + got a signed public key from the Sensing API")
             pub_key_json = pub_key_res.json()
 
             return True, pub_key_json["certificate"]
 
         else:
-            print("  ! got status_code(%d) from the Sensing API" % (pub_key_res.status_code,))
+            logger.warning("  ! got status_code(%d) from the Sensing API" % (pub_key_res.status_code,))
             res_json = pub_key_res.json()
             if "messages" in res_json:
                 for msg in res_json["messages"]:
-                    print("    - %s" % (msg,))
+                    logger.warning("    - %s" % (msg,))
             return False, ""
 
     def is_pinned_api(self, response):
@@ -347,10 +352,10 @@ class SensorWrapper(object):
         """
 
         if response.peercert == self.api_public_certificate:
-            print("  + pinned API certificate match")
+            logger.info("  + pinned API certificate match")
             return True
         else:
-            print("  - pinned API certificate mismatch")
+            logger.info("  - pinned API certificate mismatch")
             return False
 
     async def register_sensor(self, pub_key):
@@ -374,23 +379,23 @@ class SensorWrapper(object):
             "os": self.operating_system
         }
 
-        print("registering with [%s]" % (uri,))
+        logger.info("registering with [%s]" % (uri,))
 
         ca_path = os.path.join(self.opts.ca_key_path, "ca.pem")
         client_cert_paths = (os.path.abspath(self.opts.public_key_path), os.path.abspath(self.opts.private_key_path))
-        print("  client certificate public(%s), private(%s)" % client_cert_paths)
+        logger.info("  client certificate public(%s), private(%s)" % client_cert_paths)
         reg_res = await curequests.put(uri, json=payload, verify=ca_path, cert=client_cert_paths)
 
         if reg_res.status_code == 200:
             if not self.is_pinned_api(reg_res):
                 sys.exit(1)
-            print("  = Got registration data: ")
-            print(reg_res.json())
+            logger.info("  = Got registration data: ")
+            logger.info(reg_res.json())
             return reg_res.json()
         else:
-            print("Couldn't register sensor with Sensing API")
-            print("  status_code == %d" % (reg_res.status_code,))
-            print(reg_res.text)
+            logger.critical("Couldn't register sensor with Sensing API")
+            logger.critical("  status_code == %d" % (reg_res.status_code,))
+            logger.critical(reg_res.text)
             sys.exit(1)
 
     def deregister_sensor(self, pub_key):
@@ -415,12 +420,12 @@ class SensorWrapper(object):
         if res.status_code == 200:
 
             if not self.is_pinned_api(res):
-                print("  !!! API cert pinning failed during deregistration")
-            print("Deregistered sensor with Sensing API")
+                logger.warning("  !!! API cert pinning failed during deregistration")
+            logger.info("Deregistered sensor with Sensing API")
         else:
-            print("Couldn't deregister sensor with Sensing API")
-            print("  status_code == %d" % (res.status_code,))
-            print(res.text)
+            logger.warning("Couldn't deregister sensor with Sensing API")
+            logger.warning("  status_code == %d" % (res.status_code,))
+            logger.warning(res.text)
 
     async def call_sensing_method(self, sensor_id, default_config):
         """
@@ -437,7 +442,7 @@ class SensorWrapper(object):
             try:
                 await self.sensing_method_task_group.cancel_remaining()
             except CancelledError as ce:
-                print("  ^ ate CancelledError when cancelling stale sensing_method task group")
+                logger.exception("  ^ ate CancelledError when cancelling stale sensing_method task group")
                 self.sensing_method_task_group = None
 
         # setup our message stub
@@ -460,8 +465,8 @@ class SensorWrapper(object):
         :param kafka_channel:
         :return:
         """
-        print(" ::starting log_drain")
-        print("  ? configuring KafkaProducer(bootstrap=%s, topic=%s)" % (",".join(kafka_bootstrap_hosts), kafka_channel))
+        logger.info(" ::starting log_drain")
+        logger.info("  ? configuring KafkaProducer(bootstrap=%s, topic=%s)" % (",".join(kafka_bootstrap_hosts), kafka_channel))
 
         producer = KafkaProducer(
             bootstrap_servers=kafka_bootstrap_hosts,
@@ -490,10 +495,10 @@ class SensorWrapper(object):
 
                 # progress reporting
                 if msg_count % 5000 == 0:
-                    print("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
+                    logger.info("  :: %d messages received, %d bytes total" % (msg_count, msg_bytes))
 
         except CancelledError as ce:
-            print(" () stopping log-drain")
+            logger.info(" () stopping log-drain")
 
     def configure_http_handler(self, routes, secure=False):
         """
@@ -532,7 +537,7 @@ class SensorWrapper(object):
             :param addr: Client address
             :return: -
             """
-            print(" -> connection from ", addr)
+            logger.info(" -> connection from %s", addr)
             s = client.as_stream()
             try:
 
@@ -560,15 +565,15 @@ class SensorWrapper(object):
                 (r_method, r_path, r_version) = path.strip().split(" ")
 
                 # handle the request, figuring out where it goes with the mapper
-                print("[info] got [%s] request path [%s]" % (r_method, r_path,))
+                logger.info("[info] got [%s] request path [%s]" % (r_method, r_path,))
                 handler = mapper.match(r_path)
 
                 if handler is not None:
-                    print("[%(controller)s] > handling request" % handler)
+                    logger.info("[%(controller)s] > handling request" % handler)
                     await mapper_funcs[handler["controller"]](s, headers, handler)
                 else:
                     # whoops
-                    print("   :: No route available for request [%s]" % (path,))
+                    logger.warning("   :: No route available for request [%s]" % (path,))
 
                     # send an error
                     await send_json(s, {"error": True, "msg": "no such route"}, status_code=404)
@@ -576,10 +581,10 @@ class SensorWrapper(object):
             except CancelledError:
 
                 # ruh-roh, connection broken
-                print("connection goes boom")
+                logger.exception("connection goes boom")
 
             # request cycle done
-            print(" <- connection closed")
+            logger.info(" <- connection closed")
 
         return http_handler
 
@@ -602,7 +607,7 @@ class SensorWrapper(object):
             :param params:
             :return:
             """
-            print("  | sending HTTP-01/SAVIOR certificate challenge response")
+            logger.info("  | sending HTTP-01/SAVIOR certificate challenge response")
             await send_json(stream, challenge)
 
         return challenge_handler
@@ -622,10 +627,10 @@ class SensorWrapper(object):
 
         # do our UUIDs match?
         if self.opts.sensor_id == params["uuid"]:
-            print("  | sensor ID is a match")
+            logger.info("  | sensor ID is a match")
             await send_json(stream, {"error": False, "msg": "ack"})
         else:
-            print("  | sensor ID is NOT A MATCH")
+            logger.info("  | sensor ID is NOT A MATCH")
             await send_json(stream, {"error": True, "msg": "Sensor ID does not match registration ID"}, status_code=401)
 
     async def route_sensor_actuate(self, stream, headers, params):
@@ -640,8 +645,8 @@ class SensorWrapper(object):
         """
         body = await self.wait_for_json(stream)
 
-        print("=> Sensor actuation received action(%s)" % (body["actuation"]))
-        print("   config=<%s>" % (body["payload"]["configuration"],))
+        logger.info("=> Sensor actuation received action(%s)" % (body["actuation"]))
+        logger.info("   config=<%s>" % (body["payload"]["configuration"],))
 
         if body["actuation"] == "observe":
 
@@ -655,7 +660,7 @@ class SensorWrapper(object):
             await self.wrapper_task_group.add_task(ld_t)
             self.log_drain_task = ld_t
 
-            print("  = observe actuation triggered")
+            logger.info("  = observe actuation triggered")
 
             # respond
             await send_json(stream, {"error": False})
@@ -663,7 +668,7 @@ class SensorWrapper(object):
 
             # if we don't know what it is, we can't really do anything. Respond
             # to the API with an error, and carry on
-            print("  ! unknown actuation(%s) - dropping" % (body["actuation"],))
+            logger.info("  ! unknown actuation(%s) - dropping" % (body["actuation"],))
             await send_json(stream, {"error": True, "msg": "Unknown actuation"})
 
     async def route_sensor_status(self, stream, headers, params):
@@ -678,7 +683,7 @@ class SensorWrapper(object):
         :param params:
         :return:
         """
-        print("  | reporting status ")
+        logger.info("  | reporting status ")
         await send_json(stream,
                         {
                             "error": False,
@@ -711,7 +716,7 @@ class SensorWrapper(object):
         while True:
             line = await stream.read(1024)
             body += line.decode("utf-8")
-            print(body)
+            logger.info(body)
             try:
                 decoded = json.loads(body)
                 break
@@ -726,7 +731,8 @@ class SensorWrapper(object):
 
         :return: -
         """
-        Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
+        if pltfrm not in ["windows", "nt"]:
+            Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
         self.wrapper_task_group = TaskGroup()
         async with self.wrapper_task_group as g:
@@ -740,18 +746,18 @@ class SensorWrapper(object):
             rc_success, root_cert = await ca_root_cert_future.join()
 
             if not rc_success:
-                print("  ! Couldn't get the CA root certificate - no way to verify secure communications")
+                logger.critical("  ! Couldn't get the CA root certificate - no way to verify secure communications")
                 sys.exit(1)
 
             # now the certificate cycle, where we get our pub/priv key pair
             pki_private_future = await g.spawn(self.get_private_key_and_csr)
             pki_priv_success, priv_key, csr, challenge_data = await pki_private_future.join()
             if not pki_priv_success:
-                print("  ! Encountered an error when retrieving a private key for the sensor, aborting")
+                logger.critical("  ! Encountered an error when retrieving a private key for the sensor, aborting")
                 sys.exit(1)
 
-            print("  %% private key fingerprint(%s)" % (self.rsa_private_fingerprint(priv_key),))
-            print("  %% CA http-savior challenge url(%s) and token(%s)" % (challenge_data["url"], challenge_data["token"]))
+            logger.info("  %% private key fingerprint(%s)" % (self.rsa_private_fingerprint(priv_key),))
+            logger.info("  %% CA http-savior challenge url(%s) and token(%s)" % (challenge_data["url"], challenge_data["token"]))
 
             # Our Verification and Challenge cycle has two components:
             #
@@ -790,7 +796,7 @@ class SensorWrapper(object):
             pki_public_future = await g.spawn(self.get_signed_public_key, csr)
             pub_key_success, pub_key = await pki_public_future.join()
             if not pub_key_success:
-                print("  ! Encountered an error when retrieving a public key for the sensor, aborting")
+                logger.critical("  ! Encountered an error when retrieving a public key for the sensor, aborting")
                 sys.exit(1)
 
             # spin down the http server
@@ -828,23 +834,24 @@ class SensorWrapper(object):
             # now we register and wait for the results
             reg = await g.spawn(self.register_sensor, pub_key)
 
-            print("  @ waiting for registration cycle")
+            logger.info("  @ waiting for registration cycle")
             reg_data = await reg.join()
-            print(reg_data)
-            print("  = got registration")
+            logger.info(reg_data)
+            logger.info("  = got registration")
 
             self.log_drain_task = await g.spawn(self.log_drain, reg_data["kafka_bootstrap_hosts"], reg_data["sensor_topic"])
             await g.spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(reg_data["default_configuration"]))
             await g.spawn(self.sync_sensor, pub_key)
 
-            await Goodbye.wait()
-            print("Got SIG: deregistering sensor and shutting down")
+            if pltfrm not in ["windows", "nt"]:
+                await Goodbye.wait()
+                logger.info("Got SIG: deregistering sensor and shutting down")
             await g.cancel_remaining()
 
             # don't run this async - we're happy to block on deregistration
             self.deregister_sensor(pub_key)
 
-            print("Stopping.")
+            logger.info("Stopping.")
 
     def load_public_key(self, key_path):
         """
@@ -872,8 +879,8 @@ class SensorWrapper(object):
 
         except ValueError as ve:
 
-            print("Couldn't import RSA public key at %s - %s" % (key_path, str(ve)))
-            print("  If this is encountered during testing, run the gen_cert.sh script to create a key pair, and try testing again")
+            logger.exception("Couldn't import RSA public key at %s - %s" % (key_path, str(ve)))
+            logger.critical("  If this is encountered during testing, run the gen_cert.sh script to create a key pair, and try testing again")
             sys.exit(1)
 
         return rsakey, key_string
@@ -905,8 +912,8 @@ class SensorWrapper(object):
 
         except ValueError as ve:
 
-            print("Couldn't import RSA private key at %s - %s" % (key_path, str(ve)))
-            print("  If this is encountered during testing, run the gen_cert.sh script to create a key pair, and try testing again")
+            logger.exception("Couldn't import RSA private key at %s - %s" % (key_path, str(ve)))
+            logger.critical("  If this is encountered during testing, run the gen_cert.sh script to create a key pair, and try testing again")
             sys.exit(1)
 
         return rsakey, key_string
@@ -979,7 +986,7 @@ class SensorWrapper(object):
 
         :return:
         """
-        self.argparser = argparse.ArgumentParser(description="LSOF sensor")
+        self.argparser = argparse.ArgumentParser(description=self.sensor_name)
 
         # top level control
 
@@ -1014,8 +1021,8 @@ class SensorWrapper(object):
         self.argparser.add_argument("--api-connect-retry-max", dest="api_retry_max", type=float, default=30.0, help="How many seconds should we wait for the Sensing API to be ready before we shutdown")
         self.argparser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensign API connection retries")
 
-    def parse_options(self):
-        self.opts = self.argparser.parse_args()
+    def parse_options(self, args):        
+        self.opts = self.argparser.parse_args(args)        
 
     def check_identification(self):
         """
@@ -1093,7 +1100,7 @@ class SensorWrapper(object):
         # different from our bind port...
         if os.path.exists("/home/user/ports.properties"):
 
-            print("  % using ports.properties")
+            logger.info("  % using ports.properties")
 
             # we could use configparser, but the ports.properties isn't a full INI
             # file, so we resort to scanning it ourselves. Sigh.
@@ -1119,40 +1126,41 @@ class SensorWrapper(object):
 
 
         # report
-        print("Sensor Identification")
-        print("\tsensor_id  == %s" % (self.opts.sensor_id,))
-        print("\tvirtue_id  == %s" % (self.opts.virtue_id,))
-        print("\tusername   == %s" % (self.opts.username,))
-        print("\thostname   == %s" % (self.opts.sensor_hostname,))
+        logger.info("Sensor Identification")
+        logger.info("\tsensor_id  == %s" % (self.opts.sensor_id,))
+        logger.info("\tvirtue_id  == %s" % (self.opts.virtue_id,))
+        logger.info("\tusername   == %s" % (self.opts.username,))
+        logger.info("\thostname   == %s" % (self.opts.sensor_hostname,))
 
-        print("Sensing API")
-        print("\thostname   == %s" % (self.opts.api_host,))
-        print("\thttp port  == %d" % (self.opts.api_http_port,))
-        print("\thttps port == %d" % (self.opts.api_https_port,))
-        print("\tversion    == %s" % (self.opts.api_version,))
+        logger.info("Sensing API")
+        logger.info("\thostname   == %s" % (self.opts.api_host,))
+        logger.info("\thttp port  == %d" % (self.opts.api_http_port,))
+        logger.info("\thttps port == %d" % (self.opts.api_https_port,))
+        logger.info("\tversion    == %s" % (self.opts.api_version,))
 
-        print("Sensor Interface")
-        print("\thostname   == %s" % (self.opts.sensor_hostname,))
-        print("\tport       == %d" % (self.opts.sensor_port,))
-        print("Advertised Interface")
-        print("\thostname   == %s" % (self.opts.sensor_advertised_hostname,))
-        print("\tport       == %d" % (self.opts.sensor_advertised_port,))
+        logger.info("Sensor Interface")
+        logger.info("\thostname   == %s" % (self.opts.sensor_hostname,))
+        logger.info("\tport       == %d" % (self.opts.sensor_port,))
+        logger.info("Advertised Interface")
+        logger.info("\thostname   == %s" % (self.opts.sensor_advertised_hostname,))
+        logger.info("\tport       == %d" % (self.opts.sensor_advertised_port,))
 
-    def start(self):
+    def start(self, args=None):
         """
         Start up the sensor wrapper.
 
         :return:
         """
+        logger.info("Called SensorWrapper.start(%s)" % args)
         # good morning.
-        print("Starting %s(version=%s)" % (self.sensor_name, __VERSION__,))
+        logger.info("Starting %s(version=%s)" % (self.sensor_name, __VERSION__,))
 
-        self.parse_options()
+        self.parse_options(args)
 
         self.check_identification()
 
         if self.opts.delay_start > 0:
-            print("Delaying startup of lsof_sensor %d seconds" % (self.opts.delay_start,))
+            logger.info("Delaying startup of lsof_sensor %d seconds" % (self.opts.delay_start,))
             time.sleep(self.opts.delay_start)
 
         # let's jump right into async land
