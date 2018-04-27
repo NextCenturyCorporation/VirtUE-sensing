@@ -1,3 +1,4 @@
 pgdata
-*~
-*.wpr
+*.un~
+*.json~
+/sensors/sensor.wpr
