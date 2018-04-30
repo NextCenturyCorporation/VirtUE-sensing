@@ -4,7 +4,13 @@ services:
     image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
+    networks:
+      apinet:
+        aliases:
+          - zookeeper
   kafka:
+    image: 127.0.0.1:5000/savior-kafka
+    hostname: sensing-kafka.savior.internal
     build:
       context: "./control/logging"
       dockerfile: Dockerfile
@@ -15,8 +21,10 @@ services:
         mode: host
     environment:
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
-      HOSTNAME_COMMAND: "docker info | grep ^Name: | cut -d' ' -f 2"      
+      HOSTNAME_COMMAND: echo -n "sensing-kafka.savior.internal"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://_{HOSTNAME_COMMAND}:9455,OUTSIDE://_{HOSTNAME_COMMAND}:9555
+      KAFKA_LISTENERS: INSIDE://_{HOSTNAME_COMMAND}:9455,OUTSIDE://_{HOSTNAME_COMMAND}:9555
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:SSL,OUTSIDE:SSL
       KAFKA_ADVERTISED_PROTOCOL_NAME: OUTSIDE
       KAFKA_ADVERTISED_PORT: 9555
@@ -24,43 +32,79 @@ services:
       KAFKA_PORT: 9455
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      apinet:
+        aliases:
+          - kafka
+          - sensing-kafka.savior.internal
   cfssl:
+    image: 127.0.0.1:5000/savior-cfssl
     build: "./control/savior-ca"
     ports:
       - "3030:3030"
+    networks:
+      apinet:
+        aliases:
+          - cfssl
+          - sensing-ca.savior.internal
   api:
+    image: 127.0.0.1:5000/savior-api
     build: "./control/api_server"
     ports:
       - "17141:17141"
       - "17504:17504"
     environment:
       CFSSL_SHARED_SECRET: "de1069ab43f7f385d9a31b76af27e7620e9aa2ad5dccd264367422a452aba67f"
+      SWARM_HOST: ${SWARM_HOSTNAME}
+      KAFKA_BOOTSTRAP_PORT: "9455"
     depends_on:
       - kafka
       - cfssl
       - api_server_postgres
-    links:
-      - "kafka:kafka"
-      - "cfssl:cfssl"
+    networks:
+      apinet:
+        aliases:
+          - api
+          - sensing-api.savior.internal
   dropper_callback:
+    image: 127.0.0.1:5000/dropper-callback
     build: "./external/dropper_callback"
     ports:
       - "8080:8080"
     # hostname: dropper1
     # domainname: evil.io
+    networks:
+      apinet:
+        aliases:
+          - dropper_callback
   target_1:
+    image: 127.0.0.1:5000/demo-target
     build: "./targets/demo-target"
     depends_on:
       - kafka
       - api
     stdin_open: true
     tty: true
+    networks:
+      apinet:
+        aliases:
+          - target_1
   api_server_postgres:
     image: postgres:9.3
     volumes:
-      - ./pgdata:/var/lib/postgresql/data/pgdata
+      - db-data:/var/lib/postgresql/data/pgdata
     environment:
       POSTGRES_PASSWORD: "postgres"
       POSTGRES_USER: "postgres"
       PGDATA: "/var/lib/postgresql/data/pgdata"
       POSTGRES_DB: "api_server_postgres"
+    networks:
+      apinet:
+        aliases:
+          - api_server_postgres
+          - postgres
+volumes:
+  db-data:
+networks:
+  apinet:
+    external: true
