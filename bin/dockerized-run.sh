@@ -4,7 +4,7 @@ echo "[dockerized-run]"
 
 NETWORK=
 
-if [ "$MODE" == "dev" ]; then
+if [ "$API_MODE" == "dev" ]; then
     echo "[running in DEVELOPMENT mode]"
     NETWORK="--network=apinet"
 fi
