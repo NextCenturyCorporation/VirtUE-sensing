@@ -80,6 +80,15 @@ if (( $VERSION >= 4 )) ; then
     fi
 fi
 
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 14 )); then
+	echo "#define ANCIENT_FILE_API 1" >> $FILENAME
+    else
+	echo "#define MODERN_FILE_API 1" >> $FILENAME
+    fi
+fi
+
+
 
 
 

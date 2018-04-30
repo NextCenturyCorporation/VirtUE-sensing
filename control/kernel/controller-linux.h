@@ -30,5 +30,6 @@
 #include <net/af_unix.h>
 #include <asm/segment.h>
 #include <linux/syscalls.h>
+#include <uapi/linux/stat.h>
 #define assert(s) do{if (!(s)) panic(#s);} while(0);
 #endif // CONTROLLER_LINUX_H

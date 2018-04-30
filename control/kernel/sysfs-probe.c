@@ -43,7 +43,6 @@ int sysfs_read_data(struct kernel_sysfs_probe *p,
 {
 
 	static struct kernel_sysfs_data ksysfsd;
-	mm_segment_t old_fs;
 	int ccode = 0;
 	struct file *f;
 
@@ -51,8 +50,6 @@ int sysfs_read_data(struct kernel_sysfs_probe *p,
  * get a read file handle, then get the stat struct, then
  * use the file size to allocated a read buffer, then read the file
  **/
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
 	memset(&ksysfsd, 0x00, sizeof(struct kernel_sysfs_data));
 
 	ksysfsd.fd = IMPORTED(sys_open)(path, O_RDONLY, 0644);
@@ -105,7 +102,7 @@ int sysfs_read_data(struct kernel_sysfs_probe *p,
 		}
 	}
 err_exit:
-	set_fs(old_fs);
+
 	return ccode;
 }
 STACK_FRAME_NON_STANDARD(sysfs_read_data);
@@ -129,7 +126,10 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 		if (pid_el_p) {
 			if (pid_el_p->nonce != nonce) {
 				break;
+			} else {
+				goto unlock_out;
 			}
+
 
 			snprintf(sysfs_path, MAX_DENTRY_LEN, format, pid_el_p->pid);
 			file_index = index;
@@ -146,6 +146,7 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 			return -ENOMEM;
 		}
 	}
+unlock_out:
 	spin_unlock_irqrestore(&p->lock, flags);
 	return file_index;
 }

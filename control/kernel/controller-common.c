@@ -82,140 +82,74 @@ MODULE_PARM_DESC(sysfs_timeout,
 				 "sysfs function");
 MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
 
-
-
-
 module_param(socket_name, charp, 0644);
 
 
-/***
-static inline int vfs_fstat(int fd, struct kstat *stat)
+
+int
+file_getattr(struct file *f, struct kstat *k)
 {
-	return vfs_statx_fd(fd, stat, STATX_BASIC_STATS, 0);
+	int ccode = 0;
+	memset(k, 0x00, sizeof(struct kstat));
+#ifdef MODERN_FILE_API
+	ccode = vfs_getattr(&f->f_path, k, 0x00000fffU, KSTAT_QUERY_FLAGS);
+#else
+	ccode = vfs_getattr(&f->f_path, k);
+#endif
+	return ccode;
 }
-***/
+
 
 ssize_t
-kfs_write_file(char *filename, void *data, ssize_t len)
+write_file(char *name, void *buf, size_t count, loff_t *pos)
 {
-	struct file *file;
-	loff_t pos = 0;
-	int fd;
-	ssize_t result = -EBADF;
-	mm_segment_t old_fs;
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	fd = IMPORTED(sys_open)(filename, O_WRONLY | O_CREAT, 0644);
-	if (fd > 0) {
-		file = fget(fd);
-		if (file) {
-			result = kfs_write(file, data, len, &pos);
-			fput(file);
+	ssize_t ccode;
+	struct file *f;
+	f = filp_open(name, O_WRONLY, 0);
+	if (f) {
+#ifdef MODERN_FILE_API
+		ccode = kernel_write(f, buf, count, pos);
+#else
+		ccode = kernel_write(f, (char *)buf, count, *pos);
+#endif
+		if (ccode < 0) {
+			pr_err("Unable to write file: %s (%ld)", name, ccode);
+			filp_close(f, 0);
+			return ccode;
 		}
-		IMPORTED(sys_close)(fd);
+	} else {
+		ccode = -EBADF;
+		pr_err("Unable to open file: %s (%ld)", name, ccode);
 	}
-	set_fs(old_fs);
-	return result;
-
+	return ccode;
 }
 
+
 ssize_t
-kfs_write_to_offset(char *filename, void *data, ssize_t len, loff_t *pos)
+read_file(char *name, void *buf, size_t count, loff_t *pos)
 {
-	struct file *file;
-	int fd;
-	ssize_t result = -EBADF;
-	mm_segment_t old_fs;
+	ssize_t ccode;
+	struct file *f;
 
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	fd = IMPORTED(sys_open)(filename, O_WRONLY | O_CREAT, 0644);
-	if (fd > 0) {
-		file = fget(fd);
-		if (file) {
-			result = kfs_write(file, data, len, pos);
-			fput(file);
+	f = filp_open(name, O_RDONLY, 0);
+	if (f) {
+#ifdef MODERN_FILE_API
+		ccode = kernel_read(f, buf, count, pos);
+#else
+		ccode = kernel_read(f, *pos, (char *)buf, count);
+#endif
+		if (ccode < 0) {
+			pr_err("Unable to read file: %s (%ld)", name, ccode);
+			filp_close(f, 0);
+			return ccode;
 		}
-		IMPORTED(sys_close)(fd);
+		filp_close(f, 0);
+	} else {
+		ccode = -EBADF;
+  		pr_err("Unable to open file: %s (%ld)", name, ccode);
 	}
-	set_fs(old_fs);
-	return result;
 
-}
-
-
-ssize_t
-kfs_read_file(char *filename, void *data, ssize_t len)
-{
-	struct file *file;
-	loff_t pos = 0;
-	int fd;
-	ssize_t result = -EBADF;
-	mm_segment_t old_fs;
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	fd = IMPORTED(sys_open)(filename, O_RDONLY | O_CREAT, 0644);
-	if (fd > 0) {
-		file = fget(fd);
-		if (file) {
-			result = kfs_read(file, data, len, &pos);
-			fput(file);
-		}
-		IMPORTED(sys_close)(fd);
-	}
-	set_fs(old_fs);
-	return result;
-
-}
-
-ssize_t
-kfs_read_from_offset(char *filename, void *data, ssize_t len, loff_t *pos)
-{
-	struct file *file;
-	int fd;
-	ssize_t result = -EBADF;
-	mm_segment_t old_fs;
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	fd = IMPORTED(sys_open)(filename, O_RDONLY | O_CREAT, 0644);
-	if (fd > 0) {
-		file = fget(fd);
-		if (file) {
-			result = kfs_read(file, data, len, pos);
-			fput(file);
-		}
-		IMPORTED(sys_close)(fd);
-	}
-	set_fs(old_fs);
-	return result;
-}
-
-
-
-ssize_t
-kfs_read(struct file *file, void *buf, size_t count, loff_t *pos)
-{
-	ssize_t result;
-	result = IMPORTED(vfs_read)(file, buf, count, pos);
-	return result;
-}
-
-
-ssize_t
-kfs_write(struct file *file, void *buf, size_t count, loff_t *pos)
-{
-	ssize_t res;
-
-	res = IMPORTED(vfs_write)(file, buf, count, pos);
-
-	return res;
+	return ccode;
 }
 
 
