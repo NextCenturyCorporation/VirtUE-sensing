@@ -27,6 +27,9 @@ import time
 from urllib.parse import urlparse
 from uuid import uuid4
 
+# import logging
+# logging.getLogger().addHandler(logging.StreamHandler())
+# logging.getLogger().setLevel(logging.DEBUG)
 
 #
 # Crazy monkey-patching so we can get access to the peer cert when we
