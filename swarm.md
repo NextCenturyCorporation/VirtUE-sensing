@@ -66,6 +66,11 @@ The utility of each of these ports:
  - **17141**: Sensing API Insecure port (HTTP)
  - **17504**: Sensing API Secure port (HTTP/TLS)
 
+As well, internal DNS (as handled by Route 53) **must include** the following routes, for now all pointing at the Swarm Master node:
+
+ - sensing-api.savior.internal
+ - sensing-ca.savior.internal
+ - sensing-kafka.savior.internal 
  
 ### Manager Node
 
@@ -111,7 +116,7 @@ Start the external docker overlay network
 > sudo docker network create --driver overlay --attachable --subnet 192.168.1.0/24 apinet
 ```
 
-Notice that we're directly setting a subnet for use in the Swarm network - if we don't do this, the default network used in swarm has conflicts with the default subnet in the AWS VPC, that is overlapping `10.0.1.0/24` segments, which wreaks havoc with DNS and container routing. The name of this network, `apinet`, **must** match the defined external network name in the `docker-compose-swarm.yml` and `docker-compose-registry.yml` compose files.
+Notice that we're directly setting a subnet for use in the Swarm network - if we don't do this, the default network used in swarm has conflicts with the default subnet in the AWS VPC, that is overlapping `10.0.1.0/24` segments, which wreaks havoc with DNS and container routing. The name of this network, `apinet`, **must** match the defined external network name in the `docker-compose-swarm.yml` compose file.
 
 ## Pull the API code
 
