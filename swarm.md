@@ -136,7 +136,7 @@ Make sure you're on the branch you intend to run from.
 
 ## Setup a Docker Registry
 
-Moving containers build with `docker-compose` between the different nodes of a docker swarm requires a registry. Rather than using the global Docker Hub registry, we spin up our own registry as part of our deploy step. Start the registry with:
+Moving containers built with `docker-compose` between the different nodes of a docker swarm requires a registry. Rather than using the global Docker Hub registry, we spin up our own registry as part of our deploy step. Start the registry with:
 
 ```bash
 > sudo docker service create --name registry --publish 5000:5000 registry:2
