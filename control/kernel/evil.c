@@ -4,11 +4,12 @@
 #include <linux/syscalls.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
+#include <linux/file.h>
 #include <asm/uaccess.h>
 #include <linux/printk.h>
 #include <linux/vmalloc.h>
 
-char *filename;
+char *filename = "/proc/1/mounts";
 module_param(filename, charp, 0644);
 
 
@@ -28,7 +29,31 @@ module_param(filename, charp, 0644);
  *
  * "buflen" should be positive.
  */
-//char *d_path(const struct path *path, char *buf, int buflen)
+
+static inline struct fd
+get_fd_from_file(unsigned long v)
+{
+	struct file * f = (struct file *)v;
+	struct fd __fd = __to_fd(v);
+	printk("get_fd_from_file %lu, f is %p, __fd.file is %p, __fd.flags is %x\n",
+		   v, f, __fd.file, __fd.flags);
+
+	return __fd;
+}
+
+
+
+static inline struct fd *
+get_struct_fd(struct file *f)
+{
+	struct fd * __fd = container_of(&f, struct fd, file);
+	printk("get_struct_fd returned %p, __fd->file is %p, we passed in %p, flags are %x\n",
+		   __fd, __fd->file, f, __fd->flags);
+
+	return __fd;
+}
+
+
 
 static int
 file_getattr(char *name)
@@ -59,6 +84,8 @@ static int read_file(char *name)
   loff_t size = 0L;
   int ccode;
   struct file *f;
+  struct fd *fd;
+  struct fd __fd;
 
   f = filp_open(name, O_RDONLY, 0);
   if (f) {
@@ -72,6 +99,9 @@ static int read_file(char *name)
 		   return ccode;
 	  }
 	  printk("%s\n", (char *)__data);
+	  fd = get_struct_fd(f);
+	  __fd = get_fd_from_file((unsigned long)f);
+
 	  filp_close(f, 0);
   }
   return ccode;
