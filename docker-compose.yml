@@ -77,18 +77,6 @@ services:
       apinet:
         aliases:
           - dropper_callback
-  target_1:
-    image: 127.0.0.1:5000/demo-target
-    build: "./targets/demo-target"
-    depends_on:
-      - kafka
-      - api
-    stdin_open: true
-    tty: true
-    networks:
-      apinet:
-        aliases:
-          - target_1
   api_server_postgres:
     image: postgres:9.3
     volumes:
