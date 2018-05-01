@@ -583,10 +583,9 @@ struct kernel_sysfs_data {
 	int index;
 	pid_t pid;
 	struct kstat stat;
-	int fd;
 	void *data;
-	loff_t data_len;
-	int ccode;
+	size_t data_len;
+	size_t ccode;
 	uint8_t dpath[MAX_DENTRY_LEN + 1];
 };
 
@@ -626,6 +625,20 @@ struct kernel_sysfs_probe {
 
 extern struct kernel_sysfs_probe ksysfs_probe;
 
+int
+file_getattr(struct file *f, struct kstat *k);
+
+ssize_t
+write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+read_file_struct(struct file *f, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+write_file(char *name, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+read_file(char *name, void *buf, size_t count, loff_t *pos);
 
 int
 print_sysfs_data(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);

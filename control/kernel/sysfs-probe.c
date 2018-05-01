@@ -26,7 +26,7 @@
 #include "jsmn/jsmn.h"
 
 /**
- * caller holds a reference cont on struct task AND
+ * caller holds a reference count on struct task AND
  * holds a lock on p->lock
  **/
 
@@ -34,62 +34,64 @@
  * as a demonstration for this early version of the sysfs probe,
  * all paths are under /proc, but this is not a restriction, just
  * a demonstration
+ *
+ * NOTE: do we need the struct task_struct ????
  **/
-int sysfs_read_data(struct kernel_sysfs_probe *p,
-					struct task_struct *t,
-					int *start,
-					char *path,
-					uint64_t nonce)
+
+
+
+static inline size_t
+calc_file_size(struct kstat *kstat)
+{
+	if (kstat->size) {
+		return kstat->size;
+	}
+	if (kstat->blocks) {
+		return kstat->blocks * kstat->blksize;
+	}
+	return kstat->blksize > 0 ? kstat->blksize: 0x100;
+}
+
+
+ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
+						struct task_struct *t,
+						int *start,
+						char *path,
+						uint64_t nonce)
 {
 
 	static struct kernel_sysfs_data ksysfsd;
-	int ccode = 0;
-	struct file *f;
-
-/**
- * get a read file handle, then get the stat struct, then
- * use the file size to allocated a read buffer, then read the file
- **/
+	ssize_t ccode = 0;
+	struct file *f = NULL;
+	/**
+	 * default size for /proc and /sys is 0x100, one block.
+	 * they don't return a size in kstat
+	 **/
 	memset(&ksysfsd, 0x00, sizeof(struct kernel_sysfs_data));
-
-	ksysfsd.fd = IMPORTED(sys_open)(path, O_RDONLY, 0644);
-	if (ksysfsd.fd > 0) {
-		ccode = vfs_fstat(ksysfsd.fd, &ksysfsd.stat);
+	f = filp_open(path, O_RDONLY, 0);
+	if (f) {
+		size_t size = 0, max_size = 0x100000;
+		loff_t pos = 0;
+		ccode = file_getattr(f, &ksysfsd.stat);
 		if (ccode) {
+			printk(KERN_INFO "error getting file attributes %zx\n", ccode);
 			goto err_exit;
 		}
-		if (ksysfsd.stat.size <= 0) {
-			ccode = -ENODATA;
-			goto err_exit;
-		}
-		ksysfsd.data_len = ksysfsd.stat.size;
-		ksysfsd.data = kzalloc(ksysfsd.data_len + 1, GFP_KERNEL);
-		if (ZERO_OR_NULL_PTR(ksysfsd.data)) {
+		/**
+		 * get the size, or default size if /proc or /sys
+		 * set an arbitrary limit of 1 MB for read buffer
+		 **/
+		size = min(calc_file_size(&ksysfsd.stat), max_size);
+		ksysfsd.data = kzalloc(size, GFP_KERNEL);
+		if (ksysfsd.data == NULL) {
 			ccode = -ENOMEM;
 			goto err_exit;
 		}
-
-		/**
-		 * we have the file handle, file size, file buffer, now
-		 * get a reference to the struct file *
-		 **/
-		f = fget(ksysfsd.fd);
-		if (f) {
-			loff_t pos = 0;
-			ccode = kfs_read(f, ksysfsd.data, ksysfsd.data_len, &pos);
-			/**
-			 * put back the reference to struct file *
-			 **/
-			fput(f);
-		} else {
-			kfree(ksysfsd.data);
-			ksysfsd.data = NULL;
-			ccode = -EBADF;
+		ksysfsd.data_len = size;
+		ccode = ksysfsd.ccode = read_file_struct(f, ksysfsd.data, size, &pos);
+		if (ccode < 0) {
+			goto err_exit;
 		}
-		ksysfsd.nonce = nonce;
-		ksysfsd.index = *start;
-		ksysfsd.pid = t->pid;
-		ksysfsd.ccode = ccode;
 		if (*start <  LSOF_ARRAY_SIZE) {
 			flex_array_put(p->ksysfs_flex_array,
 						   *start,
@@ -98,11 +100,24 @@ int sysfs_read_data(struct kernel_sysfs_probe *p,
 			(*start)++;
 		} else {
 			printk(KERN_INFO "lsof flex array over-run\n");
-			return -ENOMEM;
+			ccode = -ENOMEM;
+			goto err_exit;
 		}
-	}
-err_exit:
 
+	} else {
+		ccode = -EBADF;
+		pr_err("Unable to get a file handle: %s (%zx)\n", path, ccode);
+		goto err_exit;
+	}
+	return ccode;
+
+err_exit:
+	if (f) {
+		filp_close(f, 0);
+	}
+	if (ksysfsd.data != NULL) {
+		kfree(ksysfsd.data);
+	}
 	return ccode;
 }
 STACK_FRAME_NON_STANDARD(sysfs_read_data);

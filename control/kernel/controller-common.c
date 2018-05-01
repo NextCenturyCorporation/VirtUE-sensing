@@ -84,7 +84,12 @@ MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
 
 module_param(socket_name, charp, 0644);
 
-
+/**
+ * Note on /sys and /proc files:
+ * on Linux 4.x they stat as having no blocks and zero size,
+ * but they do have a blocksize of 0x400. So, by default, we
+ * will allocate a buffer the size of one block
+ **/
 
 int
 file_getattr(struct file *f, struct kstat *k)
@@ -99,6 +104,42 @@ file_getattr(struct file *f, struct kstat *k)
 	return ccode;
 }
 
+
+ssize_t
+write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t ccode;
+#ifdef MODERN_FILE_API
+	ccode = kernel_write(f, buf, count, pos);
+#else
+	ccode = kernel_write(f, (char *)buf, count, *pos);
+#endif
+	if (ccode < 0) {
+		pr_err("Unable to write file: %p (%ld)", f, ccode);
+		return ccode;
+	}
+
+	return ccode;
+}
+
+
+ssize_t
+read_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t ccode;
+
+#ifdef MODERN_FILE_API
+	ccode = kernel_read(f, buf, count, pos);
+#else
+	ccode = kernel_read(f, *pos, (char *)buf, count);
+#endif
+	if (ccode < 0) {
+		pr_err("Unable to read file: %p (%ld)", f, ccode);
+		return ccode;
+	}
+
+	return ccode;
+}
 
 ssize_t
 write_file(char *name, void *buf, size_t count, loff_t *pos)
