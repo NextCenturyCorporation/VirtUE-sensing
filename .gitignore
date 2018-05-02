@@ -2,3 +2,6 @@ pgdata
 *~
 *.wpr
 .idea
+*.un~
+*.json~
+/sensors/sensor.wpr

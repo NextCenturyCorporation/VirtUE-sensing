@@ -1,0 +1,15 @@
+*.tlog
+*.sys
+*.swp
+*~
+*.ipch
+*.obj
+*.ilk
+*.lib
+*.exe
+.vs
+Debug
+Release
+x64
+RCa*
+*.aps
