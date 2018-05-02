@@ -78,7 +78,6 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-<<<<<<< HEAD:targets/demo-target/sensor_libraries/sensor_wrapper/setup.py
         'async-generator==1.8',
         'certifi==2017.11.5',
         'chardet==3.0.4',
@@ -100,10 +99,6 @@ setup(
         'six==1.11.0',
         'urllib3==1.22',
         'yarl==0.16.0',
+        'pywin32==223'
     ],  # Optional
-
-=======
-        'pywin32==223',
-    ],  # Optional
->>>>>>> master:sensors/ntquerysys/setup.py
 )
