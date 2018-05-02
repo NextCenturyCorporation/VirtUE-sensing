@@ -53,30 +53,32 @@ Malware Defense](https://www.csc2.ncsu.edu/faculty/xjiang4/csc501/readings/lec23
 
  [Volatility](https://github.com/volatilityfoundation/volatility/) is a completely open collection of tools, implemented in Python, for the extraction of digital artifacts from RAM samples, thus offering visibility into the runtime state of the system. The framework is intended to introduce people to the techniques and complexities associated with extracting digital artifacts from volatile memory samples and provide a platform for further work into this exciting area of research.
 
-[DRAKVUF™ ](https://drakvuf.com) is of particular interest for our sensor work. It is intended to analyze malware, and appears to implement or provide a basis for most of the other VMI techniques; it is built on LibVMI and Volatility. Its core features and extensions focus on Windows, since that's where most malware has been historically. Augmenting these features for Linux should be a relatively light lift. They include:
+[DRAKVUF™ ](https://drakvuf.com) is of particular interest for our sensor work. It is intended to analyze malware in a running VM, and already makes use of other VMI techniques: it is built on LibVMI and Volatility. Its core features and extensions focus on Windows, since that's where most malware has been historically. Augmenting these features for Linux should be a relatively light lift. Existing features include:
 * Agentless start of binary execution (launch a process in the virtual machine from outside the VM).
-* Agentless monitoring of Windows internal kernel functions (think syscalls, disk writes).
-* Cloning of analysis VMs via copy-on-write memory and disk.
+* Agentless monitoring of Windows internal kernel functions (i.e. syscalls, disk writes, process launches).
 * Guest multi-vCPU support.
 * Tracing heap allocations.
 * Tracing files being accessed.
 * Extracting files from memory before they are deleted.
 * Tracing UDP and TCP connections
+* Cloning of analysis VMs via copy-on-write memory and disk.
 
 [DRAKVUF™ ](https://drakvuf.com) requires Xen's altp2m, which in turn only works on HVM DomU's. It uses this feature to map one virtual memory page to different physical memory pages based on the type of access, to hide inserted breakpoints from malware and/or the guest kernel's read accesses. Without this feature, the hiding of memory alterations has an inherent race condition.
 
 ### Path Forward for Sensors
 
-Given the open-source work already put into malware detection, which heavily overlaps with the hypervisor-based sensors that Two Six plans to develop. Two Six may use the Xen primitives in some of its sensors, but it makes the most sense to build on the corpus of available work rather than build it up again.
+Given the open-source work already put into malware detection, which heavily overlaps with the hypervisor-based sensors that Two Six plans to develop, it makes the most sense to build on the corpus of available work rather than build it up again.
 
-It's important to note here that [DRAKVUF™ ](https://drakvuf.com) relies on features not available in standard Amazon EC2 instances, namely HVM and altp2m. We should investigate [Amazon EC2 Dedicated Hosts](https://aws.amazon.com/ec2/dedicated-hosts) to see whether the those features are available. If they are, we should use Dedicated Hosts to maximize the capabilities of our sensors while leveraging existing work.
+[DRAKVUF™ ](https://drakvuf.com) most closely matches the technological needs of the planned sensor work. However, it's notable that [DRAKVUF™ ](https://drakvuf.com) relies on features not available in standard Amazon EC2 instances, namely HVM and altp2m. We should investigate [Amazon EC2 Dedicated Hosts](https://aws.amazon.com/ec2/dedicated-hosts) to see whether the those features are available. If they are, we should use Dedicated Hosts to maximize the capabilities of our sensors while leveraging existing work.
 
 If that's not feasible, two options are obvious:
-* Implement sensors using [LibVMI](https://github.com/libvmi/libvmi). Some features would have to be ported from [DRAKVUF™ ](https://drakvuf.com).
-* Modify [DRAKVUF™ ](https://drakvuf.com) to run against paravirtualized DomUs.
+* Implement sensors using [LibVMI](https://github.com/libvmi/libvmi). Features would have to be ported from [DRAKVUF™ ](https://drakvuf.com).
+* Modify [DRAKVUF™ ](https://drakvuf.com) to run against paravirtualized DomUs. This would degrade the ability of the tool to hide itself.
 
 Either of these options would require further investigation. 
 
 ### Notes / Conclusions
 
-* Without [Amazon EC2 Dedicated Hosts](https://aws.amazon.com/ec2/dedicated-hosts) there is no path forward to provide sensing underneath `Windows 10` VMs and there is a degraded path forward for `Linux` VMs.
+* Without [Amazon EC2 Dedicated Hosts](https://aws.amazon.com/ec2/dedicated-hosts) there is _no path forward_ to provide sensing underneath `Windows 10` VMs and there is a degraded path forward for `Linux` VMs.
+* Leveraging  [DRAKVUF™ ](https://drakvuf.com) is the most direct and rapid path forward for hypervisor-based sensing. Other technologies can be leveraged but they don't coincide with the problem set as well.
+* Testing should be done to verify that [Amazon EC2 Dedicated Hosts](https://aws.amazon.com/ec2/dedicated-hosts) can support [DRAKVUF™ ](https://drakvuf.com).
