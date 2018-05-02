@@ -220,6 +220,63 @@ defmodule ApiServer.Sensor do
   end
 
   @doc """
+  Count how many distinct hosts exist in the sensor data
+
+  ### Returns
+
+    number
+  """
+  def host_count() do
+    ApiServer.Repo.one(from sensor in ApiServer.Sensor, select: count(sensor.address, :distinct))
+  end
+
+  @doc """
+  Count how many of each distinct sensor type exist in the sensor data
+
+  ### Returns
+
+    %{
+        "sensor name": number,
+        ...
+      }
+  """
+  def sensor_name_count() do
+
+    ApiServer.Repo.all(
+        from sensor in ApiServer.Sensor,
+          join: component in assoc(sensor, :component),
+          group_by: component.name,
+          select: [component.name, count(sensor.sensor_id)]
+    )
+    |> List.flatten
+    |> Enum.chunk(2)
+    |> Map.new( fn [k, v] -> {k, v} end)
+
+  end
+
+  @doc """
+  Count distinct OSs in the sensor data
+
+  ### Returns
+
+    %{
+      "os name": number,
+      ...
+    }
+  """
+  def sensor_os_count() do
+    ApiServer.Repo.all(
+      from sensor in ApiServer.Sensor,
+        join: component in assoc(sensor, :component),
+        group_by: component.os,
+        select: [component.os, count(sensor.sensor_id)]
+    )
+    |> List.flatten
+    |> Enum.chunk(2)
+    |> Map.new(fn [k, v] -> {k, v} end)
+  end
+
+  @doc """
   Grab sensors older than N minutes.
 
   """
