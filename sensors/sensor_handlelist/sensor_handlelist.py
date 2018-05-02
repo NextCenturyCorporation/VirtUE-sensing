@@ -24,12 +24,10 @@ class sensor_handlelist(object):
         '''
         construct an object instance
         '''
-        self._logger = logging.getLogger(__MODULE__)
-        self._logger.setLevel(logging.DEBUG)        
+        self._cfgfilename = cfgfilename
         self._config = configparser.ConfigParser()
-        with open(cfgfilename) as f:
-            self._config.read_file(f)        
-        self._logger.info("Starting the sensor_handlelist log . . .")
+        self._logger = logging.getLogger(__MODULE__)
+        self._logger.setLevel(logging.ERROR)             
         self._logger.info("About to construct the SensorWrapper . . . ")               
         self._wrapper = SensorWrapper("handlelist", [self.handlelist, self.assess_handlelist])
         self._logger.info("SensorWrapper constructed. . . ")        
@@ -39,23 +37,24 @@ class sensor_handlelist(object):
         '''
         start the sensor
         ''' 
-        if not self._config.has_section('parameters'):
-            self._logger.critical("Sensor configuration file does not contain a 'parameters' section - exiting!")
+        with open(self._cfgfilename) as f:
+            self._config.read_file(f)
+            
+        if (not self._config.has_section('parameters')
+            or not self._config.has_section('runtime')):
+            self._logger.critical("Sensor configuration file does not contain "
+                                  "a 'parameters' section - exiting!")
             sys.exit(1)
         params = self._config['parameters']
         args = []
         for key in params:
             args.append("--{0}={1}".format(key,params[key],))
+    
+        runtime = self._config['runtime']                        
+        dbglvl = getattr(logging, runtime['dbglvl'], logging.ERROR)
+        self._logger.setLevel(dbglvl)
             
-        #args = [
-            #"--public-key-path=c:\\opt\\sensors\\handlelist\\certs\\rsa_key.pub", 
-            #"--private-key-path=c:\\opt\\sensors\\handlelist\\certs\\rsa_key", 
-            #"--ca-key-path=c:\\opt\\sensors\\handlelist\\certs\\", 
-            #"--api-host=sensing-api.savior.internal", 
-            #"--sensor-port=11020" 
-            #]   
-            
-        self._logger.info("Starting the sensor_handlelist sensor with parameters %s . . ." % args)
+        self._logger.info("Starting the sensor_handlelist sensor with parameters %s . . .", args)
         self._running = True
         self._wrapper.start(args)        
     
@@ -97,14 +96,13 @@ class sensor_handlelist(object):
         """
         repeat_delay = config.get("repeat-interval", 20) 
         self._logger.info(" ::starting handlelist")
-        self._logger.info("    $ repeat-interval = %d" % (repeat_delay,))
+        self._logger.info("    $ repeat-interval = %d", repeat_delay)
     
         handlelist_canonical_path = which_file("handle.exe")
     
-        self._logger.info("    $ canonical path = %s" % (handlelist_canonical_path,))
+        self._logger.info("    $ canonical path = %s", handlelist_canonical_path)
     
-        while True:
-    
+        while self.running is True:    
             # let's profile our ps command
             handlelist_profile = await report_on_file(handlelist_canonical_path)
             handlelist_logmsg = {
@@ -131,16 +129,16 @@ class sensor_handlelist(object):
         repeat_delay = config.get("repeat-interval", 15)
     
         self._logger.info(" ::starting handle.exe")
-        self._logger.info("    $ repeat-interval = %d" % (repeat_delay,))
+        self._logger.info("    $ repeat-interval = %d", repeat_delay)
         handlelist_path = which_file("handle.exe")
         handlelist_args = ["-nobanner"]
         self_pid = os.getpid()
     
-        self._logger.info(" ::starting handlelist %s (pid=%d)" % (handlelist_path, self_pid,))
+        self._logger.info(" ::starting handlelist %s (pid=%d)", handlelist_path, self_pid)
     
         full_handlelist_command = [handlelist_path] + handlelist_args
             
-        while True:
+        while self.running is True:
             proc_dict = {}
             parse_proc_info_next = False
             first_time_through = True
@@ -150,7 +148,7 @@ class sensor_handlelist(object):
                 if not line:
                     break            
                 line = line.decode('utf-8').strip('\n\r')
-                if True == parse_proc_info_next:
+                if parse_proc_info_next is True:
                     parse_proc_info_next = False
                     parsed_line = line.split()
                     image_name = parsed_line[0]
@@ -158,7 +156,8 @@ class sensor_handlelist(object):
                     user = ''
                     for ndx in range(3, len(parsed_line)):
                         user += parsed_line[ndx] + ' '
-                    proc_dict[pid]={"PID": pid, "ImageName": image_name, "User": user, "Handles": {}}
+                    proc_dict[pid] = {"PID": pid, "ImageName": image_name, "User": 
+                                      user, "Handles": {}}
                     continue
                 if line[0:4] == '----':                
                     if not first_time_through:
@@ -194,7 +193,8 @@ class sensor_handlelist(object):
     
                 proc_dict[pid]["Handles"][handle] = entry_dict
     
-            self._logger.debug("Sleeping for {0} seconds\n".format(repeat_delay,))
+            self._logger.debug("Sleeping for %d seconds", repeat_delay)
             
             # sleep
             await sleep(repeat_delay)
+            

@@ -3,7 +3,6 @@
 The Windows VirtUE Sensor Services
 """
 
-import threading
 import logging
 import socket
 import sys
@@ -12,10 +11,10 @@ import os
 import win32serviceutil
 import servicemanager
 import win32service
-import win32event
 
 from sensor_processlist import sensor_processlist
 from sensor_handlelist import sensor_handlelist
+from sensor_kernelprobe import sensor_kernelprobe
 
 __VERSION__ = "1.20180420"
 __MODULE__ = "WinVirtUE"
@@ -47,13 +46,13 @@ class processlist_service(win32serviceutil.ServiceFramework):
         servicemanager.LogInfoMsg("processlist_service Service Initializing")
         self._logger = logging.getLogger(processlist_service._svc_name_)
         logfilename = os.path.join(os.environ["SystemDrive"], os.sep, __MODULE__, 
-                                "logs", processlist_service._svc_name_, '.log')
+                                "logs", processlist_service._svc_name_ + '.log')
         file_handler = logging.FileHandler(logfilename)
         self._logger.addHandler(file_handler)
         self._logger.setLevel(logging.ERROR)
         self._logger.info("Constructing the processlist sensor . . . ")
         cfgfilename = os.path.join(os.environ["SystemDrive"], os.sep, __MODULE__, 
-                                       "config", processlist_service._svc_name_, '.cfg')        
+                                       "config", processlist_service._svc_name_ + '.cfg')        
         self.sensor = sensor_processlist(cfgfilename)
         self._logger.info("processlist sensor constructed. . . ")    
         servicemanager.LogInfoMsg("processlist_service Service Initialized")             
@@ -84,9 +83,9 @@ class handlelist_service(win32serviceutil.ServiceFramework):
     # you can NET START/STOP the service by the following name  
     _svc_name_ = "handlelist_service"
     # this text shows up as the service name in the Service  
-    _svc_display_name_ = "Process List Service"
+    _svc_display_name_ = "Handle List Service"
     # this text shows up as the description in the SCM  
-    _svc_description_ = "Windows Savior Process List Service Sensor"    
+    _svc_description_ = "Windows Savior Handle List Service Sensor"    
     
     def __init__(self, args):
         win32serviceutil.ServiceFramework.__init__(self, args)        
@@ -94,13 +93,13 @@ class handlelist_service(win32serviceutil.ServiceFramework):
         servicemanager.LogInfoMsg("handlelist_service Service Initializing")
         self._logger = logging.getLogger(handlelist_service._svc_name_)
         logfilename = os.path.join(os.environ["SystemDrive"], os.sep, __MODULE__, 
-                                "logs", handlelist_service._svc_name_, '.log') 
+                                "logs", handlelist_service._svc_name_ + '.log') 
         file_handler = logging.FileHandler(logfilename)
         self._logger.addHandler(file_handler)
         self._logger.setLevel(logging.ERROR)
         self._logger.info("Constructing the handlelist sensor . . . ")
         cfgfilename = os.path.join(os.environ["SystemDrive"], os.sep, __MODULE__, 
-                                       "config", handlelist_service._svc_name_, '.cfg')               
+                                       "config", handlelist_service._svc_name_ + '.cfg')               
         self.sensor = sensor_handlelist(cfgfilename)
         self._logger.info("handlelist sensor constructed. . . ")    
         servicemanager.LogInfoMsg("handlelist_service Service Initialized")             
@@ -123,7 +122,6 @@ class handlelist_service(win32serviceutil.ServiceFramework):
         self.sensor.start()
         self._logger.info("Returned from Starting the handlelist sensor . . . ")
 
-
 class kernelprobe_service(win32serviceutil.ServiceFramework):
     '''
     kernel probe service that retrieves message from the kernel driver and
@@ -145,17 +143,16 @@ class kernelprobe_service(win32serviceutil.ServiceFramework):
         servicemanager.LogInfoMsg("kernelprobe_service Service Initializing")
         self._logger = logging.getLogger(kernelprobe_service._svc_name_)
         logfilename = os.path.join(os.environ["SystemDrive"], os.sep, __MODULE__, 
-                                "logs", kernelprobe_service._svc_name_, '.log')
+                                "logs", kernelprobe_service._svc_name_ + '.log')
         cfgfilename = os.path.join(os.environ["SystemDrive"], os.sep, __MODULE__, 
-                                       "config", kernelprobe_service._svc_name_, '.cfg')        
+                                       "config", kernelprobe_service._svc_name_ + '.cfg')        
         file_handler = logging.FileHandler(logfilename)
         self._logger.addHandler(file_handler)
         self._logger.setLevel(logging.ERROR)        
         self._logger.info("Constructing the kernelprobe sensor . . . ")
+        self.sensor = sensor_kernelprobe(cfgfilename)
         self._logger.info("kernelprobe sensor constructed. . . ")    
-        servicemanager.LogInfoMsg("kernelprobe_service Service Initialized")             
-        # create an event to listen for stop requests on  
-        self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)                                  
+        servicemanager.LogInfoMsg("kernelprobe_service Service Initialized")                                             
         
     def SvcStop(self):
         '''
@@ -164,8 +161,6 @@ class kernelprobe_service(win32serviceutil.ServiceFramework):
         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)     
         servicemanager.LogInfoMsg("Service State STOP PENDING")
         self._logger.info("Stopping the kernelprobe sensor . . . ")        
-        # fire the stop event  
-        win32event.SetEvent(self.hWaitStop)
         
     def SvcDoRun(self):
         '''
@@ -173,11 +168,7 @@ class kernelprobe_service(win32serviceutil.ServiceFramework):
         '''
         servicemanager.LogInfoMsg("Service SvcDoRun Entered")
         self._logger.info("Starting the kernelprobe sensor . . . ")
-        ret_val = None
-        # if the stop event hasn't been fired keep looping  
-        while ret_val != win32event.WAIT_OBJECT_0:  
-            # block for 5 seconds and listen for a stop event  
-            ret_val = win32event.WaitForSingleObject(self.hWaitStop, 5000)         
+        self.sensor.start()
         self._logger.info("Returned from Starting the kernelprobe sensor . . . ")
         
 if __name__ == '__main__':
