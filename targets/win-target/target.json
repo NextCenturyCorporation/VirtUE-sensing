@@ -12,6 +12,9 @@
     "handlelist"
   ],
   "kernel_modules": [
-    
+  ]
+
+  "service_directories": [
+    "WinVirtUE"
   ]
 }

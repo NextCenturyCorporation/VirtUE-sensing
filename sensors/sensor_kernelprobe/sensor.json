@@ -1,0 +1,15 @@
+{
+  "name": "kernelprobe",
+  "version": "1.0",
+  "target_folder": "kernelprobe",
+  "files": [
+    {
+      "source": "sensor_kernelprobe.py",
+      "dest": "sensor_kernelprobe.py"
+    }
+  ],
+  "startup_script": "run_kernelprobe_sensor.ps1",
+  "requirements_files": ["kernelprobe_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": [""]
+}

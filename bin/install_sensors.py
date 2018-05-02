@@ -329,6 +329,7 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_di
 
     if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
         install_ntquerysys(target, ntquerysys_dir)
+        install_sensor_service_config_files(target, sensors)
 
     # individual sensors
     for sensor_name in target["target"]["sensors"]:
@@ -628,11 +629,33 @@ def install_sensor(target, sensor):
             os.path.abspath(os.path.join(reqs_dir, require_txt))
         )
 
+def install_sensor_service_config_files(target, sensors):
+    """
+    Install the sensor service config files
+
+    :param target:
+    :param sensors:
+    :return:
+    """
+    # define our directories
+    root = target["root"]
+    svc_dirs = os.path.abspath(os.path.join(root, "sensor_service", target["target"]["service_directories"]))
+
+    for svc_dir in svc_dirs:
+        for sensor in sensors:
+            with open(os.path.join(svc_dir, sensor, ".cfg")) as cfg_file:
+
+
+    
+
+
+
 def install_ntquerysys(target, ntquerysys_dir):
     """
     Install the ntquerysys library files into the target.
 
     :param target:
+    :param ntquerysys_dir:
     :return:
     """
     # define our directories

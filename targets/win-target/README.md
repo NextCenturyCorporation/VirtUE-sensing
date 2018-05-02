@@ -104,3 +104,21 @@ Kernel Shim Information: https://www.geoffchappell.com/studies/windows/km/ntoskr
 
 # Windows Sensor Service
 1. At some later time, we should handle the shutdown message so we can notify the API that the node these sensors are running on is shutting down.
+
+
+# Target Service Directory Layout
+
+c:\WinVirtUE  # root
+c:\WinVirtUE\certs\<svc_name>\   # certs directory
+c:\WinVirtUE\logs\<svc_name>.log   # log output
+c:\WinVirtUE\config\<svc_name>.cfg  # configuration file for wrapper parameters
+
+# Create the services zip file python archive
+
+del/f c:\WinVirtUE\sensors.zip
+Compress-Archive -Path .\sensor_handlelist\sensor_handlelist.py -DestinationPath c:\WinVirtUE\sensors.zip -update
+Compress-Archive -Path .\sensor_processlist\sensor_processlist.py -DestinationPath c:\WinVirtUE\sensors.zip -update
+Compress-Archive -Path .\sensor_kernelprobe\sensor_kernelprobe.py -DestinationPath c:\WinVirtUE\sensors.zip -update
+
+
+

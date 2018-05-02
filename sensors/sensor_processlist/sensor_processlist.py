@@ -19,14 +19,96 @@ from ntquerysys import acquire_privileges, get_process_objects, get_thread_objec
 __VERSION__ = "1.20180411"
 __MODULE__ = "sensor_processlist"
 
-# set up prefix formatting
-logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
-logging.basicConfig(format=logfmt,filename="processlist.log", filemode="w")
-# create logger
-logger = logging.getLogger(__MODULE__)
-logger.setLevel(logging.INFO)
-
-async def process_monitor(message_stub, config, message_queue):
+class sensor_processlist(object):
+    '''
+    handle list sensor
+    '''    
+    new_privs = (
+        (LookupPrivilegeValue(None, SE_SECURITY_NAME), SE_PRIVILEGE_ENABLED),
+        (LookupPrivilegeValue(None, SE_CREATE_PERMANENT_NAME), SE_PRIVILEGE_ENABLED), 
+        (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
+    )      
+    
+    def __init__(self, cfgfilename):
+        '''
+        construct an object instance
+        '''
+        self._logger = logging.getLogger(__MODULE__)
+        self._logger.setLevel(logging.DEBUG)        
+            
+        self._logger.info("Acquiring Privileges . . .")
+        success = acquire_privileges(new_privs)
+        if not success:
+            self._logger.critical("Failed to acquire privs!\n")
+            sys.exit(-1)   
+    
+        self._logger.info("Creating the Sensor Wrapper . . .")
+        wrapper = SensorWrapper("processlist", [process_monitor])
+        self._logger.info("Starting the Sensor Wrapper . . .")
+        wrapper.start()        
+        self._config = configparser.ConfigParser()
+        with open(cfgfilename) as f:
+            self._config.read_file(f)        
+        self._logger.info("Starting the sensor_handlelist log . . .")
+        self._logger.info("About to construct the SensorWrapper . . . ")               
+        self._wrapper = SensorWrapper("handlelist", [self.handlelist, self.assess_handlelist])
+        self._logger.info("SensorWrapper constructed. . . ")        
+        self._running = False        
+        
+    def start(self):
+        '''
+        start the sensor
+        ''' 
+        if not self._config.has_section('parameters'):
+            self._logger.critical("Sensor configuration file does not contain a 'parameters' section - exiting!")
+            sys.exit(1)
+        params = self._config['parameters']
+        args = []
+        for key in params:
+            args.append("--{0}={1}".format(key,params[key],))
+            
+        #args = [
+            #"--public-key-path=c:\\opt\\sensors\\handlelist\\certs\\rsa_key.pub", 
+            #"--private-key-path=c:\\opt\\sensors\\handlelist\\certs\\rsa_key", 
+            #"--ca-key-path=c:\\opt\\sensors\\handlelist\\certs\\", 
+            #"--api-host=sensing-api.savior.internal", 
+            #"--sensor-port=11020" 
+            #]   
+            
+        self._logger.info("Starting the sensor_handlelist sensor with parameters %s . . ." % args)
+        self._running = True
+        self._wrapper.start(args)        
+    
+    def stop(self):
+        '''
+        stop the sensor
+        '''
+        self._logger.info("Stopping the sensor_handlelist sensor . . . ")
+        self._running = False
+    
+    @property
+    def config(self):
+        '''
+        This services configuration information
+        '''
+        return self._config
+    
+    @property
+    def running(self):
+        '''
+        returns the current running state
+        '''
+        return self._running
+    
+    @running.setter
+    def running(self, value):
+        '''
+        sets the running state
+        '''
+        self._running = value
+        
+        
+async def process_monitor(self, message_stub, config, message_queue):
     """
     poll the operating system for process and thread data
 
@@ -38,9 +120,9 @@ async def process_monitor(message_stub, config, message_queue):
     repeat_delay = config.get("repeat-interval", 15)
     sensor_config_level = config.get("sensor-config-level", "default")
     
-    logger.info(" ::starting process monitor")    
-    logger.info("    $ repeat-interval = %d" % (repeat_delay,))
-    logger.info("    $ sensor-config-level = %s" % (sensor_config_level,))
+    self._logger.info(" ::starting process monitor")    
+    self._logger.info("    $ repeat-interval = %d" % (repeat_delay,))
+    self._logger.info("    $ sensor-config-level = %s" % (sensor_config_level,))
     
     while True: 
         try:                
@@ -65,20 +147,20 @@ async def process_monitor(message_stub, config, message_queue):
                     "message": proc_dict
                 }                                                
                 processlist_logmsg.update(message_stub)
-                logger.debug(json.dumps(processlist_logmsg, indent=3))        
+                self._logger.debug(json.dumps(processlist_logmsg, indent=3))        
                 await message_queue.put(json.dumps(processlist_logmsg))             
         except Exception as exc:
-            logger.error("Caught Exception {0}\n".format(exc,))
+            self._logger.error("Caught Exception {0}\n".format(exc,))
             processlist_logmsg = {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "level": "error",
                 "message": str(exc)
             }                                                        
             processlist_logmsg.update(message_stub)                                    
-            logger.debug(json.dumps(processlist_logmsg, indent=3))        
+            self._logger.debug(json.dumps(processlist_logmsg, indent=3))        
             await message_queue.put(json.dumps(processlist_logmsg))             
                      
-        logger.debug("Sleeping for {0} seconds\n".format(repeat_delay,))
+        self._logger.debug("Sleeping for {0} seconds\n".format(repeat_delay,))
 
         # sleep
         await sleep(repeat_delay)
@@ -90,13 +172,13 @@ if __name__ == "__main__":
         (LookupPrivilegeValue(None, SE_DEBUG_NAME), SE_PRIVILEGE_ENABLED)         
     )  
 
-    logger.info("Acquiring Privileges . . .")
+    self._logger.info("Acquiring Privileges . . .")
     success = acquire_privileges(new_privs)
     if not success:
-        logger.critical("Failed to acquire privs!\n")
+        self._logger.critical("Failed to acquire privs!\n")
         sys.exit(-1)   
 
-    logger.info("Creating the Sensor Wrapper . . .")
+    self._logger.info("Creating the Sensor Wrapper . . .")
     wrapper = SensorWrapper("processlist", [process_monitor])
-    logger.info("Starting the Sensor Wrapper . . .")
+    self._logger.info("Starting the Sensor Wrapper . . .")
     wrapper.start()
