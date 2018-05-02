@@ -18,13 +18,13 @@ def find_containers():
     :return: List of strings
     """
 
-    network_raw = subprocess.check_output("docker network inspect savior_default", shell=True)
+    network_raw = subprocess.check_output("docker network inspect apinet", shell=True)
 
     network = json.loads(network_raw)
 
     containers = []
     for id, config in network[0]["Containers"].items():
-        if not config["Name"].startswith("savior_"):
+        if not config["Name"].startswith("savior-api"):
             containers.append(config["Name"])
 
     return containers
@@ -45,7 +45,7 @@ def stop_container(name):
 
 
 if __name__ == "__main__":
-    print "Looking for containers to remove from [savior_default]"
+    print "Looking for containers to remove from [apinet]"
     containers = find_containers()
     print "  = found %d containers to remove" % (len(containers),)
 

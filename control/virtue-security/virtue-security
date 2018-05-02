@@ -4326,6 +4326,14 @@ async def api_monitor(opts):
                     msg.value["sensor"]["sensor_name"],
                     msg.value["sensor"]["sensor_os"]
                 ))
+            elif msg.value["action"] == "sensor-observe":
+                print("👁  - (timestamp=%s) observation change (sensor_id=%s, sensor_name=%s, old level=%s, new level=%s)" % (
+                    msg.value["timestamp"],
+                    msg.value["sensor"]["sensor_id"],
+                    msg.value["sensor"]["sensor_name"],
+                    msg.value["old_level"],
+                    msg.value["new_level"]
+                ))
             else:
                 print("!! (timestamp=%s, action=%s) unrecognized monitor action" % (
                     msg.value["timestamp"], msg.value["action"]

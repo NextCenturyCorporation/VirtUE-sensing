@@ -59,29 +59,6 @@ services:
       apinet:
         aliases:
           - api
-  dropper_callback:
-    image: localhost:5000/savior-dropper_callback
-    build: "./external/dropper_callback"
-    ports:
-      - "8080:8080"
-    # hostname: dropper1
-    # domainname: evil.io
-    networks:
-      apinet:
-        aliases:
-          - dropper_callback
-  target_1:
-    image: localhost:5000/savior-target_1
-    build: "./targets/demo-target"
-    depends_on:
-      - kafka
-      - api
-    stdin_open: true
-    tty: true
-    networks:
-      apinet:
-        aliases:
-          - target_1
   api_server_postgres:
     image: postgres:9.3
     volumes:
