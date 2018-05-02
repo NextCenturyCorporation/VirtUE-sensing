@@ -99,7 +99,7 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 						   GFP_ATOMIC);
 			(*start)++;
 		} else {
-			printk(KERN_INFO "lsof flex array over-run\n");
+			printk(KERN_INFO "sysfs flex array over-run\n");
 			ccode = -ENOMEM;
 			goto err_exit;
 		}
