@@ -128,14 +128,6 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 
 	files = t->files;
 
-	if(!files) {
-		/**
-		 * occasionally there will be a dead task_struct
-		 * due to timing issues.
-		 **/
-		printk(KERN_INFO "task has no files_struct: %d\n", t->pid);
-		return 0;
-	}
 	memset(&klsofd, 0x00, sizeof(struct kernel_lsof_data));
 	files_table = files_fdtable(files);
 	while(files_table && files_table->fd[fd_index]) {

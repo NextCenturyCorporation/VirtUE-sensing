@@ -121,7 +121,7 @@ write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
 
 	return ccode;
 }
-
+STACK_FRAME_NON_STANDARD(write_file_struct);
 
 ssize_t
 read_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
@@ -140,6 +140,7 @@ read_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
 
 	return ccode;
 }
+STACK_FRAME_NON_STANDARD(read_file_struct);
 
 ssize_t
 write_file(char *name, void *buf, size_t count, loff_t *pos)
@@ -164,7 +165,7 @@ write_file(char *name, void *buf, size_t count, loff_t *pos)
 	}
 	return ccode;
 }
-
+STACK_FRAME_NON_STANDARD(write_file);
 
 ssize_t
 read_file(char *name, void *buf, size_t count, loff_t *pos)
@@ -192,7 +193,7 @@ read_file(char *name, void *buf, size_t count, loff_t *pos)
 
 	return ccode;
 }
-
+STACK_FRAME_NON_STANDARD(read_file);
 
 struct task_struct *
 get_task_by_pid_number(pid_t pid)
@@ -500,6 +501,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	unsigned long flags;
 	assert(sensor);
 
+
 	/* sensor is the parent of all probes */
 
 	rcu_read_lock();
@@ -508,6 +510,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									 l_node);
 	rcu_read_unlock();
 	while (probe_p != NULL) {
+
+
 		spin_lock_irqsave(&sensor->lock, flags);
 		list_del_rcu(&probe_p->l_node);
 		spin_unlock_irqrestore(&sensor->lock, flags);
@@ -538,6 +542,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
+
+
 		spin_lock_irqsave(&sensor->lock, flags);
 		list_del_rcu(&conn_c->l_node);
 		spin_unlock_irqrestore(&sensor->lock, flags);
@@ -547,6 +553,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 * the listener is statically allocated, no need to
 			 * free the memory
 			 **/
+
 			conn_c->_destroy(conn_c);
 		}
 		synchronize_rcu();
@@ -563,6 +570,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
+
+
 		spin_lock_irqsave(&sensor->lock, flags);
         list_del_rcu(&conn_c->l_node);
 	    spin_unlock_irqrestore(&sensor->lock, flags);
@@ -571,6 +580,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 * a connection is dynamically allocated, so
 			 * need to kfree the memory
 			 **/
+
 			conn_c->_destroy(conn_c);
 			synchronize_rcu();
 			kfree(conn_c);
@@ -965,8 +975,12 @@ static void __exit controller_cleanup(void)
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
 	SHOULD_SHUTDOWN = 1;
+
 	socket_interface_exit();
+
+
 	k_sensor._destroy(&k_sensor);
+
 
 }
 

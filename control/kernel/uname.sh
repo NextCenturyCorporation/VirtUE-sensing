@@ -49,10 +49,12 @@ if (( $VERSION >= 4 )) ; then
 	SOCKAPI=old
 	echo "#define OLD_SOCK_API 1" >> $FILENAME
 	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (z), (f))" >> $FILENAME
+	echo "#define SOCK_CREATE_KERN(i, f, t, p, r) sock_create_kern((f), (t), (p), (r))" >> $FILENAME
     else
 	SOCKAPI=new
 	echo "#define NEW_SOCK_API 1" >> $FILENAME
 	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (f))" >> $FILENAME
+	echo "#define SOCK_CREATE_KERN(i, f, t, p, r) sock_create_kern((i), (f), (t), (p), (r))" >> $FILENAME
     fi
 fi
 

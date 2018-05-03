@@ -758,6 +758,7 @@ static int dump(const char *js, jsmntok_t *t, size_t count, int indent)
 	}
 	return 0;
 }
+STACK_FRAME_NON_STANDARD(dump);
 
 uint8_t *add_nl_at_end(uint8_t *in, int len)
 {

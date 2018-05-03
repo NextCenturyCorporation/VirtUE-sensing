@@ -67,11 +67,13 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 	 * default size for /proc and /sys is 0x100, one block.
 	 * they don't return a size in kstat
 	 **/
+
 	memset(&ksysfsd, 0x00, sizeof(struct kernel_sysfs_data));
 	f = filp_open(path, O_RDONLY, 0);
 	if (f) {
 		size_t size = 0, max_size = 0x100000;
 		loff_t pos = 0;
+
 		ccode = file_getattr(f, &ksysfsd.stat);
 		if (ccode) {
 			printk(KERN_INFO "error getting file attributes %zx\n", ccode);
@@ -81,18 +83,23 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 		 * get the size, or default size if /proc or /sys
 		 * set an arbitrary limit of 1 MB for read buffer
 		 **/
+
+
 		size = min(calc_file_size(&ksysfsd.stat), max_size);
 		ksysfsd.data = kzalloc(size, GFP_KERNEL);
 		if (ksysfsd.data == NULL) {
 			ccode = -ENOMEM;
 			goto err_exit;
 		}
+
+
 		ksysfsd.data_len = size;
 		ccode = ksysfsd.ccode = read_file_struct(f, ksysfsd.data, size, &pos);
 		if (ccode < 0) {
 			goto err_exit;
 		}
 		if (*start <  LSOF_ARRAY_SIZE) {
+
 			flex_array_put(p->ksysfs_flex_array,
 						   *start,
 						   &ksysfsd,
@@ -106,7 +113,7 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 
 	} else {
 		ccode = -EBADF;
-		pr_err("Unable to get a file handle: %s (%zx)\n", path, ccode);
+		pr_err("sysfs-probe Unable to get a file handle: %s (%zx)\n", path, ccode);
 		goto err_exit;
 	}
 	return ccode;
@@ -260,9 +267,6 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 {
 	int ccode;
 	struct probe *tmp;
-	if (!sysfs_p) {
-		return ERR_PTR(-ENOMEM);
-	}
 
 	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_probe));
 	tmp = init_probe((struct probe *)sysfs_p, id, id_len);
@@ -340,9 +344,11 @@ err_free_pid_flex_array:
 err_free_flex_array:
 	flex_array_free(sysfs_p->ksysfs_flex_array);
 err_exit:
+
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
+STACK_FRAME_NON_STANDARD(init_sysfs_probe);
 
 
 
