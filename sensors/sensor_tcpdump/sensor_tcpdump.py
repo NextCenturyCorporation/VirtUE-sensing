@@ -54,14 +54,14 @@ async def tcpdump(message_stub, config, message_queue):
     :param message_queue: Shared Queue for messages
     :return: None
     """
-    command_args = config.get("args", "-i any")
+    command_args = config.get("args", ["-i", "any"])
 
     print(" ::starting tcpdump")
-    print("    $ args = %s" % (args,))
-    print("    $ repeat-interval = %d" % (repeat_delay,))
+    print("    $ args = %s" % (command_args,))
 
     # just read from the subprocess and append to the log_message queue
-    p = subprocess.Popen(["tcpdump", "%s" % (command_args,)], stdout=subprocess.PIPE)
+    full_args = ["tcpdump"] + command_args
+    p = subprocess.Popen(full_args, stdout=subprocess.PIPE)
     async for line in p.stdout:
 
         # TODO: multi-line output from tcpdump not supported
