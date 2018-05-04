@@ -32,7 +32,8 @@ class sensor_handlelist(object):
         self._wrapper = SensorWrapper("handlelist", [self.handlelist, self.assess_handlelist], 
                                       stop_notification=self.wait_for_service_stop)
         self._logger.info("SensorWrapper constructed. . . ")        
-        self._running = False        
+        self._running = False     
+        self._event = UniversalEvent()
         
     def start(self):
         '''
@@ -65,6 +66,8 @@ class sensor_handlelist(object):
         '''
         self._logger.info("Stopping the sensor_handlelist sensor . . . ")
         self._running = False
+        self._event.set()  # cause the wait_for_service_stop to return
+        self._logger.info("Service sensor_handlelist sensor has Stopped . . . ")        
     
     @property
     def config(self):
@@ -93,7 +96,9 @@ class sensor_handlelist(object):
         is received.  As long as this function is active, the SensorWrapper will
         not exit.
         '''
-        pass   
+        self._logger.info("Waiting for Service Stop Notification")
+        await self._event.wait()
+        self._logger.info("Service Stop Recieved - Exiting!")   
     
     async def assess_handlelist(self, message_stub, config, message_queue):
         """

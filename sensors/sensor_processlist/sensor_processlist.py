@@ -83,7 +83,6 @@ class sensor_processlist(object):
         self._logger.info("Stopping the sensor_processlist sensor . . . ")
         self._running = False  # set the tasks to exit
         self._event.set()  # cause the wait_for_service_stop to return
-        self._wrapper.wrapper_task_group.join()  # wait for them to all exit
         self._logger.info("Service sensor_processlist sensor has Stopped . . . ")
     
     @property

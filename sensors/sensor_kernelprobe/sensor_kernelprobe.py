@@ -30,7 +30,8 @@ class sensor_kernelprobe(object):
         self._wrapper = SensorWrapper("kernelprobe", [self.kernelprobe, self.assess_kernelprobe], 
                                       stop_notification=self.wait_for_service_stop)
         self._logger.info("SensorWrapper constructed . . . ")        
-        self._running = False        
+        self._running = False   
+        self._event = UniversalEvent()
         
     def start(self):
         '''
@@ -61,8 +62,10 @@ class sensor_kernelprobe(object):
         '''
         stop the sensor
         '''
-        self._logger.info("Stopping the sensor_kernelprobe sensor . . . ")
-        self._running = False
+        self._logger.info("Stopping the sensor_kernelprobe sensor . . . ")        
+        self._running = False  # set the tasks to exit
+        self._event.set()  # cause the wait_for_service_stop to return
+        self._logger.info("Service sensor_kernelprobe sensor has Stopped . . . ")
     
     @property
     def config(self):
@@ -91,7 +94,9 @@ class sensor_kernelprobe(object):
         is received.  As long as this function is active, the SensorWrapper will
         not exit.
         '''
-        pass        
+        self._logger.info("Waiting for Service Stop Notification")
+        await self._event.wait()
+        self._logger.info("Service Stop Recieved - Exiting!")        
     
     async def assess_kernelprobe(self, message_stub, config, message_queue):
         """
