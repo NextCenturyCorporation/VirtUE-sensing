@@ -34,7 +34,6 @@ static int k_socket_read(struct socket *s, size_t n, void *in, unsigned int flag
 	memset(&msg, 0x00, sizeof(msg));
 	memset(&iov, 0x00, sizeof(iov));
 	if (flags) {
-
 		msg.msg_flags = flags;
 	}
 
@@ -68,8 +67,6 @@ static int k_socket_write(struct socket *s, int n, void *out, unsigned int flags
 	memset(&iov, 0x00, sizeof(iov));
 	if (flags)
 		msg.msg_flags = flags;
-
-
 	iov.iov_base = out;
 	iov.iov_len = n;
 	msg.msg_iter.kvec = &iov;
@@ -304,13 +301,13 @@ static int start_listener(struct connection *c)
 {
 	struct sockaddr_un addr;
 	struct socket *sock = NULL;
-
+	DMSG();
 	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
 
-	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
-
+	sock_create_kern(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
+	DMSG();
 	if (!sock) {
-
+		DMSG();
 		c->connected = NULL;
 		goto err_exit;
 	}
@@ -322,18 +319,19 @@ static int start_listener(struct connection *c)
 	/* sizeof(address) - 1 is necessary to ensure correct null-termination */
 	if (kernel_bind(sock,(struct sockaddr *)&addr,
 					sizeof(addr) -1)) {
-
+		DMSG();
 		goto err_release;
 
 	}
 /* see /usr/include/net/tcp_states.h */
 	if (kernel_listen(sock, TCP_LISTEN)) {
-
+		DMSG();
 		kernel_sock_shutdown(sock, RCV_SHUTDOWN | SEND_SHUTDOWN);
 		goto err_release;
 	}
 
 
+	DMSG();
 	return 0;
 err_release:
 	sock_release(sock);
@@ -355,20 +353,20 @@ link_new_connection_work(struct connection *c,
 
 	if (!SHOULD_SHUTDOWN) {
 		unsigned long flags;
-
+		DMSG();
 		spin_lock_irqsave(&k_sensor.lock, flags);
 		list_add_rcu(&c->l_node, l);
 		spin_unlock_irqrestore(&k_sensor.lock, flags);
-
+		DMSG();
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
-
+		DMSG();
 		CONT_INIT_WORKER(&c->worker);
 		CONT_QUEUE_WORK(&c->worker, &c->work);
-
+		DMSG();
 		kthread_run(kthread_worker_fn, &c->worker, d);
 	}
-
+	DMSG();
 }
 
 /**
@@ -380,8 +378,8 @@ static inline void *destroy_connection(struct connection *c)
 	/* destroy the probe resources */
 	int ccode;
 	static uint8_t drain[CONNECTION_MAX_MESSAGE];
-
-
+	
+	DMSG();
 	if (c->connected) {
 		struct socket *sock = c->connected;
 		if (__FLAG_IS_SET(c->flags, PROBE_LISTEN) ||
@@ -391,7 +389,6 @@ static inline void *destroy_connection(struct connection *c)
 			sock_release(c->connected);
 		}
 	}
-
 	c->destroy((struct probe *)c);
 	memset(c, 0x00, sizeof(*c));
 	return c;
@@ -428,8 +425,9 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		 **/
 		memcpy(&c->path, p, UNIX_PATH_MAX);
 
+		DMSG();
 		if((ccode = start_listener(c))) {
-
+			DMSG();
 			ccode = -ENFILE;
 			goto err_exit;
 		}
@@ -458,13 +456,14 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		struct socket *sock = p;
 		printk(KERN_INFO "connected socket at %p\n", sock);
 		/** now we need to read and write messages **/
-
+		DMSG();
 		link_new_connection_work(c,
 								 &k_sensor.connections,
 								 k_read_write,
 								 "kcontrol read & write");
 	}
 
+	DMSG();
 	return c;
 
 err_exit:
@@ -493,7 +492,7 @@ socket_interface_exit(void)
 	 * from blocking
 	 **/
 	SHOULD_SHUTDOWN = 1;
-
+	DMSG();
 	return;
 }
 

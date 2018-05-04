@@ -500,8 +500,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	struct connection *conn_c;
 	unsigned long flags;
 	assert(sensor);
-
-
+	DMSG();
 	/* sensor is the parent of all probes */
 
 	rcu_read_lock();
@@ -510,8 +509,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									 l_node);
 	rcu_read_unlock();
 	while (probe_p != NULL) {
-
-
+		DMSG();
+		
 		spin_lock_irqsave(&sensor->lock, flags);
 		list_del_rcu(&probe_p->l_node);
 		spin_unlock_irqrestore(&sensor->lock, flags);
@@ -543,7 +542,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	rcu_read_unlock();
 	while (conn_c != NULL) {
 
-
+		DMSG();
+		
 		spin_lock_irqsave(&sensor->lock, flags);
 		list_del_rcu(&conn_c->l_node);
 		spin_unlock_irqrestore(&sensor->lock, flags);
@@ -553,7 +553,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 * the listener is statically allocated, no need to
 			 * free the memory
 			 **/
-
+			DMSG();
 			conn_c->_destroy(conn_c);
 		}
 		synchronize_rcu();
@@ -571,7 +571,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	rcu_read_unlock();
 	while (conn_c != NULL) {
 
-
+		DMSG();
 		spin_lock_irqsave(&sensor->lock, flags);
         list_del_rcu(&conn_c->l_node);
 	    spin_unlock_irqrestore(&sensor->lock, flags);
@@ -580,7 +580,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 * a connection is dynamically allocated, so
 			 * need to kfree the memory
 			 **/
-
+			DMSG();
 			conn_c->_destroy(conn_c);
 			synchronize_rcu();
 			kfree(conn_c);
@@ -935,7 +935,7 @@ static int __init kcontrol_init(void)
  **/
 	socket_interface_init();
 
-
+	DMSG();
 
 	return ccode;
 
@@ -975,13 +975,12 @@ static void __exit controller_cleanup(void)
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
 	SHOULD_SHUTDOWN = 1;
-
+	DMSG();
 	socket_interface_exit();
-
-
+	DMSG();
+	
 	k_sensor._destroy(&k_sensor);
-
-
+	DMSG();
 }
 
 module_init(kcontrol_init);
