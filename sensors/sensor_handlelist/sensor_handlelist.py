@@ -10,7 +10,7 @@ import datetime
 import subprocess
 import configparser
 
-from curio import sleep
+from curio import sleep, UniversalEvent
 from sensor_wrapper import SensorWrapper, report_on_file, which_file
 
 __VERSION__ = "1.20180411"
@@ -29,7 +29,8 @@ class sensor_handlelist(object):
         self._logger = logging.getLogger(__MODULE__)
         self._logger.setLevel(logging.ERROR)             
         self._logger.info("About to construct the SensorWrapper . . . ")               
-        self._wrapper = SensorWrapper("handlelist", [self.handlelist, self.assess_handlelist])
+        self._wrapper = SensorWrapper("handlelist", [self.handlelist, self.assess_handlelist], 
+                                      stop_notification=self.wait_for_service_stop)
         self._logger.info("SensorWrapper constructed. . . ")        
         self._running = False        
         
@@ -85,7 +86,15 @@ class sensor_handlelist(object):
         sets the running state
         '''
         self._running = value
-        
+
+    async def wait_for_service_stop(self):
+        '''
+        Wait for the service stop event.  Do not return until stop notification 
+        is received.  As long as this function is active, the SensorWrapper will
+        not exit.
+        '''
+        pass   
+    
     async def assess_handlelist(self, message_stub, config, message_queue):
         """
         Assses the handle.exe program

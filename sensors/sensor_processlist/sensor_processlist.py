@@ -13,7 +13,7 @@ from ntquerysys import acquire_privileges, get_process_objects, get_thread_objec
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
 
-from curio import sleep
+from curio import sleep, UniversalEvent
 from sensor_wrapper import SensorWrapper
 from win32security import LookupPrivilegeValue
 
@@ -45,9 +45,11 @@ class sensor_processlist(object):
             sys.exit(-1)               
                     
         self._logger.info("About to construct the SensorWrapper . . . ")
-        self._wrapper = SensorWrapper("processlist", [self.process_monitor])
+        self._wrapper = SensorWrapper("processlist", [self.process_monitor], 
+                                      stop_notification=self.wait_for_service_stop)
         self._logger.info("SensorWrapper constructed. . . ")        
-        self._running = False        
+        self._running = False
+        self._event = UniversalEvent()
         
     def start(self):
         '''
@@ -79,7 +81,10 @@ class sensor_processlist(object):
         stop the sensor
         '''
         self._logger.info("Stopping the sensor_processlist sensor . . . ")
-        self._running = False
+        self._running = False  # set the tasks to exit
+        self._event.set()  # cause the wait_for_service_stop to return
+        self._wrapper.wrapper_task_group.join()  # wait for them to all exit
+        self._logger.info("Service sensor_processlist sensor has Stopped . . . ")
     
     @property
     def config(self):
@@ -101,7 +106,17 @@ class sensor_processlist(object):
         sets the running state
         '''
         self._running = value
-        
+    
+    async def wait_for_service_stop(self):
+        '''
+        Wait for the service stop event.  Do not return until stop notification 
+        is received.  As long as this function is active, the SensorWrapper will
+        not exit.
+        '''
+        self._logger.info("Waiting for Service Stop Notification")
+        await self._event.wait()
+        self._logger.info("Service Stop Recieved - Exiting!")
+                    
                 
     async def process_monitor(self, message_stub, config, message_queue):
         """

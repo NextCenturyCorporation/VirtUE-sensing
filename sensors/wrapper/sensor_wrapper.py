@@ -1,13 +1,13 @@
 #!/usr/bin/python
 __VERSION__ = "1.20171117"
 
-
+import inspect
 import argparse
-import asyncio
 import logging
 import base64
 from Crypto.PublicKey import RSA
-from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, sleep, check_cancellation, ssl, spawn
+from curio import Queue, TaskGroup, run, tcp_server, CancelledError
+from curio import sleep, check_cancellation, ssl, spawn
 import curequests
 import email
 import hashlib
@@ -99,13 +99,14 @@ HTTPAdapter.build_response = new_HTTPAdapter_build_response
 
 class SensorWrapper(object):
 
-    def __init__(self, name, sensing_methods=[]):
+    def __init__(self, name, sensing_methods=[], stop_notification=None):
 
         # log message queueing
         self.log_messages = Queue()
         self.sensor_name = name
         self.setup_options()
         self.opts = None
+        self._stop_notification = stop_notification
 
         # what operating system are we?
         self.operating_system = None
@@ -806,7 +807,7 @@ class SensorWrapper(object):
             # sure we set the correct permissions (0x600)
             with open(self.opts.public_key_path, "w") as public_key_file:
                 public_key_file.write(pub_key)
-            os.chmod(self.opts.public_key_path, 0o600)
+            os.chmod(self.opts.public_key_path, 0x600)
 
             with open(self.opts.private_key_path, "w") as private_key_file:
                 private_key_file.write(priv_key)
@@ -846,6 +847,12 @@ class SensorWrapper(object):
             if pltfrm not in ["windows", "nt"]:
                 await Goodbye.wait()
                 logger.info("Got SIG: deregistering sensor and shutting down")
+            elif (self._stop_notification is not None 
+                     and inspect.iscoroutinefunction(self._stop_notification) is True):
+                await g.spawn(self._stop_notification, ignore_result=True)
+                logger.info("Received a stop and/or a shutdown notification!")
+            else:
+                logger.error("There is no supported means to wait, shutting down immediately!")
             await g.cancel_remaining()
 
             # don't run this async - we're happy to block on deregistration
@@ -1021,8 +1028,11 @@ class SensorWrapper(object):
         self.argparser.add_argument("--api-connect-retry-max", dest="api_retry_max", type=float, default=30.0, help="How many seconds should we wait for the Sensing API to be ready before we shutdown")
         self.argparser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensign API connection retries")
 
-    def parse_options(self, args):        
-        self.opts = self.argparser.parse_args(args)        
+    def parse_options(self, args):   
+        if not args:
+            self.opts = self.argparser.parse_args()        
+        else:
+            self.opts = self.argparser.parse_args(args)        
 
     def check_identification(self):
         """

@@ -61,20 +61,30 @@ class processlist_service(win32serviceutil.ServiceFramework):
         '''
         Stop this service
         '''        
-        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)     
-        servicemanager.LogInfoMsg("Service State STOP PENDING")
+        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING, waitHint = 30000)
+        servicemanager.LogInfoMsg("Service processlist_service State STOP PENDING")
         self._logger.info("Stopping the processlist sensor . . . ")
         self.sensor.stop()
+        self.ReportServiceStatus(win32service.SERVICE_STOP)
+        self._logger.info("Processlist sensor has stopped. . . ")
+        servicemanager.LogInfoMsg("Service processlist_service State STOP")        
         
     def SvcDoRun(self):
         '''
         Just make sure we are running
         '''
-        servicemanager.LogInfoMsg("Service SvcDoRun Entered")
+        servicemanager.LogInfoMsg("Service processlist_service SvcDoRun Entered")
         self._logger.info("Starting the processlist sensor . . . ")
         self.sensor.start()
         self._logger.info("Returned from Starting the processlist sensor . . . ")
-
+    
+    def SvcShutdown(self):
+        '''
+        Called when host is shutting down
+        '''
+        self._logger.warning("Host is shutting down!")        
+        self.SvcStop()      
+                       
 class handlelist_service(win32serviceutil.ServiceFramework):
     '''
     handlelist service implements the handle list service to deliver
@@ -107,11 +117,14 @@ class handlelist_service(win32serviceutil.ServiceFramework):
     def SvcStop(self):
         '''
         Stop this service
-        '''        
-        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)     
-        servicemanager.LogInfoMsg("Service State STOP PENDING")
+        '''
+        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING, waitHint = 30000)
+        servicemanager.LogInfoMsg("Service handlelist_service State STOP PENDING")
         self._logger.info("Stopping the handlelist sensor . . . ")
         self.sensor.stop()
+        self.ReportServiceStatus(win32service.SERVICE_STOP)
+        self._logger.info("Handlelist sensor has stopped. . . ")
+        servicemanager.LogInfoMsg("Service handlelist_service State STOP")
         
     def SvcDoRun(self):
         '''
@@ -121,7 +134,14 @@ class handlelist_service(win32serviceutil.ServiceFramework):
         self._logger.info("Starting the handlelist sensor . . . ")
         self.sensor.start()
         self._logger.info("Returned from Starting the handlelist sensor . . . ")
-
+    
+    def SvcShutdown(self):
+        '''
+        Called when host is shutting down
+        '''
+        self._logger.warning("Host is shutting down!")        
+        self.SvcStop()  
+        
 class kernelprobe_service(win32serviceutil.ServiceFramework):
     '''
     kernel probe service that retrieves message from the kernel driver and
@@ -157,11 +177,15 @@ class kernelprobe_service(win32serviceutil.ServiceFramework):
     def SvcStop(self):
         '''
         Stop this service
-        '''        
-        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)     
-        servicemanager.LogInfoMsg("Service State STOP PENDING")
-        self._logger.info("Stopping the kernelprobe sensor . . . ")        
-        
+        '''
+        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING, waitHint = 30000)
+        servicemanager.LogInfoMsg("Service kernelprobe_service State STOP PENDING")
+        self._logger.info("Stopping the kernelprobe sensor . . . ")
+        self.sensor.stop()
+        self.ReportServiceStatus(win32service.SERVICE_STOP)
+        self._logger.info("Kernelprobe sensor has stopped. . . ")
+        servicemanager.LogInfoMsg("Service kernelprobe_service State STOP")        
+                    
     def SvcDoRun(self):
         '''
         Just make sure we are running
@@ -170,6 +194,13 @@ class kernelprobe_service(win32serviceutil.ServiceFramework):
         self._logger.info("Starting the kernelprobe sensor . . . ")
         self.sensor.start()
         self._logger.info("Returned from Starting the kernelprobe sensor . . . ")
+    
+    def SvcShutdown(self):
+        '''
+        Called when host is shutting down
+        '''
+        self._logger.warning("Host is shutting down!")        
+        self.SvcStop()  
         
 if __name__ == '__main__':
     if len(sys.argv) == 1:

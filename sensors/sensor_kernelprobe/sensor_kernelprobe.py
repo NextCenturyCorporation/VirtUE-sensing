@@ -8,7 +8,7 @@ import logging
 import datetime
 import configparser
 
-from curio import sleep
+from curio import sleep, UniversalEvent
 from sensor_wrapper import SensorWrapper, report_on_file, which_file
 
 __VERSION__ = "1.20180502"
@@ -27,7 +27,8 @@ class sensor_kernelprobe(object):
         self._logger = logging.getLogger(__MODULE__)
         self._logger.setLevel(logging.ERROR)             
         self._logger.info("About to construct the SensorWrapper . . . ")               
-        self._wrapper = SensorWrapper("kernelprobe", [self.kernelprobe, self.assess_kernelprobe])
+        self._wrapper = SensorWrapper("kernelprobe", [self.kernelprobe, self.assess_kernelprobe], 
+                                      stop_notification=self.wait_for_service_stop)
         self._logger.info("SensorWrapper constructed . . . ")        
         self._running = False        
         
@@ -84,6 +85,14 @@ class sensor_kernelprobe(object):
         '''
         self._running = value
         
+    async def wait_for_service_stop(self):
+        '''
+        Wait for the service stop event.  Do not return until stop notification 
+        is received.  As long as this function is active, the SensorWrapper will
+        not exit.
+        '''
+        pass        
+    
     async def assess_kernelprobe(self, message_stub, config, message_queue):
         """
         assess WinVirtUE.sys
