@@ -10,7 +10,8 @@
 /* hold socket JSON probe interface */
 extern struct kernel_sensor k_sensor;
 extern char *socket_name;
-extern struct connection listener;
+struct connection listener;
+EXPORT_SYMBOL(listener);
 
 struct connection *
 init_connection(struct connection *, uint64_t, void *);
@@ -26,10 +27,6 @@ static int k_socket_read(struct socket *s, size_t n, void *in, unsigned int flag
 	struct kvec iov;
 
 	int ccode = 0;
-
-	assert(s);
-	assert(in);
-	assert(n > 0 && n <= CONNECTION_MAX_HEADER);
 
 	memset(&msg, 0x00, sizeof(msg));
 	memset(&iov, 0x00, sizeof(iov));
@@ -271,8 +268,9 @@ static void k_accept(struct kthread_work *work)
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 
 	sock = connection->connected;
-	if ((kernel_accept(sock, &newsock, 0)) < 0) {
+	if (kernel_accept(sock, &newsock, 0)) {
 		SHOULD_SHUTDOWN = 1;
+		return;
 	}
 
 /**
@@ -301,13 +299,12 @@ static int start_listener(struct connection *c)
 {
 	struct sockaddr_un addr;
 	struct socket *sock = NULL;
-	DMSG();
-	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
 
-	sock_create_kern(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
-	DMSG();
+	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
+	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
+
 	if (!sock) {
-		DMSG();
+
 		c->connected = NULL;
 		goto err_exit;
 	}
@@ -319,19 +316,19 @@ static int start_listener(struct connection *c)
 	/* sizeof(address) - 1 is necessary to ensure correct null-termination */
 	if (kernel_bind(sock,(struct sockaddr *)&addr,
 					sizeof(addr) -1)) {
-		DMSG();
+
 		goto err_release;
 
 	}
 /* see /usr/include/net/tcp_states.h */
 	if (kernel_listen(sock, TCP_LISTEN)) {
-		DMSG();
+
 		kernel_sock_shutdown(sock, RCV_SHUTDOWN | SEND_SHUTDOWN);
 		goto err_release;
 	}
 
 
-	DMSG();
+
 	return 0;
 err_release:
 	sock_release(sock);
@@ -353,20 +350,20 @@ link_new_connection_work(struct connection *c,
 
 	if (!SHOULD_SHUTDOWN) {
 		unsigned long flags;
-		DMSG();
+
 		spin_lock_irqsave(&k_sensor.lock, flags);
 		list_add_rcu(&c->l_node, l);
 		spin_unlock_irqrestore(&k_sensor.lock, flags);
-		DMSG();
+
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
-		DMSG();
+
 		CONT_INIT_WORKER(&c->worker);
 		CONT_QUEUE_WORK(&c->worker, &c->work);
-		DMSG();
+
 		kthread_run(kthread_worker_fn, &c->worker, d);
 	}
-	DMSG();
+
 }
 
 /**
@@ -377,19 +374,20 @@ static inline void *destroy_connection(struct connection *c)
 {
 	/* destroy the probe resources */
 	int ccode;
-	static uint8_t drain[CONNECTION_MAX_MESSAGE];
-	
-	DMSG();
+
+
 	if (c->connected) {
 		struct socket *sock = c->connected;
 		if (__FLAG_IS_SET(c->flags, PROBE_LISTEN) ||
 			__FLAG_IS_SET(c->flags, PROBE_CONNECT)) {
-			ccode = k_socket_read(sock, CONNECTION_MAX_MESSAGE, drain, MSG_DONTWAIT);
 			ccode = kernel_sock_shutdown(sock, SHUT_RDWR);
 			sock_release(c->connected);
+
 		}
 	}
 	c->destroy((struct probe *)c);
+
+
 	memset(c, 0x00, sizeof(*c));
 	return c;
 }
@@ -416,7 +414,11 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	memset(c, 0x00, sizeof(struct connection));
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
-	c->flags = flags;
+/**
+ * TODO: I should set the flags individually, or mask the flags param;
+ * I'm assuming that listen and connect are the only two flags set in the flags param
+ **/
+	c->flags |= flags;
 	c->_destroy = destroy_connection;
 
 	if (__FLAG_IS_SET(flags, PROBE_LISTEN)) {
@@ -425,9 +427,9 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		 **/
 		memcpy(&c->path, p, UNIX_PATH_MAX);
 
-		DMSG();
+
 		if((ccode = start_listener(c))) {
-			DMSG();
+
 			ccode = -ENFILE;
 			goto err_exit;
 		}
@@ -456,14 +458,14 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		struct socket *sock = p;
 		printk(KERN_INFO "connected socket at %p\n", sock);
 		/** now we need to read and write messages **/
-		DMSG();
+
 		link_new_connection_work(c,
 								 &k_sensor.connections,
 								 k_read_write,
 								 "kcontrol read & write");
 	}
 
-	DMSG();
+
 	return c;
 
 err_exit:
@@ -492,7 +494,7 @@ socket_interface_exit(void)
 	 * from blocking
 	 **/
 	SHOULD_SHUTDOWN = 1;
-	DMSG();
+
 	return;
 }
 

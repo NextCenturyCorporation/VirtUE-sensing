@@ -31,5 +31,5 @@
 #include <asm/segment.h>
 #include <linux/syscalls.h>
 #include <uapi/linux/stat.h>
-#define assert(s) do{if (!(s)) panic(#s);} while(0);
+#define assert(s) if (!(s)) {DMSG(); printk(KERN_DEBUG "panic\n");}
 #endif // CONTROLLER_LINUX_H
