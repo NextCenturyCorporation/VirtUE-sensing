@@ -4,7 +4,47 @@ Sensors that connect to the Sensing API must go through two workflows; the [Cert
 
 # Configuring Sensors
 
-# Installing Sensor Configurations
+## Long Blocking Tasks
+
+The majority of our sensors are written in asynchronous Python, using the Curio library to support fully async methods and tasks. Occasionaly things go wrong, and tasks block. This can be _really_ hard to debug. Our `SensorWrapper` includes a run time mode for detecting, and reporting on, long running blocking tasks. This can be enabled on the command line:
+
+```bash
+... --check-for-long-blocking ...
+```
+
+Or in your sensor script itself, as part of the call to `SensorWrapper::start`:
+
+```python
+if __name__ == "__main__":
+
+	wrapper = SensorWrapper("tcpdump", [tcpdump, assess_tcpdump])
+	wrapper.start(check_for_long_blocking=True)
+```
+
+In the logs, you can verify that long block mode is enabled by looking for the `%% starting with long-blocking detection` line:
+
+```bash
+Starting tcpdump(version=1.20171117)
+Sensor Identification
+	sensor_id  == fda6023c-6d4c-448d-b727-f9a74fbb76cc
+	virtue_id  == ab379ff9-ed1a-4f20-98ce-3bc636455e97
+	username   == root
+	hostname   == edc358d039e7
+Sensing API
+	hostname   == sensing-api.savior.internal
+	http port  == 17141
+	https port == 17504
+	version    == v1
+Sensor Interface
+	hostname   == edc358d039e7
+	port       == 11003
+Advertised Interface
+	hostname   == edc358d039e7
+	port       == 11003
+  %% starting with long-blocking detection
+```
+
+## Installing Sensor Configurations
 
 A simple command line tool is included with the Sensing API for finding and installing sensor configurations. Every sensor should have a `sensor_configurations.json` file defined that in turn defines which files contain configuration data for each sensor. See the [lsof sensor configuration directory](https://github.com/twosixlabs/savior/tree/master/sensors/sensor_lsof/config) for an example of defining configurations for a sensor.
 
