@@ -8,7 +8,7 @@ import base64
 from Crypto.PublicKey import RSA
 from curio import Queue, TaskGroup, run, tcp_server, CancelledError
 from curio import sleep, check_cancellation, ssl, spawn
-import curequests
+from curio.debug import longblock
 import email
 import hashlib
 from io import StringIO
@@ -30,8 +30,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 logger = logging.getLogger("SensorWrapper")
-logger.setLevel(logging.DEBUG)
-logfmt='%(asctime)s:%(name)s:%(levelname)s:%(message)s'
+logger.setLevel(logging.ERROR)
 
 #
 # Crazy monkey-patching so we can get access to the peer cert when we
@@ -1028,6 +1027,8 @@ class SensorWrapper(object):
         self.argparser.add_argument("--delay-start", dest="delay_start", type=int, default=0, help="Number of seconds to delay before startup")
         self.argparser.add_argument("--api-connect-retry-max", dest="api_retry_max", type=float, default=30.0, help="How many seconds should we wait for the Sensing API to be ready before we shutdown")
         self.argparser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensign API connection retries")
+        # debuging checks
+        self.argparser.add_argument("--check-for-long-blocking", dest="check_for_long_blocking", default=False, action="store_true", help="Monitor for long blocking of the event loop")
 
     def parse_options(self, args):   
         if not args:
@@ -1138,44 +1139,54 @@ class SensorWrapper(object):
 
         # report
         logger.info("Sensor Identification")
-        logger.info("\tsensor_id  == %s" % (self.opts.sensor_id,))
-        logger.info("\tvirtue_id  == %s" % (self.opts.virtue_id,))
-        logger.info("\tusername   == %s" % (self.opts.username,))
-        logger.info("\thostname   == %s" % (self.opts.sensor_hostname,))
+        logger.info("\tsensor_id  == %s", self.opts.sensor_id)
+        logger.info("\tvirtue_id  == %s", self.opts.virtue_id)
+        logger.info("\tusername   == %s", self.opts.username)
+        logger.info("\thostname   == %s", self.opts.sensor_hostname)
 
         logger.info("Sensing API")
-        logger.info("\thostname   == %s" % (self.opts.api_host,))
-        logger.info("\thttp port  == %d" % (self.opts.api_http_port,))
-        logger.info("\thttps port == %d" % (self.opts.api_https_port,))
-        logger.info("\tversion    == %s" % (self.opts.api_version,))
+        logger.info("\thostname   == %s", self.opts.api_host)
+        logger.info("\thttp port  == %d", self.opts.api_http_port)
+        logger.info("\thttps port == %d", self.opts.api_https_port)
+        logger.info("\tversion    == %s", self.opts.api_version)
 
         logger.info("Sensor Interface")
-        logger.info("\thostname   == %s" % (self.opts.sensor_hostname,))
-        logger.info("\tport       == %d" % (self.opts.sensor_port,))
+        logger.info("\thostname   == %s", self.opts.sensor_hostname)
+        logger.info("\tport       == %d", self.opts.sensor_port)
         logger.info("Advertised Interface")
-        logger.info("\thostname   == %s" % (self.opts.sensor_advertised_hostname,))
-        logger.info("\tport       == %d" % (self.opts.sensor_advertised_port,))
+        logger.info("\thostname   == %s", self.opts.sensor_advertised_hostname)
+        logger.info("\tport       == %d", self.opts.sensor_advertised_port)
 
-    def start(self, args=None):
+    def start(self, args=None, check_for_long_blocking=False):
         """
         Start up the sensor wrapper.
 
         :return:
         """
-        logger.info("Called SensorWrapper.start(%s)" % args)
+        logger.info("Called SensorWrapper.start(%s)", args)
+
         # good morning.
-        logger.info("Starting %s(version=%s)" % (self.sensor_name, __VERSION__,))
+        logger.info("Starting %s(version=%s)", self.sensor_name, __VERSION__)
 
         self.parse_options(args)
 
         self.check_identification()
 
+        # are we over-riding our long block check?
+        if check_for_long_blocking:
+            self.opts.check_for_long_blocking = True
+
         if self.opts.delay_start > 0:
-            logger.info("Delaying startup of lsof_sensor %d seconds" % (self.opts.delay_start,))
+            logger.info("Delaying startup of lsof_sensor %d seconds", 
+                self.opts.delay_start)
             time.sleep(self.opts.delay_start)
 
         # let's jump right into async land
-        run(self.main)
+        if self.opts.check_for_long_blocking:
+            logger.info("  %% starting with long-blocking detection")
+            run(self.main, debug=longblock(max_time=0.5))
+        else:
+            run(self.main)
 
 
 def read_properties(filename):

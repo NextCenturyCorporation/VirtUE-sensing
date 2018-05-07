@@ -1,4 +1,4 @@
 {
-  "args": "-i any -n",
+  "args": ["-i", "any", "-n"],
   "repeat-interval": 60
 }

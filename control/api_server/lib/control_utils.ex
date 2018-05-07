@@ -5,6 +5,47 @@ defmodule ApiServer.ControlUtils do
   """
 
   @doc """
+  Broadcast a message on the C2 channel about an observation change on a sensor.
+
+  ### Parameters
+
+    - sensor: ApiServer.Sensor instance
+    - level: new observation level name
+
+  ### Configuration
+
+    - :api_server, :c2_kafka_topic - Kafka topic on which to announce Sensing API metadata
+
+  ### Side Effects
+
+    - JSON encoded message broadcast to Kafka C2 channel
+
+  ### Returns
+
+    {:ok, %Sensor{}}
+  """
+  def announce_sensor_observation(sensor, level) do
+    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
+      %{
+        error: false,
+        action: "sensor-observe",
+        sensor: ApiServer.Sensor.clean_json(sensor, include_component: true, include_configuration: true),
+        timestamp: DateTime.to_string(DateTime.utc_now()),
+        old_level: sensor.configuration.level,
+        new_level: level
+      }
+    )) do
+
+      :ok ->
+        IO.puts("announced sensor observe change sensor(id=#{sensor.sensor_id}) old level(#{sensor.configuration.level}) new level(#{level})")
+      {:error, reason} ->
+        IO.puts("got an error announcing a sensor observe change: #{reason}")
+    end
+
+    {:ok, sensor}
+  end
+
+  @doc """
   Broadcast an announcement of a new sensor.
 
   ### Parameters
@@ -43,6 +84,7 @@ defmodule ApiServer.ControlUtils do
       {:error, reason} ->
         IO.puts("got some kinda error announcing a new sensor: #{reason}")
     end
+    {:ok, sensor_struct_data}
   end
 
   # Create a nonce style message against the topic we're announcing, or anyone who subscribes too early will
@@ -120,6 +162,35 @@ defmodule ApiServer.ControlUtils do
       {:error, reason} ->
         IO.puts("!! encountered an error broadcasting the C2 heartbeat to the API C2 topic")
     end
+  end
+
+  @doc """
+  Emit a sensor status heartbeat. This includes counts of registered sensors and distinct registered
+  hosts.
+  """
+  def sensor_status() do
+
+    with host_count <- ApiServer.Sensor.host_count(),
+      sensor_name_counts <- ApiServer.Sensor.sensor_name_count(),
+      sensor_os_counts <- ApiServer.Sensor.sensor_os_count()
+    do
+      case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
+        %{
+          error: false,
+          action: "sensors-status",
+          timestamp: DateTime.to_string(DateTime.utc_now()),
+          hosts: host_count,
+          sensor_type: sensor_name_counts,
+          sensor_os: sensor_os_counts
+        }
+      )) do
+        :ok ->
+          :ok
+        {:error, reason} ->
+          IO.puts("!! encountered an error broadcasting a sensor count status heartbeat to the API C2 topic")
+      end
+    end
+
   end
 
 end

@@ -5,12 +5,22 @@
 # is restricted to this project.
 use Mix.Config
 
+kafka_boostraps =
+
+  case System.get_env("KAFKA_BOOTSTRAP_PORT") do
+    nil ->
+      "sensing-kafka.savior.internal:9555"
+    p ->
+      "sensing-kafka.savior.internal:#{p}"
+  end
+
+
 # General application configuration
 config :api_server,
   ecto_repos: [ApiServer.Repo],
   c2_kafka_topic: "api-server-control",
-  sensor_kafka_bootstrap: ["sensing-kafka.savior.internal:9555"],
-  client_kafka_bootstrap: ["sensing-kafka.savior.internal:9555"],
+  sensor_kafka_bootstrap: [kafka_boostraps],
+  client_kafka_bootstrap: [kafka_boostraps],
   ca_cert_file: "/app/certs/ca.pem",
   cfssl_host: "cfssl",
   cfssl_port: 3030,
@@ -47,7 +57,10 @@ config :api_server, ApiServer.Scheduler,
 
     # check on non-responsive sensors every 15 minutes, and clean them out if
     # they're older than 5 minutes
-    {"*/1 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [3]}}
+    {"*/1 * * * *",       {ApiServer.DatabaseUtils, :prune_old_sensors, [3]}},
+
+    # run our sensor status heart beat every minute
+    {"* * * * *",         {ApiServer, :sensor_status_heartbeat, []}}
   ]
 
 # Kafka connections

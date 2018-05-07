@@ -82,7 +82,7 @@ defmodule ApiServer.InspectController do
            %{
              "error": :false,
              "timestamp": DateTime.to_string(DateTime.utc_now()),
-             "sensors": Enum.map(sensors, fn (s) -> ApiServer.Sensor.clean_json(s) end)
+             "sensors": Enum.map(sensors, fn (s) -> ApiServer.Sensor.clean_json(s, include_component: true, include_configuration: true) end)
            },
            summarize_targeting(conn.assigns)
          )
