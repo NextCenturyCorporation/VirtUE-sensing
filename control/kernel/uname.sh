@@ -22,6 +22,7 @@ echo "#ifndef _UNAME_CONTROLLER_H" > $FILENAME
 echo "#define _UNAME_CONTROLLER_H" >> $FILENAME
 echo "/*this file is generated automatically in the makefile */" >> $FILENAME
 echo "/*NB: I always assume you are running the same kernel you are building!*/">>$FILENAME
+echo "#define VERSION_STRING \"$FULL_VERSION\0\"" >> $FILENAME
 
 if (( $VERSION >= 4 )) ; then
     if (( $PATCHLEVEL < 9 )); then

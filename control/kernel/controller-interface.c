@@ -144,6 +144,83 @@ again:
 	return ccode;
 }
 
+
+static void
+k_echo_server(struct kthread_work *work)
+{
+
+	int ccode = 0;
+	unsigned long flags = MSG_PEEK;
+	/**
+	 * allocate these buffers dynamically so this function can
+	 * be re-entrant. Also avoid allocation on the stack.
+	 * these buffers are 1k each. if we need more space, the
+	 * message handlers will need to realloc the buf for more space
+	 **/
+	uint8_t read_buf[5];
+	uint8_t echo[] = "echo\0";
+
+
+	struct socket *sock = NULL;
+	struct kthread_worker *worker = work->worker;
+	struct connection *connection =
+		container_of(work, struct connection, work);
+
+	assert(connection &&
+		   connection->flags);
+	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
+	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
+
+	sock = connection->connected;
+	memset(read_buf, 0x00, sizeof(read_buf));
+
+again:
+	ccode = k_socket_read(sock, 5, read_buf, flags);
+	if (ccode < 0){
+		if (ccode == -EAGAIN) {
+			goto again;
+		}
+		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+		goto err_out;
+	}
+
+	if (flags == MSG_PEEK) {
+		printk(KERN_DEBUG "k_socket_read MSG_PEEK: %d\n", ccode);
+		if (ccode >= 5) {
+			flags = 0L;
+			goto again;
+		}
+	}
+	printk(KERN_DEBUG "k_socket_read 0L: %d\n", ccode);
+
+	if (! memcmp(read_buf, echo, sizeof(echo))) {
+
+		uint8_t *response = VERSION_STRING;
+		printk(KERN_DEBUG "k_socket_write string: %s\n", response);
+
+		ccode = k_socket_write(sock, sizeof(response),
+							   response,
+							   0L);
+		printk(KERN_DEBUG "k_socket_write: %d\n", ccode);
+
+	}
+
+ 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
+		/* do it all again */
+ 		init_and_queue_work(work, worker, k_echo_server);
+ 	}
+	return;
+err_out:
+	spin_lock_irqsave(&k_sensor.lock, flags);
+	list_del_rcu(&connection->l_node);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
+	synchronize_rcu();
+	kfree(connection->_destroy(connection));
+	return;
+}
+
+
+
 /**
  * @brief k_read_write kernel thread that reads and writes the JSON
  * kernel sensor protocol over a connected socket.
