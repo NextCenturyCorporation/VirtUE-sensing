@@ -234,7 +234,7 @@ again:
 		goto err_out0;
 	}
 
- 	if (! SHOULD_SHUTDOWN ) {
+ 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		/* do it all again */
  		init_and_queue_work(work, worker, k_read_write);
  	}
@@ -269,22 +269,22 @@ static void k_accept(struct kthread_work *work)
 
 	sock = connection->connected;
 	if (kernel_accept(sock, &newsock, 0)) {
-		SHOULD_SHUTDOWN = 1;
+		atomic64_set(&SHOULD_SHUTDOWN, 1);
 		return;
 	}
 
 /**
  * create a new struct connection, link it to the kernel sensor
  **/
-	if (newsock != NULL && (! SHOULD_SHUTDOWN)) {
+	if (newsock != NULL && (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
 		if (new_connection) {
 			init_connection(new_connection, PROBE_CONNECT, newsock);
 		} else {
-			SHOULD_SHUTDOWN = 1;
+			atomic64_set(&SHOULD_SHUTDOWN, 1);
 		}
 	}
-	if (! SHOULD_SHUTDOWN ) {
+	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		init_and_queue_work(work, worker, k_accept);
 	}
 	return;
@@ -348,7 +348,7 @@ link_new_connection_work(struct connection *c,
 						 uint8_t *d)
 {
 
-	if (!SHOULD_SHUTDOWN) {
+	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		unsigned long flags;
 
 		spin_lock_irqsave(&k_sensor.lock, flags);
@@ -493,7 +493,7 @@ socket_interface_exit(void)
 	 * TODO: use MSG_DONTWAIT and MSG_PEEK to keep the connections
 	 * from blocking
 	 **/
-	SHOULD_SHUTDOWN = 1;
+	atomic64_set(&SHOULD_SHUTDOWN, 1);
 
 	return;
 }

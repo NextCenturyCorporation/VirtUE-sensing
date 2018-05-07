@@ -29,6 +29,10 @@
 struct kernel_sensor k_sensor;
 EXPORT_SYMBOL(k_sensor);
 
+atomic64_t SHOULD_SHUTDOWN = ATOMIC64_INIT(0);
+EXPORT_SYMBOL(SHOULD_SHUTDOWN);
+
+
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
 struct kernel_sysfs_probe ksysfs_probe;
@@ -690,13 +694,16 @@ void  run_kps_probe(struct kthread_work *work)
  **/
 	probe_struct->print(probe_struct, "kernel-ps", nonce, ++count);
 	probe_struct->repeat--;
-	if (probe_struct->repeat > 0 && !SHOULD_SHUTDOWN) {
+	if (probe_struct->repeat > 0 && (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		int i;
-		for (i = 0; i < probe_struct->timeout && !SHOULD_SHUTDOWN; i++) {
+		for (i = 0;
+			 i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
+			 i++) {
 			sleep(1);
 		}
-		if (!SHOULD_SHUTDOWN)
+		if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 			init_and_queue_work(work, co_worker, run_kps_probe);
+		}
 	}
 	return;
 }
@@ -860,7 +867,6 @@ static int __init kcontrol_init(void)
 	struct kernel_lsof_probe *lsof_probe = NULL;
 	struct kernel_sysfs_probe *sysfs_probe = NULL;
 
-
 	unsigned long flags;
 
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
@@ -972,11 +978,8 @@ static void __exit controller_cleanup(void)
 {
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
-	SHOULD_SHUTDOWN = 1;
-
+	atomic64_set(&SHOULD_SHUTDOWN, 1);
 	socket_interface_exit();
-
-
 	k_sensor._destroy(&k_sensor);
 
 }
