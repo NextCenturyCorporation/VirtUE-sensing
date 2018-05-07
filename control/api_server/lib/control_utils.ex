@@ -164,4 +164,33 @@ defmodule ApiServer.ControlUtils do
     end
   end
 
+  @doc """
+  Emit a sensor status heartbeat. This includes counts of registered sensors and distinct registered
+  hosts.
+  """
+  def sensor_status() do
+
+    with host_count <- ApiServer.Sensor.host_count(),
+      sensor_name_counts <- ApiServer.Sensor.sensor_name_count(),
+      sensor_os_counts <- ApiServer.Sensor.sensor_os_count()
+    do
+      case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
+        %{
+          error: false,
+          action: "sensors-status",
+          timestamp: DateTime.to_string(DateTime.utc_now()),
+          hosts: host_count,
+          sensor_type: sensor_name_counts,
+          sensor_os: sensor_os_counts
+        }
+      )) do
+        :ok ->
+          :ok
+        {:error, reason} ->
+          IO.puts("!! encountered an error broadcasting a sensor count status heartbeat to the API C2 topic")
+      end
+    end
+
+  end
+
 end

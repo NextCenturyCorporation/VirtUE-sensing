@@ -7,6 +7,7 @@ import asyncio
 import base64
 from Crypto.PublicKey import RSA
 from curio import subprocess, Queue, TaskGroup, run, tcp_server, CancelledError, SignalEvent, sleep, check_cancellation, ssl, spawn
+from curio.debug import longblock
 import curequests
 import email
 import hashlib
@@ -1017,6 +1018,9 @@ class SensorWrapper(object):
         self.argparser.add_argument("--api-connect-retry-max", dest="api_retry_max", type=float, default=30.0, help="How many seconds should we wait for the Sensing API to be ready before we shutdown")
         self.argparser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensign API connection retries")
 
+        # debuging checks
+        self.argparser.add_argument("--check-for-long-blocking", dest="check_for_long_blocking", default=False, action="store_true", help="Monitor for long blocking of the event loop")
+
     def parse_options(self):
         self.opts = self.argparser.parse_args()
 
@@ -1141,12 +1145,13 @@ class SensorWrapper(object):
         print("\thostname   == %s" % (self.opts.sensor_advertised_hostname,))
         print("\tport       == %d" % (self.opts.sensor_advertised_port,))
 
-    def start(self):
+    def start(self, check_for_long_blocking=False):
         """
         Start up the sensor wrapper.
 
         :return:
         """
+
         # good morning.
         print("Starting %s(version=%s)" % (self.sensor_name, __VERSION__,))
 
@@ -1154,12 +1159,20 @@ class SensorWrapper(object):
 
         self.check_identification()
 
+        # are we over-riding our long block check?
+        if check_for_long_blocking:
+            self.opts.check_for_long_blocking = True
+
         if self.opts.delay_start > 0:
             print("Delaying startup of lsof_sensor %d seconds" % (self.opts.delay_start,))
             time.sleep(self.opts.delay_start)
 
         # let's jump right into async land
-        run(self.main)
+        if self.opts.check_for_long_blocking:
+            print("  %% starting with long-blocking detection")
+            run(self.main, debug=longblock(max_time=0.5))
+        else:
+            run(self.main)
 
 
 def read_properties(filename):
