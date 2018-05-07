@@ -24,6 +24,13 @@ in as a git submodule.
 
 To build the sensor's container, navigate to the `nfs-sensor-target` directory in a shell and run:
 
+
+```bash
+> sudo ./build.sh
+```
+
+or
+
 ```bash
 > sudo docker build -t virtue-savior/nfs-sensor-target:latest .
 ```
@@ -41,10 +48,16 @@ There are a couple requirements to run the sensor in production mode:
   to starting the sensor. This is passed to the container through the
   environment.
 
-If these requirements are fulfilled, the sensor can be run by:
+If these requirements are fulfilled, the production sensor can be run by:
 
 ```bash
-> sudo docker run -e NFS_SENSOR_SNIFF_INTERFACE=vif3.0 --network=host virtue-savior/nfs-sensor-target:latest
+> ./run_docker.sh
+```
+
+or
+
+```bash
+> sudo docker run -e NFS_SENSOR_SNIFF_INTERFACE=vif-nfs --network=host virtue-savior/nfs-sensor-target:latest
 ```
 
 Where `NFS_SENSOR_SNIFF_INTERFACE` should indicate the actual NIC used

@@ -15,15 +15,15 @@ While a handful of the scripts may act normally when called in the `bin` directo
 
 The following scripts from the `bin` directory are documented, and used during various phases of development and deployment of the Sensing and Response tools:
 
- - [add_target.sh](#add_target.sh) - Add one or more new Virtues to a running Sensing environment.
- - [clear_network.sh](#clear_network.sh) - Remove containers from a running Sensing environment that aren't part of the Sensing infrastructure.
- - [dockerized-build.sh](#dockerized-build.sh) - Build the `virtue-security` CLI tool and stand-alone Virtue images.
- - [dockerized-inspect.sh](#dockerized-inspect.sh) - Run the **inspect** command on a running Sensing environment. 
- - [dockerized-run.sh](#dockerized-run.sh) - Run any of the `virtue-security` commands on a running Sensing environment.
- - [dockerized-stream.sh](#dockerized-stream.sh) - **stream** live log messages from a running Sensing environment.
- - [install_sensors.py](#install_sensors.py) - Install sensors and associated files/data in defined Virtue targets.
- - [load_sensor_configurations.py](#load_sensor_configurations.py) - Load the configuration files for one or more sensors into a running Sensing API.
- - [update_tools.sh](#update_tools.sh) - Install various support tools into multiple directories.
+ - [add_target.sh](#add_targetsh) - Add one or more new Virtues to a running Sensing environment.
+ - [clear_network.sh](#clear_networksh) - Remove containers from a running Sensing environment that aren't part of the Sensing infrastructure.
+ - [dockerized-build.sh](#dockerized-buildsh) - Build the `virtue-security` CLI tool and stand-alone Virtue images.
+ - [dockerized-inspect.sh](#dockerized-inspectsh) - Run the **inspect** command on a running Sensing environment. 
+ - [dockerized-run.sh](#dockerized-runsh) - Run any of the `virtue-security` commands on a running Sensing environment.
+ - [dockerized-stream.sh](#dockerized-streamsh) - **stream** live log messages from a running Sensing environment.
+ - [install_sensors.py](#install_sensorspy) - Install sensors and associated files/data in defined Virtue targets.
+ - [load_sensor_configurations.py](#load_sensor_configurationspy) - Load the configuration files for one or more sensors into a running Sensing API.
+ - [update_tools.sh](#update_toolssh) - Install various support tools into multiple directories.
 
 # add_target.sh
 

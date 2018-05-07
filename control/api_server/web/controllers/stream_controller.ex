@@ -14,9 +14,9 @@ defmodule ApiServer.StreamController do
   import ApiServer.TargetingUtils, only: [summarize_targeting: 1]
   import ApiServer.ValidationPlug, only: [valid_log_level: 2, valid_follow: 2, valid_since: 2]
 
-  plug :valid_log_level when action in [:stream]
-  plug :valid_follow when action in [:stream]
-  plug :valid_since when action in [:stream]
+  plug :valid_log_level when action in [:stream, :stream_all]
+  plug :valid_follow when action in [:stream, :stream_all]
+  plug :valid_since when action in [:stream, :stream_all]
   plug :extract_targeting when action in [:stream]
   plug :extract_targeting_scope when action in [:stream]
 
@@ -95,6 +95,42 @@ defmodule ApiServer.StreamController do
   end
 
   @doc """
+  The stream_all task is different from the standard stream/2 task in that we pull in ALL
+  sensor streams, from all sensors, and add in new streams that may start after the fact. This is
+  functionally the sensor FIREHOSE.
+
+
+  """
+  def stream_all(conn, _) do
+
+    # log targeting data
+    ApiServer.TargetingUtils.log_targeting()
+
+    # Select all of our sensors
+    sensors = ApiServer.Sensor |> ApiServer.Repo.all
+
+    case sensors do
+
+      sensor_structs ->
+
+        stream_topics = Enum.map(sensor_structs, fn (s) -> s.kafka_topic end)
+        stream_remote_ip = remote_ip_to_string(conn.remote_ip)
+
+        # Basic logging so we know what's going on
+        IO.puts("  #{length(sensor_structs)} sensors found for streaming")
+        IO.puts("  <> attempting to stream from #{length sensor_structs} sensors to #{stream_remote_ip}")
+
+        # spin up all of the streams, this will return a Plug.Conn when the stream is broken - we'll
+        # also update the context assignments to we always follow the log
+        spawn_stream(
+          conn |> send_chunked(200) |> assign(:follow_log, :true),
+          stream_topics, auto_subscribe_all: true)
+
+    end
+
+  end
+
+  @doc """
   Setup tasks to monitor each topic stream and a gather task that collates
   the messages from the streaming tasks into a single output stream to the
   client connection.
@@ -115,7 +151,7 @@ defmodule ApiServer.StreamController do
 
     - %Plug.Conn
   """
-  def spawn_stream(conn, topics) do
+  def spawn_stream(conn, topics, opts \\ []) do
 
     IO.puts("  <> Starting stream with #{length topics} topics")
 
@@ -127,6 +163,15 @@ defmodule ApiServer.StreamController do
       Task.async(__MODULE__, :stream_task, [gather_task.pid, conn, topic])
     end)
 
+    # launch the auto-subscriber for ALL NEW STREAMS
+    auto_subscribe_task = case Keyword.get(opts, :auto_subscribe_all, :false) do
+
+      :true ->
+        Task.async(__MODULE__, :gather_new_streams, [gather_task.pid, conn])
+      :false ->
+        :ok
+    end
+
     # wait
     receive do
       :stream_gather_done ->
@@ -137,7 +182,64 @@ defmodule ApiServer.StreamController do
     IO.puts("  <🛑> Stopping streams and gather tasks")
     Task.shutdown(gather_task)
     Enum.each(stream_tasks, fn (t) -> Task.shutdown(t) end)
+
+    case Keyword.get(opts, :auto_subscribe_all, :false) do
+      :true ->
+        Task.shutdown(auto_subscribe_task)
+      :false ->
+        :ok
+    end
+
     conn
+  end
+
+  @doc """
+  Listen for annouce events on the C2 channel, and add any new streams
+  to the gather task with new stream_task/3 spawns.
+
+  """
+  def gather_new_streams(parent, conn) do
+
+    IO.puts("  <> starting stream auto-subscriber")
+
+    cks_stream = Stream.map(
+       KafkaEx.stream(
+         Application.get_env(:api_server, :c2_kafka_topic), 0,
+         no_wait_at_logend: :false
+       ),
+       fn (msg) ->
+
+         IO.puts("  <> auto-subscriber got C2 message (#{msg.value})")
+
+         # try and decode the incoming message. We've got NOP :ok's all
+         # over the place in here, mostly because we want to just elide
+         # messages that either don't decode or don't meet our filter level
+         case Poison.decode(msg.value) do
+
+           {:error, _} ->
+             :ok
+           {:ok, parsed_message} ->
+
+             case Map.has_key?(parsed_message, "action") do
+               :true ->
+                 case parsed_message["action"] do
+                    "sensor-registration" ->
+
+                      IO.puts("  <> + adding topic to existing stream #{parsed_message["topic"]}")
+                      # now we can spawn a new stream task
+                      Task.async(__MODULE__, :stream_task, [parent, conn, parsed_message["topic"]])
+                      :ok
+                    _ ->
+                      :ok
+                 end
+               :false ->
+                 :ok
+             end
+         end
+       end
+     )
+     |> Stream.run()
+
   end
 
   @doc """

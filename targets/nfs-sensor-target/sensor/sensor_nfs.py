@@ -16,9 +16,9 @@ import json
 
 import datetime
 
+from curio import sleep
 import asyncio
 import selectors
-import subprocess
 
 from scapy.all import * # sniff, rdpcap
 
@@ -28,12 +28,14 @@ import nfs_const
 import nfs_packet_handler as handler
 import nfs_state_monitor as state
 
-
 from sensor_wrapper import SensorWrapper
-
 
 # Keep sniffing?
 sniff_sockets = True
+
+# Global timeouts (in seconds)
+select_timeout = 0.10
+sleep_timeout  = 0.01
 
 # This breaks parts of TCP or UDP parsers
 # conf.debug_dissector = 1
@@ -74,16 +76,28 @@ async def nfs3_sniff_iface(message_stub, config, message_queue):
     # the cleaner loop.add_reader(). Think of this block as a poor
     # man's sniff() function.
 
+    # @TODO: cleanup this loop, make better use of coroutines. Issue
+    # is that sel.select() can't be called as coroutine and doesn't
+    # yeild to allow for message queue processing.
     with selectors.DefaultSelector() as sel:
         sel.register( sock, selectors.EVENT_READ )
 
         while sniff_sockets:
-            for sk, events in sel.select():
-                p = sock.recv()
-                if not p:
-                    break
-                p.sniffed_on = sock
-                await recv_pkt( p, message_stub, message_queue )
+            ready = sel.select( 0 )
+            if not ready:
+                # Nothing is ready. Yield for message_queue processing.
+                await sleep( sleep_timeout )
+                continue
+
+            for sk, events in ready:
+                pkt = sk.fileobj.recv()
+                if not pkt:
+                    continue
+
+                # There's a packet to process: receive it
+                pkt.sniffed_on = sk.fileobj
+                await recv_pkt( pkt, message_stub, message_queue )
+                # Optional?: sleep here to force queue processing
 
 async def nfs3_process_pkts( message_stub, config, message_queue ):
     pkts = rdpcap( wrapper.opts.pcap )

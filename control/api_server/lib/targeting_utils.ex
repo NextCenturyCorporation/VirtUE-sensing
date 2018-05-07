@@ -20,6 +20,11 @@ defmodule ApiServer.TargetingUtils do
     )
   end
 
+  def log_targeting() do
+    IO.puts("🎯 summary")
+    IO.puts("   targeting ALL sensors")
+  end
+
   @doc """
   Use targeting metadata to select a list of sensors.
 

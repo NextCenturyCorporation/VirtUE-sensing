@@ -1,0 +1,16 @@
+{
+  "name": "tcpdump-sensor",
+  "version": "1.0",
+  "target_folder": "tcpdump",
+  "files": [
+    {
+      "source": "sensor_tcpdump.py",
+      "dest": "sensor_tcpdump.py"
+    }
+  ],
+  "startup_script": "run_tcpdump_sensor.sh",
+  "requirements_files": ["tcpdump_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": ["tcpdump"]
+
+}

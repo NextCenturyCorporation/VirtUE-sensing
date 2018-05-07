@@ -26,3 +26,11 @@ The following ports need to be open and accessible between hosts in the Sensing 
  - **9555/tcp**: Swarm external port for Kafka communication
  - **17141/tcp**: Sensing API Insecure port
  - **17504/tcp**: Sensing API Secure port
+
+# DNS
+
+Internal DNS (as handled by Route 53) **must include** the following routes, for now all pointing at the Swarm Master node:
+
+ - sensing-api.savior.internal
+ - sensing-ca.savior.internal
+ - sensing-kafka.savior.internal 

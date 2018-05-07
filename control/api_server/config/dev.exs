@@ -55,4 +55,5 @@ config :api_server, ApiServer.Repo,
   password: "postgres",
   database: "api_server_postgres",
   hostname: "api_server_postgres",
-  pool_size: 10
+  pool_size: 10,
+  loggers: [{Ecto.LogEntry, :log, [:info]}]

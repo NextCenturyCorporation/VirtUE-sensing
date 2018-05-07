@@ -5,6 +5,47 @@ defmodule ApiServer.ControlUtils do
   """
 
   @doc """
+  Broadcast a message on the C2 channel about an observation change on a sensor.
+
+  ### Parameters
+
+    - sensor: ApiServer.Sensor instance
+    - level: new observation level name
+
+  ### Configuration
+
+    - :api_server, :c2_kafka_topic - Kafka topic on which to announce Sensing API metadata
+
+  ### Side Effects
+
+    - JSON encoded message broadcast to Kafka C2 channel
+
+  ### Returns
+
+    {:ok, %Sensor{}}
+  """
+  def announce_sensor_observation(sensor, level) do
+    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
+      %{
+        error: false,
+        action: "sensor-observe",
+        sensor: ApiServer.Sensor.clean_json(sensor, include_component: true, include_configuration: true),
+        timestamp: DateTime.to_string(DateTime.utc_now()),
+        old_level: sensor.configuration.level,
+        new_level: level
+      }
+    )) do
+
+      :ok ->
+        IO.puts("announced sensor observe change sensor(id=#{sensor.sensor_id}) old level(#{sensor.configuration.level}) new level(#{level})")
+      {:error, reason} ->
+        IO.puts("got an error announcing a sensor observe change: #{reason}")
+    end
+
+    {:ok, sensor}
+  end
+
+  @doc """
   Broadcast an announcement of a new sensor.
 
   ### Parameters
@@ -26,6 +67,9 @@ defmodule ApiServer.ControlUtils do
   """
   def announce_new_sensor(sensor_struct_data) do
 
+    produce_nonce_message(sensor_struct_data)
+
+
     case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
       %{
         error: false,
@@ -39,6 +83,25 @@ defmodule ApiServer.ControlUtils do
         IO.puts("announced new sensor(id=#{sensor_struct_data.sensor_id}) (topic=#{sensor_struct_data.kafka_topic})")
       {:error, reason} ->
         IO.puts("got some kinda error announcing a new sensor: #{reason}")
+    end
+    {:ok, sensor_struct_data}
+  end
+
+  # Create a nonce style message against the topic we're announcing, or anyone who subscribes too early will
+  # get booted from that topic, as it doesn't technically exist yet.
+  defp produce_nonce_message(sensor_struct_data) do
+    case KafkaEx.produce(sensor_struct_data.kafka_topic, 0, Poison.encode!(
+      %{
+        error: false,
+        type: "nonce",
+        topic: sensor_struct_data.kafka_topic,
+        timestamp: DateTime.to_string(DateTime.utc_now())
+      }
+    )) do
+      :ok ->
+        IO.puts("published nonce message for sensor(id=#{sensor_struct_data.sensor_id}) (topic=#{sensor_struct_data.kafka_topic})")
+      {:error, reason} ->
+        IO.puts("got some kinda error publishing a new sensor nonce: #{reason}")
     end
   end
 

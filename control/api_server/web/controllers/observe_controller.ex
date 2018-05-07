@@ -54,7 +54,9 @@ defmodule ApiServer.ObserveController do
         IO.puts("  #{length(sensors)} sensor(s) selected for observation actuation")
 
         actuated_sensors = Enum.map(sensors, fn (sensor) ->
-          actuate(sensor, "observe", level)
+          sensor_full = sensor |> ApiServer.Repo.preload([:component, :configuration])
+          ApiServer.ControlUtils.announce_sensor_observation(sensor_full, level)
+          actuate(sensor_full, "observe", level)
         end)
 
         conn |> respond_success(level, actuated_sensors)
