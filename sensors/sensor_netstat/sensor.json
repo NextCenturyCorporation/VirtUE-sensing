@@ -1,0 +1,15 @@
+{
+  "name": "netstat-sensor",
+  "version": "1.0",
+  "target_folder": "netstat",
+  "files": [
+    {
+      "source": "sensor_netstat.py",
+      "dest": "sensor_netstat.py"
+    }
+  ],
+  "startup_script": "run_netstat_sensor.sh",
+  "requirements_files": ["netstat_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": ["net-tools"]
+}

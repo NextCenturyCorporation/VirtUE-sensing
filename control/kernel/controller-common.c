@@ -28,25 +28,30 @@
 
 struct kernel_sensor k_sensor;
 EXPORT_SYMBOL(k_sensor);
-struct connection listener;
-EXPORT_SYMBOL(listener);
 
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
+struct kernel_sysfs_probe ksysfs_probe;
 
-unsigned int lsof_repeat = 1;
-unsigned int lsof_timeout = 1;
-unsigned int lsof_level = 1;
+int lsof_repeat = 1;
+int lsof_timeout = 1;
+int lsof_level = 1;
 
-static unsigned int ps_repeat = 1;
-static unsigned int ps_timeout = 1;
-static unsigned int ps_level = 1;
+int ps_repeat = 1;
+int ps_timeout = 1;
+int ps_level = 1;
+
+int sysfs_repeat = 1;
+int sysfs_timeout = 1;
+int sysfs_level = 1;
+
+
 
 char *socket_name = "/var/run/kernel_sensor";
 
-module_param(lsof_repeat, uint, 0644);
-module_param(lsof_timeout, uint, 0644);
-module_param(lsof_level, uint, 0644);
+module_param(lsof_repeat, int, 0644);
+module_param(lsof_timeout, int, 0644);
+module_param(lsof_level, int, 0644);
 
 MODULE_PARM_DESC(lsof_repeat, "How many times to run the kernel lsof function");
 MODULE_PARM_DESC(lsof_timeout,
@@ -54,9 +59,9 @@ MODULE_PARM_DESC(lsof_timeout,
 				 "lsof function");
 MODULE_PARM_DESC(lsof_level, "How invasively to probe open files");
 
-module_param(ps_repeat, uint, 0644);
-module_param(ps_timeout, uint, 0644);
-module_param(ps_level, uint, 0644);
+module_param(ps_repeat, int, 0644);
+module_param(ps_timeout, int, 0644);
+module_param(ps_level, int, 0644);
 
 MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
 MODULE_PARM_DESC(ps_timeout,
@@ -64,9 +69,183 @@ MODULE_PARM_DESC(ps_timeout,
 				 "ps function");
 MODULE_PARM_DESC(ps_level, "How invasively to probe processes");
 
+
+module_param(sysfs_repeat, int, 0644);
+module_param(sysfs_timeout, int, 0644);
+module_param(sysfs_level, int, 0644);
+
+MODULE_PARM_DESC(sysfs_repeat, "How many times to run the kernel sysfs function");
+MODULE_PARM_DESC(sysfs_timeout,
+				 "How many seconds to sleep in between calls to the kernel " \
+				 "sysfs function");
+MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
+
 module_param(socket_name, charp, 0644);
 
+/**
+ * Note on /sys and /proc files:
+ * on Linux 4.x they stat as having no blocks and zero size,
+ * but they do have a blocksize of 0x400. So, by default, we
+ * will allocate a buffer the size of one block
+ **/
 
+int
+file_getattr(struct file *f, struct kstat *k)
+{
+	int ccode = 0;
+	memset(k, 0x00, sizeof(struct kstat));
+#ifdef MODERN_FILE_API
+	ccode = vfs_getattr(&f->f_path, k, 0x00000fffU, KSTAT_QUERY_FLAGS);
+#else
+	ccode = vfs_getattr(&f->f_path, k);
+#endif
+	return ccode;
+}
+
+
+ssize_t
+write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t ccode;
+#ifdef MODERN_FILE_API
+	ccode = kernel_write(f, buf, count, pos);
+#else
+	ccode = kernel_write(f, (char *)buf, count, *pos);
+#endif
+	if (ccode < 0) {
+		pr_err("Unable to write file: %p (%ld)", f, ccode);
+		return ccode;
+	}
+
+	return ccode;
+}
+STACK_FRAME_NON_STANDARD(write_file_struct);
+
+ssize_t
+read_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t ccode;
+
+#ifdef MODERN_FILE_API
+	ccode = kernel_read(f, buf, count, pos);
+#else
+	ccode = kernel_read(f, *pos, (char *)buf, count);
+#endif
+	if (ccode < 0) {
+		pr_err("Unable to read file: %p (%ld)", f, ccode);
+		return ccode;
+	}
+
+	return ccode;
+}
+STACK_FRAME_NON_STANDARD(read_file_struct);
+
+ssize_t
+write_file(char *name, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t ccode;
+	struct file *f;
+	f = filp_open(name, O_WRONLY, 0);
+	if (f) {
+#ifdef MODERN_FILE_API
+		ccode = kernel_write(f, buf, count, pos);
+#else
+		ccode = kernel_write(f, (char *)buf, count, *pos);
+#endif
+		if (ccode < 0) {
+			pr_err("Unable to write file: %s (%ld)", name, ccode);
+			filp_close(f, 0);
+			return ccode;
+		}
+	} else {
+		ccode = -EBADF;
+		pr_err("Unable to open file: %s (%ld)", name, ccode);
+	}
+	return ccode;
+}
+STACK_FRAME_NON_STANDARD(write_file);
+
+ssize_t
+read_file(char *name, void *buf, size_t count, loff_t *pos)
+{
+	ssize_t ccode;
+	struct file *f;
+
+	f = filp_open(name, O_RDONLY, 0);
+	if (f) {
+#ifdef MODERN_FILE_API
+		ccode = kernel_read(f, buf, count, pos);
+#else
+		ccode = kernel_read(f, *pos, (char *)buf, count);
+#endif
+		if (ccode < 0) {
+			pr_err("Unable to read file: %s (%ld)", name, ccode);
+			filp_close(f, 0);
+			return ccode;
+		}
+		filp_close(f, 0);
+	} else {
+		ccode = -EBADF;
+  		pr_err("Unable to open file: %s (%ld)", name, ccode);
+	}
+
+	return ccode;
+}
+STACK_FRAME_NON_STANDARD(read_file);
+
+struct task_struct *
+get_task_by_pid_number(pid_t pid)
+{
+	struct pid *p = NULL;
+	struct task_struct *ts = NULL;
+	p = find_get_pid(pid);
+	if (p) {
+		ts = get_pid_task(p, PIDTYPE_PID);
+	}
+
+	return ts;
+}
+
+
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
+{
+	int index = 0;
+	struct task_struct *task;
+	unsigned long flags;
+	static pid_el pel;
+
+	if (!spin_trylock_irqsave(&p->lock, flags)) {
+		return -EAGAIN;
+	}
+
+	rcu_read_lock();
+	for_each_process(task) {
+        pel.pid = task->pid;
+		pel.uid = task_uid(task);
+		pel.nonce = nonce;
+
+		if (index <  PID_EL_ARRAY_SIZE) {
+			flex_array_put(a,
+						   index,
+						   &pel,
+						   GFP_ATOMIC);
+			index++;
+		} else {
+			printk(KERN_INFO "kernel pid index array over-run\n");
+			index = -ENOMEM;
+			goto unlock_out;
+		}
+	}
+	rcu_read_unlock();
+
+unlock_out:
+	spin_unlock_irqrestore(&p->lock, flags);
+
+	return index;
+
+}
+STACK_FRAME_NON_STANDARD(build_pid_index);
 
 /**
  * The discovery buffer needs to be a formatted as a JSON array,
@@ -215,6 +394,7 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 	}
 	return index;
 }
+STACK_FRAME_NON_STANDARD(print_kernel_ps);
 
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 {
@@ -309,6 +489,7 @@ void *destroy_probe(struct probe *probe)
 	}
 	return probe;
 }
+STACK_FRAME_NON_STANDARD(destroy_probe);
 
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
@@ -326,6 +507,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									 l_node);
 	rcu_read_unlock();
 	while (probe_p != NULL) {
+
+
 		spin_lock_irqsave(&sensor->lock, flags);
 		list_del_rcu(&probe_p->l_node);
 		spin_unlock_irqrestore(&sensor->lock, flags);
@@ -334,6 +517,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
 		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KLSOF)) {
 			((struct kernel_lsof_probe *)probe_p)->_destroy(probe_p);
+		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KSYSFS)) {
+			((struct kernel_sysfs_probe *)probe_p)->_destroy(probe_p);
 		} else {
 			probe_p->destroy(probe_p);
 		}
@@ -343,8 +528,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		 **/
 		rcu_read_lock();
 		probe_p = list_first_or_null_rcu(&sensor->probes,
-									 struct probe,
-									 l_node);
+										 struct probe,
+										 l_node);
 		rcu_read_unlock();
 	}
 	synchronize_rcu();
@@ -354,6 +539,9 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
+
+
+
 		spin_lock_irqsave(&sensor->lock, flags);
 		list_del_rcu(&conn_c->l_node);
 		spin_unlock_irqrestore(&sensor->lock, flags);
@@ -363,6 +551,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 * the listener is statically allocated, no need to
 			 * free the memory
 			 **/
+
 			conn_c->_destroy(conn_c);
 		}
 		synchronize_rcu();
@@ -379,6 +568,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
+
+
 		spin_lock_irqsave(&sensor->lock, flags);
         list_del_rcu(&conn_c->l_node);
 	    spin_unlock_irqrestore(&sensor->lock, flags);
@@ -387,6 +578,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 			 * a connection is dynamically allocated, so
 			 * need to kfree the memory
 			 **/
+
 			conn_c->_destroy(conn_c);
 			synchronize_rcu();
 			kfree(conn_c);
@@ -404,6 +596,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
 }
+STACK_FRAME_NON_STANDARD(destroy_kernel_sensor);
 
 
 /**
@@ -573,6 +766,7 @@ static void *destroy_kernel_ps_probe(struct probe *probe)
 	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
 	return ps_p;
 }
+STACK_FRAME_NON_STANDARD(destroy_kernel_ps_probe);
 
 struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 											 uint8_t *id, int id_len,
@@ -650,6 +844,7 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
+STACK_FRAME_NON_STANDARD(init_kernel_ps_probe);
 
 
 /**
@@ -663,6 +858,8 @@ static int __init kcontrol_init(void)
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
 	struct kernel_lsof_probe *lsof_probe = NULL;
+	struct kernel_sysfs_probe *sysfs_probe = NULL;
+
 
 	unsigned long flags;
 
@@ -697,11 +894,45 @@ static int __init kcontrol_init(void)
 										strlen("Kernel LSOF Probe") + 1,
 										print_kernel_lsof,
 										lsof_pid_filter);
+	if (lsof_probe == ERR_PTR(-ENOMEM)) {
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+
 
 	spin_lock_irqsave(&k_sensor.lock, flags);
 	/* link this probe to the sensor struct */
 	list_add_rcu(&lsof_probe->l_node, &k_sensor.probes);
 	spin_unlock_irqrestore(&k_sensor.lock, flags);
+
+
+/**
+ * initialize the sysfs probe
+ **/
+
+	sysfs_probe = init_sysfs_probe(&ksysfs_probe,
+								   "Kernel Sysfs Probe",
+								   strlen("Kernel Sysfs Probe") + 1,
+								   print_sysfs_data,
+								   filter_sysfs_data);
+
+	if (sysfs_probe == ERR_PTR(-ENOMEM)) {
+		ccode = -ENOMEM;
+		goto err_exit;
+	}
+
+	spin_lock_irqsave(&k_sensor.lock, flags);
+	list_add_rcu(&sysfs_probe->l_node, &k_sensor.probes);
+	spin_unlock_irqrestore(&k_sensor.lock, flags);
+
+
+/**
+ * initialize the socket interface
+ * TODO: socket_interface_init always returns zero, it should
+ * return an error code
+ **/
+    socket_interface_init();
+
 
 
 	return ccode;
@@ -713,6 +944,22 @@ err_exit:
 		}
 		kfree(ps_probe);
 		ps_probe = NULL;
+	}
+
+	if (lsof_probe != ERR_PTR(-ENOMEM)) {
+		if (__FLAG_IS_SET(lsof_probe->flags, PROBE_INITIALIZED)) {
+			lsof_probe->_destroy((struct probe *)lsof_probe);
+		}
+		kfree(lsof_probe);
+		lsof_probe = NULL;
+	}
+
+	if (sysfs_probe != ERR_PTR(-ENOMEM)) {
+		if (__FLAG_IS_SET(sysfs_probe->flags, PROBE_INITIALIZED)) {
+			sysfs_probe->_destroy((struct probe *)sysfs_probe);
+		}
+		kfree(sysfs_probe);
+		sysfs_probe = NULL;
 	}
 	return ccode;
 }
@@ -726,6 +973,10 @@ static void __exit controller_cleanup(void)
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
 	SHOULD_SHUTDOWN = 1;
+
+	socket_interface_exit();
+
+
 	k_sensor._destroy(&k_sensor);
 
 }

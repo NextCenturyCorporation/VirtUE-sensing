@@ -1,8 +1,11 @@
 SHELL := /bin/bash
 MY_CCFLAGS += -std=gnu99 -fms-extensions
 ccflags-y += ${MY_CCFLAGS}
+OJECT_FILES_NON_STANDARD := y
 obj-m += controller.o
-controller-y := controller-common.o controller-interface.o lsof-probe.o jsmn/jsmn.o
+controller-y := controller-common.o controller-interface.o lsof-probe.o \
+	jsmn/jsmn.o sysfs-probe.o
+OBJECT_FILES_NON_STANDARD_controller-common.o := n
 
 .PHONY: uname
 uname:
@@ -19,6 +22,7 @@ all: clean lint test-module
 rebuild: clean test-module
 
 test-module : ccflags-y +=  -g -DDEBUG -fno-inline
+test-module : OJECT_FILES_NON_STANDARD := y
 test-module : uname
 test-module : import-header
 	@echo ${ccflags-y}

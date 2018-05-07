@@ -7,6 +7,11 @@ defmodule ApiServer do
     ApiServer.ControlUtils.heartbeat()
   end
 
+  def sensor_status_heartbeat() do
+    IO.puts("[sensor status heartbeat] #{DateTime.to_string(DateTime.utc_now())}")
+    ApiServer.ControlUtils.sensor_status()
+  end
+
   def version() do
     "2018.01.08"
   end

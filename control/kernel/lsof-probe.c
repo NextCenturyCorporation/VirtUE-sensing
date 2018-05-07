@@ -107,6 +107,7 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 	}
 	return index;
 }
+STACK_FRAME_NON_STANDARD(print_kernel_lsof);
 
 
 /**
@@ -119,7 +120,7 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 						  int *start,
 						  uint64_t nonce)
 {
-	struct kernel_lsof_data klsofd;
+	static struct kernel_lsof_data klsofd;
 	int fd_index = 0;
 	struct files_struct *files;
 	struct file *file;
@@ -128,14 +129,14 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 	files = t->files;
 
 	if(!files) {
-		/**
-		 * occasionally there will be a dead task_struct
-		 * due to timing issues.
-		 **/
-		printk(KERN_INFO "task has no files_struct: %d\n", t->pid);
-		return 0;
-	}
-
+ 		/**
+ 		 * occasionally there will be a dead task_struct
+ 		 * due to timing issues.
+ 		 **/
+ 		printk(KERN_INFO "task has no files_struct: %d\n", t->pid);
+ 		return 0;
+ 	}
+	memset(&klsofd, 0x00, sizeof(struct kernel_lsof_data));
 	files_table = files_fdtable(files);
 	while(files_table && files_table->fd[fd_index]) {
 		file = get_file(files_table->fd[fd_index]);
@@ -150,9 +151,9 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 		klsofd.dp_offset = (klsofd.dp - &klsofd.dpath[0]);
 		klsofd.dp = (&klsofd.dpath[0] + klsofd.dp_offset);
 		klsofd.user_id = task_uid(t);
-		klsofd.pid_nr = t->pid;
 		klsofd.nonce = nonce;
 		klsofd.index = *start;
+		klsofd.pid_nr = t->pid;
 		if (*start <  LSOF_ARRAY_SIZE) {
 			flex_array_put(p->klsof_data_flex_array,
 						   *start,
@@ -167,21 +168,8 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 	}
 	return 0;
 }
+STACK_FRAME_NON_STANDARD(lsof_get_files_struct);
 
-
-
-struct task_struct *
-get_task_by_pid_number(pid_t pid)
-{
-	struct pid *p = NULL;
-	struct task_struct *ts = NULL;
-	p = find_get_pid(pid);
-	if (p) {
-		ts = get_pid_task(p, PIDTYPE_PID);
-	}
-
-	return ts;
-}
 
 int
 lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
@@ -194,7 +182,7 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 	if (!spin_trylock_irqsave(&p->lock, flags)) {
 		return -EAGAIN;
 	}
-	for (index = 0; index < LSOF_PID_EL_ARRAY_SIZE; index++)  {
+	for (index = 0; index < PID_EL_ARRAY_SIZE; index++)  {
 		pid_el_p = flex_array_get(p->klsof_pid_flex_array, index);
 		if (pid_el_p) {
 			if (pid_el_p->nonce != nonce) {
@@ -217,48 +205,14 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 	spin_unlock_irqrestore(&p->lock, flags);
 	return file_index;
 }
+STACK_FRAME_NON_STANDARD(lsof_for_each_pid);
 
 
 
 int
 lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
 {
-	int index = 0;
-	struct task_struct *task;
-	unsigned long flags;
-	static struct lsof_pid_el pid_el;
-
-	if (!spin_trylock_irqsave(&p->lock, flags)) {
-		return -EAGAIN;
-	}
-
-	for_each_process(task) {
-		task_lock(task);
-        pid_el.pid = task->pid;
-		pid_el.uid = task_uid(task);
-		pid_el.nonce = nonce;
-
-		if (index <  LSOF_PID_EL_ARRAY_SIZE) {
-			flex_array_put(p->klsof_pid_flex_array,
-						   index,
-						   &pid_el,
-						   GFP_ATOMIC);
-			index++;
-		} else {
-			printk(KERN_INFO "kernel-lsof pid index array over-run\n");
-			index = -ENOMEM;
-			task_unlock(task);
-			goto unlock_out;
-		}
-
-		task_unlock(task);
-		printk(KERN_INFO "kernel-lsof pid-index built: %d nonce %llx uid: %d pid %d\n",
-			   index, pid_el.nonce, pid_el.uid.val, pid_el.pid);
-	}
-unlock_out:
-	spin_unlock_irqrestore(&p->lock, flags);
-
-	return index;
+	return build_pid_index((struct probe *)p, p->klsof_pid_flex_array, nonce);
 }
 
 
@@ -311,7 +265,6 @@ destroy_kernel_lsof_probe(struct probe *probe)
 		destroy_probe(probe);
 	}
 
-
 	if (lsof_p->klsof_pid_flex_array) {
 		flex_array_free(lsof_p->klsof_pid_flex_array);
 	}
@@ -323,6 +276,7 @@ destroy_kernel_lsof_probe(struct probe *probe)
 	memset(lsof_p, 0, sizeof(struct kernel_lsof_probe));
 	return lsof_p;
 }
+STACK_FRAME_NON_STANDARD(destroy_kernel_lsof_probe);
 
 struct kernel_lsof_probe *
 init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
@@ -373,6 +327,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 		lsof_p->filter = lsof_pid_filter;
 	}
 	lsof_p->lsof = kernel_lsof;
+
 	lsof_p->klsof_data_flex_array =
 		flex_array_alloc(LSOF_DATA_SIZE, LSOF_ARRAY_SIZE, GFP_KERNEL);
 
@@ -389,14 +344,14 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	}
 
 	lsof_p->klsof_pid_flex_array =
-		flex_array_alloc(LSOF_PID_EL_SIZE, LSOF_PID_EL_ARRAY_SIZE, GFP_KERNEL);
+		flex_array_alloc(PID_EL_SIZE, PID_EL_ARRAY_SIZE, GFP_KERNEL);
 	if (!lsof_p->klsof_pid_flex_array) {
 		ccode = -ENOMEM;
 		goto err_free_flex_array;
 	}
 
 	ccode = flex_array_prealloc(lsof_p->klsof_pid_flex_array, 0,
-								LSOF_PID_EL_ARRAY_SIZE,
+								PID_EL_ARRAY_SIZE,
 								GFP_KERNEL | __GFP_ZERO);
 	if(ccode) {
 		/* ccode will be zero for success, -ENOMEM otherwise */
@@ -424,3 +379,4 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
+STACK_FRAME_NON_STANDARD(init_kernel_lsof_probe);

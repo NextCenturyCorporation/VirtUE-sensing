@@ -49,10 +49,12 @@ if (( $VERSION >= 4 )) ; then
 	SOCKAPI=old
 	echo "#define OLD_SOCK_API 1" >> $FILENAME
 	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (z), (f))" >> $FILENAME
+	echo "#define SOCK_CREATE_KERN(i, f, t, p, r) sock_create_kern((f), (t), (p), (r))" >> $FILENAME
     else
 	SOCKAPI=new
 	echo "#define NEW_SOCK_API 1" >> $FILENAME
 	echo "#define SOCK_RECVMSG(s, m, z, f) sock_recvmsg((s), (m), (f))" >> $FILENAME
+	echo "#define SOCK_CREATE_KERN(i, f, t, p, r) sock_create_kern((i), (f), (t), (p), (r))" >> $FILENAME
     fi
 fi
 
@@ -67,6 +69,29 @@ if (( $VERSION >= 4 )) ; then
 	echo "#define SOCK_ACCEPT(s, ns, i) accept((s), (ns), (i), 1)" >> $FILENAME
     fi
 fi
+
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 6 )); then
+	FRAME_CHECKING=no
+	echo "#define STACK_FRAME_NON_STANDARD(a)" >> $FILENAME
+    else
+	FRAME_CHECKING=yes
+	echo "#define FRAME_CHECKING 1" >> $FILENAME
+	echo "#include <linux/frame.h>" >> $FILENAME
+
+    fi
+fi
+
+if (( $VERSION >= 4 )) ; then
+    if (( $PATCHLEVEL < 14 )); then
+	echo "#define ANCIENT_FILE_API 1" >> $FILENAME
+    else
+	echo "#define MODERN_FILE_API 1" >> $FILENAME
+    fi
+fi
+
+
+
 
 
 #socket interface changes:

@@ -1,0 +1,7 @@
+SHELL := /bin/bash
+MY_CCFLAGS += -std=gnu99 -fms-extensions
+ccflags-y += ${MY_CCFLAGS}
+obj-m += evil.o
+
+evil:
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
