@@ -23,7 +23,8 @@
 #ifndef _CONTROLLER_H
 #define _CONTROLLER_H
 #include "controller-linux.h"
-//#include "uname.h"
+#include "uname.h"
+#include "import-header.h"
 #include "controller-flags.h"
 #define _MODULE_LICENSE "GPL v2"
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
@@ -42,6 +43,19 @@ static inline void sleep(unsigned sec)
 		schedule_timeout(sec * HZ);
 	}
 }
+
+ssize_t
+kfs_write_to_offset(char *filename, void *data, ssize_t len, loff_t *pos);
+
+ssize_t
+kfs_read_from_offset(char *filename, void *data, ssize_t len, loff_t *pos);
+
+/** these take a struct file **/
+ssize_t
+kfs_read(struct file *file, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+kfs_write(struct file *file, void *buf, size_t count, loff_t *pos);
 
 /* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
@@ -381,9 +395,11 @@ bool init_and_queue_work(struct kthread_work *work,
 
 void *destroy_probe(struct probe *probe);
 
-/********************************************************************************
+/**
+ ******************************************************************************
  * lsof probe
- *******************************************************************************/
+ ******************************************************************************
+ **/
 
 
 
@@ -430,6 +446,21 @@ struct lsof_pid_el
 	struct task_struct *t;
 };
 
+typedef struct lsof_pid_el pid_el;
+
+/**
+ * following two were generalized and hoised out of lsof-probe.c
+ * controller-common.c
+ *
+ **/
+
+struct task_struct *
+get_task_by_pid_number(pid_t pid);
+
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonc);
+
+
 /**
  * see include/linux/flex_array.h for the definitions of
  * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
@@ -437,10 +468,10 @@ struct lsof_pid_el
  * pre allocate a flex_array with too many elements
  **/
 
-#define LSOF_PID_EL_SIZE sizeof(struct lsof_pid_el)
-#define LSOF_PID_APPARENT_ARRAY_SIZE \
-	(FLEX_ARRAY_ELEMENTS_PER_PART(LSOF_PID_EL_SIZE) * (FLEX_ARRAY_NR_BASE_PTRS))
-#define LSOF_PID_EL_ARRAY_SIZE ((LSOF_PID_APPARENT_ARRAY_SIZE) - 1)
+#define PID_EL_SIZE sizeof(pid_el)
+#define PID_APPARENT_ARRAY_SIZE \
+	(FLEX_ARRAY_ELEMENTS_PER_PART(PID_EL_SIZE) * (FLEX_ARRAY_NR_BASE_PTRS))
+#define PID_EL_ARRAY_SIZE ((PID_APPARENT_ARRAY_SIZE) - 1)
 
 #define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
@@ -475,7 +506,6 @@ struct kernel_lsof_data {
 struct kernel_lsof_probe {
 	struct probe;
 	struct flex_array *klsof_pid_flex_array;
-
 	struct flex_array *klsof_data_flex_array;
 	int (*filter)(struct kernel_lsof_probe *,
 				  struct kernel_lsof_data *,
@@ -493,9 +523,9 @@ struct kernel_lsof_probe {
 };
 
 extern struct kernel_lsof_probe klsof_probe;
-extern unsigned int lsof_repeat;
-extern unsigned int lsof_timeout;
-extern unsigned int lsof_level;
+extern int lsof_repeat;
+extern int lsof_timeout;
+extern int lsof_level;
 
 int lsof_pid_filter(struct kernel_lsof_probe *p,
 					struct kernel_lsof_data *d,
@@ -537,6 +567,113 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 
 void *
 destroy_kernel_lsof_probe(struct probe *probe);
+
+/**
+ ****************************************************************************
+ * sysfs probe
+ ****************************************************************************
+ **/
+
+extern int sysfs_repeat;
+extern int sysfs_timeout;
+extern int sysfs_level;
+
+struct kernel_sysfs_data {
+	uint64_t nonce;
+	int index;
+	pid_t pid;
+	struct kstat stat;
+	void *data;
+	size_t data_len;
+	size_t ccode;
+	uint8_t dpath[MAX_DENTRY_LEN + 1];
+};
+
+#define SYSFS_DATA_SIZE sizeof(struct kernel_sysfs_data)
+
+/**
+ * see include/linux/flex_array.h for the definitions of
+ * FLEX_ARRAY_NR_BASE_PTRS and FLEX_ARRA_ELEMENTS_PER_PART
+ * this is a conservatice calculation to ensure we don't try to
+ * pre allocate a flex_array with too many elements
+ **/
+
+#define SYSFS_APPARENT_ARRAY_SIZE										\
+	(FLEX_ARRAY_ELEMENTS_PER_PART(SYSFS_DATA_SIZE) * FLEX_ARRAY_NR_BASE_PTRS)
+
+#define SYSFS_ARRAY_SIZE ((SYSFS_APPARENT_ARRAY_SIZE) - 1)
+
+struct kernel_sysfs_probe {
+	struct probe;
+	struct flex_array *ksysfs_flex_array;
+	struct flex_array *ksysfs_pid_flex_array;
+	int (*print)(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
+	int (*filter)(struct kernel_sysfs_probe *,
+				  struct kernel_sysfs_data *,
+				  void *);
+	int (*ksysfs)(struct kernel_sysfs_probe *, int, uint64_t);
+	int (*kernel_lsof)(struct kernel_lsof_probe *parent, int count, uint64_t nonce);
+	struct kernel_sysfs_probe *(*_init)(struct kernel_sysfs_probe *,
+										uint8_t *, int,
+										int (*print)(struct kernel_sysfs_probe *,
+													 uint8_t *, uint64_t, int),
+										int (*filter)(struct kernel_sysfs_probe *,
+													  struct kernel_sysfs_data *,
+													  void *));
+	void *(*_destroy)(struct probe *);
+};
+
+extern struct kernel_sysfs_probe ksysfs_probe;
+
+int
+file_getattr(struct file *f, struct kstat *k);
+
+ssize_t
+write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+read_file_struct(struct file *f, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+write_file(char *name, void *buf, size_t count, loff_t *pos);
+
+ssize_t
+read_file(char *name, void *buf, size_t count, loff_t *pos);
+
+int
+print_sysfs_data(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
+
+int
+filter_sysfs_data(struct kernel_sysfs_probe *,
+				  struct kernel_sysfs_data *,
+				  void *);
+int
+kernel_sysfs(struct kernel_sysfs_probe *, int, uint64_t);
+
+struct kernel_sysfs_probe *
+init_sysfs_probe(struct kernel_sysfs_probe *,
+				 uint8_t *, int,
+				 int (*print)(struct kernel_sysfs_probe *,
+							  uint8_t *, uint64_t, int),
+				 int (*filter)(struct kernel_sysfs_probe *,
+							   struct kernel_sysfs_data *,
+							   void *));
+
+void *
+destroy_sysfs_probe(struct probe *);
+
+/**
+ * ****************************************
+ * json parser and socket interface
+ ******************************************
+ **/
+
+int
+__init socket_interface_init(void);
+
+void
+__exit socket_interface_exit(void);
+
 
 
 /**

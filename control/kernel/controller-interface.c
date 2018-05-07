@@ -10,7 +10,8 @@
 /* hold socket JSON probe interface */
 extern struct kernel_sensor k_sensor;
 extern char *socket_name;
-extern struct connection listener;
+struct connection listener;
+EXPORT_SYMBOL(listener);
 
 struct connection *
 init_connection(struct connection *, uint64_t, void *);
@@ -20,48 +21,39 @@ init_connection(struct connection *, uint64_t, void *);
  * sk refers to struct sock
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
-static int k_socket_read(struct socket *s, int n, void *in)
+static int k_socket_read(struct socket *s, size_t n, void *in, unsigned int flags)
 {
 	struct msghdr msg;
-	struct iovec iov;
-	mm_segment_t oldfs;
-	int ccode = 0;
+	struct kvec iov;
 
-	assert(s);
-	assert(in);
-	assert(n > 0 && n <= CONNECTION_MAX_HEADER);
+	int ccode = 0;
 
 	memset(&msg, 0x00, sizeof(msg));
 	memset(&iov, 0x00, sizeof(iov));
-	msg.msg_name = 0;
-	msg.msg_namelen = 0;
+	if (flags) {
+		msg.msg_flags = flags;
+	}
 
 	iov.iov_base = in;
 	iov.iov_len = n;
-	msg.msg_iter.iov = &iov;
+	msg.msg_iter.kvec = &iov;
 
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
 
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
-	/**
-	 * sock_recvmsg changed in the kernel - see uname.h
-	 **/
-	ccode = SOCK_RECVMSG(s, &msg, n, 0);
-	set_fs(oldfs);
+	ccode = kernel_recvmsg(s, &msg, &iov, n, sizeof(uint8_t), 0);
+
 	return ccode;
 }
+STACK_FRAME_NON_STANDARD(k_socket_read);
 
 
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-static int k_socket_write(struct socket *s, int n, void *out)
+static int k_socket_write(struct socket *s, int n, void *out, unsigned int flags)
 {
 	struct msghdr msg;
-	struct iovec iov;
-	mm_segment_t oldfs;
+	struct kvec iov;
 	int ccode = 0;
 
 	assert(s);
@@ -70,21 +62,17 @@ static int k_socket_write(struct socket *s, int n, void *out)
 
 	memset(&msg, 0x00, sizeof(msg));
 	memset(&iov, 0x00, sizeof(iov));
-	msg.msg_name = 0;
-	msg.msg_namelen = 0;
-
+	if (flags)
+		msg.msg_flags = flags;
 	iov.iov_base = out;
 	iov.iov_len = n;
-	msg.msg_iter.iov = &iov;
+	msg.msg_iter.kvec = &iov;
 
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
 
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
-	ccode = sock_sendmsg(s, &msg);
-	set_fs(oldfs);
+	ccode = kernel_sendmsg(s, &msg, &iov, n, sizeof(uint8_t));
+
 	return ccode;
 }
 
@@ -121,7 +109,7 @@ static int read_parse_message(struct jsmn_message *m)
 	len_save = m->len;
 
 again:
-	ccode = k_socket_read(m->socket, m->len, m->line);
+	ccode = k_socket_read(m->socket, m->len, m->line, 0L);
 	if (ccode > 0) {
 		bytes_read += ccode;
 		/* make sure that the read buffer is terminated with a zero */
@@ -209,7 +197,7 @@ k_read_write(struct kthread_work *work)
 	}
 
 again:
-	ccode = k_socket_read(sock, CONNECTION_MAX_HEADER - 1, read_buf);
+	ccode = k_socket_read(sock, CONNECTION_MAX_HEADER - 1, read_buf, 0L);
 	if (ccode < 0){
 		if (ccode == -EAGAIN) {
 			goto again;
@@ -225,7 +213,7 @@ again:
 	m->socket = sock;
 	m->count = read_parse_message(m);
 	if (m->count < 0) {
-    /* for some reason, didn't read a valid json object */
+		/* for some reason, didn't read a valid json object */
 		printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
 			   "connection is being closed\n");
 		goto err_out0;
@@ -263,9 +251,11 @@ err_out1:
 	kfree(connection->_destroy(connection));
 	return;
 }
+STACK_FRAME_NON_STANDARD(k_read_write);
 
 static void k_accept(struct kthread_work *work)
 {
+
 	struct connection *new_connection = NULL;
 	struct socket *newsock = NULL, *sock = NULL;
 	struct kthread_worker *worker = work->worker;
@@ -278,8 +268,9 @@ static void k_accept(struct kthread_work *work)
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 
 	sock = connection->connected;
-	if ((sock->ops->SOCK_ACCEPT(sock, newsock, 0)) < 0) {
+	if (kernel_accept(sock, &newsock, 0)) {
 		SHOULD_SHUTDOWN = 1;
+		return;
 	}
 
 /**
@@ -298,34 +289,45 @@ static void k_accept(struct kthread_work *work)
 	}
 	return;
 }
+STACK_FRAME_NON_STANDARD(k_accept);
 
+#pragma GCC diagnostic push
+#ifdef FRAME_CHECKING
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+#endif
 static int start_listener(struct connection *c)
 {
 	struct sockaddr_un addr;
 	struct socket *sock = NULL;
-	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
 
-	sock_create(AF_UNIX, SOCK_STREAM, 0, &sock);
+	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
+	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
+
 	if (!sock) {
+
 		c->connected = NULL;
 		goto err_exit;
 	}
 	c->connected = sock;
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, &c->path[0], UNIX_PATH_MAX - 1);
+	memcpy(addr.sun_path, &c->path[0], sizeof(addr.sun_path));
 
 	/* sizeof(address) - 1 is necessary to ensure correct null-termination */
-	if (c->connected->ops->bind(sock,(struct sockaddr *)&addr,
-								sizeof(addr) -1)) {
+	if (kernel_bind(sock,(struct sockaddr *)&addr,
+					sizeof(addr) -1)) {
+
 		goto err_release;
 
 	}
 /* see /usr/include/net/tcp_states.h */
-	if (c->connected->ops->listen(sock, TCP_LISTEN)) {
-		c->connected->ops->shutdown(sock, RCV_SHUTDOWN);
+	if (kernel_listen(sock, TCP_LISTEN)) {
+
+		kernel_sock_shutdown(sock, RCV_SHUTDOWN | SEND_SHUTDOWN);
 		goto err_release;
 	}
+
+
 
 	return 0;
 err_release:
@@ -334,6 +336,9 @@ err_exit:
 	c->connected = NULL;
 	return -ENFILE;
 }
+STACK_FRAME_NON_STANDARD(start_listener);
+#pragma GCC diagnostic pop
+
 
 
 static inline void
@@ -345,15 +350,20 @@ link_new_connection_work(struct connection *c,
 
 	if (!SHOULD_SHUTDOWN) {
 		unsigned long flags;
+
 		spin_lock_irqsave(&k_sensor.lock, flags);
 		list_add_rcu(&c->l_node, l);
 		spin_unlock_irqrestore(&k_sensor.lock, flags);
+
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
+
 		CONT_INIT_WORKER(&c->worker);
 		CONT_QUEUE_WORK(&c->worker, &c->work);
+
 		kthread_run(kthread_worker_fn, &c->worker, d);
 	}
+
 }
 
 /**
@@ -363,10 +373,21 @@ link_new_connection_work(struct connection *c,
 static inline void *destroy_connection(struct connection *c)
 {
 	/* destroy the probe resources */
-	c->destroy((struct probe *)c);
+	int ccode;
+
+
 	if (c->connected) {
-		sock_release(c->connected);
+		struct socket *sock = c->connected;
+		if (__FLAG_IS_SET(c->flags, PROBE_LISTEN) ||
+			__FLAG_IS_SET(c->flags, PROBE_CONNECT)) {
+			ccode = kernel_sock_shutdown(sock, SHUT_RDWR);
+			sock_release(c->connected);
+
+		}
 	}
+	c->destroy((struct probe *)c);
+
+
 	memset(c, 0x00, sizeof(*c));
 	return c;
 }
@@ -382,6 +403,7 @@ struct connection *
 init_connection(struct connection *c, uint64_t flags, void *p)
 {
 	int ccode = 0;
+
 	assert(c);
 	assert(p);
 	assert(__FLAG_IS_SET(flags, PROBE_LISTEN) ||
@@ -389,11 +411,14 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	assert(! (__FLAG_IS_SET(flags, PROBE_LISTEN) &&
 			  __FLAG_IS_SET(flags, PROBE_CONNECT)));
 
-
 	memset(c, 0x00, sizeof(struct connection));
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
-	c->flags = flags;
+/**
+ * TODO: I should set the flags individually, or mask the flags param;
+ * I'm assuming that listen and connect are the only two flags set in the flags param
+ **/
+	c->flags |= flags;
 	c->_destroy = destroy_connection;
 
 	if (__FLAG_IS_SET(flags, PROBE_LISTEN)) {
@@ -401,7 +426,10 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		 * p is a pointer to a string holding the socket name
 		 **/
 		memcpy(&c->path, p, UNIX_PATH_MAX);
+
+
 		if((ccode = start_listener(c))) {
+
 			ccode = -ENFILE;
 			goto err_exit;
 		}
@@ -436,6 +464,8 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 								 k_read_write,
 								 "kcontrol read & write");
 	}
+
+
 	return c;
 
 err_exit:
@@ -445,27 +475,26 @@ err_exit:
 	}
 	return ERR_PTR(ccode);
 }
+STACK_FRAME_NON_STANDARD(init_connection);
 
 
-static int __init socket_interface_init(void)
+int
+socket_interface_init(void)
 {
 	init_jsonl_parser();
 	init_connection(&listener, PROBE_LISTEN, socket_name);
-
 	return 0;
 }
 
-static void __exit socket_interface_exit(void)
+void
+socket_interface_exit(void)
 {
+	/**
+	 * TODO: use MSG_DONTWAIT and MSG_PEEK to keep the connections
+	 * from blocking
+	 **/
 	SHOULD_SHUTDOWN = 1;
 
 	return;
 }
-#ifdef NOTHING
-module_init(socket_interface_init);
-module_exit(socket_interface_exit);
 
-MODULE_LICENSE(_MODULE_LICENSE);
-MODULE_AUTHOR(_MODULE_AUTHOR);
-MODULE_DESCRIPTION(_MODULE_INFO "interface");
-#endif
