@@ -109,6 +109,8 @@ Sensors in the Linux `context` (inside Virtues) will use the following local por
 
  - `lsof` sensor: `11001`
  - `ps` sensor: `11002`
+ - `tcpdump` sensor: `11003`
+ - `netstat` sensor: `11004`
 
 ## Manually Installing Sensors on Debian
 

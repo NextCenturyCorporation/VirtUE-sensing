@@ -1,2 +1,2 @@
 #!/bin/bash
-apt-get install -y tcpdump lsof
+apt-get install -y tcpdump

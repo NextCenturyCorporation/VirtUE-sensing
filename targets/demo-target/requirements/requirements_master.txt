@@ -1,4 +1,2 @@
--r lsof_requirements.txt
 -r sensor_wrapper_requirements.txt
 -r tcpdump_requirements.txt
--r ps_requirements.txt
