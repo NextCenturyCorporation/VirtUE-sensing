@@ -1,3 +1,4 @@
+
 /*******************************************************************
  * In-Virtue Kernel Controller
  *
@@ -30,7 +31,7 @@
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
 
-static int SHOULD_SHUTDOWN;
+extern atomic64_t SHOULD_SHUTDOWN;
 
 enum json_array_chars {
 	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d
@@ -38,7 +39,7 @@ enum json_array_chars {
 
 static inline void sleep(unsigned sec)
 {
-	if (! SHOULD_SHUTDOWN) {
+	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		__set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(sec * HZ);
 	}
