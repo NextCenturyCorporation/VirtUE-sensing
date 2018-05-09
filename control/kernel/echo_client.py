@@ -29,7 +29,7 @@ try:
     amount_expected = len(echo_response)
 
     while amount_received < amount_expected:
-        data = sock.recv(16)
+        data = sock.recv(amount_expected)
         amount_received += len(data)
         print >>sys.stderr, 'received "%s"' % data
 

@@ -13,6 +13,7 @@ extern char *socket_name;
 struct connection listener;
 EXPORT_SYMBOL(listener);
 
+
 struct connection *
 init_connection(struct connection *, uint64_t, void *);
 
@@ -21,59 +22,47 @@ init_connection(struct connection *, uint64_t, void *);
  * sk refers to struct sock
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
-static int k_socket_read(struct socket *s, size_t n, void *in, unsigned int flags)
+static ssize_t k_socket_read(struct socket *sock,
+						 size_t size,
+						 void *in,
+						 unsigned int flags)
 {
-	struct msghdr msg;
+
+	ssize_t res;
+	struct msghdr msg = {.msg_flags = flags};
 	struct kvec iov;
-
-	int ccode = 0;
-
-	memset(&msg, 0x00, sizeof(msg));
-	memset(&iov, 0x00, sizeof(iov));
-	if (flags) {
-		msg.msg_flags = flags;
-	}
-
-	iov.iov_base = in;
-	iov.iov_len = n;
-	msg.msg_iter.kvec = &iov;
-
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-
-	ccode = kernel_recvmsg(s, &msg, &iov, n, sizeof(uint8_t), 0);
-
-	return ccode;
+	char *kaddr = in;
+	iov.iov_base = kaddr;
+	iov.iov_len = size;
+	DMSG();
+	printk(KERN_DEBUG "k_socket_read sock %p, num bytes to read %ld," \
+		   "inbuf %p, flags %x\n",
+		   sock, size, in, flags);
+	res = kernel_recvmsg(sock, &msg, &iov, 1, size, flags);
+	return res;
 }
 STACK_FRAME_NON_STANDARD(k_socket_read);
 
 
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-static int k_socket_write(struct socket *s, int n, void *out, unsigned int flags)
+static ssize_t k_socket_write(struct socket *sock,
+							  size_t size,
+							  void *out,
+							  unsigned int flags)
 {
-	struct msghdr msg;
+	ssize_t res;
+	struct msghdr msg = {.msg_flags = flags};
 	struct kvec iov;
-	int ccode = 0;
-
-	assert(s);
-	assert(out);
-	assert(n > 0 && n <= CONNECTION_MAX_HEADER);
-
-	memset(&msg, 0x00, sizeof(msg));
-	memset(&iov, 0x00, sizeof(iov));
-	if (flags)
-		msg.msg_flags = flags;
-	iov.iov_base = out;
-	iov.iov_len = n;
-	msg.msg_iter.kvec = &iov;
-
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-
-	ccode = kernel_sendmsg(s, &msg, &iov, n, sizeof(uint8_t));
-
-	return ccode;
+	char *kaddr = out;
+	iov.iov_base = kaddr;
+	iov.iov_len = size;
+	DMSG();
+	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
+		   "outbuf %p, flags %x\n",
+		   sock, size, out, flags);
+	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
+	return res;
 }
 
 /**
@@ -158,7 +147,7 @@ k_echo_server(struct kthread_work *work)
 	 * message handlers will need to realloc the buf for more space
 	 **/
 	uint8_t read_buf[5];
-	uint8_t echo[] = "echo\0";
+	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00};
 
 
 	struct socket *sock = NULL;
@@ -171,17 +160,18 @@ k_echo_server(struct kthread_work *work)
 	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 
+	spin_lock(&connection->lock);
 	sock = connection->connected;
 	memset(read_buf, 0x00, sizeof(read_buf));
 
 again:
 	ccode = k_socket_read(sock, 5, read_buf, flags);
-	if (ccode < 0){
+	if (ccode <= 0){
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
 		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
-		goto err_out;
+		goto close_out;
 	}
 
 	if (flags == MSG_PEEK) {
@@ -198,7 +188,7 @@ again:
 		uint8_t *response = VERSION_STRING;
 		printk(KERN_DEBUG "k_socket_write string: %s\n", response);
 
-		ccode = k_socket_write(sock, sizeof(response),
+		ccode = k_socket_write(sock, strlen(response) + 1,
 							   response,
 							   0L);
 		printk(KERN_DEBUG "k_socket_write: %d\n", ccode);
@@ -209,11 +199,13 @@ again:
 		/* do it all again */
  		init_and_queue_work(work, worker, k_echo_server);
  	}
+	spin_unlock(&connection->lock);
+
 	return;
-err_out:
-	spin_lock_irqsave(&k_sensor.lock, flags);
+close_out:
+	spin_lock(&k_sensor.lock);
 	list_del_rcu(&connection->l_node);
-	spin_unlock_irqrestore(&k_sensor.lock, flags);
+	spin_unlock(&k_sensor.lock);
 	synchronize_rcu();
 	kfree(connection->_destroy(connection));
 	return;
@@ -233,7 +225,7 @@ err_out:
  * to organize the response message and eventually to write that response
  * back to the client over the same socket.
  *
- * Te json parser will dispatch the message to the correct
+ * The json parser will dispatch the message to the correct
  * sensor.probe, which is expected to generate a response.
  *
  **/
@@ -242,7 +234,7 @@ static void
 k_read_write(struct kthread_work *work)
 {
 	int ccode = 0;
-	unsigned long flags;
+	unsigned long flags = MSG_PEEK;
 	/**
 	 * allocate these buffers dynamically so this function can
 	 * be re-entrant. Also avoid allocation on the stack.
@@ -274,14 +266,23 @@ k_read_write(struct kthread_work *work)
 	}
 
 again:
-	ccode = k_socket_read(sock, CONNECTION_MAX_HEADER - 1, read_buf, 0L);
+	ccode = k_socket_read(sock, CONNECTION_MAX_HEADER - 1, read_buf, flags);
+	printk(KERN_DEBUG "k_socket_read MSG_PEEK returned %d\n", ccode);
+
 	if (ccode < 0){
+		DMSG();
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
 		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
 		goto err_out1;
 	}
+	if (flags == MSG_PEEK) {
+		DMSG();
+		flags = 0L;
+		goto again;
+	}
+
 	m = new_message(read_buf, CONNECTION_MAX_HEADER);
 	if(!m) {
 		goto err_out1;
@@ -321,9 +322,9 @@ err_out0:
 	free_message(m);
 err_out1:
 	if (read_buf) kfree(read_buf);
-	spin_lock_irqsave(&k_sensor.lock, flags);
+	spin_lock(&k_sensor.lock);
 	list_del_rcu(&connection->l_node);
-	spin_unlock_irqrestore(&k_sensor.lock, flags);
+	spin_unlock(&k_sensor.lock);
 	synchronize_rcu();
 	kfree(connection->_destroy(connection));
 	return;
@@ -332,28 +333,39 @@ STACK_FRAME_NON_STANDARD(k_read_write);
 
 static void k_accept(struct kthread_work *work)
 {
+	unsigned long flags = 0;
 
 	struct connection *new_connection = NULL;
-	struct socket *newsock = NULL, *sock = NULL;
+	struct socket *newsock = NULL;
 	struct kthread_worker *worker = work->worker;
 	struct connection *connection =
 		container_of(work, struct connection, work);
 
-	assert(connection &&
-		   connection->flags);
-	assert(__FLAG_IS_SET(connection->flags, PROBE_LISTEN));
-	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
+	/**
+	 * the unix socket implementation masks out MSG_DONTWAIT,
+	 * and then uses O_NONBLOCK internally when handling queued skbs.
+	 * the result is that unix accept always blocks.
+	 **/
+	DMSG();
 
-	sock = connection->connected;
-	if (kernel_accept(sock, &newsock, 0)) {
-		atomic64_set(&SHOULD_SHUTDOWN, 1);
-		return;
+	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
+		int ccode;
+		spin_lock_irqsave(&connection->lock, flags);
+		if ((ccode = kernel_accept(connection->connected,
+								   &newsock,
+								   0L)) < 0)
+		{
+			spin_unlock_irqrestore(&connection->lock, flags);
+			printk(KERN_DEBUG "k_accept returned error %d, exiting\n",
+				   ccode);
+			return;
+		}
 	}
-
 /**
  * create a new struct connection, link it to the kernel sensor
  **/
 	if (newsock != NULL && (! atomic64_read(&SHOULD_SHUTDOWN))) {
+		DMSG();
 		new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
 		if (new_connection) {
 			init_connection(new_connection, PROBE_CONNECT, newsock);
@@ -361,9 +373,14 @@ static void k_accept(struct kthread_work *work)
 			atomic64_set(&SHOULD_SHUTDOWN, 1);
 		}
 	}
+	spin_unlock_irqrestore(&connection->lock, flags);
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		init_and_queue_work(work, worker, k_accept);
+	} else {
+		DMSG();
 	}
+
+	DMSG();
 	return;
 }
 STACK_FRAME_NON_STANDARD(k_accept);
@@ -381,7 +398,6 @@ static int start_listener(struct connection *c)
 	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
 
 	if (!sock) {
-
 		c->connected = NULL;
 		goto err_exit;
 	}
@@ -393,21 +409,18 @@ static int start_listener(struct connection *c)
 	/* sizeof(address) - 1 is necessary to ensure correct null-termination */
 	if (kernel_bind(sock,(struct sockaddr *)&addr,
 					sizeof(addr) -1)) {
-
 		goto err_release;
 
 	}
 /* see /usr/include/net/tcp_states.h */
 	if (kernel_listen(sock, TCP_LISTEN)) {
-
 		kernel_sock_shutdown(sock, RCV_SHUTDOWN | SEND_SHUTDOWN);
 		goto err_release;
 	}
 
-
-
 	return 0;
 err_release:
+	DMSG();
 	sock_release(sock);
 err_exit:
 	c->connected = NULL;
@@ -426,11 +439,10 @@ link_new_connection_work(struct connection *c,
 {
 
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
-		unsigned long flags;
 
-		spin_lock_irqsave(&k_sensor.lock, flags);
+		spin_lock(&k_sensor.lock);
 		list_add_rcu(&c->l_node, l);
-		spin_unlock_irqrestore(&k_sensor.lock, flags);
+		spin_unlock(&k_sensor.lock);
 
 		CONT_INIT_WORK(&c->work, f);
 		__SET_FLAG(c->flags, PROBE_HAS_WORK);
@@ -451,20 +463,16 @@ static inline void *destroy_connection(struct connection *c)
 {
 	/* destroy the probe resources */
 	int ccode;
+	unsigned long flags;
 
-
+	spin_lock_irqsave(&c->lock, flags);
 	if (c->connected) {
-		struct socket *sock = c->connected;
-		if (__FLAG_IS_SET(c->flags, PROBE_LISTEN) ||
-			__FLAG_IS_SET(c->flags, PROBE_CONNECT)) {
-			ccode = kernel_sock_shutdown(sock, SHUT_RDWR);
-			sock_release(c->connected);
-
-		}
+		ccode = kernel_sock_shutdown(c->connected, SHUT_RDWR);
+		sock_release(c->connected);
+		c->connected = NULL;
 	}
+	spin_unlock_irqrestore(&c->lock, flags);
 	c->destroy((struct probe *)c);
-
-
 	memset(c, 0x00, sizeof(*c));
 	return c;
 }
@@ -495,6 +503,9 @@ init_connection(struct connection *c, uint64_t flags, void *p)
  * TODO: I should set the flags individually, or mask the flags param;
  * I'm assuming that listen and connect are the only two flags set in the flags param
  **/
+	/**
+	 * TODO: does sock_release free socket memory?
+	 **/
 	c->flags |= flags;
 	c->_destroy = destroy_connection;
 
@@ -506,7 +517,6 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 
 
 		if((ccode = start_listener(c))) {
-
 			ccode = -ENFILE;
 			goto err_exit;
 		}
@@ -535,10 +545,10 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		struct socket *sock = p;
 		printk(KERN_INFO "connected socket at %p\n", sock);
 		/** now we need to read and write messages **/
-
+		c->connected = sock;
 		link_new_connection_work(c,
 								 &k_sensor.connections,
-								 k_read_write,
+								 k_echo_server,
 								 "kcontrol read & write");
 	}
 
@@ -554,6 +564,50 @@ err_exit:
 }
 STACK_FRAME_NON_STANDARD(init_connection);
 
+static void
+awaken_accept_thread(void)
+{
+	struct sockaddr_un addr;
+	struct socket *sock = NULL;
+	size_t path_len, addr_len;
+	int ccode = 0;
+	unsigned long flags;
+
+	DMSG();
+
+	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
+	if (!sock)
+		return;
+	DMSG();
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	path_len = strlen(socket_name);
+	addr_len = sizeof(addr.sun_path) - 1;
+
+	memcpy(addr.sun_path,
+		   socket_name,
+		   (path_len < addr_len) ? path_len : addr_len);
+	ccode = kernel_connect(sock, (struct sockaddr *)&addr, sizeof(addr.sun_path), 0L);
+	if (! ccode) {
+		DMSG();
+		kernel_sock_shutdown(sock, SHUT_RDWR);
+		sock_release(sock);
+	}
+	/**
+	 * wait until the listener has exited
+	 **/
+	while (! spin_trylock_irqsave(&listener.lock, flags)) {
+		DMSG();
+		schedule();
+	}
+
+	spin_unlock_irqrestore(&listener.lock, flags);
+
+	return;
+}
+
+
 
 int
 socket_interface_init(void)
@@ -566,12 +620,8 @@ socket_interface_init(void)
 void
 socket_interface_exit(void)
 {
-	/**
-	 * TODO: use MSG_DONTWAIT and MSG_PEEK to keep the connections
-	 * from blocking
-	 **/
 	atomic64_set(&SHOULD_SHUTDOWN, 1);
-
+	awaken_accept_thread();
 	return;
 }
 
