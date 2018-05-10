@@ -272,6 +272,7 @@ struct probe {
 /* function pointers for listen, accept, close */
 struct connection {
 	struct probe;
+	struct semaphore s_lock;
 	/**
 	 * _init parameters:
 	 * uint64_t flags - will have the PROBE_LISTENER or PROBE_CONNECTED bit set

@@ -927,9 +927,6 @@ static int __init kcontrol_init(void)
  * return an error code
  **/
     socket_interface_init();
-
-
-
 	return ccode;
 
 err_exit:

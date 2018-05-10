@@ -34,7 +34,7 @@ static ssize_t k_socket_read(struct socket *sock,
 	char *kaddr = in;
 	iov.iov_base = kaddr;
 	iov.iov_len = size;
-	DMSG();
+
 	printk(KERN_DEBUG "k_socket_read sock %p, num bytes to read %ld," \
 		   "inbuf %p, flags %x\n",
 		   sock, size, in, flags);
@@ -57,7 +57,7 @@ static ssize_t k_socket_write(struct socket *sock,
 	char *kaddr = out;
 	iov.iov_base = kaddr;
 	iov.iov_len = size;
-	DMSG();
+
 	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
 		   "outbuf %p, flags %x\n",
 		   sock, size, out, flags);
@@ -159,8 +159,10 @@ k_echo_server(struct kthread_work *work)
 		   connection->flags);
 	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
+	ccode = down_interruptible(&connection->s_lock);
+	if (ccode)
+		goto close_out;
 
-	spin_lock(&connection->lock);
 	sock = connection->connected;
 	memset(read_buf, 0x00, sizeof(read_buf));
 
@@ -199,8 +201,7 @@ again:
 		/* do it all again */
  		init_and_queue_work(work, worker, k_echo_server);
  	}
-	spin_unlock(&connection->lock);
-
+	up(&connection->s_lock);
 	return;
 close_out:
 	spin_lock(&k_sensor.lock);
@@ -270,7 +271,7 @@ again:
 	printk(KERN_DEBUG "k_socket_read MSG_PEEK returned %d\n", ccode);
 
 	if (ccode < 0){
-		DMSG();
+
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
@@ -278,7 +279,7 @@ again:
 		goto err_out1;
 	}
 	if (flags == MSG_PEEK) {
-		DMSG();
+
 		flags = 0L;
 		goto again;
 	}
@@ -333,7 +334,7 @@ STACK_FRAME_NON_STANDARD(k_read_write);
 
 static void k_accept(struct kthread_work *work)
 {
-	unsigned long flags = 0;
+	int ccode = 0;
 
 	struct connection *new_connection = NULL;
 	struct socket *newsock = NULL;
@@ -346,26 +347,25 @@ static void k_accept(struct kthread_work *work)
 	 * and then uses O_NONBLOCK internally when handling queued skbs.
 	 * the result is that unix accept always blocks.
 	 **/
-	DMSG();
+
+	if (down_interruptible(&connection->s_lock))
+		goto close_out_reschedule;
 
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
-		int ccode;
-		spin_lock_irqsave(&connection->lock, flags);
 		if ((ccode = kernel_accept(connection->connected,
 								   &newsock,
 								   0L)) < 0)
 		{
-			spin_unlock_irqrestore(&connection->lock, flags);
 			printk(KERN_DEBUG "k_accept returned error %d, exiting\n",
 				   ccode);
-			return;
+			goto close_out_quit;
 		}
 	}
 /**
  * create a new struct connection, link it to the kernel sensor
  **/
 	if (newsock != NULL && (! atomic64_read(&SHOULD_SHUTDOWN))) {
-		DMSG();
+
 		new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
 		if (new_connection) {
 			init_connection(new_connection, PROBE_CONNECT, newsock);
@@ -373,14 +373,13 @@ static void k_accept(struct kthread_work *work)
 			atomic64_set(&SHOULD_SHUTDOWN, 1);
 		}
 	}
-	spin_unlock_irqrestore(&connection->lock, flags);
+close_out_reschedule:
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		init_and_queue_work(work, worker, k_accept);
-	} else {
-		DMSG();
 	}
+close_out_quit:
+	up(&connection->s_lock);
 
-	DMSG();
 	return;
 }
 STACK_FRAME_NON_STANDARD(k_accept);
@@ -420,7 +419,7 @@ static int start_listener(struct connection *c)
 
 	return 0;
 err_release:
-	DMSG();
+
 	sock_release(sock);
 err_exit:
 	c->connected = NULL;
@@ -462,16 +461,15 @@ link_new_connection_work(struct connection *c,
 static inline void *destroy_connection(struct connection *c)
 {
 	/* destroy the probe resources */
-	int ccode;
-	unsigned long flags;
+	if (down_interruptible(&c->s_lock))
+		return c;
 
-	spin_lock_irqsave(&c->lock, flags);
 	if (c->connected) {
-		ccode = kernel_sock_shutdown(c->connected, SHUT_RDWR);
+		kernel_sock_shutdown(c->connected, SHUT_RDWR);
 		sock_release(c->connected);
 		c->connected = NULL;
 	}
-	spin_unlock_irqrestore(&c->lock, flags);
+	up(&c->s_lock);
 	c->destroy((struct probe *)c);
 	memset(c, 0x00, sizeof(*c));
 	return c;
@@ -499,6 +497,8 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	memset(c, 0x00, sizeof(struct connection));
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
+	sema_init(&c->s_lock, 1);
+
 /**
  * TODO: I should set the flags individually, or mask the flags param;
  * I'm assuming that listen and connect are the only two flags set in the flags param
@@ -573,12 +573,12 @@ awaken_accept_thread(void)
 	int ccode = 0;
 	unsigned long flags;
 
-	DMSG();
+
 
 	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
 	if (!sock)
 		return;
-	DMSG();
+
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
@@ -590,7 +590,7 @@ awaken_accept_thread(void)
 		   (path_len < addr_len) ? path_len : addr_len);
 	ccode = kernel_connect(sock, (struct sockaddr *)&addr, sizeof(addr.sun_path), 0L);
 	if (! ccode) {
-		DMSG();
+
 		kernel_sock_shutdown(sock, SHUT_RDWR);
 		sock_release(sock);
 	}
@@ -598,7 +598,7 @@ awaken_accept_thread(void)
 	 * wait until the listener has exited
 	 **/
 	while (! spin_trylock_irqsave(&listener.lock, flags)) {
-		DMSG();
+
 		schedule();
 	}
 

@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
+#include <linux/semaphore.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/stat.h>
