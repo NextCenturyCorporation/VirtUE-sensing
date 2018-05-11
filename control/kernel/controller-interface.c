@@ -29,12 +29,9 @@ static ssize_t k_socket_read(struct socket *sock,
 							 unsigned int flags)
 {
 
-	ssize_t res;
+	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
-	struct kvec iov;
-	char *kaddr = in;
-	iov.iov_base = kaddr;
-	iov.iov_len = size;
+	struct kvec iov = {.iov_base = in, .iov_len = size};
 
 	printk(KERN_DEBUG "k_socket_read sock %p, num bytes to read %ld," \
 		   "inbuf %p, flags %x\n",
