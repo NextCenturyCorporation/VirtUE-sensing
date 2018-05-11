@@ -8,6 +8,7 @@ SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass
 
 MKDIR %WORKDIR%
 MKDIR %TEMP%
+MKDIR %SystemDrive%\WinVirtUE
 
 @ECHO Download and Install Visual Studio 2017 Build Kit w/2015 Components . . .
 %POWERSHELL% Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.exe" -OutFile %TEMP%\vs_BuildTools.exe 
@@ -35,32 +36,26 @@ XCOPY /Y /S /F /V sensor_libraries\*.* %SystemDrive%\app\sensor_libraries\
 @ECHO Installing Sensor Libraries ... Part 2
 PUSHD %SystemDrive%\app\sensor_libraries
 %POWERSHELL% .\install.ps1
+CD ..\..
+RMDIR /q /s  .\app
 POPD
 
 @ECHO Installing All Sensors
-MKDIR %SystemDrive%\opt
-MKDIR %SystemDrive%\opt\sensors\
-XCOPY /Y /S /F /V sensors\*.* %SystemDrive%\opt\sensors\
-
-@ECHO Installing Sensor Startup Scripts
-MKDIR %SystemDrive%\opt\sensor_startup
-XCOPY /Y /S /F /V sensor_startup\*.* %SystemDrive%\opt\sensor_startup\
+@ECHO Put call to powershell script to create sensors.zip
 
 @ECHO Installing Service Components
-COPY /Y run.ps1 %SystemDrive%\app
+PUSHD .\sensor_service
+XCOPY /T /E /Y /S /F /V WinVirtUE\*.* %SystemDrive%\WinVirtUE
+POPD
+
 @ECHO Download the handles.exe from SysInternals/MS 
 @ECHO *** NOTE: This files URI could be moved without warning ***
 %POWERSHELL% Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Handle.zip" -OutFile %TEMP%\Handle.zip
-%POWERSHELL% Expand-Archive -Force %TEMP%\Handle.zip -DestinationPath %SystemDrive%\opt\sensors\handlelist
+%POWERSHELL% Expand-Archive -Force %TEMP%\Handle.zip -DestinationPath %SystemDrive%\WinVirtUE
 
 @ECHO Agree to the license on the dialog box
-%SystemDrive%\opt\sensors\handlelist\handle.exe > nul:
+%SystemDrive%\WinVirtUE\handle.exe > nul:
 
 @ECHO POP back to .\savior
 POPD
-
-@ECHO Opening Port 11020 - 11022 in the firewall for sensor communications
-netsh advfirewall firewall add rule name="Open Port 11020" dir=in action=allow protocol=TCP localport=11020
-netsh advfirewall firewall add rule name="Open Port 11021" dir=in action=allow protocol=TCP localport=11021
-netsh advfirewall firewall add rule name="Open Port 11022" dir=in action=allow protocol=TCP localport=11022
 

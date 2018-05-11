@@ -428,17 +428,11 @@ def create_sensor_startup_master(target):
     start_dir = os.path.abspath(os.path.join(target["root"], target["target"]["startup_scripts_directory"]))
 
     scripts = os.listdir(start_dir)
-    run_script = "run_sensors.ps1" if target["target"]["os"] == "Windows" else "run_sensors.sh"
+    run_script = "run_sensors.sh"
     with open(os.path.abspath(os.path.join(start_dir, run_script)), "w") as master_script:
-        if target["target"]["os"] == "Linux":
-            master_script.write("#!/bin/bash\n")
-
+        master_script.write("#!/bin/bash\n")
         for script in scripts:
-            if target["target"]["os"] == "Linux":
-                master_script.write("/opt/sensor_startup/%s &\n" % (script,))
-            elif target["target"]["os"] == "Windows":
-                master_script.write("powershell -NoProfile -ExecutionPolicy Bypass c:/opt/sensor_startup/%s\n" 
-                        % (script,))
+            master_script.write("/opt/sensor_startup/%s &\n" % (script,))
 
     print "    + %d startup scripts added" % (len(scripts),)
 
@@ -510,6 +504,7 @@ def create_support_library_install_script(target):
     any install steps we need.
 
         1. Scan for setup.py files, and build out pip install for all of them
+        2. If windows, create power shell script that builds the sensors.zip
 
     :param target:
     :return:
@@ -533,6 +528,8 @@ def create_support_library_install_script(target):
     with open(os.path.abspath(os.path.join(lib_dir, install_script)), "w") as installer:
         for pip_install in pip_installs:
             installer.write("pip install ./%s --upgrade\n" % (pip_install,))
+
+#            installer.write("Compress-Archive -Path C:\OtherStuff\*.txt -Update -DestinationPath archive.zip
 
 def create_requirements_master(target):
     """
