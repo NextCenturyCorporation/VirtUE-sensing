@@ -386,7 +386,7 @@ STACK_FRAME_NON_STANDARD(k_accept);
 #endif
 static int start_listener(struct connection *c)
 {
-	struct sockaddr_un addr;
+	struct sockaddr_un addr = {.sun_family = AF_UNIX};
 	struct socket *sock = NULL;
 
 	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
