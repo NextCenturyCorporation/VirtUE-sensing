@@ -10,6 +10,7 @@
 #include <linux/semaphore.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
+#include <linux/namei.h>
 #include <linux/stat.h>
 #include <linux/file.h>
 #include <linux/fdtable.h>

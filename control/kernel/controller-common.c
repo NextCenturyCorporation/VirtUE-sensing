@@ -52,6 +52,8 @@ int sysfs_level = 1;
 
 
 char *socket_name = "/var/run/kernel_sensor";
+char *lockfile_name = "/var/run/kernel_sensor.lock";
+
 
 module_param(lsof_repeat, int, 0644);
 module_param(lsof_timeout, int, 0644);

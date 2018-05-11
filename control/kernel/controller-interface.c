@@ -10,6 +10,7 @@
 /* hold socket JSON probe interface */
 extern struct kernel_sensor k_sensor;
 extern char *socket_name;
+extern char *lockfile_name;
 struct connection listener;
 EXPORT_SYMBOL(listener);
 
@@ -607,12 +608,60 @@ awaken_accept_thread(void)
 	return;
 }
 
+static int
+unlink_sock_name(char *sock_name, char *lock_name)
+{
+	struct path name_path;
+	struct file *lock_file;
+	struct file_lock l = {
+		.fl_flags = FL_FLOCK,
+		.fl_type = F_WRLCK,
+	};
+
+	int ccode = kern_path(sock_name, LOOKUP_FOLLOW, &name_path);
+	if (ccode) {
+       /**
+        * its not an error if we can't get the path, it probably means
+        * the socket name does not need to be unlinked, perhaps it has not
+        * been created yet.
+        **/
+		goto exit;
+	}
+
+	if (lock_name) {
+		/**
+		 * open the lock file, create it if necessary
+		 **/
+		lock_file = filp_open(lock_name, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR);
+		if (IS_ERR(lock_file) || ! lock_file) {
+			printk(KERN_DEBUG "error opening or creating the socket lock\n");
+			ccode = -ENFILE;
+			goto exit;
+		}
+
+		/**
+		 * POSIX protocol says this lock will be released if the module
+		 * crashes or exits
+		 **/
+		ccode = vfs_lock_file(lock_file, F_SETLK, &l, NULL);
+	}
+
+	if (!ccode) {
+		ccode = vfs_unlink(name_path.dentry->d_parent->d_inode,
+						   name_path.dentry,
+						   NULL);
+	}
+exit:
+	return ccode;
+}
 
 
 int
 socket_interface_init(void)
 {
 	init_jsonl_parser();
+	unlink_sock_name(socket_name, lockfile_name);
+	DMSG();
 	init_connection(&listener, PROBE_LISTEN, socket_name);
 	return 0;
 }
@@ -622,6 +671,7 @@ socket_interface_exit(void)
 {
 	atomic64_set(&SHOULD_SHUTDOWN, 1);
 	awaken_accept_thread();
+	unlink_sock_name(socket_name, NULL);
 	return;
 }
 
