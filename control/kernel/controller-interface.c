@@ -24,9 +24,9 @@ init_connection(struct connection *, uint64_t, void *);
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
 static ssize_t k_socket_read(struct socket *sock,
-						 size_t size,
-						 void *in,
-						 unsigned int flags)
+							 size_t size,
+							 void *in,
+							 unsigned int flags)
 {
 
 	ssize_t res;
@@ -572,9 +572,6 @@ awaken_accept_thread(void)
 	struct socket *sock = NULL;
 	size_t path_len, addr_len;
 	int ccode = 0;
-	unsigned long flags;
-
-
 
 	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
 	if (!sock)
@@ -598,13 +595,8 @@ awaken_accept_thread(void)
 	/**
 	 * wait until the listener has exited
 	 **/
-	while (! spin_trylock_irqsave(&listener.lock, flags)) {
-
-		schedule();
-	}
-
-	spin_unlock_irqrestore(&listener.lock, flags);
-
+	if (! down_interruptible(&listener.s_lock))
+		up(&listener.s_lock);
 	return;
 }
 
@@ -661,7 +653,6 @@ socket_interface_init(void)
 {
 	init_jsonl_parser();
 	unlink_sock_name(socket_name, lockfile_name);
-	DMSG();
 	init_connection(&listener, PROBE_LISTEN, socket_name);
 	return 0;
 }
