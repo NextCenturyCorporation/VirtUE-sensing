@@ -214,7 +214,10 @@ static inline void task_cputime(struct task_struct *t,
 
 **/
 struct probe {
-	spinlock_t lock;
+	union {
+		spinlock_t lock;
+		struct semaphore s_lock;
+	};
 	uint8_t *id;
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
@@ -272,7 +275,6 @@ struct probe {
 /* function pointers for listen, accept, close */
 struct connection {
 	struct probe;
-	struct semaphore s_lock;
 	/**
 	 * _init parameters:
 	 * uint64_t flags - will have the PROBE_LISTENER or PROBE_CONNECTED bit set

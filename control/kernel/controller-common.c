@@ -972,7 +972,6 @@ static void __exit controller_cleanup(void)
  * Note: always call socket_interface_exit() BEFORE calling k_sensor._destroy
  **/
 	k_sensor._destroy(&k_sensor);
-
 }
 
 module_init(kcontrol_init);
