@@ -968,6 +968,9 @@ static void __exit controller_cleanup(void)
 	/* sensor is statically allocated, no need to free it. */
 	atomic64_set(&SHOULD_SHUTDOWN, 1);
 	socket_interface_exit();
+/**
+ * Note: always call socket_interface_exit() BEFORE calling k_sensor._destroy
+ **/
 	k_sensor._destroy(&k_sensor);
 
 }
