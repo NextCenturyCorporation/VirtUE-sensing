@@ -49,12 +49,10 @@ static ssize_t k_socket_write(struct socket *sock,
 							  void *out,
 							  unsigned int flags)
 {
-	ssize_t res;
+	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
-	struct kvec iov;
-	char *kaddr = out;
-	iov.iov_base = kaddr;
-	iov.iov_len = size;
+	struct kvec iov = {.iov_base = out, .iov_len = size};
+
 
 	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
 		   "outbuf %p, flags %x\n",
