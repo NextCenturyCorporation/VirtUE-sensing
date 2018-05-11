@@ -1,12 +1,30 @@
 #!/usr/bin/python
 
 from argparse import ArgumentParser
-import json
-import os
-import shutil
-import sys
-import types
+from subprocess import Popen, PIPE
 
+import os
+import sys
+import json
+import types
+import shutil
+
+APIHOST = 'sensing-api.savior.internal'
+BASE_PORT_NO = 11020
+DEFAULT_DEBUG_LEVEL = 'ERROR'
+
+# output a configuration file that rougly co-relate with 
+# the original sensor wrapper command line parameters
+CONFIG_FILE_TEMPLATE = '''
+[parameters]
+public-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key.pub
+private-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key
+ca-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\
+api-host={apihost:s}
+sensor-port={sensorport:d}
+[runtime]
+dbglvl={default_debug_level:s}
+'''
 
 """
 Enumerate available sensors, and install them into targets
@@ -112,6 +130,7 @@ def find_targets(directory):
     # walk it
     for root, dirs, files in os.walk(directory):
         if "target.json" in files:
+            print "  # Opening %s for target load" % (os.path.join(root, "target.json"),)
             target = json.load(open(os.path.join(root, "target.json"), "r"))
             targets.append(
                 {
@@ -329,7 +348,7 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_di
 
     if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
         install_ntquerysys(target, ntquerysys_dir)
-        install_sensor_service_config_files(target, sensors)
+        install_sensor_service(target)
 
     # individual sensors
     for sensor_name in target["target"]["sensors"]:
@@ -583,7 +602,10 @@ def install_sensor(target, sensor):
     :param sensor:
     :return:
     """
-
+    if sys.platform == "win32" and target["target"]["os"] != "Windows":
+        print("  - Not installing sensor %s on a %s target - continuing." 
+                % (sensor['name'], sys.platform,))
+        return
     root = target["root"]
     sensors_dir = os.path.abspath(os.path.join(root, target["target"]["sensors_directory"]))
     reqs_dir = os.path.abspath(os.path.join(root, target["target"]["requirements_directory"]))
@@ -629,26 +651,66 @@ def install_sensor(target, sensor):
             os.path.abspath(os.path.join(reqs_dir, require_txt))
         )
 
-def install_sensor_service_config_files(target, sensors):
+def install_sensor_service(target):
     """
-    Install the sensor service config files
+    Install the sensor service 
 
     :param target:
     :param sensors:
     :return:
     """
+    global APIHOST, BASE_PORT_NO, DEFAULT_DEBUG_LEVEL
     # define our directories
     root = target["root"]
-    svc_dirs = os.path.abspath(os.path.join(root, "sensor_service", target["target"]["service_directories"]))
+    sensors = target["target"]["sensors"]
+    svc_dirs = []
+    for svc_dir in target["target"]["service_directories"]:
+        if target["target"]["os"] != u'Windows':
+            continue
+        svc_dirs.append(os.path.abspath(os.path.join(root, 
+            "sensor_service", svc_dir)))
+
+    print("+ Configuring %d Windows Service(s)" % (len(svc_dirs),))
 
     for svc_dir in svc_dirs:
+        print("  + Configuring %d Windows Sensor(s) for service %s" 
+                % (len(sensors), os.path.basename(svc_dir),))
+        cfg_dir = os.path.join(svc_dir, "config")
+        if not os.path.exists(cfg_dir):
+            os.makedirs(cfg_dir)
+        logs_dir = os.path.join(svc_dir, "logs")
+        if not os.path.exists(logs_dir):
+            os.makedirs(logs_dir)
         for sensor in sensors:
-            with open(os.path.join(svc_dir, sensor, ".cfg")) as cfg_file:
+            certs_dir = os.path.join(svc_dir, "certs", sensor)
+            if not os.path.exists(certs_dir):
+                os.makedirs(certs_dir)
+            print("    + Created certs dir for sensor %s"
+                    % (sensor,))
+            cfg_file_path = os.path.join(cfg_dir, sensor + ".cfg")
+            with open(cfg_file_path, "w") as cfg_file:
+                portno = BASE_PORT_NO
+                BASE_PORT_NO += 1
+                cfg_data = CONFIG_FILE_TEMPLATE.format(apihost=APIHOST,
+                        sensorport=portno, sensorname=sensor, 
+                        default_debug_level=DEFAULT_DEBUG_LEVEL,)
+                cfg_file.write(cfg_data)
 
+            print("    + Wrote a service config file for sensor %s" 
+                    % (sensor,))
 
-    
-
-
+            name = "name=Open Port %d" % (portno,)
+            localport = "localport=%d" % (portno,)
+            cmd_args = ["netsh", "advfirewall", "firewall", "add", "rule", 
+                    name, "dir=in", "action=allow", "protocol=TCP", localport]
+            proc = Popen(cmd_args, stdout=PIPE, stderr=PIPE)
+            _sout, _serr = proc.communicate()
+            if proc.returncode == 0:
+                print("    + Opened port %d for sensor %s" 
+                        % (portno, sensor,))
+            else:
+                print("    - Failed to open port %d for sensor %s!!"
+                        % (portno, sensor,))
 
 def install_ntquerysys(target, ntquerysys_dir):
     """
@@ -815,6 +877,7 @@ if __name__ == "__main__":
     print "Finding Targets"
 
     # find all of the targets on the system
+    print "  # finding targets in %s" % (targets_dir,)
     targets = find_targets(targets_dir)
 
     # like modules and sensors, we can skip targets, as specified with the --skip-target flag
