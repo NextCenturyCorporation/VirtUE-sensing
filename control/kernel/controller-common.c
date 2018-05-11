@@ -29,6 +29,10 @@
 struct kernel_sensor k_sensor;
 EXPORT_SYMBOL(k_sensor);
 
+atomic64_t SHOULD_SHUTDOWN = ATOMIC64_INIT(0);
+EXPORT_SYMBOL(SHOULD_SHUTDOWN);
+
+
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
 struct kernel_sysfs_probe ksysfs_probe;
@@ -496,7 +500,6 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 
 	struct probe *probe_p;
 	struct connection *conn_c;
-	unsigned long flags;
 	assert(sensor);
 
 	/* sensor is the parent of all probes */
@@ -507,11 +510,9 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									 l_node);
 	rcu_read_unlock();
 	while (probe_p != NULL) {
-
-
-		spin_lock_irqsave(&sensor->lock, flags);
+		spin_lock(&sensor->lock);
 		list_del_rcu(&probe_p->l_node);
-		spin_unlock_irqrestore(&sensor->lock, flags);
+		spin_unlock(&sensor->lock);
 		synchronize_rcu();
 		if (__FLAG_IS_SET(probe_p->flags, PROBE_KPS)) {
 			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
@@ -539,12 +540,9 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
-
-
-
-		spin_lock_irqsave(&sensor->lock, flags);
+		spin_lock(&sensor->lock);
 		list_del_rcu(&conn_c->l_node);
-		spin_unlock_irqrestore(&sensor->lock, flags);
+		spin_unlock(&sensor->lock);
 		synchronize_rcu();
 		if (__FLAG_IS_SET(conn_c->flags, PROBE_LISTEN)) {
 			/**
@@ -568,11 +566,9 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 									l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
-
-
-		spin_lock_irqsave(&sensor->lock, flags);
+		spin_lock(&sensor->lock);
         list_del_rcu(&conn_c->l_node);
-	    spin_unlock_irqrestore(&sensor->lock, flags);
+	    spin_unlock(&sensor->lock);
 		if (__FLAG_IS_SET(conn_c->flags, PROBE_CONNECT)) {
 			/**
 			 * a connection is dynamically allocated, so
@@ -690,13 +686,16 @@ void  run_kps_probe(struct kthread_work *work)
  **/
 	probe_struct->print(probe_struct, "kernel-ps", nonce, ++count);
 	probe_struct->repeat--;
-	if (probe_struct->repeat > 0 && !SHOULD_SHUTDOWN) {
+	if (probe_struct->repeat > 0 && (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		int i;
-		for (i = 0; i < probe_struct->timeout && !SHOULD_SHUTDOWN; i++) {
+		for (i = 0;
+			 i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
+			 i++) {
 			sleep(1);
 		}
-		if (!SHOULD_SHUTDOWN)
+		if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 			init_and_queue_work(work, co_worker, run_kps_probe);
+		}
 	}
 	return;
 }
@@ -860,9 +859,6 @@ static int __init kcontrol_init(void)
 	struct kernel_lsof_probe *lsof_probe = NULL;
 	struct kernel_sysfs_probe *sysfs_probe = NULL;
 
-
-	unsigned long flags;
-
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
 	}
@@ -880,10 +876,10 @@ static int __init kcontrol_init(void)
 		goto err_exit;
 	}
 
-	spin_lock_irqsave(&k_sensor.lock, flags);
+	spin_lock(&k_sensor.lock);
 	/* link this probe to the sensor struct */
 	list_add_rcu(&ps_probe->l_node, &k_sensor.probes);
-	spin_unlock_irqrestore(&k_sensor.lock, flags);
+	spin_unlock(&k_sensor.lock);
 
     /**
      * initialize the lsof probe
@@ -900,10 +896,10 @@ static int __init kcontrol_init(void)
 	}
 
 
-	spin_lock_irqsave(&k_sensor.lock, flags);
+	spin_lock(&k_sensor.lock);
 	/* link this probe to the sensor struct */
 	list_add_rcu(&lsof_probe->l_node, &k_sensor.probes);
-	spin_unlock_irqrestore(&k_sensor.lock, flags);
+	spin_unlock(&k_sensor.lock);
 
 
 /**
@@ -921,10 +917,9 @@ static int __init kcontrol_init(void)
 		goto err_exit;
 	}
 
-	spin_lock_irqsave(&k_sensor.lock, flags);
+	spin_lock(&k_sensor.lock);
 	list_add_rcu(&sysfs_probe->l_node, &k_sensor.probes);
-	spin_unlock_irqrestore(&k_sensor.lock, flags);
-
+	spin_unlock(&k_sensor.lock);
 
 /**
  * initialize the socket interface
@@ -972,11 +967,8 @@ static void __exit controller_cleanup(void)
 {
 	/* destroy, but do not free the sensor */
 	/* sensor is statically allocated, no need to free it. */
-	SHOULD_SHUTDOWN = 1;
-
+	atomic64_set(&SHOULD_SHUTDOWN, 1);
 	socket_interface_exit();
-
-
 	k_sensor._destroy(&k_sensor);
 
 }
