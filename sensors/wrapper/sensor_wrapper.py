@@ -16,6 +16,7 @@ import json
 from kafka import KafkaProducer
 import os
 import platform
+import curequests
 pltfrm = platform.system().lower()
 if pltfrm not in ["windows", "nt"]:
     import pwd
@@ -29,8 +30,11 @@ import time
 from urllib.parse import urlparse
 from uuid import uuid4
 
+ch = logging.StreamHandler()
 logger = logging.getLogger("SensorWrapper")
 logger.setLevel(logging.ERROR)
+logger.addHandler(ch)
+
 
 #
 # Crazy monkey-patching so we can get access to the peer cert when we
