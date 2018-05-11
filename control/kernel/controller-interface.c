@@ -603,21 +603,24 @@ awaken_accept_thread(void)
 static int
 unlink_sock_name(char *sock_name, char *lock_name)
 {
-	struct path name_path;
-	struct file *lock_file;
+	struct path name_path = {.mnt = 0};
+	struct file *lock_file = NULL;
 	struct file_lock l = {
 		.fl_flags = FL_FLOCK,
 		.fl_type = F_WRLCK,
 	};
-
+	int need_lock = 0;
 	int ccode = kern_path(sock_name, LOOKUP_FOLLOW, &name_path);
 	if (ccode) {
        /**
         * its not an error if we can't get the path, it probably means
         * the socket name does not need to be unlinked, perhaps it has not
         * been created yet.
+		*
+		* but, continue onward and try to get the lock file, so another instance
+		* (in the future) will not unlink the sock name while we are using it.
         **/
-		goto exit;
+		;
 	}
 
 	if (lock_name) {
@@ -635,10 +638,10 @@ unlink_sock_name(char *sock_name, char *lock_name)
 		 * POSIX protocol says this lock will be released if the module
 		 * crashes or exits
 		 **/
-		ccode = vfs_lock_file(lock_file, F_SETLK, &l, NULL);
+		need_lock = vfs_lock_file(lock_file, F_SETLK, &l, NULL);
 	}
 
-	if (!ccode) {
+	if (!need_lock && !ccode) {
 		ccode = vfs_unlink(name_path.dentry->d_parent->d_inode,
 						   name_path.dentry,
 						   NULL);
