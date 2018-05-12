@@ -9,6 +9,8 @@ import json
 import types
 import shutil
 
+
+# Should this be put into the targets.json file?
 APIHOST = 'sensing-api.savior.internal'
 BASE_PORT_NO = 11020
 DEFAULT_DEBUG_LEVEL = 'ERROR'
