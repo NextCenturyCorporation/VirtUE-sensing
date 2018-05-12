@@ -2,7 +2,7 @@
 ntquerysys.py - query the windows nt user space runtime for critical
 system data.
 '''
-
+import logger
 from enum import IntEnum
 from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar
 from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
@@ -19,6 +19,10 @@ import pywintypes
 PROCESS_DUP_HANDLE = 0x0040
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+logger = logging.getLogger("ntquerysys")
+logger.addHandler(logging.NullHandler())
+logger.setLevel(logging.ERROR)
 
 class CtypesEnum(IntEnum):
     '''

@@ -220,12 +220,14 @@ run_sysfs_probe(struct kthread_work *work)
  **/
 	probe_struct->print(probe_struct, "kernel-sysfs", nonce, ++count);
 	probe_struct->repeat--;
-	if (probe_struct->repeat > 0 &&  !SHOULD_SHUTDOWN) {
+	if (probe_struct->repeat > 0 &&  (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		int i;
-		for(i = 0; i < probe_struct->timeout && !SHOULD_SHUTDOWN; i++) {
+		for(i = 0;
+			i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
+			i++) {
 			sleep(1);
 		}
-		if (!SHOULD_SHUTDOWN)
+		if (! atomic64_read(&SHOULD_SHUTDOWN))
 			init_and_queue_work(work, co_worker, run_klsof_probe);
 	}
 	return;
