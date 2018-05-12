@@ -26,6 +26,23 @@ sensor-port={sensorport:d}
 dbglvl={default_debug_level:s}
 '''
 
+# The zip builder file prefix script
+UPDATE_SENSOR_ZIP = '''
+<# powershell -NoProfile -ExecutionPolicy ByPass -File .\update_sensor_zip.ps1 #>
+
+$host.ui.RawUI.WindowTitle ="Updating Windows VirtUE Sensors Zip File . . ."
+
+Write-Output $host.ui.RawUI.WindowTitle
+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$svc_dir=$Env:SystemDrive + "/WinVirtUE"
+$zipfile=$svc_dir + "/sensors.zip"
+
+if(!(Test-Path $svc_dir)) {mkdir $svc_dir}
+if(Test-Path $zipfile) { Remove-Item -Force $zipfile }
+'''
+
 """
 Enumerate available sensors, and install them into targets
 according to the target sensors.json definition file.
@@ -656,16 +673,17 @@ def install_sensor_service(target):
     :param sensors:
     :return:
     """
-    global APIHOST, BASE_PORT_NO, DEFAULT_DEBUG_LEVEL
+    global APIHOST, BASE_PORT_NO, DEFAULT_DEBUG_LEVEL, UPDATE_SENSOR_ZIP
     # define our directories
+    sys_drive = os.environ["SystemDrive"] + os.sep
     root = target["root"]
     sensors = target["target"]["sensors"]
+    svc_root = os.path.abspath(os.path.join(root, "sensor_service"))
     svc_dirs = []
     for svc_dir in target["target"]["service_directories"]:
         if target["target"]["os"] != u'Windows':
             continue
-        svc_dirs.append(os.path.abspath(os.path.join(root, 
-            "sensor_service", svc_dir)))
+        svc_dirs.append(os.path.join(svc_root, svc_dir))
 
     print("+ Configuring %d Windows Service(s)" % (len(svc_dirs),))
 
@@ -678,6 +696,15 @@ def install_sensor_service(target):
         logs_dir = os.path.join(svc_dir, "logs")
         if not os.path.exists(logs_dir):
             os.makedirs(logs_dir)
+
+        with open(os.path.join(svc_root, "update_sensor_zip.ps1"), "w") as zf:
+            zf.write(UPDATE_SENSOR_ZIP)  
+            for sensor in sensors:
+                src_path = os.path.abspath(os.path.join(root, target["target"]["sensors_directory"], sensor))
+                cmd_line = ("Compress-Archive -Update -Path {0}\*.py -DestinationPath $zipfile\n"
+                        .format(src_path,))
+                zf.write(cmd_line)
+
         for sensor in sensors:
             certs_dir = os.path.join(svc_dir, "certs", sensor)
             if not os.path.exists(certs_dir):
