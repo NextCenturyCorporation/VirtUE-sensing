@@ -15,6 +15,7 @@ from io import StringIO
 import json
 from kafka import KafkaProducer
 import os
+import curequests
 import platform
 pltfrm = platform.system().lower()
 if pltfrm not in ["windows", "nt"]:
@@ -30,6 +31,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 logger = logging.getLogger("SensorWrapper")
+logger.addHandler(logging.NullHandler())
 logger.setLevel(logging.ERROR)
 
 #
