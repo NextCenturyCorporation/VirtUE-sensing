@@ -1,4 +1,3 @@
-
 /*******************************************************************
  * In-Virtue Kernel Controller
  *
@@ -678,7 +677,8 @@ __init socket_interface_init(void);
 void
 __exit socket_interface_exit(void);
 
-
+int
+build_discovery_buffer(uint8_t **buf, size_t *len);
 
 /**
  *

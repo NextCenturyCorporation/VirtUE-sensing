@@ -142,8 +142,9 @@ k_echo_server(struct kthread_work *work)
 	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
-	uint8_t read_buf[5];
-	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00};
+	uint8_t read_buf[9] = {0};
+	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00 };
+	uint8_t discover[] = { 'd', 'i', 's', 'c', 'o', 'v', 'e', 'r', 0x00 };
 
 
 	struct socket *sock = NULL;
@@ -160,10 +161,9 @@ k_echo_server(struct kthread_work *work)
 		goto close_out;
 
 	sock = connection->connected;
-	memset(read_buf, 0x00, sizeof(read_buf));
 
 again:
-	ccode = k_socket_read(sock, 5, read_buf, flags);
+	ccode = k_socket_read(sock, sizeof(read_buf), read_buf, flags);
 	if (ccode <= 0){
 		if (ccode == -EAGAIN) {
 			goto again;
@@ -182,15 +182,21 @@ again:
 	printk(KERN_DEBUG "k_socket_read 0L: %d\n", ccode);
 
 	if (! memcmp(read_buf, echo, sizeof(echo))) {
-
 		uint8_t *response = VERSION_STRING;
-		printk(KERN_DEBUG "k_socket_write string: %s\n", response);
+		printk(KERN_DEBUG "k_socket_write echo: %s\n", response);
+		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
+		printk(KERN_DEBUG "k_socket_write echo: %d\n", ccode);
 
-		ccode = k_socket_write(sock, strlen(response) + 1,
-							   response,
-							   0L);
-		printk(KERN_DEBUG "k_socket_write: %d\n", ccode);
-
+	} else if (! memcmp(read_buf, discover, sizeof(discover))){
+		uint8_t *response = NULL;
+		size_t len = 0;
+		ccode = build_discovery_buffer(&response, &len);
+		if (!ccode && response && len) {
+			printk(KERN_DEBUG "k_socket_write discover: %s\n", response);
+			ccode = k_socket_write(sock, len, response, 0L);
+			kfree(response);
+			printk(KERN_DEBUG "k_socket_write discover: %d\n", ccode);
+		}
 	}
 
  	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
