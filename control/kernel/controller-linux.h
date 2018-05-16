@@ -4,6 +4,7 @@
  * in-virtue kernel controller
  * Published under terms of the Gnu Public License v2, 2017
  ******************************************************************************/
+#include <linux/compiler.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/spinlock.h>

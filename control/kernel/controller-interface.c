@@ -328,6 +328,114 @@ err_out1:
 }
 STACK_FRAME_NON_STANDARD(k_read_write);
 
+
+static void k_poll(struct kthread_work *work)
+{
+
+	struct connection *new_connection = NULL;
+	struct socket *newsock = NULL;
+	struct kthread_worker *worker = work->worker;
+	struct connection *connection =
+		container_of(work, struct connection, work);
+
+	if (down_interruptible(&connection->s_lock)) {
+		goto close_out_reschedule;
+	}
+
+/**
+ * 0. get a struct file * on the socket, socket->file
+ * 1. file->private_data = struct socket
+ * 2. struct sock sock = socket->sk
+ * 3. init a poll_table
+ * 4. poll_initwait init a struct poll_wqueues
+ * 5. poll_wait(file, sk_sleep(sk), poll_table *)
+ * 6. poll_freewait
+ *
+ * static inline void
+ * poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
+ * {
+ *	if (p && p->_qproc && wait_address)
+ *		p->_qproc(filp, wait_address, p);
+ * }
+ *
+ * static inline void sock_poll_wait(struct file *filp,
+ *		wait_queue_head_t *wait_address, poll_table *p)
+ * poll table has the struct file * in it.
+ **/
+	if (connection->connected) {
+		poll_table p_table;
+		struct poll_wqueues wq;
+		struct socket *socket = connection->connected;
+		struct file *f = socket->file;
+
+		f->private_data = socket;
+		init_poll_funcptr(&p_table, poll_wait);
+		poll_initwait(&wq);
+
+
+		/** calls unix_poll_wait **/
+		while (! atomic64_read(&SHOULD_SHUTDOWN)) {
+			int ccode = 0;
+			uint8_t read_buf[] = {0,0,0,0};
+			ktime_t to = (NSEC_PER_SEC / 2);
+			u64 slack = 0;
+
+			poll_schedule_timeout(&wq,
+								  TASK_INTERRUPTIBLE,
+								  &to,
+								  slack);
+			sock_poll_wait(f, sk_sleep(socket->sk), &p_table);
+			/**
+			 * peek to see if there is data to read
+			 **/
+peek_again:
+			ccode = k_socket_read(socket, 1, read_buf, MSG_PEEK);
+			if (!ccode) {
+				continue;
+			}
+			if (unlikely(ccode < 0)) {
+				if (ccode == -EAGAIN) {
+					goto peek_again;
+				}
+				__CLEAR_FLAG(connection->flags, PROBE_LISTEN);
+				goto close_out_quit;
+			}
+
+			if (! atomic64_read(&SHOULD_SHUTDOWN)) {
+				if (unlikely((ccode = kernel_accept(connection->connected,
+													&newsock,
+													0L)) < 0))
+				{
+					printk(KERN_DEBUG "k_accept returned error %d, exiting\n",
+						   ccode);
+					goto close_out_quit;
+				}
+			}
+/**
+ * create a new struct connection, link it to the kernel sensor
+ **/
+			if (newsock != NULL && (! atomic64_read(&SHOULD_SHUTDOWN))) {
+				new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
+				if (new_connection) {
+					init_connection(new_connection, PROBE_CONNECT, newsock);
+				} else {
+					atomic64_set(&SHOULD_SHUTDOWN, 1);
+				}
+			}
+		}
+	}
+
+
+close_out_reschedule:
+	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
+		init_and_queue_work(work, worker, k_poll);
+	}
+close_out_quit:
+	up(&connection->s_lock);
+	return;
+}
+
+
 static void k_accept(struct kthread_work *work)
 {
 	int ccode = 0;
