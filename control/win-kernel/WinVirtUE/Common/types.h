@@ -166,6 +166,24 @@ typedef struct _WVUGlobals
     BOOLEAN AllowFilterUnload;  // if true, then allow the filter to be unloaded else don't allow
     BOOLEAN EnableProtection;   // if true then the driver is protecting
 	PDRIVER_OBJECT DriverObject;	
-	KTIMER Timer;  // Fire off at regular intervals to 'ping' the user service
+	BOOLEAN ShuttingDown;
 } WVUGlobals, *PWVUGlobals;
+
+/**
+* Savior Command Enumeration 
+*/
+typedef enum _SaviorCommand : UINT16
+{
+	ECHO = 0
+} SaviorCommand;
+
+/** 
+* Savior Command Packet
+*/
+typedef struct _SaviorCommandPkt
+{
+	SaviorCommand Cmd;		// The savior command to send to the listening user space service
+	SIZE_T CmdMsgSize;	// The command message size
+	UCHAR CmdMsg[0];     // The command message
+} *PSaviorCommandPkt, SaviorCommandPkt;
 

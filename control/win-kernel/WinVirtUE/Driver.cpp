@@ -143,6 +143,7 @@ DriverEntry(
 	}
 
 	ExInitializeRundownProtection(&Globals.RunDownRef);
+	Globals.ShuttingDown = FALSE;
 
 	Status = GetOsVersion();
 	if (FALSE == NT_SUCCESS(Status))
@@ -217,7 +218,7 @@ DriverEntry(
 
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, NULL);
+	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, &Globals.WVUThreadStartEvent);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);

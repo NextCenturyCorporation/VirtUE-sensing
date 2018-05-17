@@ -287,6 +287,8 @@ WVUUnload(
 
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
+	Globals.ShuttingDown = TRUE;
+
     WVUDebugBreakPoint();
 
     if (NULL != Globals.ClientPort)

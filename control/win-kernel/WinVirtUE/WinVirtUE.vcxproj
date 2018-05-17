@@ -164,11 +164,17 @@
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
@@ -184,6 +190,7 @@
       <WppEnabled>false</WppEnabled>
       <WppRecorderEnabled>true</WppRecorderEnabled>
       <WppScanConfigurationData>trace.h</WppScanConfigurationData>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -199,27 +206,40 @@
       <WppEnabled>false</WppEnabled>
       <WppRecorderEnabled>true</WppRecorderEnabled>
       <WppScanConfigurationData>trace.h</WppScanConfigurationData>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <DisableSpecificWarnings>4200</DisableSpecificWarnings>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />
