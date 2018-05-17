@@ -15,12 +15,12 @@ _IRQL_requires_(PASSIVE_LEVEL)
 _IRQL_requires_same_
 NTSTATUS FLTAPI WVUPortConnect(
 	_In_ PFLT_PORT ClientPort,
-	_In_opt_ PVOID ServerPortCookie,
+	_In_opt_ _Notnull_ PVOID ServerPortCookie,
 	_In_reads_bytes_opt_(SizeOfContext) PVOID ConnectionContext,
 	_In_ ULONG SizeOfContext,
 	_Outptr_result_maybenull_ PVOID *ConnectionPortCookie)
 {
-	NTSTATUS Status = STATUS_SUCCESS;
+	const NTSTATUS Status = STATUS_SUCCESS;
 	FLT_ASSERTMSG("ClientPort Must Be NULL!!", NULL == Globals.ClientPort);
 	FLT_ASSERTMSG("UserProcess Must Be NULL!!", NULL == Globals.UserProcess);
 
@@ -199,7 +199,7 @@ NTSTATUS FLTAPI WVUMessageNotify(
 	_In_ ULONG InputBufferLength,
 	_Out_writes_bytes_opt_(OutputBufferLength) PVOID OutputBuffer,
 	_In_ ULONG OutputBufferLength,
-	_Out_ PULONG ReturnOutputBufferLength)
+	_Out_ _Notnull_ PULONG ReturnOutputBufferLength)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	UNREFERENCED_PARAMETER(PortCookie);

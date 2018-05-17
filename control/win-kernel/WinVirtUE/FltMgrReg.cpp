@@ -162,7 +162,7 @@ QueryVolumeInformation(
     FILE_FS_SIZE_INFORMATION SizeInformation = { 0L,0L,0,0 };
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
     PFILE_FS_VOLUME_INFORMATION VolumeInformation = NULL;
-    UCHAR VolumeInfoStack[sizeof(FILE_FS_VOLUME_INFORMATION) + 128];
+	UCHAR VolumeInfoStack[sizeof(FILE_FS_VOLUME_INFORMATION) + 128] = {};
 
     UNREFERENCED_PARAMETER(VolumeDeviceType); // release
 

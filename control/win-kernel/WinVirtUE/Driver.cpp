@@ -98,16 +98,22 @@ DriverEntry(
 {
 	UNREFERENCED_PARAMETER(RegistryPath);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	OBJECT_ATTRIBUTES WVUThdObjAttr = { 0,0,0,0,0,0 };
+	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };
+	OBJECT_ATTRIBUTES SensorThdObjAttr = { 0,0,0,0,0,0 };
 	OBJECT_ATTRIBUTES WVUPortObjAttr = { 0,0,0,0,0,0 };
 	PSECURITY_DESCRIPTOR pWVUPortSecDsc = NULL;
-	HANDLE ThreadHandle = (HANDLE)-1;
-
-	CLIENT_ID ClientId = { (HANDLE)-1,(HANDLE)-1 };
+	HANDLE MainThreadHandle = (HANDLE)-1;
+	HANDLE SensorThreadHandle = (HANDLE)-1;
+	
+	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
+	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
 	UNICODE_STRING usPortName = { 0,0,NULL };	
 
-	WVUDebugBreakPoint();
+	LARGE_INTEGER timeout = { 0LL };
+	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
 
+	WVUDebugBreakPoint();
+	
 	ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
 
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
@@ -197,22 +203,29 @@ DriverEntry(
 			goto ErrorExit;
 		}
 	}
-
-
-	InitializeObjectAttributes(&WVUThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+	
+	InitializeObjectAttributes(&MainThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&ThreadHandle, GENERIC_ALL, &WVUThdObjAttr, NULL, &ClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
+	Status = PsCreateSystemThread(&MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Main thread %p process %p thread id %p\n",
+		MainThreadHandle, MainClientId.UniqueProcess, MainClientId.UniqueThread);
 
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created system thread %p process %p thread id %p\n",
-		ThreadHandle, ClientId.UniqueProcess, ClientId.UniqueThread);
+	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+	// create thread, register stuff and etc
+	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, NULL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}	
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
+		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
 
-	LARGE_INTEGER timeout;
-	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
 	if (FALSE == NT_SUCCESS(Status))
 	{

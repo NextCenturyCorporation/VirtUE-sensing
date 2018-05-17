@@ -11,9 +11,14 @@
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
 
+/**
+* @brief Main initialization thread.
+* @note this thread remains active through out the lifetime of the driver
+* @param StartContext this threads context as passed during creation
+*/
 _Use_decl_annotations_
 VOID
-WVUMainThreadStart(PVOID  StartContext)
+WVUMainThreadStart(PVOID StartContext)
 {
 	PKEVENT WVUMainThreadStartEvt = (PKEVENT)StartContext;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
@@ -68,6 +73,7 @@ WVUMainThreadStart(PVOID  StartContext)
 		if (FALSE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed! Status=%08x\n", Status);
+#pragma warning(suppress: 26438)
 			goto ErrorExit;
 		}
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Returned from KeWaitForSingleObject(WVUMainThreadStart, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
@@ -90,6 +96,34 @@ WVUMainThreadStart(PVOID  StartContext)
 			break;
 		}
 	} while (Status == STATUS_ALERTED || Status == STATUS_USER_APC);  // don't bail if we get alerted or APC'd
+
+ErrorExit:
+
+	// Drop a rundown reference 
+	ExReleaseRundownProtection(&Globals.RunDownRef);
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Exiting Thread w/Status=0x%08x!\n", Status);
+	return;
+}
+
+/**
+* @brief probe communcations thread.  this thread drains the sensor queue by
+* sending probe data to the user space service.
+* @param StartContext this threads context as passed during creation
+*/
+_Use_decl_annotations_
+VOID
+WVUSensorThread(PVOID StartContext)
+{
+	UNREFERENCED_PARAMETER(StartContext);
+	const NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	FLT_ASSERTMSG("WVUMainThreadStart must run at IRQL <= PASSIVE!", KeGetCurrentIrql() <= PASSIVE_LEVEL);
+
+	// Take a rundown reference 
+	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
+
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Acquired rundown protection . . .\n");
+	goto ErrorExit;
 
 ErrorExit:
 

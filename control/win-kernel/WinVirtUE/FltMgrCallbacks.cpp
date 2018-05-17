@@ -382,7 +382,7 @@ WinVirtUEPreOperation(
 VOID
 WinVirtUEOperationStatusCallback(
 	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_In_ PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
+	_In_ const PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
 	_In_ NTSTATUS OperationStatus,
 	_In_ PVOID RequesterContext)
 {
@@ -468,7 +468,7 @@ BOOLEAN
 WinVirtUEDoRequestOperationStatus(
 	_In_ PFLT_CALLBACK_DATA Data)
 {
-	PFLT_IO_PARAMETER_BLOCK iopb = Data->Iopb;
+	const PFLT_IO_PARAMETER_BLOCK iopb = Data->Iopb;
 
 	//
 	//  return boolean state based on which operations we are interested in

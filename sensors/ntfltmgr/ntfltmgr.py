@@ -1,13 +1,11 @@
 '''
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
-import sys
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong, c_void_p
-from ctypes import c_float, c_double, c_longdouble
-from ctypes import memmove, cast, create_string_buffer, addressof, HRESULT, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, windll, create_unicode_buffer
+from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL
 
@@ -238,7 +236,7 @@ def FilterGetMessage(hPort, msg_len):
     replylen = info.contents.ReplyLength
     msgid = info.contents.MessageId
     msg_pkt = GetMessagePacket(replylen, msgid, sb[sizeof(FILTER_MESSAGE_HEADER):])
-    return msg_pkt
+    return res, msg_pkt
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
 _FilterConnectCommunicationPortParamFlags = (0, "lpPortName"), (0,  "dwOptions", 0), (0, "lpContext", 0), (0,  "dwSizeOfContext", 0), (0, "lpSecurityAttributes", 0), (1, "hPort")
@@ -541,7 +539,7 @@ def CloseHandle(handle):
     success = _CloseHandle(handle)
     return success
 
-def main(argv):
+def main():
     '''
     let's test some stuff
     '''
@@ -584,7 +582,4 @@ def main(argv):
     print(stats)
 
 if __name__ == '__main__':
-    main(sys.argv)
-
-
-
+    main()

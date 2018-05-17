@@ -166,5 +166,6 @@ typedef struct _WVUGlobals
     BOOLEAN AllowFilterUnload;  // if true, then allow the filter to be unloaded else don't allow
     BOOLEAN EnableProtection;   // if true then the driver is protecting
 	PDRIVER_OBJECT DriverObject;	
+	KTIMER Timer;  // Fire off at regular intervals to 'ping' the user service
 } WVUGlobals, *PWVUGlobals;
 
