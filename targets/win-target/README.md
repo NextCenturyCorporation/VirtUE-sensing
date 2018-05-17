@@ -101,3 +101,24 @@ bin\run-all.bat
 17. Monitor the creation/modification of win32 and driver shims through the various shim databases (.sdb).  This is another used, but rather obscure, user attack vector. 
 Win32 Shim Information: https://www.geoffchappell.com/studies/windows/win32/apphelp/sdb/index.htm?tx=54 
 Kernel Shim Information: https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/kshim/drvmain.htm?tx=52,53,56,59,67&ts=0,1555
+
+# Windows Sensor Service
+1. At some later time, we should handle the shutdown message so we can notify the API that the node these sensors are running on is shutting down.
+
+
+# Target Service Directory Layout
+
+c:\WinVirtUE  # root
+c:\WinVirtUE\certs\<svc_name>\   # certs directory
+c:\WinVirtUE\logs\<svc_name>.log   # log output
+c:\WinVirtUE\config\<svc_name>.cfg  # configuration file for wrapper parameters
+
+# Create the services zip file python archive
+
+del/f c:\WinVirtUE\sensors.zip
+Compress-Archive -Path .\sensor_handlelist\sensor_handlelist.py -DestinationPath c:\WinVirtUE\sensors.zip -update
+Compress-Archive -Path .\sensor_processlist\sensor_processlist.py -DestinationPath c:\WinVirtUE\sensors.zip -update
+Compress-Archive -Path .\sensor_kernelprobe\sensor_kernelprobe.py -DestinationPath c:\WinVirtUE\sensors.zip -update
+
+
+

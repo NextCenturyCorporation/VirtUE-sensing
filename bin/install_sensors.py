@@ -1,12 +1,49 @@
 #!/usr/bin/python
 
 from argparse import ArgumentParser
-import json
-import os
-import shutil
-import sys
-import types
+from subprocess import Popen, PIPE
 
+import os
+import sys
+import json
+import types
+import shutil
+
+
+# Should this be put into the targets.json file?
+APIHOST = 'sensing-api.savior.internal'
+BASE_PORT_NO = 11020
+DEFAULT_DEBUG_LEVEL = 'ERROR'
+
+# output a configuration file that rougly co-relate with 
+# the original sensor wrapper command line parameters
+CONFIG_FILE_TEMPLATE = '''
+[parameters]
+public-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key.pub
+private-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key
+ca-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\
+api-host={apihost:s}
+sensor-port={sensorport:d}
+[runtime]
+dbglvl={default_debug_level:s}
+'''
+
+# The zip builder file prefix script
+UPDATE_SENSOR_ZIP = '''
+<# powershell -NoProfile -ExecutionPolicy ByPass -File .\update_sensor_zip.ps1 #>
+
+$host.ui.RawUI.WindowTitle ="Updating Windows VirtUE Sensors Zip File . . ."
+
+Write-Output $host.ui.RawUI.WindowTitle
+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$svc_dir=$Env:SystemDrive + "/WinVirtUE"
+$zipfile=$svc_dir + "/sensors.zip"
+
+if(!(Test-Path $svc_dir)) {mkdir $svc_dir}
+if(Test-Path $zipfile) { Remove-Item -Force $zipfile }
+'''
 
 """
 Enumerate available sensors, and install them into targets
@@ -112,6 +149,7 @@ def find_targets(directory):
     # walk it
     for root, dirs, files in os.walk(directory):
         if "target.json" in files:
+            print "  # Opening %s for target load" % (os.path.join(root, "target.json"),)
             target = json.load(open(os.path.join(root, "target.json"), "r"))
             targets.append(
                 {
@@ -329,6 +367,7 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_di
 
     if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
         install_ntquerysys(target, ntquerysys_dir)
+        install_sensor_service(target)
 
     # individual sensors
     for sensor_name in target["target"]["sensors"]:
@@ -408,17 +447,11 @@ def create_sensor_startup_master(target):
     start_dir = os.path.abspath(os.path.join(target["root"], target["target"]["startup_scripts_directory"]))
 
     scripts = os.listdir(start_dir)
-    run_script = "run_sensors.ps1" if target["target"]["os"] == "Windows" else "run_sensors.sh"
+    run_script = "run_sensors.sh"
     with open(os.path.abspath(os.path.join(start_dir, run_script)), "w") as master_script:
-        if target["target"]["os"] == "Linux":
-            master_script.write("#!/bin/bash\n")
-
+        master_script.write("#!/bin/bash\n")
         for script in scripts:
-            if target["target"]["os"] == "Linux":
-                master_script.write("/opt/sensor_startup/%s &\n" % (script,))
-            elif target["target"]["os"] == "Windows":
-                master_script.write("powershell -NoProfile -ExecutionPolicy Bypass c:/opt/sensor_startup/%s\n" 
-                        % (script,))
+            master_script.write("/opt/sensor_startup/%s &\n" % (script,))
 
     print "    + %d startup scripts added" % (len(scripts),)
 
@@ -490,6 +523,7 @@ def create_support_library_install_script(target):
     any install steps we need.
 
         1. Scan for setup.py files, and build out pip install for all of them
+        2. If windows, create power shell script that builds the sensors.zip
 
     :param target:
     :return:
@@ -513,6 +547,8 @@ def create_support_library_install_script(target):
     with open(os.path.abspath(os.path.join(lib_dir, install_script)), "w") as installer:
         for pip_install in pip_installs:
             installer.write("pip install ./%s --upgrade\n" % (pip_install,))
+
+#            installer.write("Compress-Archive -Path C:\OtherStuff\*.txt -Update -DestinationPath archive.zip
 
 def create_requirements_master(target):
     """
@@ -582,7 +618,10 @@ def install_sensor(target, sensor):
     :param sensor:
     :return:
     """
-
+    if sys.platform == "win32" and target["target"]["os"] != "Windows":
+        print("  - Not installing sensor %s on a %s target - continuing." 
+                % (sensor['name'], sys.platform,))
+        return
     root = target["root"]
     sensors_dir = os.path.abspath(os.path.join(root, target["target"]["sensors_directory"]))
     reqs_dir = os.path.abspath(os.path.join(root, target["target"]["requirements_directory"]))
@@ -628,11 +667,83 @@ def install_sensor(target, sensor):
             os.path.abspath(os.path.join(reqs_dir, require_txt))
         )
 
+def install_sensor_service(target):
+    """
+    Install the sensor service 
+
+    :param target:
+    :param sensors:
+    :return:
+    """
+    global APIHOST, BASE_PORT_NO, DEFAULT_DEBUG_LEVEL, UPDATE_SENSOR_ZIP
+    # define our directories
+    sys_drive = os.environ["SystemDrive"] + os.sep
+    root = target["root"]
+    sensors = target["target"]["sensors"]
+    svc_root = os.path.abspath(os.path.join(root, "sensor_service"))
+    svc_dirs = []
+    for svc_dir in target["target"]["service_directories"]:
+        if target["target"]["os"] != u'Windows':
+            continue
+        svc_dirs.append(os.path.join(svc_root, svc_dir))
+
+    print("+ Configuring %d Windows Service(s)" % (len(svc_dirs),))
+
+    for svc_dir in svc_dirs:
+        print("  + Configuring %d Windows Sensor(s) for service %s" 
+                % (len(sensors), os.path.basename(svc_dir),))
+        cfg_dir = os.path.join(svc_dir, "config")
+        if not os.path.exists(cfg_dir):
+            os.makedirs(cfg_dir)
+        logs_dir = os.path.join(svc_dir, "logs")
+        if not os.path.exists(logs_dir):
+            os.makedirs(logs_dir)
+
+        with open(os.path.join(svc_root, "update_sensor_zip.ps1"), "w") as zf:
+            zf.write(UPDATE_SENSOR_ZIP)  
+            for sensor in sensors:
+                src_path = os.path.abspath(os.path.join(root, target["target"]["sensors_directory"], sensor))
+                cmd_line = ("Compress-Archive -Update -Path {0}\*.py -DestinationPath $zipfile\n"
+                        .format(src_path,))
+                zf.write(cmd_line)
+
+        for sensor in sensors:
+            certs_dir = os.path.join(svc_dir, "certs", sensor)
+            if not os.path.exists(certs_dir):
+                os.makedirs(certs_dir)
+            print("    + Created certs dir for sensor %s"
+                    % (sensor,))
+            cfg_file_path = os.path.join(cfg_dir, sensor + ".cfg")
+            with open(cfg_file_path, "w") as cfg_file:
+                portno = BASE_PORT_NO
+                BASE_PORT_NO += 1
+                cfg_data = CONFIG_FILE_TEMPLATE.format(apihost=APIHOST,
+                        sensorport=portno, sensorname=sensor, 
+                        default_debug_level=DEFAULT_DEBUG_LEVEL,)
+                cfg_file.write(cfg_data)
+
+            print("    + Wrote a service config file for sensor %s" 
+                    % (sensor,))
+
+            name = "name=Open Port %d" % (portno,)
+            localport = "localport=%d" % (portno,)
+            cmd_args = ["netsh", "advfirewall", "firewall", "add", "rule", 
+                    name, "dir=in", "action=allow", "protocol=TCP", localport]
+            proc = Popen(cmd_args, stdout=PIPE, stderr=PIPE)
+            _sout, _serr = proc.communicate()
+            if proc.returncode == 0:
+                print("    + Opened port %d for sensor %s" 
+                        % (portno, sensor,))
+            else:
+                print("    - Failed to open port %d for sensor %s!!"
+                        % (portno, sensor,))
+
 def install_ntquerysys(target, ntquerysys_dir):
     """
     Install the ntquerysys library files into the target.
 
     :param target:
+    :param ntquerysys_dir:
     :return:
     """
     # define our directories
@@ -792,6 +903,7 @@ if __name__ == "__main__":
     print "Finding Targets"
 
     # find all of the targets on the system
+    print "  # finding targets in %s" % (targets_dir,)
     targets = find_targets(targets_dir)
 
     # like modules and sensors, we can skip targets, as specified with the --skip-target flag
