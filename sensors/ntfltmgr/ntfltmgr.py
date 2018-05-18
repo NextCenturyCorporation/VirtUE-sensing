@@ -1,14 +1,15 @@
 '''
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
+import sys
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Array
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, resize
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL
-5
+
 S_OK = 0
 
 ULONG_PTR = WPARAM
@@ -164,14 +165,6 @@ class FILTER_MESSAGE_HEADER(SaviorStruct):
     
 GetMessagePacket = namedtuple('GetMessagePacket', ['ReplyLength', 'MessageId', 'Message'])
         
-class TestSaviorCommand(FILTER_MESSAGE_HEADER):
-    '''
-    A Test Savior Command Buffer
-    '''
-    _fields_ = [
-        ("SaviorCommandLength", USHORT), 
-        ("SaviorCommandBuffer", WCHAR) 
-    ]
 
 class SaviorCommand(CtypesEnum):
     '''
@@ -179,15 +172,15 @@ class SaviorCommand(CtypesEnum):
     '''
     ECHO              = 0x0
 
-from ctypes import Array
+
 class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
     '''
     Savior Command Packet
     '''
     _fields_ = [
         ("SaviorCommand", USHORT), 
-        ("CmdMsgSize", ULONG), 
-        ("CmdMsg", UCHAR * 1)
+        ("CmdMsgSize", USHORT), 
+        ("CmdMsg", BYTE * 1)
     ]
 
 
@@ -236,10 +229,9 @@ _FilterGetMessageParamFlags = (0, "hPort"), (0,  "lpMessageBuffer"), (0, "dwMess
 _FilterGetMessage = _FilterGetMessageProto(("FilterGetMessage", windll.fltlib), _FilterGetMessageParamFlags)
 def FilterGetMessage(hPort, msg_len):
     '''    
-    returns information about a mini filter driver instance and is used as a 
-    starting point for scanning the instances 
-    @note close the handle returned using CloseHandle
-    @param PortName fully qualified name of the communication server port
+    Get a message from filter driver     
+    @param hPort the port handle from the driver we are communicating with
+    @param msg_len the message length that we expect to receive
     @returns hPort Port Handle
     '''    
     res = HRESULT()
@@ -562,9 +554,14 @@ def main():
     '''
     let's test some stuff
     '''
-    import pdb;set_trace();
+    import pdb;pdb.set_trace()
     hFltComms = FilterConnectCommunicationPort("\\WVUPort")
-    CloseHandle(hFltComms);
+    (res, msg_pkt,) = FilterGetMessage(hFltComms, 128)
+    reply_buffer = create_string_buffer(msg_pkt.ReplyLength)
+    reply_buffer.value = b"Testing 123 - is anyone there?"
+    FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, reply_buffer)
+    CloseHandle(hFltComms)
+    sys.exit(0)
     
     stats = {}
     (handle, info,) = FilterFindFirst()

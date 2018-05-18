@@ -70,6 +70,8 @@ DriverUnload(
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 
+	Globals.ShuttingDown = TRUE;
+
 	WVUDebugBreakPoint();
 
 	// destroy global object instances

@@ -137,7 +137,11 @@ WVUSensorThread(PVOID StartContext)
 			"Memory Allocation Failed! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
+	pSavCmdPkt->Cmd = SaviorCommand::ECHO;
+	pSavCmdPkt->MessageId = 0;
+	pSavCmdPkt->ReplyLength = ReplyBufferLen;
+	pSavCmdPkt->CmdMsgSize = 1;
+	pSavCmdPkt->CmdMsg[0] = 'X';
 	ReplyBuffer = (PUCHAR)ALLOC_POOL(PagedPool, ReplyBufferLen);
 	if (NULL == ReplyBuffer)
 	{
@@ -161,6 +165,7 @@ WVUSensorThread(PVOID StartContext)
 		else
 		{
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded! . . .\n");
+			pSavCmdPkt->MessageId++;
 		}
 		KeDelayExecutionThread(KernelMode, FALSE, &timeout);
 

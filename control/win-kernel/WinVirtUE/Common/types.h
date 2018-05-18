@@ -169,6 +169,8 @@ typedef struct _WVUGlobals
 	BOOLEAN ShuttingDown;
 } WVUGlobals, *PWVUGlobals;
 
+
+
 /**
 * Savior Command Enumeration 
 */
@@ -180,10 +182,10 @@ typedef enum _SaviorCommand : UINT16
 /** 
 * Savior Command Packet
 */
-typedef struct _SaviorCommandPkt
+typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
 {
-	SaviorCommand Cmd;		// The savior command to send to the listening user space service
-	SIZE_T CmdMsgSize;	// The command message size
-	UCHAR CmdMsg[0];     // The command message
+	SaviorCommand Cmd;	// The savior command to send to the listening user space service
+	UINT16 CmdMsgSize;	// The command message size
+	UCHAR CmdMsg[1];    // The command message
 } *PSaviorCommandPkt, SaviorCommandPkt;
 
