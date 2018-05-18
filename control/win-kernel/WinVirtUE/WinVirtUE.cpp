@@ -119,7 +119,7 @@ WVUSensorThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PSaviorCommandPkt pSavCmdPkt = NULL;
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = -1000 * 1000 * 10 * 60;  // ten second timeout
+	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
@@ -155,11 +155,18 @@ WVUSensorThread(PVOID StartContext)
 	{
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			pSavCmdPkt, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &timeout);
-		if (FALSE == NT_SUCCESS(Status))
+		if (FALSE == NT_SUCCESS(Status)) 
 		{
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed! Status=%08x\n", Status);
-			goto ErrorExit;
+			if (STATUS_PORT_DISCONNECTED == Status)
+			{
+				KeDelayExecutionThread(KernelMode, FALSE, &timeout);
+			}
+			else
+			{
+				goto ErrorExit;
+			}
 		}
 		else if (STATUS_TIMEOUT == Status)
 		{

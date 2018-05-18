@@ -183,7 +183,8 @@ class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
         ("CmdMsg", BYTE * 1)
     ]
 
-
+class RawPacket(FILTER_MESSAGE_HEADER):
+    _fields_ = ["Message", BYTE * 1]
     
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -217,11 +218,11 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     # What's the messages total length in bytes
     total_len = msg_len + sizeof(FILTER_REPLY_HEADER) - 1
     reply_buffer = create_string_buffer(total_len)
-    info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
+    info = cast(reply_buffer, POINTER(RawPacket))    
     info.contents.Status = status
     info.contents.MessageId = msg_id
-    payload = cast(reply_buffer[sizeof(FILTER_REPLY_HEADER):], type(msg))
-    memmove(payload.contents, msg, len(msg))
+    resize(info.contents.Message, len(msg))
+    memmove(info.contents.Message, msg, len(msg))
     res = _FilterReplyMessage(hPort, info.contents, total_len)
 
     return res
