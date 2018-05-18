@@ -5,7 +5,7 @@ import sys
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Array
+from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Array, memmove
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, resize
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL
@@ -160,7 +160,7 @@ class FILTER_MESSAGE_HEADER(SaviorStruct):
     '''
     _fields_ = [
        ('ReplyLength', ULONG),
-       ('MessageId', ULONGLONG)
+       ('MessageId', ULONGLONG)       
     ]
     
 GetMessagePacket = namedtuple('GetMessagePacket', ['ReplyLength', 'MessageId', 'Message'])
@@ -196,7 +196,7 @@ logger.setLevel(logging.ERROR)
 _FilterReplyMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
 _FilterReplyMessageParamFlags = (0, "hPort"), (0,  "lpReplyBuffer"), (0, "dwReplyBufferSize")
 _FilterReplyMessage = _FilterReplyMessageProto(("FilterReplyMessage", windll.fltlib), _FilterReplyMessageParamFlags)
-def FilterReplyMessage(hPort, status, msg_id, reply_buffer):
+def FilterReplyMessage(hPort, status, msg_id, msg):
     '''    
     replies to a message from a kernel-mode minifilter 
     @note close the handle returned using CloseHandle
@@ -209,18 +209,20 @@ def FilterReplyMessage(hPort, status, msg_id, reply_buffer):
     @returns S_OK if successful. Otherwise, it returns an error value
     '''    
     res = HRESULT()
+        
+    if msg is None or not hasattr(msg, "__len__") or len(msg) <= 0:
+        raise ValueError("Parameter msg is invalid!")
     
-    if reply_buffer is None or not hasattr(reply_buffer, "__len__") or len(reply_buffer) <= 0:
-        raise ValueError("Parameter MsgBuf is invalid!")
-    
-    msg_len = len(reply_buffer)
+    msg_len = len(msg)
     # What's the messages total length in bytes
-    total_len = msg_len + sizeof(FILTER_REPLY_HEADER)            
-    sb = create_string_buffer(total_len)    
-    info = cast(sb, POINTER(FILTER_REPLY_HEADER))
-    info.Status = status
-    info.MessageId = msg_id
-    res = _FilterReplyMessage(hPort, byref(sb.raw), len(sb.raw))
+    total_len = msg_len + sizeof(FILTER_REPLY_HEADER) - 1
+    reply_buffer = create_string_buffer(total_len)
+    info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
+    info.contents.Status = status
+    info.contents.MessageId = msg_id
+    payload = cast(reply_buffer[sizeof(FILTER_REPLY_HEADER):], type(msg))
+    memmove(payload.contents, msg, len(msg))
+    res = _FilterReplyMessage(hPort, info.contents, total_len)
 
     return res
 
@@ -239,11 +241,9 @@ def FilterGetMessage(hPort, msg_len):
     if msg_len is None or not isinstance(msg_len, int) or msg_len <= 0:
         raise ValueError("Parameter MsgBuf is invalid!")
     
-    # What's the messages total length in bytes
-    total_len = msg_len + sizeof(FILTER_MESSAGE_HEADER)            
-    sb = create_string_buffer(total_len)        
+    sb = create_string_buffer(msg_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
-    res = _FilterGetMessage(hPort, info, len(sb), cast(None, POINTER(OVERLAPPED)))
+    res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
     
     replylen = info.contents.ReplyLength
     msgid = info.contents.MessageId
@@ -555,12 +555,9 @@ def main():
     '''
     let's test some stuff
     '''
-    import pdb;pdb.set_trace()
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-    (res, msg_pkt,) = FilterGetMessage(hFltComms, 128)
-    reply_buffer = create_string_buffer(msg_pkt.ReplyLength)
-    reply_buffer.value = b"Testing 123 - is anyone there?"
-    FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, reply_buffer)
+    (res, msg_pkt,) = FilterGetMessage(hFltComms, 128) 
+    FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
     CloseHandle(hFltComms)
     sys.exit(0)
     

@@ -106,7 +106,7 @@ ErrorExit:
 }
 
 /**
-* @brief probe communcations thread.  this thread drains the sensor queue by
+* @brief probe communcations thread.  this thread drains the sensor queue by0j
 * sending probe data to the user space service.
 * @param StartContext this threads context as passed during creation
 */
@@ -115,17 +115,16 @@ VOID
 WVUSensorThread(PVOID StartContext)
 {
 	UNREFERENCED_PARAMETER(StartContext);
+	const ULONG REPLYLEN = 128;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PSaviorCommandPkt pSavCmdPkt = NULL;
 	LARGE_INTEGER timeout = { 0LL };
 	timeout.QuadPart = -1000 * 1000 * 10 * 60;  // ten second timeout
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
-	ULONG ReplyBufferLen = 64;
+	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
 
 	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
-
-	__debugbreak();
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -158,17 +157,18 @@ WVUSensorThread(PVOID StartContext)
 			pSavCmdPkt, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &timeout);
 		if (FALSE == NT_SUCCESS(Status))
 		{
-			KeDelayExecutionThread(KernelMode, FALSE, &timeout);
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed! Status=%08x\n", Status);
+			goto ErrorExit;
 		}
-		else
+		else if (STATUS_TIMEOUT == Status)
 		{
-			if (ReplyBufferLen <= 0)
-			{
-				continue;
-			}
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded! . . .\n");
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Timed Out! . . .\n");
+			__debugbreak();
+		}
+		else if (TRUE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %d!\n", ReplyBufferLen);
 			pSavCmdPkt->MessageId++;
 		}
 	} while (FALSE == Globals.ShuttingDown);
