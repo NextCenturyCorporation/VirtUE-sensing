@@ -118,7 +118,7 @@ WVUSensorThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PSaviorCommandPkt pSavCmdPkt = NULL;
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
+	timeout.QuadPart = -1000 * 1000 * 10 * 30;  // ten second timeout
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = 64;
 	PUCHAR ReplyBuffer = NULL;
@@ -167,8 +167,6 @@ WVUSensorThread(PVOID StartContext)
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded! . . .\n");
 			pSavCmdPkt->MessageId++;
 		}
-		KeDelayExecutionThread(KernelMode, FALSE, &timeout);
-
 	} while (FALSE == Globals.ShuttingDown);
 
 

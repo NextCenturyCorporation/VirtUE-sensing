@@ -242,8 +242,9 @@ def FilterGetMessage(hPort, msg_len):
     # What's the messages total length in bytes
     total_len = msg_len + sizeof(FILTER_MESSAGE_HEADER)            
     sb = create_string_buffer(total_len)        
-    res = _FilterGetMessage(hPort, byref(sb.raw), len(sb.raw))
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
+    res = _FilterGetMessage(hPort, byref(sb), len(sb), cast(None, POINTER(OVERLAPPED)))
+    
     replylen = info.contents.ReplyLength
     msgid = info.contents.MessageId
     msg_pkt = GetMessagePacket(replylen, msgid, sb[sizeof(FILTER_MESSAGE_HEADER):])
@@ -554,7 +555,7 @@ def main():
     '''
     let's test some stuff
     '''
-    import pdb;pdb.set_trace();
+    import pdb;pdb.set_trace()
     hFltComms = FilterConnectCommunicationPort("\\WVUPort")
     (res, msg_pkt,) = FilterGetMessage(hFltComms, 128)
     reply_buffer = create_string_buffer(msg_pkt.ReplyLength)
