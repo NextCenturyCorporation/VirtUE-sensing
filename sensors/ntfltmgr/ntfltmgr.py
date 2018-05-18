@@ -179,7 +179,11 @@ class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
     '''
     _fields_ = [
         ("SaviorCommand", USHORT), 
+<<<<<<< HEAD
         ("CmdMsgSize", USHORT), 
+=======
+        ("CmdMsgSize", ULONG), 
+>>>>>>> 286ae79b495a3372e3c1247089a377d7f6d7d5b9
         ("CmdMsg", BYTE * 1)
     ]
 
@@ -554,7 +558,7 @@ def main():
     '''
     let's test some stuff
     '''
-    import pdb;pdb.set_trace()
+    import pdb;pdb.set_trace();
     hFltComms = FilterConnectCommunicationPort("\\WVUPort")
     (res, msg_pkt,) = FilterGetMessage(hFltComms, 128)
     reply_buffer = create_string_buffer(msg_pkt.ReplyLength)
