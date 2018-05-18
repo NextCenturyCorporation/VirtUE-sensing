@@ -5,10 +5,10 @@ import logging
 from enum import IntEnum
 from collections import namedtuple
 from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure
-from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
+from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, resize
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL
-
+5
 S_OK = 0
 
 ULONG_PTR = WPARAM
@@ -172,6 +172,25 @@ class TestSaviorCommand(FILTER_MESSAGE_HEADER):
         ("SaviorCommandLength", USHORT), 
         ("SaviorCommandBuffer", WCHAR) 
     ]
+
+class SaviorCommand(CtypesEnum):
+    '''
+    Type of filter driver information requested
+    '''
+    ECHO              = 0x0
+
+from ctypes import Array
+class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
+    '''
+    Savior Command Packet
+    '''
+    _fields_ = [
+        ("SaviorCommand", USHORT), 
+        ("CmdMsgSize", ULONG), 
+        ("CmdMsg", UCHAR * 1)
+    ]
+
+
     
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -543,6 +562,10 @@ def main():
     '''
     let's test some stuff
     '''
+    import pdb;set_trace();
+    hFltComms = FilterConnectCommunicationPort("\\WVUPort")
+    CloseHandle(hFltComms);
+    
     stats = {}
     (handle, info,) = FilterFindFirst()
     (hFltInstFindFirst, info,) = FilterInstanceFindFirst(info.FilterName)

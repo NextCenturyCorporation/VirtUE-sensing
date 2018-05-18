@@ -121,8 +121,11 @@ WVUSensorThread(PVOID StartContext)
 	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = 64;
+	PUCHAR ReplyBuffer = NULL;
 
 	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+	__debugbreak();
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -135,7 +138,7 @@ WVUSensorThread(PVOID StartContext)
 		goto ErrorExit;
 	}
 
-	PUCHAR ReplyBuffer = (PUCHAR)ALLOC_POOL(PagedPool, ReplyBufferLen);
+	ReplyBuffer = (PUCHAR)ALLOC_POOL(PagedPool, ReplyBufferLen);
 	if (NULL == ReplyBuffer)
 	{
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "ALLOC_POOL(ReplyBuffer) "
@@ -148,7 +151,7 @@ WVUSensorThread(PVOID StartContext)
 
 	do
 	{
-		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort, 
+		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			pSavCmdPkt, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &timeout);
 		if (FALSE == NT_SUCCESS(Status))
 		{
@@ -165,6 +168,15 @@ WVUSensorThread(PVOID StartContext)
 
 
 ErrorExit:
+	if (NULL != pSavCmdPkt)
+	{
+		FREE_POOL(pSavCmdPkt);
+	}
+
+	if(NULL != ReplyBuffer)
+	{
+		FREE_POOL(ReplyBuffer);
+	}
 
 	// Drop a rundown reference 
 	ExReleaseRundownProtection(&Globals.RunDownRef);
