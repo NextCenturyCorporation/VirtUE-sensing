@@ -243,7 +243,7 @@ def FilterGetMessage(hPort, msg_len):
     total_len = msg_len + sizeof(FILTER_MESSAGE_HEADER)            
     sb = create_string_buffer(total_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
-    res = _FilterGetMessage(hPort, byref(sb), len(sb), cast(None, POINTER(OVERLAPPED)))
+    res = _FilterGetMessage(hPort, info, len(sb), cast(None, POINTER(OVERLAPPED)))
     
     replylen = info.contents.ReplyLength
     msgid = info.contents.MessageId
@@ -556,7 +556,7 @@ def main():
     let's test some stuff
     '''
     import pdb;pdb.set_trace()
-    hFltComms = FilterConnectCommunicationPort("\\WVUPort")
+    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     (res, msg_pkt,) = FilterGetMessage(hFltComms, 128)
     reply_buffer = create_string_buffer(msg_pkt.ReplyLength)
     reply_buffer.value = b"Testing 123 - is anyone there?"

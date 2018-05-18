@@ -150,7 +150,6 @@ WVUSensorThread(PVOID StartContext)
 		goto ErrorExit;
 	}
 
-
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Acquired rundown protection . . .\n");
 
 	do
@@ -159,6 +158,7 @@ WVUSensorThread(PVOID StartContext)
 			pSavCmdPkt, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &timeout);
 		if (FALSE == NT_SUCCESS(Status))
 		{
+			KeDelayExecutionThread(KernelMode, FALSE, &timeout);
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed! Status=%08x\n", Status);
 		}
