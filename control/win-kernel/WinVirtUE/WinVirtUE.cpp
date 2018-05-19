@@ -170,6 +170,8 @@ WVUSensorThread(PVOID StartContext)
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %d!\n", ReplyBufferLen);
 			pSavCmdPkt->MessageId++;
 		}
+		ReplyBufferLen = REPLYLEN;
+		RtlSecureZeroMemory(ReplyBuffer, REPLYLEN);
 	} while (FALSE == Globals.ShuttingDown);
 
 

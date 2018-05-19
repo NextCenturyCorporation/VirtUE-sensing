@@ -219,7 +219,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     msg_len = len(msg)    
     sz_frh = sizeof(FILTER_REPLY_HEADER)
     # What's the messages total length in bytes
-    total_len = msg_len + sz_frh - 1
+    total_len = msg_len + sz_frh
     reply_buffer = create_string_buffer(total_len)
     info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
     info.contents.Status = status
