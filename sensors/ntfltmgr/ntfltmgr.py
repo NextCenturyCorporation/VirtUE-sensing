@@ -5,10 +5,11 @@ import sys
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Array, memmove
-from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, resize
+from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
-from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL
+from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
+from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL
 
 S_OK = 0
 
@@ -182,9 +183,6 @@ class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
         ("CmdMsgSize", USHORT), 
         ("CmdMsg", BYTE * 1)
     ]
-
-class RawPacket(FILTER_MESSAGE_HEADER):
-    _fields_ = ["Message", BYTE * 1]
     
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -214,17 +212,20 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     if msg is None or not hasattr(msg, "__len__") or len(msg) <= 0:
         raise ValueError("Parameter msg is invalid!")
     
-    msg_len = len(msg)
+    if isinstance(msg, str):
+        txt = msg
+        msg = bytearray()
+        msg.extend(map(ord, txt))                    
+    msg_len = len(msg)    
+    sz_frh = sizeof(FILTER_REPLY_HEADER)
     # What's the messages total length in bytes
-    total_len = msg_len + sizeof(FILTER_REPLY_HEADER) - 1
+    total_len = msg_len + sz_frh - 1
     reply_buffer = create_string_buffer(total_len)
-    info = cast(reply_buffer, POINTER(RawPacket))    
+    info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
     info.contents.Status = status
-    info.contents.MessageId = msg_id
-    resize(info.contents.Message, len(msg))
-    memmove(info.contents.Message, msg, len(msg))
+    info.contents.MessageId = msg_id        
+    reply_buffer[sz_frh:sz_frh + msg_len] = msg    
     res = _FilterReplyMessage(hPort, info.contents, total_len)
-
     return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))

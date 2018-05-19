@@ -158,20 +158,12 @@ WVUSensorThread(PVOID StartContext)
 		if (FALSE == NT_SUCCESS(Status)) 
 		{
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "FltSendMessage "
-				"(...) Message Send Failed! Status=%08x\n", Status);
-			if (STATUS_PORT_DISCONNECTED == Status)
-			{
-				KeDelayExecutionThread(KernelMode, FALSE, &timeout);
-			}
-			else
-			{
-				goto ErrorExit;
-			}
+				"(...) Message Send Failed! Status=%08x - waiting\n", Status);
+			KeDelayExecutionThread(KernelMode, FALSE, &timeout);
 		}
 		else if (STATUS_TIMEOUT == Status)
 		{
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Timed Out! . . .\n");
-			__debugbreak();
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
