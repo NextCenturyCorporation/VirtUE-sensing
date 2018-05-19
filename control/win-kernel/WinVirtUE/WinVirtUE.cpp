@@ -69,7 +69,7 @@ WVUMainThreadStart(PVOID StartContext)
 	do
 	{
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeWaitForSingleObject(WVUMainThreadStart, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
-		Status = KeWaitForSingleObject(WVUMainThreadStartEvt, KWAIT_REASON::Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
+		Status = KeWaitForSingleObject(WVUMainThreadStartEvt, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0);
 		if (FALSE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed! Status=%08x\n", Status);
@@ -119,7 +119,7 @@ WVUSensorThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PSaviorCommandPkt pSavCmdPkt = NULL;
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
+	timeout.QuadPart = -1000 * 1000 * 10 * 5;  // five second timeout
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
@@ -153,6 +153,7 @@ WVUSensorThread(PVOID StartContext)
 
 	do
 	{
+		Status = KeWaitForSingleObject(&Globals.PortConnectEvt, KWAIT_REASON::Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			pSavCmdPkt, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &timeout);
 		if (FALSE == NT_SUCCESS(Status)) 
@@ -167,7 +168,7 @@ WVUSensorThread(PVOID StartContext)
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %d!\n", ReplyBufferLen);
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %d Messagse=%s!\n", ReplyBufferLen, ReplyBuffer);
 			pSavCmdPkt->MessageId++;
 		}
 		ReplyBufferLen = REPLYLEN;

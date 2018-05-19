@@ -225,7 +225,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     info.contents.Status = status
     info.contents.MessageId = msg_id        
     reply_buffer[sz_frh:sz_frh + msg_len] = msg    
-    res = _FilterReplyMessage(hPort, info.contents, total_len)
+    res = _FilterReplyMessage(hPort, info, total_len)
     return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
@@ -557,11 +557,12 @@ def main():
     '''
     let's test some stuff
     '''
-    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-    (res, msg_pkt,) = FilterGetMessage(hFltComms, 128) 
-    FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
-    CloseHandle(hFltComms)
-    sys.exit(0)
+    while True:
+        (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+        (res, msg_pkt,) = FilterGetMessage(hFltComms, 128) 
+        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
+        CloseHandle(hFltComms)
+        sys.exit(0)
     
     stats = {}
     (handle, info,) = FilterFindFirst()

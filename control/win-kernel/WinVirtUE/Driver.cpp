@@ -134,6 +134,11 @@ DriverEntry(
 	// continues the objects created will have their destructors called.
 	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
 
+	// init the Port Connection Event  This coordinate the connections from user space
+	// so that the outbound queue processor will start or stop processing depending on
+	// current connection state
+	KeInitializeEvent(&Globals.PortConnectEvt, EVENT_TYPE::NotificationEvent, FALSE);
+	
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
 
 	//  Register with FltMgr to tell it our callback routines
