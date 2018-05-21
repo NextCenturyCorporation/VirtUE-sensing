@@ -10,6 +10,7 @@
 /* hold socket JSON probe interface */
 extern struct kernel_sensor k_sensor;
 extern char *socket_name;
+extern char *lockfile_name;
 struct connection listener;
 EXPORT_SYMBOL(listener);
 
@@ -23,18 +24,15 @@ init_connection(struct connection *, uint64_t, void *);
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
 static ssize_t k_socket_read(struct socket *sock,
-						 size_t size,
-						 void *in,
-						 unsigned int flags)
+							 size_t size,
+							 void *in,
+							 unsigned int flags)
 {
 
-	ssize_t res;
+	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
-	struct kvec iov;
-	char *kaddr = in;
-	iov.iov_base = kaddr;
-	iov.iov_len = size;
-	DMSG();
+	struct kvec iov = {.iov_base = in, .iov_len = size};
+
 	printk(KERN_DEBUG "k_socket_read sock %p, num bytes to read %ld," \
 		   "inbuf %p, flags %x\n",
 		   sock, size, in, flags);
@@ -51,13 +49,11 @@ static ssize_t k_socket_write(struct socket *sock,
 							  void *out,
 							  unsigned int flags)
 {
-	ssize_t res;
+	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
-	struct kvec iov;
-	char *kaddr = out;
-	iov.iov_base = kaddr;
-	iov.iov_len = size;
-	DMSG();
+	struct kvec iov = {.iov_base = out, .iov_len = size};
+
+
 	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
 		   "outbuf %p, flags %x\n",
 		   sock, size, out, flags);
@@ -146,8 +142,9 @@ k_echo_server(struct kthread_work *work)
 	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
-	uint8_t read_buf[5];
-	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00};
+	uint8_t read_buf[9] = {0};
+	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00 };
+	uint8_t discover[] = { 'd', 'i', 's', 'c', 'o', 'v', 'e', 'r', 0x00 };
 
 
 	struct socket *sock = NULL;
@@ -159,13 +156,14 @@ k_echo_server(struct kthread_work *work)
 		   connection->flags);
 	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
+	ccode = down_interruptible(&connection->s_lock);
+	if (ccode)
+		goto close_out;
 
-	spin_lock(&connection->lock);
 	sock = connection->connected;
-	memset(read_buf, 0x00, sizeof(read_buf));
 
 again:
-	ccode = k_socket_read(sock, 5, read_buf, flags);
+	ccode = k_socket_read(sock, sizeof(read_buf), read_buf, flags);
 	if (ccode <= 0){
 		if (ccode == -EAGAIN) {
 			goto again;
@@ -184,23 +182,28 @@ again:
 	printk(KERN_DEBUG "k_socket_read 0L: %d\n", ccode);
 
 	if (! memcmp(read_buf, echo, sizeof(echo))) {
-
 		uint8_t *response = VERSION_STRING;
-		printk(KERN_DEBUG "k_socket_write string: %s\n", response);
+		printk(KERN_DEBUG "k_socket_write echo: %s\n", response);
+		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
+		printk(KERN_DEBUG "k_socket_write echo: %d\n", ccode);
 
-		ccode = k_socket_write(sock, strlen(response) + 1,
-							   response,
-							   0L);
-		printk(KERN_DEBUG "k_socket_write: %d\n", ccode);
-
+	} else if (! memcmp(read_buf, discover, sizeof(discover))){
+		uint8_t *response = NULL;
+		size_t len = 0;
+		ccode = build_discovery_buffer(&response, &len);
+		if (!ccode && response && len) {
+			printk(KERN_DEBUG "k_socket_write discover: %s\n", response);
+			ccode = k_socket_write(sock, len, response, 0L);
+			kfree(response);
+			printk(KERN_DEBUG "k_socket_write discover: %d\n", ccode);
+		}
 	}
 
  	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		/* do it all again */
  		init_and_queue_work(work, worker, k_echo_server);
  	}
-	spin_unlock(&connection->lock);
-
+	up(&connection->s_lock);
 	return;
 close_out:
 	spin_lock(&k_sensor.lock);
@@ -270,7 +273,7 @@ again:
 	printk(KERN_DEBUG "k_socket_read MSG_PEEK returned %d\n", ccode);
 
 	if (ccode < 0){
-		DMSG();
+
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
@@ -278,7 +281,7 @@ again:
 		goto err_out1;
 	}
 	if (flags == MSG_PEEK) {
-		DMSG();
+
 		flags = 0L;
 		goto again;
 	}
@@ -331,9 +334,117 @@ err_out1:
 }
 STACK_FRAME_NON_STANDARD(k_read_write);
 
+
+static void k_poll(struct kthread_work *work)
+{
+
+	struct connection *new_connection = NULL;
+	struct socket *newsock = NULL;
+	struct kthread_worker *worker = work->worker;
+	struct connection *connection =
+		container_of(work, struct connection, work);
+
+	if (down_interruptible(&connection->s_lock)) {
+		goto close_out_reschedule;
+	}
+
+/**
+ * 0. get a struct file * on the socket, socket->file
+ * 1. file->private_data = struct socket
+ * 2. struct sock sock = socket->sk
+ * 3. init a poll_table
+ * 4. poll_initwait init a struct poll_wqueues
+ * 5. poll_wait(file, sk_sleep(sk), poll_table *)
+ * 6. poll_freewait
+ *
+ * static inline void
+ * poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
+ * {
+ *	if (p && p->_qproc && wait_address)
+ *		p->_qproc(filp, wait_address, p);
+ * }
+ *
+ * static inline void sock_poll_wait(struct file *filp,
+ *		wait_queue_head_t *wait_address, poll_table *p)
+ * poll table has the struct file * in it.
+ **/
+	if (connection->connected) {
+		poll_table p_table;
+		struct poll_wqueues wq;
+		struct socket *socket = connection->connected;
+		struct file *f = socket->file;
+
+		f->private_data = socket;
+		init_poll_funcptr(&p_table, poll_wait);
+		poll_initwait(&wq);
+
+
+		/** calls unix_poll_wait **/
+		while (! atomic64_read(&SHOULD_SHUTDOWN)) {
+			int ccode = 0;
+			uint8_t read_buf[] = {0,0,0,0};
+			ktime_t to = (NSEC_PER_SEC / 2);
+			u64 slack = 0;
+
+			poll_schedule_timeout(&wq,
+								  TASK_INTERRUPTIBLE,
+								  &to,
+								  slack);
+			sock_poll_wait(f, sk_sleep(socket->sk), &p_table);
+			/**
+			 * peek to see if there is data to read
+			 **/
+peek_again:
+			ccode = k_socket_read(socket, 1, read_buf, MSG_PEEK);
+			if (!ccode) {
+				continue;
+			}
+			if (unlikely(ccode < 0)) {
+				if (ccode == -EAGAIN) {
+					goto peek_again;
+				}
+				__CLEAR_FLAG(connection->flags, PROBE_LISTEN);
+				goto close_out_quit;
+			}
+
+			if (! atomic64_read(&SHOULD_SHUTDOWN)) {
+				if (unlikely((ccode = kernel_accept(connection->connected,
+													&newsock,
+													0L)) < 0))
+				{
+					printk(KERN_DEBUG "k_accept returned error %d, exiting\n",
+						   ccode);
+					goto close_out_quit;
+				}
+			}
+/**
+ * create a new struct connection, link it to the kernel sensor
+ **/
+			if (newsock != NULL && (! atomic64_read(&SHOULD_SHUTDOWN))) {
+				new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
+				if (new_connection) {
+					init_connection(new_connection, PROBE_CONNECT, newsock);
+				} else {
+					atomic64_set(&SHOULD_SHUTDOWN, 1);
+				}
+			}
+		}
+	}
+
+
+close_out_reschedule:
+	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
+		init_and_queue_work(work, worker, k_poll);
+	}
+close_out_quit:
+	up(&connection->s_lock);
+	return;
+}
+
+
 static void k_accept(struct kthread_work *work)
 {
-	unsigned long flags = 0;
+	int ccode = 0;
 
 	struct connection *new_connection = NULL;
 	struct socket *newsock = NULL;
@@ -346,26 +457,25 @@ static void k_accept(struct kthread_work *work)
 	 * and then uses O_NONBLOCK internally when handling queued skbs.
 	 * the result is that unix accept always blocks.
 	 **/
-	DMSG();
+
+	if (down_interruptible(&connection->s_lock))
+		goto close_out_reschedule;
 
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
-		int ccode;
-		spin_lock_irqsave(&connection->lock, flags);
 		if ((ccode = kernel_accept(connection->connected,
 								   &newsock,
 								   0L)) < 0)
 		{
-			spin_unlock_irqrestore(&connection->lock, flags);
 			printk(KERN_DEBUG "k_accept returned error %d, exiting\n",
 				   ccode);
-			return;
+			goto close_out_quit;
 		}
 	}
 /**
  * create a new struct connection, link it to the kernel sensor
  **/
 	if (newsock != NULL && (! atomic64_read(&SHOULD_SHUTDOWN))) {
-		DMSG();
+
 		new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
 		if (new_connection) {
 			init_connection(new_connection, PROBE_CONNECT, newsock);
@@ -373,14 +483,13 @@ static void k_accept(struct kthread_work *work)
 			atomic64_set(&SHOULD_SHUTDOWN, 1);
 		}
 	}
-	spin_unlock_irqrestore(&connection->lock, flags);
+close_out_reschedule:
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		init_and_queue_work(work, worker, k_accept);
-	} else {
-		DMSG();
 	}
+close_out_quit:
+	up(&connection->s_lock);
 
-	DMSG();
 	return;
 }
 STACK_FRAME_NON_STANDARD(k_accept);
@@ -391,7 +500,7 @@ STACK_FRAME_NON_STANDARD(k_accept);
 #endif
 static int start_listener(struct connection *c)
 {
-	struct sockaddr_un addr;
+	struct sockaddr_un addr = {.sun_family = AF_UNIX};
 	struct socket *sock = NULL;
 
 	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
@@ -420,7 +529,7 @@ static int start_listener(struct connection *c)
 
 	return 0;
 err_release:
-	DMSG();
+
 	sock_release(sock);
 err_exit:
 	c->connected = NULL;
@@ -462,16 +571,15 @@ link_new_connection_work(struct connection *c,
 static inline void *destroy_connection(struct connection *c)
 {
 	/* destroy the probe resources */
-	int ccode;
-	unsigned long flags;
+	if (down_interruptible(&c->s_lock))
+		return c;
 
-	spin_lock_irqsave(&c->lock, flags);
 	if (c->connected) {
-		ccode = kernel_sock_shutdown(c->connected, SHUT_RDWR);
+		kernel_sock_shutdown(c->connected, SHUT_RDWR);
 		sock_release(c->connected);
 		c->connected = NULL;
 	}
-	spin_unlock_irqrestore(&c->lock, flags);
+	up(&c->s_lock);
 	c->destroy((struct probe *)c);
 	memset(c, 0x00, sizeof(*c));
 	return c;
@@ -499,6 +607,8 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	memset(c, 0x00, sizeof(struct connection));
 	c = (struct connection *)init_probe((struct probe *)c,
 										"connection", strlen("connection") + 1);
+	sema_init(&c->s_lock, 1);
+
 /**
  * TODO: I should set the flags individually, or mask the flags param;
  * I'm assuming that listen and connect are the only two flags set in the flags param
@@ -571,14 +681,11 @@ awaken_accept_thread(void)
 	struct socket *sock = NULL;
 	size_t path_len, addr_len;
 	int ccode = 0;
-	unsigned long flags;
-
-	DMSG();
 
 	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
 	if (!sock)
 		return;
-	DMSG();
+
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
@@ -590,29 +697,74 @@ awaken_accept_thread(void)
 		   (path_len < addr_len) ? path_len : addr_len);
 	ccode = kernel_connect(sock, (struct sockaddr *)&addr, sizeof(addr.sun_path), 0L);
 	if (! ccode) {
-		DMSG();
+
 		kernel_sock_shutdown(sock, SHUT_RDWR);
 		sock_release(sock);
 	}
 	/**
 	 * wait until the listener has exited
 	 **/
-	while (! spin_trylock_irqsave(&listener.lock, flags)) {
-		DMSG();
-		schedule();
-	}
-
-	spin_unlock_irqrestore(&listener.lock, flags);
-
+	if (! down_interruptible(&listener.s_lock))
+		up(&listener.s_lock);
 	return;
 }
 
+static int
+unlink_sock_name(char *sock_name, char *lock_name)
+{
+	struct path name_path = {.mnt = 0};
+	struct file *lock_file = NULL;
+	struct file_lock l = {
+		.fl_flags = FL_FLOCK,
+		.fl_type = F_WRLCK,
+	};
+	int need_lock = 0;
+	int ccode = kern_path(sock_name, LOOKUP_FOLLOW, &name_path);
+	if (ccode) {
+       /**
+        * its not an error if we can't get the path, it probably means
+        * the socket name does not need to be unlinked, perhaps it has not
+        * been created yet.
+		*
+		* but, continue onward and try to get the lock file, so another instance
+		* (in the future) will not unlink the sock name while we are using it.
+        **/
+		;
+	}
+
+	if (lock_name) {
+		/**
+		 * open the lock file, create it if necessary
+		 **/
+		lock_file = filp_open(lock_name, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR);
+		if (IS_ERR(lock_file) || ! lock_file) {
+			printk(KERN_DEBUG "error opening or creating the socket lock\n");
+			ccode = -ENFILE;
+			goto exit;
+		}
+
+		/**
+		 * POSIX protocol says this lock will be released if the module
+		 * crashes or exits
+		 **/
+		need_lock = vfs_lock_file(lock_file, F_SETLK, &l, NULL);
+	}
+
+	if (!need_lock && !ccode) {
+		ccode = vfs_unlink(name_path.dentry->d_parent->d_inode,
+						   name_path.dentry,
+						   NULL);
+	}
+exit:
+	return ccode;
+}
 
 
 int
 socket_interface_init(void)
 {
 	init_jsonl_parser();
+	unlink_sock_name(socket_name, lockfile_name);
 	init_connection(&listener, PROBE_LISTEN, socket_name);
 	return 0;
 }
@@ -622,6 +774,7 @@ socket_interface_exit(void)
 {
 	atomic64_set(&SHOULD_SHUTDOWN, 1);
 	awaken_accept_thread();
+	unlink_sock_name(socket_name, NULL);
 	return;
 }
 

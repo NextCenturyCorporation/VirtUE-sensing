@@ -6,13 +6,11 @@ import subprocess
 
 # Create a UDS socket
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-
-echo_response = subprocess.check_output('uname -r', shell=True)
-print >> sys.stderr, "response expected: %s" % echo_response
+print >> sys.stderr, 'preparing a discovery request'
 
 # Connect the socket to the port where the server is listening
 server_address = '/var/run/kernel_sensor'
-print >>sys.stderr, 'connecting to %s' % server_address
+print >> sys.stderr, 'connecting to %s' % server_address
 try:
     sock.connect(server_address)
 except socket.error, msg:
@@ -21,17 +19,15 @@ except socket.error, msg:
 
 try:
     # Send data
-    message = 'echo\0'
+    message = 'discover\0'
     print >>sys.stderr, 'sending "%s"' % message
     sock.sendall(message)
 
     amount_received = 0
-
-
-    while amount_received < amount_expected:
-        data = sock.recv(amount_expected)
-        amount_received += len(data)
-        print >>sys.stderr, 'received "%s"' % data
+    max_amount = 0x400
+    data = sock.recv(max_amount)
+    amount_received = len(data)
+    print >>sys.stderr, 'received "%s"' % data
 
 finally:
     print >>sys.stderr, 'closing socket'

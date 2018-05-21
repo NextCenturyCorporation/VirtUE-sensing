@@ -52,6 +52,8 @@ int sysfs_level = 1;
 
 
 char *socket_name = "/var/run/kernel_sensor";
+char *lockfile_name = "/var/run/kernel_sensor.lock";
+
 
 module_param(lsof_repeat, int, 0644);
 module_param(lsof_timeout, int, 0644);
@@ -288,19 +290,20 @@ STACK_FRAME_NON_STANDARD(build_pid_index);
  * small.
  **/
 
-static inline int
+int
 build_discovery_buffer(uint8_t **buf, size_t *len)
 {
 
 	uint8_t *cursor;
-	int remaining, count = 0;
-	struct probe *p_cursor;
+	int remaining = 0, count = 0;
+	struct probe *p_cursor = NULL;
 
 	assert(buf && len);
 
 	*len = CONNECTION_MAX_HEADER;
 	*buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
 	if (*buf <= 0) {
+		*buf = NULL;
 		*len = 0;
 		return -ENOMEM;
 	}
@@ -317,8 +320,8 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 			if (count > 0) {
 				*cursor++ = COMMA; remaining--;
 				*cursor++ = SPACE; remaining--;
+				*cursor++ = D_QUOTE; remaining--;
 			}
-			*cursor++ = D_QUOTE; remaining--;
 			strncpy(cursor, p_cursor->id, remaining - 3);
 			remaining -= id_len;
 			cursor += id_len;
@@ -329,18 +332,22 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 		}
 	}
 	rcu_read_unlock();
-	if (remaining > 1) {
-		*cursor = R_BRACKET; remaining--;
-		*cursor = 0x00; remaining--;
+	printk(KERN_DEBUG "closing discovery message, remaining %d\n", remaining);
+	if (remaining > 2) {
+		*cursor++ = R_BRACKET; remaining--;
+		*cursor++ = 0x00; remaining--;
 	}
 	if (remaining > 0x100) {
-		*buf = krealloc(*buf, (*len - (remaining - 1)), GFP_KERNEL);
-		*len -= (remaining - 1);
+		*buf = krealloc(*buf, (*len - (remaining - 2)), GFP_KERNEL);
+		*len -= (remaining - 2);
 	}
+	printk(KERN_DEBUG "discovery buffer: %s\n", *buf);
+
 	return 0;
 
 err_exit:
 	if (*buf) kfree(*buf);
+	*buf = NULL;
 	*len = -ENOMEM;
 	return -ENOMEM;
 }
@@ -927,9 +934,6 @@ static int __init kcontrol_init(void)
  * return an error code
  **/
     socket_interface_init();
-
-
-
 	return ccode;
 
 err_exit:
@@ -969,8 +973,10 @@ static void __exit controller_cleanup(void)
 	/* sensor is statically allocated, no need to free it. */
 	atomic64_set(&SHOULD_SHUTDOWN, 1);
 	socket_interface_exit();
+/**
+ * Note: always call socket_interface_exit() BEFORE calling k_sensor._destroy
+ **/
 	k_sensor._destroy(&k_sensor);
-
 }
 
 module_init(kcontrol_init);

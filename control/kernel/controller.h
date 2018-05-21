@@ -1,4 +1,3 @@
-
 /*******************************************************************
  * In-Virtue Kernel Controller
  *
@@ -214,7 +213,10 @@ static inline void task_cputime(struct task_struct *t,
 
 **/
 struct probe {
-	spinlock_t lock;
+	union {
+		spinlock_t lock;
+		struct semaphore s_lock;
+	};
 	uint8_t *id;
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
@@ -675,7 +677,8 @@ __init socket_interface_init(void);
 void
 __exit socket_interface_exit(void);
 
-
+int
+build_discovery_buffer(uint8_t **buf, size_t *len);
 
 /**
  *
