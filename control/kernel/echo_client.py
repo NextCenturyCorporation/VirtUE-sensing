@@ -26,12 +26,11 @@ try:
     sock.sendall(message)
 
     amount_received = 0
+    max_amount = 0x400
 
-
-    while amount_received < amount_expected:
-        data = sock.recv(amount_expected)
-        amount_received += len(data)
-        print >>sys.stderr, 'received "%s"' % data
+    data = sock.recv(max_amount)
+    amount_received = len(data)
+    print >>sys.stderr, 'received "%s"' % data
 
 finally:
     print >>sys.stderr, 'closing socket'

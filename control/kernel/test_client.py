@@ -1,5 +1,33 @@
 #!/usr/bin/python
 import socket, sys, os, subprocess
+
+#def json_connect(sock):
+#    try:
+        #stuff
+
+#    except:
+#        print >>sys.stderr, 'json_connect: closing socket'
+#        sock.close()
+
+def send_echo_test(sock):
+    echo_response = subprocess.check_output('uname -r', shell=True)
+    print >> sys.stderr, "response expected: %s" % echo_response
+
+    try:
+        message = 'echo\0'
+        print >>sys.stderr, 'sending "%s"' % message
+        sock.sendall(message)
+
+        amount_received = 0
+        max_amount = 0x400
+
+        data = sock.recv(max_amount)
+        amount_received = len(data)
+        print >>sys.stderr, 'received "%s"' % data
+    except:
+        print >>sys.stderr, 'send_discover_test: closing socket'
+        sock.close()
+
 # send a discovery test message
 # not a proper json discover message, but tests building
 # a list of all running probes and returning that list as a json array
@@ -16,7 +44,7 @@ def send_discovery_test(sock):
         print >>sys.stderr, 'discovery test received "%s"' % data
 
     except:
-        print >>sys.stderr, 'closing socket'
+        print >>sys.stderr, 'send_discover_test: closing socket'
         sock.close()
 
 
@@ -47,7 +75,7 @@ def client_main(args):
                         help="issue a JSON connect message")
     parser.add_argument("-d", "--discover",
                         action='store_true',
-                        help="retrieve a JSON array of loaded probes")
+                        help="retrieve a JSON array of loaded probes (not a full json exchange)")
     parser.add_argument("-e", "--echo",
                         action='store_true',
                         help="test the controller's echo server")
@@ -64,6 +92,9 @@ def client_main(args):
 
     if args.discover:
         send_discovery_test(s)
+
+    if args.echo:
+        send_echo_test(s)
 
 if __name__ == "__main__":
     import argparse
