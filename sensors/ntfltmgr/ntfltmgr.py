@@ -532,7 +532,10 @@ _FilterClose= _FilterCloseProto(("FilterClose", windll.fltlib), _FilterClosePara
 
 def FilterClose(hFilter):
     '''
-    @note Do not use this function.  
+    @note Do not use this function. As you might of noticed above, the close
+    handle prototype is defined with two parameter.  This is an apparent bug with
+    the ctypes runtime as single parameter functions are flagged as an
+    error.  If you add a 'fake' parameter ('biff' in this case), then all seems to be well. 
     closes an open minifilter handle
     @param hFilter handle as returned by a previoius call to FilterCreate
     @returns HRESULT
@@ -545,8 +548,11 @@ _CloseHandleParamFlags = (0,  "hFilter"), (0, "biff", 0)
 _CloseHandle= _FilterCloseProto(("CloseHandle", windll.kernel32), _CloseHandleParamFlags)
 
 def CloseHandle(handle):
-    '''
+    '''    
     closes an operating system handle
+    @note  As you might of noticed above, the close handle prototype is defined with two parameter.
+    This is an apparent bug with the ctypes runtime as single parameter functions are flagged as an
+    error.  If you add a 'fake' parameter ('biff' in this case), then all seems to be well.
     @param handle handle as returned by a previoius call supported create functions
     @returns True if suceeded else false
     '''
