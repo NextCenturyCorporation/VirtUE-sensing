@@ -37,8 +37,8 @@ _CRTALLOC(".CRT$XCZ") PVFV __crtXcz[] = { NULL };
 /////////////////////////////////////////////////////////////////////////////
 VOID CallGlobalInitializers()
 {
-    PVFV * pfbegin = __crtXca;
-    PVFV * pfend = __crtXcz;
+    _Notnull_ PVFV * pfbegin = __crtXca;
+	_Notnull_ const PVFV * pfend = __crtXcz;
 
     InitializeListHead(&exitList);
 

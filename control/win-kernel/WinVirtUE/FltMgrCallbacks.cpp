@@ -138,7 +138,7 @@ CONST FLT_OPERATION_REGISTRATION OperationCallbacks[] = {
 	{ 
 		IRP_MJ_SHUTDOWN,
 		0,
-		WinVirtUEPreOperationNoPostOperation,
+		WinVirtUEShutdownPreOp,
 		NULL //post operations not supported
 	},                               
 
@@ -382,7 +382,7 @@ WinVirtUEPreOperation(
 VOID
 WinVirtUEOperationStatusCallback(
 	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_In_ PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
+	_In_ const PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
 	_In_ NTSTATUS OperationStatus,
 	_In_ PVOID RequesterContext)
 {
@@ -468,7 +468,7 @@ BOOLEAN
 WinVirtUEDoRequestOperationStatus(
 	_In_ PFLT_CALLBACK_DATA Data)
 {
-	PFLT_IO_PARAMETER_BLOCK iopb = Data->Iopb;
+	const PFLT_IO_PARAMETER_BLOCK iopb = Data->Iopb;
 
 	//
 	//  return boolean state based on which operations we are interested in
@@ -497,3 +497,32 @@ WinVirtUEDoRequestOperationStatus(
 			);
 }
 
+
+/**
+* @brief pre-operation dispatch routine for this miniFilter
+* non-pageable because it could be called on the paging path
+* @param Data Pointer to the filter callbackData that is passed to us
+* @param FltObjects Pointer to the FLT_RELATED_OBJECTS data structure containing
+* opaque handles to this filter, instance, its associated volume and
+* file object.
+* @param CompletionContext The context for the completion routine for this
+* operation.
+* @return Operations Callback Status
+*/
+FLT_PREOP_CALLBACK_STATUS
+WinVirtUEShutdownPreOp(
+	_Inout_ PFLT_CALLBACK_DATA Data,
+	_In_ PCFLT_RELATED_OBJECTS FltObjects,
+	_Flt_CompletionContext_Outptr_ PVOID *CompletionContext)
+{
+	UNREFERENCED_PARAMETER(Data);
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(CompletionContext);
+
+	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
+		"WinVirtUE!WinVirtUEShutdownPreOp: Entered\n");
+	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
+	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
+
+	return FLT_PREOP_SUCCESS_NO_CALLBACK;
+}

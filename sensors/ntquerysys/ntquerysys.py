@@ -2,13 +2,13 @@
 ntquerysys.py - query the windows nt user space runtime for critical
 system data.
 '''
-import logger
+import logging
 from enum import IntEnum
 from ctypes import c_bool, c_char_p, c_wchar_p, c_void_p, c_ushort, c_short, c_size_t, c_byte, c_ubyte, c_char, c_wchar
 from ctypes import c_int, c_uint, c_long, c_ulong, c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64, c_longlong, c_ulonglong
 from ctypes import c_float, c_double, c_longdouble
 from ctypes import cast, create_string_buffer, addressof, POINTER, GetLastError, cdll, byref, sizeof, Structure, WINFUNCTYPE, windll, create_unicode_buffer
-from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, BOOLEAN
+from ctypes.wintypes import HANDLE, ULONG, PULONG, LONG, LARGE_INTEGER, BYTE, BOOLEAN, WPARAM
 from ntsecuritycon import SE_SECURITY_NAME, SE_CREATE_PERMANENT_NAME, SE_DEBUG_NAME
 from win32con import SE_PRIVILEGE_ENABLED
 from win32api import OpenProcess, DuplicateHandle, GetCurrentProcess
@@ -28,8 +28,12 @@ class CtypesEnum(IntEnum):
     '''
     A ctypes-compatible IntEnum superclass
     '''
+
     @classmethod
     def from_param(cls, obj):
+        '''
+        convert to an integer value
+        '''        
         return int(obj)
 
 class SaviorStruct(Structure):
@@ -128,6 +132,9 @@ class OBJECT_INFORMATION(CtypesEnum):
     ObjectTypeInformation = 0x0002 
 
 class SYSTEM_INFORMATION_CLASS(CtypesEnum):
+    '''
+    System Information
+    '''
     SystemBasicInformation=0x0000,
     SystemProcessorInformation=0x0001
     SystemPerformanceInformation=0x0002
@@ -478,7 +485,7 @@ def _get_process_handle(pid):
     process_handle.close()
 
     try:
-       process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
+        process_handle = OpenProcess(PROCESS_DUP_HANDLE, False, pid)        
     except pywintypes.error as err:
         lasterr = GetLastError()
         process_handle = None
@@ -601,7 +608,7 @@ def get_system_handle_information(pid=None):
 
     # return if pid 0, not an integer or not a mod 4 pid
     # all windows process are % 4
-    if not pid or not isinstance(pid, int) or 0 != pid % 4:
+    if not pid or not isinstance(pid, int) or pid % 4 != 0:
         return None
 
     return_length = ULONG()            

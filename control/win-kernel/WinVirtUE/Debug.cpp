@@ -18,7 +18,10 @@
 * @param Level -- Print level
 */
 void
-WVUDebugPrintFileName(PVOID String, INT32 Type, INT32 Level)
+WVUDebugPrintFileName(
+	_In_ _Notnull_ PVOID String, 
+	_In_ INT32 Type, 
+	_In_ INT32 Level)
 {
     switch (Type)
     {
@@ -55,12 +58,14 @@ WVUDebugBreakPoint()
 * @param Size -- Size of the buffer
 */
 void
-WVUDebugPrintBuffer(PUCHAR Buffer, UINT32 Size)
+WVUDebugPrintBuffer(
+	_In_ _Notnull_ const PUCHAR Buffer,
+	_In_ UINT32 Size)
 {
-    UINT32 i;
-    UINT32 printSize = min(0x100, Size);
+	UINT32 i = 0;
+    const UINT32 printSize = min(0x100, Size);
 
-    for (i = 0; i < printSize; i++)
+    for (; i < printSize; i++)
     {
         /* Formatting and such */
         switch (i % 0x10)
@@ -100,7 +105,7 @@ void
 WVUDebugBreakOnMatch(PVOID String, WCHAR *Target, INT32 Type)
 {
     WCHAR *wStr = NULL;
-    UNICODE_STRING *uStr;
+    PUNICODE_STRING uStr = NULL;
     BOOLEAN match = FALSE;
     size_t wStrLen = 0;
     NTSTATUS status = STATUS_SUCCESS;

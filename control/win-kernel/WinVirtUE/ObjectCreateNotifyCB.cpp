@@ -22,7 +22,7 @@ VOID
 ProcessNotifyCallbackEx(
 	_Inout_ PEPROCESS  Process,
 	_In_ HANDLE  ProcessId,
-	_Inout_opt_ PPS_CREATE_NOTIFY_INFO  CreateInfo)
+	_Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo)
 {
 	UNREFERENCED_PARAMETER(Process);
 	UNREFERENCED_PARAMETER(ProcessId);
@@ -73,7 +73,7 @@ ImageLoadNotificationRoutine(
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
-	NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
+	const NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
 	if (FALSE == NT_SUCCESS(Status))
 	{		
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
