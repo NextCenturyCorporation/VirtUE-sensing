@@ -70,7 +70,8 @@ DriverUnload(
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 
-	Globals.ShuttingDown = TRUE;
+	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
+	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
 
 	WVUDebugBreakPoint();
 
@@ -261,7 +262,10 @@ DriverEntry(
 
 ErrorExit:
 
-	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);
+	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
+	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
+
+	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);  // exits the intialization thread
 
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);

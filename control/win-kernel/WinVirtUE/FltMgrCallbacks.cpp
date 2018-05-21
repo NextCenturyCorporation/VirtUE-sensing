@@ -521,7 +521,8 @@ WinVirtUEShutdownPreOp(
 
 	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEShutdownPreOp: Entered\n");
-	Globals.ShuttingDown = TRUE;
+	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
+	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
 
 	return FLT_PREOP_SUCCESS_NO_CALLBACK;
 }
