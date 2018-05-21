@@ -1,4 +1,24 @@
 #!/usr/bin/python
+import socket, sys, os, subprocess
+# send a discovery test message
+# not a proper json discover message, but tests building
+# a list of all running probes and returning that list as a json array
+def send_discovery_test(sock):
+    try:
+        message = 'discover\0'
+        print >>sys.stderr, 'sending "%s"' % message
+        sock.sendall(message)
+
+        amount_received = 0
+        max_amount = 0x400
+        data = sock.recv(max_amount)
+        amount_received = len(data)
+        print >>sys.stderr, 'discovery test received "%s"' % data
+
+    except:
+        print >>sys.stderr, 'closing socket'
+        sock.close()
+
 
 def connect_domain_sock(sockname): # Create a UDS socket
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -20,7 +40,6 @@ def client_main(args):
     socket_name = '/var/run/kernel_sensor'
     parser = argparse.ArgumentParser(description=usage_string)
     parser.add_argument("-s", "--socket",
-                        nargs=1,
                         default=socket_name,
                         help="path to domain socket")
     parser.add_argument("-c", "--connect",
@@ -35,39 +54,18 @@ def client_main(args):
 
     args = parser.parse_args()
 
-    print >> sys.stderr args
-# store the alternative socket name, if specified
-    if args.socket != socket_name:
-        socket_name = args.socket[0]
+    socket_name = args.socket;
 
     s = False
     try:
         s = connect_domain_sock(socket_name)
     except:
         print >> sys.stderr, sys.exc_info()
-    if s is False:
-        print >> sys.stderr, "sock is false"
 
+    if args.discover:
+        send_discovery_test(s)
 
 if __name__ == "__main__":
-    import socket, sys, os, subprocess, argparse
+    import argparse
     client_main(sys.argv)
     sys.exit(0)
-
-
-
-try:
-    # Send data
-    message = 'discover\0'
-    print >>sys.stderr, 'sending "%s"' % message
-    sock.sendall(message)
-
-    amount_received = 0
-    max_amount = 0x400
-    data = sock.recv(max_amount)
-    amount_received = len(data)
-    print >>sys.stderr, 'received "%s"' % data
-
-finally:
-    print >>sys.stderr, 'closing socket'
-    sock.close()
