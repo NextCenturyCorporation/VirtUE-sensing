@@ -271,7 +271,9 @@ struct probe {
 
 /* max message header size */
 #define CONNECTION_MAX_HEADER 0x400
+#define CONNECTION_MAX_REQUEST CONNECTION_MAX_HEADER
 #define CONNECTION_MAX_MESSAGE 0x1000
+#define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
 /* connection struct is used for both listening and connected sockets */
 /* function pointers for listen, accept, close */
 struct connection {

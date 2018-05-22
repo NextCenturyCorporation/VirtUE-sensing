@@ -142,7 +142,7 @@ k_echo_server(struct kthread_work *work)
 	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
-	static uint8_t read_buf[0x020];
+	static uint8_t read_buf[CONNECTION_MAX_REQUEST];
 	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00 };
 	uint8_t discover[] = { 'd', 'i', 's', 'c', 'o', 'v', 'e', 'r', 0x00 };
 	uint8_t session[] = "{Virtue-protocol-version: 0.1}\n";
@@ -206,6 +206,41 @@ again:
 		printk(KERN_DEBUG "k_socket_write session: %s\n", response);
 		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
 		printk(KERN_DEBUG "k_socket_write session return code: %d\n", ccode);
+	} else {
+/**
+ * call the json parser
+ * ccode contains the bytes read - a good value for message->len
+ */
+		size_t len = ccode;
+
+		m = new_message(read_buf, len);
+		if(!m) {
+			goto close_out;
+		}
+
+		m->socket = sock;
+		m->count = read_parse_message(m);
+		if (m->count < 0) {
+			/* for some reason, didn't read a valid json object */
+			printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
+				   "connection is being closed\n");
+			goto err_out_json;
+		}
+
+		/**
+		 * following call, if successful, will dispatch to the
+		 * correct message handler, which will call into the correct
+		 * probe, which will usually result in a write to this socket.
+		 *
+		 * parse_json_message accepts responsibility for freeing
+		 * resources when it returns >= 0.fpu
+		 **/
+		ccode = parse_json_message(m);
+		if (ccode < 0) {
+			printk(KERN_INFO "kernel sensor error parsing a protocol message, " \
+				   "connection is being closed\n");
+			goto err_out_json;
+		}
 	}
 
  	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
@@ -214,6 +249,8 @@ again:
  	}
 	up(&connection->s_lock);
 	return;
+err_out_json:
+	free_message(m);
 close_out:
 	spin_lock(&k_sensor.lock);
 	list_del_rcu(&connection->l_node);
