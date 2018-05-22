@@ -1,0 +1,31 @@
+= Sensing API NTPD Server
+Patrick Dwyer <patrick.dwyer@twosixlabs.com>
+v0.1, 2018-05-22
+:version: 0.1.0
+
+An NTP server for the Sensing Infrastructure and the SAVIOR environment.
+
+== Configuration
+
+The NTPD server is configured with the link:chrony-config.conf[chrony-config.conf file].
+By default we're using the 5 primary servers of the North America NTP pool, but this can be
+reconfigured to use APL internal NTP servers, or Amazon NTP servers in AWS.
+
+Allowed Clients::
+
+* `10.0.0.0/8`
+* `172.16.0.0/12`
+* `192.168.0.0/16`
+* `127.0.0.0/8`
+* `2001:aaaa:bbbb:cccc::/64`
+
+Stratum::
+
+level 5
+
+Upstream Servers::
+
+* 0.north-america.pool.ntp.org
+* 1.north-america.pool.ntp.org
+* 2.north-america.pool.ntp.org
+* 3.north-america.pool.ntp.org
