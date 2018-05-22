@@ -3,6 +3,15 @@ Patrick Dwyer <patrick.dwyer@twosixlabs.com>
 v0.1, 2018-05-22
 :version: 0.1.0
 
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
+
 An NTP server for the Sensing Infrastructure and the SAVIOR environment.
 
 WARNING: This NTPD server is not currently configured for any API services, nor deployed in Dev, Test, or Production.
