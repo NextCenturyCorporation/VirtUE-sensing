@@ -60,6 +60,10 @@ Where _nonce_ is idendical to the value from the request. The _probe ids_ array 
 
 The client then knows the identifying string of each probe that is registered with the server.
 
+#### Nonce Size
+The `nonce` size is upon the discretion of the client, up to `MAX_NONCE_SIZE`, defined by the server as 128 bytes.
+> TODO: right now the server code assumes a nonce length of `MAX_NONCE_SIZE`, needs to allow a smaller size upon the discretion of the client.
+
 ### Probe Commands
 The client may issue commands to the probe:
 
