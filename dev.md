@@ -179,3 +179,19 @@ This **should** remove every image on your system. Rebuilding at this point is a
 ```bash
 docker-compose build --no-cache
 ```
+
+## Where's the Docker daemon log? How do I debug a container that wouldn't launch?
+
+You can find the Docker Engine/Daemon log at (see [stackoverflow](https://stackoverflow.com/questions/45372848/docker-swarm-how-to-find-out-why-service-cant-start?noredirect=1&lq=1) ):
+
+ - Ubuntu (old using upstart) - `/var/log/upstart/docker.log`
+ - Ubuntu (new using systemd) - `journalctl -u docker.service`
+ - Boot2Docker - `/var/log/docker.log`
+ - Debian GNU/Linux - `/var/log/daemon.log`
+ - CentOS - `/var/log/daemon.log | grep docker`
+ - CoreOS - `journalctl -u docker.service`
+ - Fedora - `journalctl -u docker.service`
+ - Red Hat Enterprise Linux Server - `/var/log/messages | grep docker`
+ - OpenSuSE - `journalctl -u docker.service`
+ - OSX - `~/Library/Containers/com.docker.docker/Datacom.docker.driver.amd64-linux/log/d‌​ocker.log`
+ - Windows - `Get-EventLog -LogName Application -Source Docker -After (Get-Date).AddMinutes(-5) | Sort-Object Time`
