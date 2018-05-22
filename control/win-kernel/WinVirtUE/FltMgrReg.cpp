@@ -162,7 +162,7 @@ QueryVolumeInformation(
     FILE_FS_SIZE_INFORMATION SizeInformation = { 0L,0L,0,0 };
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
     PFILE_FS_VOLUME_INFORMATION VolumeInformation = NULL;
-    UCHAR VolumeInfoStack[sizeof(FILE_FS_VOLUME_INFORMATION) + 128];
+	UCHAR VolumeInfoStack[sizeof(FILE_FS_VOLUME_INFORMATION) + 128] = {};
 
     UNREFERENCED_PARAMETER(VolumeDeviceType); // release
 
@@ -286,6 +286,9 @@ WVUUnload(
     }
 
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
+
+	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
+	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
 
     WVUDebugBreakPoint();
 

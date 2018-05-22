@@ -27,18 +27,18 @@ See _Escaping Newlines in Response Record Data_ below.
 
 ## Message Header
 Each message must begin with a protocol header that includes a version value, followed by an array of zero or more records:
-"{Virtue-protocol-verion: 0.1, [...]}\n"
+"{Virtue-protocol-version: 0.1, [...]}\n"
 
 ## Protocol
 
 ### Session Request and Protocol version
 After establishing a connection medium (see above) the client makes a request containing only the protocol header and version (represented by 0.1) by writing to the connected socket:
 
-"{Virtue-protocol-verion: 0.1}\n"
+"{Virtue-protocol-version: 0.1}\n"
 
 The server reads this and, if it agrees to serve the client it responds with:
 
-"{Virtue-protocol-verion: 0.1}\n"
+"{Virtue-protocol-version: 0.1}\n"
 
 Now the Client and Server are in agreement over the protocol version, and ready to engage in the protocol.
 
@@ -59,6 +59,10 @@ The server is expected to respond with:
 Where _nonce_ is idendical to the value from the request. The _probe ids_ array contains the Id String of each probe that is registered with the server. For example, "kernel-ps", "kernel-lsof", and so on.
 
 The client then knows the identifying string of each probe that is registered with the server.
+
+#### Nonce Size
+The `nonce` size is upon the discretion of the client, up to `MAX_NONCE_SIZE`, defined by the server as 128 bytes.
+> TODO: right now the server code assumes a nonce length of `MAX_NONCE_SIZE`, needs to allow a smaller size upon the discretion of the client.
 
 ### Probe Commands
 The client may issue commands to the probe:

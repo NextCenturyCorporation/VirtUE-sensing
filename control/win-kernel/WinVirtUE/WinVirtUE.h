@@ -11,3 +11,4 @@
 #include "externs.h"
 
 KSTART_ROUTINE WVUMainThreadStart;
+KSTART_ROUTINE WVUSensorThread;
