@@ -142,10 +142,10 @@ k_echo_server(struct kthread_work *work)
 	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
-	uint8_t read_buf[9] = {0};
+	static uint8_t read_buf[0x020];
 	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00 };
 	uint8_t discover[] = { 'd', 'i', 's', 'c', 'o', 'v', 'e', 'r', 0x00 };
-
+	uint8_t session[] = "{Virtue-protocol-version: 0.1}\n";
 
 	struct socket *sock = NULL;
 	struct kthread_worker *worker = work->worker;
@@ -153,13 +153,14 @@ k_echo_server(struct kthread_work *work)
 		container_of(work, struct connection, work);
 
 	assert(connection &&
-		   connection->flags);
+		   connection->flags &&
+		   connection->connected);
 	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 	ccode = down_interruptible(&connection->s_lock);
 	if (ccode)
 		goto close_out;
-
+	memset(read_buf, 0x00, sizeof(read_buf));
 	sock = connection->connected;
 
 again:
@@ -168,6 +169,9 @@ again:
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
+		DMSG();
+		printk(KERN_DEBUG "k_socket read ccode: %d\n", ccode);
+
 		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
 		goto close_out;
 	}
@@ -181,13 +185,13 @@ again:
 	}
 	printk(KERN_DEBUG "k_socket_read 0L: %d\n", ccode);
 
-	if (! memcmp(read_buf, echo, sizeof(echo))) {
+	if (!memcmp(read_buf, echo, sizeof(echo))) {
 		uint8_t *response = VERSION_STRING;
 		printk(KERN_DEBUG "k_socket_write echo: %s\n", response);
 		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
-		printk(KERN_DEBUG "k_socket_write echo: %d\n", ccode);
+		printk(KERN_DEBUG "k_socket_write echo return code: %d\n", ccode);
 
-	} else if (! memcmp(read_buf, discover, sizeof(discover))){
+	} else if (!memcmp(read_buf, discover, sizeof(discover))){
 		uint8_t *response = NULL;
 		size_t len = 0;
 		ccode = build_discovery_buffer(&response, &len);
@@ -195,8 +199,13 @@ again:
 			printk(KERN_DEBUG "k_socket_write discover: %s\n", response);
 			ccode = k_socket_write(sock, len, response, 0L);
 			kfree(response);
-			printk(KERN_DEBUG "k_socket_write discover: %d\n", ccode);
+			printk(KERN_DEBUG "k_socket_write discover return code: %d\n", ccode);
 		}
+	} else if (!memcmp(read_buf, session, sizeof(session))) {
+		uint8_t *response = SESSION_RESPONSE;
+		printk(KERN_DEBUG "k_socket_write session: %s\n", response);
+		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
+		printk(KERN_DEBUG "k_socket_write session return code: %d\n", ccode);
 	}
 
  	if (! atomic64_read(&SHOULD_SHUTDOWN)) {

@@ -1,13 +1,21 @@
 #!/usr/bin/python
 import socket, sys, os, subprocess
 
-#def json_connect(sock):
-#    try:
-        #stuff
+def json_connect(sock):
+    try:
+        message = "{Virtue-protocol-version: 0.1}\n\0"
+        print >>sys.stderr, 'sending "%s"' % message
+        sock.sendall(message)
 
-#    except:
-#        print >>sys.stderr, 'json_connect: closing socket'
-#        sock.close()
+        amount_received = 0
+        max_amount = 0x400
+
+        data = sock.recv(max_amount)
+        amount_received = len(data)
+        print >>sys.stderr, 'received "%s"' % data
+    except:
+        print >>sys.stderr, 'json_connect: closing socket'
+        sock.close()
 
 def send_echo_test(sock):
     echo_response = subprocess.check_output('uname -r', shell=True)
@@ -27,6 +35,7 @@ def send_echo_test(sock):
     except:
         print >>sys.stderr, 'send_discover_test: closing socket'
         sock.close()
+
 
 # send a discovery test message
 # not a proper json discover message, but tests building
@@ -95,6 +104,9 @@ def client_main(args):
 
     if args.echo:
         send_echo_test(s)
+
+    if args.connect:
+        json_connect(s)
 
 if __name__ == "__main__":
     import argparse

@@ -30,6 +30,8 @@
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
 
+#define SESSION_RESPONSE "{Virtue-protocol-version: 0.1}\n\0"
+
 extern atomic64_t SHOULD_SHUTDOWN;
 
 enum json_array_chars {
