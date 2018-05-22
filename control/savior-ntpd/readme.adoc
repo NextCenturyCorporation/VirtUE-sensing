@@ -5,6 +5,8 @@ v0.1, 2018-05-22
 
 An NTP server for the Sensing Infrastructure and the SAVIOR environment.
 
+WARNING: This NTPD server is not currently configured for any API services, nor deployed in Dev, Test, or Production.
+
 == Configuration
 
 The NTPD server is configured with the link:chrony-config.conf[chrony-config.conf file].
