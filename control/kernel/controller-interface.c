@@ -148,6 +148,8 @@ k_echo_server(struct kthread_work *work)
 	uint8_t session[] = "{Virtue-protocol-version: 0.1}\n";
 
 	struct socket *sock = NULL;
+	struct jsmn_message *m = NULL;
+
 	struct kthread_worker *worker = work->worker;
 	struct connection *connection =
 		container_of(work, struct connection, work);

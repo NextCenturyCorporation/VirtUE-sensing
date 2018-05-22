@@ -37,10 +37,17 @@ enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
 enum message_command {DISCOVERY = 0, OFF = 1, ON = 2, INCREASE = 3, DECREASE = 4,
-					  LOW = 5, DEFAULT = 6, HIGH = 7, ADVERSARIAL = 8, RESET = 9, RECORDS = 10};
+					  LOW = 5, DEFAULT = 6, HIGH = 7, ADVERSARIAL = 8, RESET = 9,
+					  RECORDS = 10};
 
 #define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
+/**
+ * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
+ * allow shorter nonces, allowing the client to choose,
+ * up to MAX_NONCE_SIZE
+ **/
 #define MAX_NONCE_SIZE 128
+#define MIN_NONCE_SIZE 16
 #define MAX_CMD_SIZE 64
 #define MAX_ID_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
@@ -339,13 +346,20 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 		 * there is no probe element, only valid
 		 * for a discovery request message.
 		 **/
+		printk(KERN_DEBUG "received a jsonl request message with no probe id."
+			   "it must be a discover message, which should have been handled "
+			   "elsewhere %s:%d\n", __FILE__, __LINE__);
+
 	} else {
 		id = m->line + m->tokens[PROBE].start;
 		id_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
-		if (id_bytes <=0 || id_bytes >= MAX_CMD_SIZE)
+		if (id_bytes <=0 || id_bytes >= MAX_CMD_SIZE) {
+			printk(KERN_DEBUG "pre_process_jsmn_command: json command token is either"
+				   "too small or too large for any valid commands: %ld bytes\n",
+				   id_bytes);
 			return JSMN_ERROR_INVAL;
+		}
 	}
-
 
 	if (m->type == REQUEST) {
         /* copy the command into the session command array */
@@ -366,7 +380,14 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 			return JSMN_ERROR_INVAL;
 		}
 	}
-
+    /**
+	 * now we have the command and probe id isolated.
+	 * index the command and call into the dispatch table.
+	 *
+	 * @params:
+	 * c is the count of characters in the command, including the probe id.
+	 * c_bytes is the buffer containing the actual command bytes
+	 **/
 	ccode = index_command(c, c_bytes);
 	if (ccode >= 0 && ccode <= RECORDS )
 		return cmd_table[ccode](m, ccode);
@@ -676,6 +697,10 @@ parse_json_message(struct jsmn_message *m)
 		}
 		case CMD:
 		{
+			/**
+			 * pre_process_jsmn_cmd(m):
+			 *
+			 **/
 			ccode = pre_process_jsmn_cmd(m);
 
 			if (!ccode || ccode == COMPLETE)
