@@ -5,6 +5,7 @@
 * @brief main module of the Windows VirtUE miniFilter driver.
 */
 #include "Driver.h"
+#define COMMON_POOL_TAG WVU_DRIVER_POOL_TAG
 
 // globaL scoped variables
 WVUGlobals Globals;
@@ -69,6 +70,8 @@ DriverUnload(
 	_In_ PDRIVER_OBJECT DriverObject)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
+	PRKSEMAPHORE pSemaphore = NULL;
+	PRKEVENT pKEvent = NULL;
 
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 	KeReleaseSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
@@ -79,6 +82,11 @@ DriverUnload(
 	// destroy global object instances
 	CallGlobalDestructors();
 
+	pSemaphore = (PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue];
+	FREE_POOL(pSemaphore);
+	pKEvent = (PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect];
+	FREE_POOL(pKEvent);
+	
 	return _IRQL_requires_same_ VOID();
 }
 
@@ -108,7 +116,8 @@ DriverEntry(
 	PSECURITY_DESCRIPTOR pWVUPortSecDsc = NULL;
 	HANDLE MainThreadHandle = (HANDLE)-1;
 	HANDLE SensorThreadHandle = (HANDLE)-1;
-	
+	PRKSEMAPHORE pSemaphore = NULL;
+	PRKEVENT pKEvent = NULL;
 	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
 	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
 	UNICODE_STRING usPortName = { 0,0,NULL };	
@@ -138,15 +147,30 @@ DriverEntry(
 	// continues the objects created will have their destructors called.
 	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
 
-
 	// initialize the queue entry count semaphore such that processing halts when there are no
 	// more entries in the queue
-	KeInitializeSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], 0, MAXLONG);
+	pSemaphore = (PKSEMAPHORE)ALLOC_POOL(NonPagedPool, sizeof KSEMAPHORE);
+	if (NULL == pSemaphore)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}	
+	KeInitializeSemaphore(pSemaphore, 0, MAXLONG);
+	Globals.ProbeDataEvents[ProbeDataSemEmptyQueue] = pSemaphore;
 
 	// init the Port Connection Event  This coordinate the connections from user space
 	// so that the outbound queue processor will start or stop processing depending on
 	// current connection state	
-	KeInitializeEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect], EVENT_TYPE::NotificationEvent, FALSE);
+	pKEvent = (PRKEVENT)ALLOC_POOL(NonPagedPool, sizeof KEVENT);
+	if (NULL == pKEvent)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}
+	KeInitializeEvent(pKEvent, EVENT_TYPE::NotificationEvent, FALSE);
+	Globals.ProbeDataEvents[ProbeDataEvtConnect] = pKEvent;
 	
 	// initialize the spinlock that controls access to the probe data queue
 	KeInitializeSpinLock(&Globals.ProbeDataQueueSpinLock);
