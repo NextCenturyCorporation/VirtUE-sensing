@@ -208,10 +208,9 @@ class ProbeDataHeader(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
-        ("SaviorCommand", USHORT), 
+        ("Type", USHORT), 
         ("DataSz", USHORT), 
-        ("ListEntry", LIST_ENTRY),
-        ("FltMsgHeader", FILTER_MESSAGE_HEADER)
+        ("ListEntry", LIST_ENTRY)
     ]
 
 class LoadedImageInfo(SaviorStruct):
@@ -219,6 +218,7 @@ class LoadedImageInfo(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
+        ("FltMsgHeader", FILTER_MESSAGE_HEADER),
         ("Header", ProbeDataHeader),
         ("ProcessId", PVOID),
         ("EProcess", PVOID),
@@ -227,6 +227,10 @@ class LoadedImageInfo(SaviorStruct):
         ("FullImageNameSz", USHORT),
         ("FullImageName", BYTE * 1)
     ]
+
+GetLoadedImageInfo = namedtuple('GetLoadedImageInfo', 
+        ['Type', 'DataSz', 'Message', 'ReplyLength', 'MessageId', 'ProcessId', 'EProcess', 'ImageBase',
+            'ImageSize', 'FullImageName'])
 
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -291,9 +295,9 @@ def FilterGetMessage(hPort, msg_len):
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
     res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
     
-    replylen = info.contents.ReplyLength
-    msgid = info.contents.MessageId
-    msg_pkt = GetMessagePacket(replylen, msgid, sb[sizeof(FILTER_MESSAGE_HEADER):])
+    ReplyLen = info.contents.ReplyLength
+    MessageId = info.contents.MessageId
+    msg_pkt = GetMessagePacket (ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
     return res, msg_pkt
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
@@ -610,6 +614,17 @@ def main():
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
         (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x1000) 
+#        info = cast(msg_pkt.raw, POINTER(LoadedImageInfo))
+#        
+#        Type =  info.contents.Header.Type
+#        DataSz =  info.contents.Header.DataSz
+#        ProcessId =  info.contents.ProcessId
+#        EProcess =  info.contents.EProcess
+#        ImageBase =  info.contents.ImageBase
+#        ImageSize =  info.contents.ImageSize
+#        FullImageName =  info.contents.FullImageName
+#
+
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
     CloseHandle(hFltComms)
     sys.exit(0)
