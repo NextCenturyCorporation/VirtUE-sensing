@@ -183,7 +183,51 @@ class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
         ("CmdMsgSize", USHORT), 
         ("CmdMsg", BYTE * 1)
     ]
+
+
+class DataType(CtypesEnum):
+    '''
+    Type of filter driver data to unpack
+    '''
+    NONE                = 0x0000
+    LoadedImage         = 0x0001
+
+class LIST_ENTRY(SaviorStruct):
+    '''
+    Two Way Linked List - forward declare an incomplete type
+    '''
+    pass
+
+LIST_ENTRY._fields_ = [
+    ("Flink", POINTER(LIST_ENTRY)),
+    ("Blink", POINTER(LIST_ENTRY))
+]
     
+class ProbeDataHeader(SaviorStruct):
+    '''
+    Probe Data Header
+    '''
+    _fields_ = [
+        ("SaviorCommand", USHORT), 
+        ("DataSz", USHORT), 
+        ("ListEntry", LIST_ENTRY),
+        ("FltMsgHeader", FILTER_MESSAGE_HEADER)
+    ]
+
+class LoadedImageInfo(SaviorStruct):
+    '''
+    Probe Data Header
+    '''
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", PVOID),
+        ("EProcess", PVOID),
+        ("ImageBase", PVOID),
+        ("ImageSize", POINTER(ULONG)),
+        ("FullImageNameSz", USHORT),
+        ("FullImageName", BYTE * 1)
+    ]
+
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
 ERROR_NO_MORE_ITEMS = 0x103
@@ -563,12 +607,12 @@ def main():
     '''
     let's test some stuff
     '''
+    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
-        (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-        (res, msg_pkt,) = FilterGetMessage(hFltComms, 128) 
+        (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x1000) 
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
-        CloseHandle(hFltComms)
-        sys.exit(0)
+    CloseHandle(hFltComms)
+    sys.exit(0)
     
     stats = {}
     (handle, info,) = FilterFindFirst()
