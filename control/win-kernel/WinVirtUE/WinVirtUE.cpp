@@ -141,7 +141,8 @@ WVUSensorThread(PVOID StartContext)
 
 	do
 	{		
-		Status = KeWaitForMultipleObjects(sizeof(Globals.ProbeDataEvents), (PVOID*)&Globals.ProbeDataEvents[0], WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL);
+		Status = KeWaitForMultipleObjects(NUMBER_OF(Globals.ProbeDataEvents), (PVOID*)&Globals.ProbeDataEvents[0], WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL);
+		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", KeReadStateSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue]));
 		if (FALSE == NT_SUCCESS(Status) && FALSE == Globals.ShuttingDown)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "KeWaitForMultipleObjects(Globals.ProbeDataEvents,...) Failed! Status=%08x\n", Status);
@@ -158,7 +159,7 @@ WVUSensorThread(PVOID StartContext)
 		// quickly remove a queued entry
 		PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&Globals.ProbeDataQueue, &Globals.ProbeDataQueueSpinLock);
 
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, Type);
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
 		pPDH->FltMsgHeader.MessageId = Globals.MessageId;
 		pPDH->FltMsgHeader.ReplyLength = ReplyBufferLen;
 		SenderBufferLen = pPDH->DataSz;
@@ -179,7 +180,7 @@ WVUSensorThread(PVOID StartContext)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %d Messagse=%s!\n", ReplyBufferLen, ReplyBuffer);
 			Globals.MessageId++;
-			delete[] (PUCHAR)pListEntry;
+			delete[] (PUCHAR)pPDH;
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;

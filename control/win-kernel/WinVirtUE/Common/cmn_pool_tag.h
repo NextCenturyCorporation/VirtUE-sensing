@@ -20,3 +20,4 @@
 #define FLTMGR_OP_CALLBACK_POOL_TAG			'bcpo'
 #define WVU_REGISTRY_MODIFICATION_POOL_TAG	'domr'
 #define WVU_OBSIDIANWAVE_POOL_TAG           'vwbo'
+#define WVU_DRIVER_POOL_TAG					'rvrd'
