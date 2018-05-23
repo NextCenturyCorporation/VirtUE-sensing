@@ -31,8 +31,8 @@ typedef int spinlock_t;
 
 #endif /* USERSPACE */
 
-enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6,
-                  PROBE = 7, RECORD = 9};
+enum parse_index {OBJECT_START, VER_TAG, VERSION, MSG, JSONL_BRACKET, NONCE, CMD,
+                  PROBE, JSONR_BRACKET, OBJECT_END};
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
@@ -48,8 +48,8 @@ enum message_command {DISCOVERY = 0, OFF = 1, ON = 2, INCREASE = 3, DECREASE = 4
  **/
 #define MAX_NONCE_SIZE 128
 #define MIN_NONCE_SIZE 16
-#define MAX_CMD_SIZE 64
-#define MAX_ID_SIZE MAX_CMD_SIZE
+#define MAX_CMD_SIZE MAX_NONCE_SIZE
+#define MAX_ID_SIZE MAX_NONCE_SIZE
 #define MAX_TOKENS 64
 struct jsmn_message;
 struct jsmn_session;
@@ -175,11 +175,14 @@ static inline int index_command(uint8_t *cmd, int bytes)
 static inline int
 process_records_cmd(struct jsmn_message *m, int index);
 
+static int
+process_discovery_request(struct jsmn_message *m, int index);
+
 static inline int
 process_jsmn_cmd(struct jsmn_message *m, int index);
 int (*cmd_table[])(struct jsmn_message *m, int index) =
 {
-	process_jsmn_cmd, /* DISCOVERY */
+	process_discovery_request, /* DISCOVERY */
 	process_jsmn_cmd, /* OFF */
 	process_jsmn_cmd, /* ON */
 	process_jsmn_cmd, /* INCREASE */
@@ -196,6 +199,9 @@ int verbose_flag = 0;
 static inline void
 free_session(struct jsmn_session *s);
 
+/**
+ * TODO: replace this for each type of response
+ **/
 static inline int
 process_single_response(struct jsmn_session *s)
 {
@@ -282,6 +288,10 @@ free_session(struct jsmn_session *s)
  * assumes: we have already attached the message to
  * a session
  **/
+/**
+ * NOTE: records replies won't work with this as written
+ * it is a server request processor
+ **/
 static inline int
 process_records_cmd(struct jsmn_message *m, int index)
 {
@@ -296,20 +306,6 @@ process_records_cmd(struct jsmn_message *m, int index)
 		printk(KERN_INFO "Dispatching a record request to %s, %s\n",
 			   m->s->probe_id, m->s->nonce);
 		return 0;
-	} else if (m->type == REPLY) {
-		int bytes;
-		uint8_t *r;
-		if (m->parser.toknext <= RECORD || m->parser.toknext >= MAX_TOKENS) {
-			printk(KERN_INFO "parser did not find a response record %s, %s\n",
-				   m->s->probe_id, m->s->nonce);
-			return process_single_response(m->s);
-		}
-
-		r = m->line + m->tokens[RECORD].start;
-		bytes = m->tokens[RECORD].end - m->tokens[RECORD].start;
-		printk(KERN_INFO "Received a record from %s, %s, %.*s\n",
-			   m->s->probe_id, m->s->nonce, bytes, r);
-
 	}
 
 	return 0;
@@ -327,7 +323,7 @@ STACK_FRAME_NON_STANDARD(process_records_cmd);
  **/
 
 static inline int
-pre_process_jsmn_cmd(struct jsmn_message *m)
+pre_process_jsmn_request_cmd(struct jsmn_message *m)
 {
 	uint8_t *c, *id = NULL;
 	size_t c_bytes, id_bytes = 0;
@@ -335,25 +331,28 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 
 	assert(m && m->s);
 
+	if (m->type == REPLY) {
+		printk(KERN_DEBUG "pre-process request cmd received a reply message"
+			   " %s:%d\n", __FILE__, __LINE__);
+		return JSMN_ERROR_INVAL;
+	}
 	/* m->type is either REQUEST or REPLY */
     /* set up to copy or compare the session command */
 	c = m->line + m->tokens[CMD].start;
 	c_bytes = m->tokens[CMD].end - m->tokens[CMD].start;
 	if (c_bytes <=0 || c_bytes >= MAX_CMD_SIZE)
 		return JSMN_ERROR_INVAL;
-	if (m->parser.toknext <= PROBE) {
+	if (m->parser.toknext < PROBE) {
 		/**
-		 * there is no probe element, only valid
-		 * for a discovery request message.
+		 * there is no probe element, not valid
 		 **/
 		printk(KERN_DEBUG "received a jsonl request message with no probe id."
-			   "it must be a discover message, which should have been handled "
-			   "elsewhere %s:%d\n", __FILE__, __LINE__);
-
+			   " %s:%d\n", __FILE__, __LINE__);
+		goto err_out;
 	} else {
 		id = m->line + m->tokens[PROBE].start;
 		id_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
-		if (id_bytes <=0 || id_bytes >= MAX_CMD_SIZE) {
+		if (id_bytes ==0 || id_bytes > MAX_CMD_SIZE) {
 			printk(KERN_DEBUG "pre_process_jsmn_command: json command token is either"
 				   "too small or too large for any valid commands: %ld bytes\n",
 				   id_bytes);
@@ -369,32 +368,27 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 			memcpy(m->s->probe_id, id, id_bytes);
 			m->s->probe_id[id_bytes] = 0x00;
 		}
-
-	} else if (m->type == REPLY) {
-		/* m is linked into the session tail q */
-		/* nonce and command match */
-		/* replies must have an id */
-        /* a discovery reply may have multiple probe id strings */
-		/* if a reply, nonce, session, and cmd must be identical */
-		if (m->parser.toknext <= PROBE) {
-			return JSMN_ERROR_INVAL;
-		}
+		ccode = index_command(c, c_bytes);
+		if (ccode >= 0 && ccode <= RECORDS )
+			return cmd_table[ccode](m, ccode);
 	}
-    /**
-	 * now we have the command and probe id isolated.
-	 * index the command and call into the dispatch table.
-	 *
-	 * @params:
-	 * c is the count of characters in the command, including the probe id.
-	 * c_bytes is the buffer containing the actual command bytes
-	 **/
-	ccode = index_command(c, c_bytes);
-	if (ccode >= 0 && ccode <= RECORDS )
-		return cmd_table[ccode](m, ccode);
-	return ccode;
+
+err_out:
+	printk(KERN_DEBUG "invalid message type %s:%d\n", __FILE__, __LINE__);
+	return JSMN_ERROR_INVAL;
 }
 
+/**
+ * message is guaranteed to be connected to a session,
+ * is typed as either a request or reply
+ **/
 
+static int
+process_discovery_request(struct jsmn_message *m, int index)
+{
+	return 0;
+
+}
 
 /**
  * message is guaranteed to be connected to a session,
@@ -658,6 +652,10 @@ parse_json_message(struct jsmn_message *m)
 		 **/
 
 		switch (i) {
+		case OBJECT_START:
+		case OBJECT_END:
+			break;
+
 		case VER_TAG:
 		{
 			if (check_protocol_version(m)) {
@@ -678,12 +676,9 @@ parse_json_message(struct jsmn_message *m)
 			}
 			break;
 		}
-		case 4:
-		{
-			/* opening left bracket of message content object */
-
+		case JSONL_BRACKET:
+		case JSONR_BRACKET:
 			break;
-		}
 		case NONCE:
 		{
 			if (!(m->s = get_session(m))) {
@@ -701,7 +696,7 @@ parse_json_message(struct jsmn_message *m)
 			 * pre_process_jsmn_cmd(m):
 			 *
 			 **/
-			ccode = pre_process_jsmn_cmd(m);
+			ccode = pre_process_jsmn_request_cmd(m);
 
 			if (!ccode || ccode == COMPLETE)
 				return 0;
