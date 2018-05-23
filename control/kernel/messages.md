@@ -80,7 +80,7 @@ where _command_ is one of:
 
 The server will respond with:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, command, probe, result] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, result] }\n"
 
 where _result_ is one of:
 
