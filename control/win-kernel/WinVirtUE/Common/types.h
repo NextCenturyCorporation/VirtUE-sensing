@@ -167,10 +167,21 @@ typedef struct _WVUGlobals
     BOOLEAN EnableProtection;   // if true then the driver is protecting
 	PDRIVER_OBJECT DriverObject;	
 	BOOLEAN ShuttingDown;
-	KEVENT PortConnectEvt;
+	PVOID ProbeDataEvents[2];
+	KSPIN_LOCK ProbeDataQueueSpinLock;
+	LIST_ENTRY ProbeDataQueue;
+	ULONGLONG MessageId;
 } WVUGlobals, *PWVUGlobals;
 
 
+/**
+* Utilized when managing the ProbeDataEvents KEVENT array
+*/
+enum ProbeDataEvtEnum
+{
+	ProbeDataSemEmptyQueue, // The SEMAPHORE that signals when the Probe Data Queue is Empty
+	ProbeDataEvtConnect		// Th KEVENT that signals when the service connects
+};
 
 /**
 * Savior Command Enumeration 
@@ -189,4 +200,33 @@ typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
 	UINT16 CmdMsgSize;	// The command message size
 	UCHAR CmdMsg[1];    // The command message
 } *PSaviorCommandPkt, SaviorCommandPkt;
+
+
+
+
+typedef enum _DataType : USHORT 
+{
+	None = 0x0,
+	LoadedImage = 0x0001
+} DataType;
+
+
+typedef struct _ProbeDataHeader 
+{
+	DataType    Type;
+	USHORT      DataSz;
+	LIST_ENTRY  ListEntry;
+	FILTER_MESSAGE_HEADER FltMsgHeader;
+} ProbeDataHeader, *PProbeDataHeader;
+
+typedef struct _LoadedImageInfo
+{	
+	ProbeDataHeader Header;
+	HANDLE ProcessId;
+	PEPROCESS  EProcess;
+	PVOID ImageBase;
+	SIZE_T ImageSize;
+	USHORT FullImageNameSz;
+	UCHAR FullImageName[0];
+} LoadedImageInfo, *PLoadedImageInfo;
 

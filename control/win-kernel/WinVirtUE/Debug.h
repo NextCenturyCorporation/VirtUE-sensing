@@ -41,6 +41,7 @@
 #define LOG_NOTIFY_THREAD   (1 << 17)
 #define LOG_NOTIFY_REGISTRY (1 << 18)
 #define LOG_NOTIFY_PROCESS  (1 << 19)
+#define LOG_SENSOR_THREAD   (1 << 20)
 /*
 * These are meant to be used when you want to see the logs
 * for the major components. Do not use these within an WVU_DEBUG_*

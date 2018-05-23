@@ -522,7 +522,8 @@ WinVirtUEShutdownPreOp(
 	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEShutdownPreOp: Entered\n");
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
+	KeReleaseSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+	KeSetEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE);  // Signaled when Port is Connected
 
 	return FLT_PREOP_SUCCESS_NO_CALLBACK;
 }

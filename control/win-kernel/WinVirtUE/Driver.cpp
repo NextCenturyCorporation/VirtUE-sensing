@@ -71,7 +71,8 @@ DriverUnload(
 	UNREFERENCED_PARAMETER(DriverObject);
 
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
+	KeReleaseSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+	KeSetEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE);  // Signaled when Port is Connected
 
 	WVUDebugBreakPoint();
 
@@ -123,6 +124,8 @@ DriverEntry(
 
 	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
 
+	Globals.MessageId = 1;  // start off with message id #1
+
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 
 	CallGlobalInitializers();
@@ -135,11 +138,22 @@ DriverEntry(
 	// continues the objects created will have their destructors called.
 	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
 
+
+	// initialize the queue entry count semaphore such that processing halts when there are no
+	// more entries in the queue
+	KeInitializeSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], 0, MAXLONG);
+
 	// init the Port Connection Event  This coordinate the connections from user space
 	// so that the outbound queue processor will start or stop processing depending on
-	// current connection state
-	KeInitializeEvent(&Globals.PortConnectEvt, EVENT_TYPE::NotificationEvent, FALSE);
+	// current connection state	
+	KeInitializeEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect], EVENT_TYPE::NotificationEvent, FALSE);
 	
+	// initialize the spinlock that controls access to the probe data queue
+	KeInitializeSpinLock(&Globals.ProbeDataQueueSpinLock);
+
+	// initialize the Probe Data Queue TWLL
+	InitializeListHead(&Globals.ProbeDataQueue);
+
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
 
 	//  Register with FltMgr to tell it our callback routines
@@ -263,7 +277,8 @@ DriverEntry(
 ErrorExit:
 
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
+	KeReleaseSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+	KeSetEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE);  // Signaled when Port is Connected
 
 	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);  // exits the intialization thread
 

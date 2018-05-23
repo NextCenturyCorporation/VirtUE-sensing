@@ -35,8 +35,8 @@ NTSTATUS FLTAPI WVUPortConnect(
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.UserProcess, Globals.ClientPort);
 
-	// cause the outbund queue processor to start processing
-	(VOID)KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);
+	// cause the outbund queue processor to start processing	
+	KeSetEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE);  // Signaled when Port is connected
 	return Status;
 }
 
@@ -66,8 +66,7 @@ VOID FLTAPI WVUPortDisconnect(
 	Globals.ConnectionCookie = NULL;
 
 	// cause the outbound queue processor to stop
-	(VOID)KeResetEvent(&Globals.PortConnectEvt);
-		
+	(VOID)KeResetEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect]);	
 }
 
 /**
