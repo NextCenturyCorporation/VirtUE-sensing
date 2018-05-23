@@ -8,7 +8,12 @@ ENV LC_ALL en_US.UTF-8
 
 # wget for convenience, use curl if you want to
 RUN apt-get update
-RUN apt-get -y -q install wget python3-pip telnet
+RUN apt-get -y -q install wget python3-pip telnet curl
+
+# get node js working. why, oh why, does Phoenix need to use Node for building assets?
+RUN curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+RUN apt-get install -y nodejs
+RUN npm install -g brunch
 
 # add erlang otp
 RUN wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
@@ -22,6 +27,9 @@ RUN mix local.hex --force
 RUN mix local.rebar --force
 RUN mix deps.get --only-prod
 RUN mix compile
+
+# Asset compilation
+RUN brunch build
 
 # we've got custom HTTP status code that Plug needs to pickup from our config
 RUN mix deps.compile plug
