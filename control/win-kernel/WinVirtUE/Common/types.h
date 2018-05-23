@@ -216,11 +216,11 @@ typedef struct _ProbeDataHeader
 	DataType    Type;
 	USHORT      DataSz;
 	LIST_ENTRY  ListEntry;
-	FILTER_MESSAGE_HEADER FltMsgHeader;
 } ProbeDataHeader, *PProbeDataHeader;
 
 typedef struct _LoadedImageInfo
 {	
+	FILTER_MESSAGE_HEADER FltMsgHeader;
 	ProbeDataHeader Header;
 	HANDLE ProcessId;
 	PEPROCESS  EProcess;

@@ -158,10 +158,14 @@ WVUSensorThread(PVOID StartContext)
 
 		// quickly remove a queued entry
 		PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&Globals.ProbeDataQueue, &Globals.ProbeDataQueueSpinLock);
-
+		
+		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER
+		// be the first type in the structure defintion.  We first get the address of ProbeDataHeader, add the offset
+		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
-		pPDH->FltMsgHeader.MessageId = Globals.MessageId;
-		pPDH->FltMsgHeader.ReplyLength = ReplyBufferLen;
+		PFILTER_MESSAGE_HEADER pfmh = (PFILTER_MESSAGE_HEADER)(Add2Ptr(pPDH,sizeof(FILTER_MESSAGE_HEADER)));
+		pfmh->MessageId = Globals.MessageId;
+		pfmh->ReplyLength = ReplyBufferLen;
 		SenderBufferLen = pPDH->DataSz;
 		SenderBuffer = (PVOID)pPDH;
 
