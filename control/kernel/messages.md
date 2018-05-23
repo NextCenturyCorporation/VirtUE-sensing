@@ -67,7 +67,7 @@ The `nonce` size is upon the discretion of the client, provided it is between 16
 ### Probe Commands
 The client may issue commands to the probe:
 
-"{Virtue-protocol-verion: 0.1, request: [nonce, command [probe ids]] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, command, probe] }\n"
 where _command_ is one of:
 
 * off: turn probe sensing off
@@ -80,7 +80,7 @@ where _command_ is one of:
 
 The server will respond with:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, command [probe ids], [id, result]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, command, probe, result] }\n"
 
 where _result_ is one of:
 
@@ -92,17 +92,17 @@ where _result_ is one of:
 
 Each probe will reply with its records differently. The most common format is for each record to be one JSONL message:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 1]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 1] }\n"
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 2]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 2] }\n"
 
 ...
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record n]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, id, record n] }\n"
 
 and finally:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, [id]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: nonce, id] }\n"
 
 A reply with only the nonce, and no record, will terminate the original records request.
 
@@ -115,15 +115,15 @@ This means, for example, that serial _records_ requests will not result in dupli
 
 A probe may have a different policy for record retention and reporting. For example, a probe may retain records indefinitely and may respond to a request for specific records.
 
-"{Virtue-protocol-verion: 0.1, request: [nonce, [id, record 2048]] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, id, record 2048] }\n"
 
 Is a request for _record number 2048_ from probe _id_. The response would be:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 2048]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 2048] }\n"
 
 if that record existed and was retained by the probe, or:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, [id]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, id] }\n"
 
 if that record did not exist or was not retained by the probe.
 
@@ -133,11 +133,11 @@ The client must have prior knowledge of a particular probe's policy for record r
 
 A client may include a _filter_ in a records request:
 
-"{Virtue-protocol-verion: 0.1, request: [nonce, [id, filter 'filter']] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, id, filter 'filter'] }\n"
 
 The server would respond with any records that passed the filter:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record ]] }\n"
+"{Virtue-protocol-verion: 0.1, reply: [nonce, id, record ] }\n"
 
 the protocol makes no assumption regarding the contents or interpretation of a _filter_. The client and probe must have a prior knowledge of the filter and its interpretaion.
 
