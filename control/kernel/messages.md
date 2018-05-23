@@ -48,9 +48,9 @@ If the server refuses the session request, it responds with:
 ### Discovery Request and Resply
 At any time the client may make a discovery request:
 
-"{Virtue-protocol-verion: 0.1, request: [nonce,  discovery] }\n"
+"{Virtue-protocol-verion: 0.1, request: [nonce, discovery, probe] }\n"
 
-Where _nonce_ is a unique value that identifies a specific request and response.
+Where _nonce_ is a unique value that identifies a specific request and response, and _probe_ is assumed to be `*` and ignored (but must be present in version 0.1 of the protocol.)
 
 The server is expected to respond with:
 
