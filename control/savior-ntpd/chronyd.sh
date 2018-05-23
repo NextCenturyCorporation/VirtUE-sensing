@@ -7,4 +7,4 @@ then
 	rm $pidfile
 fi
 
-exec /usr/sbin/chronyd -d -f /var/lib/chrony/chrony.conf
+exec /usr/local/sbin/chronyd -x -d -f /var/lib/chrony/chrony.conf

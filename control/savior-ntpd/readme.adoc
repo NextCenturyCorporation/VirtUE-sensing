@@ -16,10 +16,17 @@ An NTP server for the Sensing Infrastructure and the SAVIOR environment.
 
 WARNING: This NTPD server is not currently configured for any API services, nor deployed in Dev, Test, or Production.
 
+== Deployment
+
+This NTP Service container is designed to run, without privileges, in a normal
+Docker environment, or in a Swarm environment. Running in a normal Docker environment requires
+specifically exposing the NTP UDP ports, see <<Testing>>.
+
+
 == Configuration
 
 The NTPD server is configured with the link:chrony-config.conf[chrony-config.conf file].
-By default we're using the 5 primary servers of the North America NTP pool, but this can be
+By default we're using the 4 primary servers of the North America NTP pool, but this can be
 reconfigured to use APL internal NTP servers, or Amazon NTP servers in AWS.
 
 Allowed Clients::
@@ -40,3 +47,47 @@ Upstream Servers::
 * 1.north-america.pool.ntp.org
 * 2.north-america.pool.ntp.org
 * 3.north-america.pool.ntp.org
+
+== Testing
+
+For testing purposes, you can run the Chrony NTPD server independently.
+
+.Build NTPD Server
+[source,bash]
+----
+docker build -t twosixlabs/chrony-ntpd:latest .
+----
+
+.Running NTPD Server
+[source,bash]
+----
+docker run --rm -d --name chrony-ntpd -p 123:123/udp twosixlabs/chrony-ntpd:latest
+----
+
+.Query NTPD Server
+[source,bash]
+----
+ntpdate -q localhost
+----
+
+If an NTPD host isn't running, bound to `localhost`, you might see results like:
+
+[source,bash]
+----
+ntpdate -q localhost
+server ::1, stratum 0, offset 0.000000, delay 0.00000
+server 127.0.0.1, stratum 0, offset 0.000000, delay 0.00000
+23 May 08:32:43 ntpdate[20261]: no server suitable for synchronization found
+----
+
+If the NTPD server is running, results may look more like:
+
+[source,bash]
+----
+ntpdate -q localhost
+server ::1, stratum 0, offset 0.000000, delay 0.00000
+server 127.0.0.1, stratum 5, offset -7.678735, delay 0.02660
+23 May 08:39:46 ntpdate[20714]: step time server 127.0.0.1 offset -7.678735 sec
+----
+
+
