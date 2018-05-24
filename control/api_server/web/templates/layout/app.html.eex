@@ -46,7 +46,7 @@
         <div class="col-sm-3 col-md-2 sidebar">
           <ul class="nav nav-sidebar">
             <li><a href="/ui/">Dashboard</a></li>
-            <li><a href="#">Virtues</a></li>
+            <li><a href="/ui/virtues">Virtues</a></li>
             <li><a href="/ui/sensors">Sensors</a></li>
             <li><a href="#">Command &amp; Control</a></li>
             <li><a href="#">System Status</a></li>

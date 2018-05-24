@@ -231,6 +231,29 @@ defmodule ApiServer.Sensor do
   end
 
   @doc """
+  Dig through the set of sensors and boil it down to the known virtues.
+
+  ### Returns
+
+    [%{}]
+  """
+  def virtues() do
+
+    component_map = ApiServer.Repo.all(from(
+      c in ApiServer.Component,
+      select: %{id: c.id, os: c.os, context: c.context}
+    ))
+    |> Enum.map(fn (c) -> {c.id, c} end)
+    |> Map.new()
+
+    ApiServer.Repo.all(from(s in ApiServer.Sensor,
+      group_by: s.address,
+      select: %{virtue: s.address, sensor_count: count(s.sensor_id), sample_sensor_id: min(s.sensor_id), sample_component_id: min(s.component_id)}))
+    |> Enum.map(fn(v) ->	Map.merge(v, Map.get(component_map, v.sample_component_id, %{os: "n/a", context: "n/a"})) end)
+
+  end
+
+  @doc """
   Count how many of each distinct sensor type exist in the sensor data
 
   ### Returns
