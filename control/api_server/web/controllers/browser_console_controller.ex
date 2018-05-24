@@ -12,4 +12,8 @@ defmodule ApiServer.BrowserConsoleController do
   def virtues(conn, _params) do
     render conn, "virtues.html", virtues: ApiServer.Sensor.virtues()
   end
+
+  def status(conn, _params) do
+    render conn, "status.html"
+  end
 end

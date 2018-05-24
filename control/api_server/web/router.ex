@@ -39,6 +39,8 @@ defmodule ApiServer.Router do
     get "/", BrowserConsoleController, :index
     get "/sensors", BrowserConsoleController, :sensors
     get "/virtues", BrowserConsoleController, :virtues
+    get "/status", BrowserConsoleController, :status
+
   end
 
   scope "/version", ApiServer do

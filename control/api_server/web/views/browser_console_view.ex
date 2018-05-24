@@ -27,5 +27,12 @@ defmodule ApiServer.BrowserConsoleView do
     ApiServer.Sensor.sensor_os_count() |> Enum.count()
   end
 
+  def elixir_info do
+    [
+      process_count: length(Process.list()),
+      registered_count: length(Process.registered()),
+      vsn: Keyword.get(Application.spec(:api_server), :vsn)
+    ]
+  end
 
 end
