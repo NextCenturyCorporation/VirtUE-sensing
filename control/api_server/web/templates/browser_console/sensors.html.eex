@@ -14,7 +14,9 @@
   <tbody>
     <%= for sensor <- @sensors do %>
     <tr>
-      <td><%= sensor.sensor_id %></td>
+      <td>
+        <a href="/ui/sensor/<%= sensor.sensor_id %>"><%= sensor.sensor_id %></a>
+      </td>
       <td><%= sensor.address %></td>
       <td><%= sensor.username %></td>
       <td><%= sensor.component.name %></td>

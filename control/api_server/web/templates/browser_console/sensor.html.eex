@@ -1,0 +1,52 @@
+<h1 class="page-header">Sensor Details</h1>
+
+<div class="row">
+    <div class="col-md-10 col-md-offset-1">
+
+        <h3>Sensor</h3>
+        <dl class="dl-horizontal">
+            <dt>sensor_id</dt><dd><%= @sensor.sensor_id %></dd>
+            <dt>virtue_id</dt><dd><%= @sensor.virtue_id %></dd>
+            <dt>username</dt><dd><%= @sensor.username %></dd>
+            <dt>address</dt><dd><%= @sensor.address %></dd>
+            <dt>has_certificates</dt>
+            <dd>
+                <%= if @sensor.has_certificates do %>
+                    <span class="glyphicon glyphicon-ok"></span>
+                <% else %>
+                    <span class="glyphicon glyphicon-remove"></span>
+                <% end %>
+            </dd>
+            <dt>has_registered</dt><dd>
+                <%= if @sensor.has_registered do %>
+                    <span class="glyphicon glyphicon-ok"></span>
+                <% else %>
+                    <span class="glyphicon glyphicon-remove"></span>
+                <% end %>
+            </dd>
+            <dt>last_sync</dt><dd><%= @sensor.last_sync_at %></dd>
+        </dl>
+
+        <h3>Component</h3>
+
+        <dl class="dl-horizontal">
+            <dt>name</dt><dd><%= @sensor.component.name %></dd>
+            <dt>context</dt><dd><%= @sensor.component.context %></dd>
+            <dt>os</dt><dd><%= @sensor.component.os %></dd>
+        </dl>
+
+        <h3>Configuration</h3>
+
+        <dl class="dl-horizontal">
+            <dt>level</dt><dd><%= @sensor.configuration.level %></dd>
+            <dt>version</dt><dd><%= @sensor.configuration.version %></dd>
+            <dt>format</dt><dd><%= @sensor.configuration.format %></dd>
+        </dl>
+
+        <h3>Public Key</h3>
+        <pre class="pre-scrollable"><%= @sensor.public_key %></pre>
+
+        <h3>Configuration Data</h3>
+        <pre class="pre-scrollable"><%= @sensor.configuration.configuration %></pre>
+    </div>
+</div>

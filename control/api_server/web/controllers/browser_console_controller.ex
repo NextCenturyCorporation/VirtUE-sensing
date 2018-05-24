@@ -16,4 +16,15 @@ defmodule ApiServer.BrowserConsoleController do
   def status(conn, _params) do
     render conn, "status.html"
   end
+
+  def sensor(conn, %{"sensor_id" => sensor_id} = params) do
+
+    case ApiServer.Sensor.get(%{sensor_id: sensor_id}) do
+      {:ok, sensor} ->
+        render conn, "sensor.html", sensor: ApiServer.Repo.preload(sensor, [:component, :configuration])
+      _ ->
+        redirect conn, to: "/ui"
+    end
+
+  end
 end
