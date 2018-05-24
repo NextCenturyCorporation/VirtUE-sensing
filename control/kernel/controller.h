@@ -32,6 +32,7 @@
 
 #define SESSION_RESPONSE "{Virtue-protocol-version: 0.1}\n\0"
 
+extern int print_to_log;
 extern atomic64_t SHOULD_SHUTDOWN;
 
 enum json_array_chars {

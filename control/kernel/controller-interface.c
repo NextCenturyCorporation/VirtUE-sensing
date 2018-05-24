@@ -173,7 +173,6 @@ again:
 		}
 		DMSG();
 		printk(KERN_DEBUG "k_socket read ccode: %d\n", ccode);
-
 		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
 		goto close_out;
 	}
@@ -203,12 +202,14 @@ again:
 			kfree(response);
 			printk(KERN_DEBUG "k_socket_write discover return code: %d\n", ccode);
 		}
+
 	} else if (!memcmp(read_buf, session, sizeof(session))) {
 		uint8_t *response = SESSION_RESPONSE;
 		printk(KERN_DEBUG "k_socket_write session: %s\n", response);
 		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
 		printk(KERN_DEBUG "k_socket_write session return code: %d\n", ccode);
-	} else {
+
+    } else {
 /**
  * call the json parser
  * ccode contains the bytes read - a good value for message->len
@@ -221,25 +222,10 @@ again:
 		}
 
 		m->socket = sock;
-		m->count = read_parse_message(m);
+		m->count = parse_json_message(m);
 		if (m->count < 0) {
 			/* for some reason, didn't read a valid json object */
 			printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
-				   "connection is being closed\n");
-			goto err_out_json;
-		}
-
-		/**
-		 * following call, if successful, will dispatch to the
-		 * correct message handler, which will call into the correct
-		 * probe, which will usually result in a write to this socket.
-		 *
-		 * parse_json_message accepts responsibility for freeing
-		 * resources when it returns >= 0.fpu
-		 **/
-		ccode = parse_json_message(m);
-		if (ccode < 0) {
-			printk(KERN_INFO "kernel sensor error parsing a protocol message, " \
 				   "connection is being closed\n");
 			goto err_out_json;
 		}
@@ -645,8 +631,8 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 {
 	int ccode = 0;
 
-	assert(c);
-	assert(p);
+	assert(c != NULL);
+	assert(p != NULL);
 	assert(__FLAG_IS_SET(flags, PROBE_LISTEN) ||
 		   __FLAG_IS_SET(flags, PROBE_CONNECT));
 	assert(! (__FLAG_IS_SET(flags, PROBE_LISTEN) &&

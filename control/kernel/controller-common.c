@@ -49,7 +49,7 @@ int sysfs_repeat = 1;
 int sysfs_timeout = 1;
 int sysfs_level = 1;
 
-
+int print_to_log = 1;
 
 char *socket_name = "/var/run/kernel_sensor";
 char *lockfile_name = "/var/run/kernel_sensor.lock";
@@ -87,6 +87,10 @@ MODULE_PARM_DESC(sysfs_timeout,
 MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
 
 module_param(socket_name, charp, 0644);
+
+module_param(print_to_log, int, 0644);
+MODULE_PARM_DESC(print_to_log, "print probe output to messages");
+
 
 /**
  * Note on /sys and /proc files:
@@ -386,6 +390,10 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 	int index;
 	unsigned long flags;
 	struct kernel_ps_data *kpsd_p;
+
+	if(unlikely(!print_to_log)) {
+		return 0;
+	}
 
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;

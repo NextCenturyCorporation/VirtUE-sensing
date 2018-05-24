@@ -159,7 +159,7 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 									&file_index,
 									sysfs_path,
 									nonce);
-				put_task_struct(task);
+			put_task_struct(task);
 		} else {
 			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
 			spin_unlock_irqrestore(&p->lock, flags);
@@ -196,7 +196,10 @@ int
 print_sysfs_data(struct kernel_sysfs_probe *p,
 				 uint8_t *tag, uint64_t nonce, int count)
 {
-	printk(KERN_INFO "%s %llx %d\n", tag, nonce, count);
+	if(print_to_log) {
+		printk(KERN_INFO "%s %llx %d\n", tag, nonce, count);
+	}
+
 	return 0;
 }
 

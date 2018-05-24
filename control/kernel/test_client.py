@@ -15,7 +15,7 @@ def json_connect(sock):
         print >>sys.stderr, 'received "%s"' % data
     except:
         print >>sys.stderr, 'json_connect: closing socket'
-        sock.close()
+#        sock.close()
 
 def send_echo_test(sock):
     echo_response = subprocess.check_output('uname -r', shell=True)
