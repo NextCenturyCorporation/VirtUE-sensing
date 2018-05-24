@@ -60,11 +60,65 @@ let channel = socket.channel("c2:all", {})
 let messagesContainer = document.querySelector("#messages")
 
 channel.on("c2_msg", payload => {
-  let messageItem = document.createElement("li")
-  messageItem.innerText = `[${Date()}] ${payload.body}`
-  messagesContainer.appendChild(messageItem)
+
+    if (payload.action == "heartbeat") {
+        msg_heartbeat(payload)
+    }
+    else if (payload.action == "sensor-registration") {
+        msg_announce_sensor_reg(payload)
+    }
+    else if (payload.action == "sensor-deregistration") {
+        msg_announce_sensor_dereg(payload)
+    }
+    else {
+        console.log(payload)
+    }
 })
 
+function msg_heartbeat(payload) {
+
+  let full_div = `<div class="row"><div class="col-md-1"><span class="glyphicon glyphicon-heart">&nbsp;</span></div><div class="col-md-10">${payload.timestamp}</div></div>`;
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_announce_sensor_reg(payload) {
+
+
+    let full_div = `<div class="row">
+        <div class="col-md-1"><span class="glyphicon glyphicon-zoom-in">&nbsp;</span></div>
+        <div class="col-md-10">
+            <dl class="dl-horizontal">
+                <dt>timestamp</dt><dd>${payload.timestamp}</dd>
+                <dt>address</dt><dd>${payload.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor_os}</dd>
+            </dl>
+        </div>
+    </div>`
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_announce_sensor_dereg(payload) {
+
+    let full_div = `<div class="row">
+        <div class="col-md-1"><span class="glyphicon glyphicon-zoom-out">&nbsp;</span></div>
+        <div class="col-md-10">
+            <dl class="dl-horizontal">
+                <dt>timestamp</dt><dd>${payload.timestamp}</dd>
+                <dt>address</dt><dd>${payload.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor_os}</dd>
+            </dl>
+        </div>
+    </div>`
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
 
 channel.join()
   .receive("ok", resp => { console.log("Joined successfully", resp) })

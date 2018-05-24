@@ -2,7 +2,8 @@
 
 <div class="row">
     <div class="col-md-10 col-md-offset-1">
-        <ul id="messages"></ul>
+        <dl class="dl-horizontal" id="messages"></dl>
     </div>
 </div>
+
 <script src="<%= static_path(@conn, "/js/app.js") %>"></script>

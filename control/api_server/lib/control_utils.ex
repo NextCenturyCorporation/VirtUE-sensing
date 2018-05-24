@@ -69,21 +69,24 @@ defmodule ApiServer.ControlUtils do
 
     produce_nonce_message(sensor_struct_data)
 
+    announce_msg = %{
+      error: false,
+      action: "sensor-registration",
+      sensor: ApiServer.Sensor.clean_json(sensor_struct_data, include_component: true, include_configuration: true),
+      topic: sensor_struct_data.kafka_topic,
+      timestamp: DateTime.to_string(DateTime.utc_now())
+    }
 
-    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
-      %{
-        error: false,
-        action: "sensor-registration",
-        sensor: ApiServer.Sensor.clean_json(sensor_struct_data, include_component: true, include_configuration: true),
-        topic: sensor_struct_data.kafka_topic,
-        timestamp: DateTime.to_string(DateTime.utc_now())
-      }
-    )) do
+    # Kafka C2
+    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(announce_msg)) do
       :ok ->
         IO.puts("announced new sensor(id=#{sensor_struct_data.sensor_id}) (topic=#{sensor_struct_data.kafka_topic})")
       {:error, reason} ->
         IO.puts("got some kinda error announcing a new sensor: #{reason}")
     end
+
+    # WebSocket C2
+    ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", announce_msg
 
     {:ok, sensor_struct_data}
   end
@@ -127,20 +130,25 @@ defmodule ApiServer.ControlUtils do
     {:ok, %Sensor{}}
   """
   def announce_deregistered_sensor(sensor_struct_data) do
-    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
-      %{
-        error: false,
-        action: "sensor-deregistration",
-        sensor: ApiServer.Sensor.clean_json(sensor_struct_data, include_component: true, include_configuration: true),
-        topic: sensor_struct_data.kafka_topic,
-        timestamp: DateTime.to_string(DateTime.utc_now())
-      }
-    )) do
+
+    announce_msg = %{
+      error: false,
+      action: "sensor-deregistration",
+      sensor: ApiServer.Sensor.clean_json(sensor_struct_data, include_component: true, include_configuration: true),
+      topic: sensor_struct_data.kafka_topic,
+      timestamp: DateTime.to_string(DateTime.utc_now())
+    }
+
+    # Kafka C2
+    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(announce_msg)) do
       :ok ->
         IO.puts("announced sensor deregistration (topic=#{sensor_struct_data.kafka_topic})")
       {:error, reason} ->
         IO.puts("got some kinda error announcing a sensor deregistration: #{reason}")
     end
+
+    # WebSocket C2
+    ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", announce_msg
   end
 
   @doc """
@@ -151,22 +159,23 @@ defmodule ApiServer.ControlUtils do
     - JSON encoded message broadcast to Kafka
   """
   def heartbeat() do
-    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
-      %{
-        error: false,
-        action: "heartbeat",
-        timestamp: DateTime.to_string(DateTime.utc_now())
-      }
-    )) do
+
+    heartbeat_msg = %{
+      error: false,
+      action: "heartbeat",
+      timestamp: DateTime.to_string(DateTime.utc_now())
+    }
+
+    # C2 channel on Kafka
+    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(heartbeat_msg)) do
       :ok ->
         :ok
       {:error, reason} ->
         IO.puts("!! encountered an error broadcasting the C2 heartbeat to the API C2 topic")
     end
 
-    ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", %{
-      body: "heartbeat #{DateTime.to_string(DateTime.utc_now())}"
-    }
+    # WebSocket C2
+    ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", heartbeat_msg
 
   end
 
