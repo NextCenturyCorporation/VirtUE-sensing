@@ -48,7 +48,7 @@
             <li><a href="/ui/">Dashboard</a></li>
             <li><a href="/ui/virtues">Virtues</a></li>
             <li><a href="/ui/sensors">Sensors</a></li>
-            <li><a href="/ui/c2">Command &amp; Control</a></li>
+            <li><a href="/ui/c2">C2 Monitor</a></li>
             <li><a href="/ui/status">System Status</a></li>
           </ul>
         </div>

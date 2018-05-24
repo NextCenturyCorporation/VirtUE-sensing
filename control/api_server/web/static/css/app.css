@@ -150,4 +150,13 @@ body {
     color: #81CA8D;
 }
 
+.console-callout-summary {
+    border-left-color: #bb74ca;
+}
+
+.console-callout-summary h4 {
+    color: #bb74ca;
+}
+
+
 

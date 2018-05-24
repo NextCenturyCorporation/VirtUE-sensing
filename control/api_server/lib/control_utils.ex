@@ -189,21 +189,26 @@ defmodule ApiServer.ControlUtils do
       sensor_name_counts <- ApiServer.Sensor.sensor_name_count(),
       sensor_os_counts <- ApiServer.Sensor.sensor_os_count()
     do
-      case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
-        %{
-          error: false,
-          action: "sensors-status",
-          timestamp: DateTime.to_string(DateTime.utc_now()),
-          hosts: host_count,
-          sensor_type: sensor_name_counts,
-          sensor_os: sensor_os_counts
-        }
-      )) do
+
+      announce_msg =  %{
+        error: false,
+        action: "sensors-status",
+        timestamp: DateTime.to_string(DateTime.utc_now()),
+        hosts: host_count,
+        sensor_type: sensor_name_counts,
+        sensor_os: sensor_os_counts
+      }
+
+      # Kafka C2
+      case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(announce_msg)) do
         :ok ->
           :ok
         {:error, reason} ->
           IO.puts("!! encountered an error broadcasting a sensor count status heartbeat to the API C2 topic")
       end
+
+      # WebSocket c2
+      ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", announce_msg
     end
 
   end

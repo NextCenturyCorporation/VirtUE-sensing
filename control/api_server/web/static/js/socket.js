@@ -70,6 +70,10 @@ channel.on("c2_msg", payload => {
     else if (payload.action == "sensor-deregistration") {
         msg_announce_sensor_dereg(payload)
     }
+    else if (payload.action == "sensors-status") {
+        console.log(payload);
+        msg_summary(payload);
+    }
     else {
         console.log(payload)
     }
@@ -115,6 +119,25 @@ function msg_announce_sensor_dereg(payload) {
                 <dt>sensor</dt><dd>${payload.sensor.sensor_name}</dd>
                 <dt>os</dt><dd>${payload.sensor.sensor_os}</dd>
             </dl>
+        </div>
+    </div>`
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_summary(payload) {
+    let full_div = `<div class="row console-callout console-callout-summary">
+        <div class="col-md-1"><span class="glyphicon glyphicon-globe">&nbsp;</span></div>
+        <div class="col-md-10">
+            <h4>Sensor Summary</h4>
+            <small> %{payload.hosts} sensor hosts</small>
+
+            <h5>Sensor Types</h5>
+            <pre>${JSON.stringify(payload.sensor_type, null, 4)}</pre>
+
+            <h5>OSes</h5>
+            <pre>${JSON.stringify(payload.sensor_os, null, 4)}</pre>
         </div>
     </div>`
 
