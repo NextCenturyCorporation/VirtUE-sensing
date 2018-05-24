@@ -231,6 +231,55 @@ defmodule ApiServer.Sensor do
   end
 
   @doc """
+  Dig through and find a single virtue.
+
+  ### Parameters
+
+  One or more keys in:
+
+    %{address: <>, virtue_id: <>}
+
+  ### Returns
+
+    %{
+      virtue: <address>,
+      sensors: [%ApiServer.Sensor],
+      os: <os>,
+      context: <context>
+      }
+
+
+
+      comps = ApiServer.Sensor
+              |> where(^where_keys)
+  """
+  def virtue(%{} = params) do
+
+    # conver the Map k/v to a keyword list that can be used in a where clause
+    where_keys = Keyword.take(Map.to_list(params), [:sensor_id, :virtue_id, :public_key, :address, :port])
+
+    # pre-build our list of components
+    component_map = ApiServer.Repo.all(from(
+      c in ApiServer.Component,
+      select: %{id: c.id, os: c.os, context: c.context}
+    ))
+                    |> Enum.map(fn (c) -> {c.id, c} end)
+                    |> Map.new()
+
+    # get our virtue
+    virtue = ApiServer.Repo.all(from(s in ApiServer.Sensor,
+      group_by: s.address,
+      select: %{virtue: s.address, sensor_count: count(s.sensor_id), sample_sensor_id: min(s.sensor_id), sample_component_id: min(s.component_id)},
+      where: ^where_keys))
+    |> Enum.map(fn(v) ->	Map.merge(v, Map.get(component_map, v.sample_component_id, %{os: "n/a", context: "n/a"})) end)
+    |> List.first()
+
+    # fill in the sensors field
+    Map.put(virtue, :sensors, ApiServer.Sensor.get_many(%{address: virtue.virtue}) |> ApiServer.Repo.preload([:component, :configuration]))
+
+  end
+
+  @doc """
   Dig through the set of sensors and boil it down to the known virtues.
 
   ### Returns

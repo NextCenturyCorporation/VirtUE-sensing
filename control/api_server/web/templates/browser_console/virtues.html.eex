@@ -12,7 +12,9 @@
   <tbody>
     <%= for virtue <- @virtues do %>
     <tr>
-      <td><%= virtue.virtue %></td>
+      <td>
+        <a href="/ui/virtue/<%= virtue.virtue %>"><%= virtue.virtue %></a>
+      </td>
       <td><%= virtue.context  %></td>
       <td><%= virtue.os %></td>
       <td><%= virtue.sensor_count %></td>

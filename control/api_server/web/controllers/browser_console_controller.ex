@@ -27,4 +27,14 @@ defmodule ApiServer.BrowserConsoleController do
     end
 
   end
+
+  def virtue(conn, %{"virtue_id" => virtue_id} = params) do
+
+    case ApiServer.Sensor.virtue(%{address: virtue_id}) do
+      nil ->
+        redirect conn, to: "/ui"
+      virtue ->
+        render conn, "virtue.html", virtue: virtue
+    end
+  end
 end
