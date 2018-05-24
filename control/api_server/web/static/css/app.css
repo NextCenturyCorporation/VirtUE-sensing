@@ -111,3 +111,43 @@ body {
   font-size: 6em;
   font-weight: bold;
 }
+
+.console-callout {
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #eee;
+    border-left-width: 5px;
+    border-radius: 3px;
+}
+
+.console-callout h4 {
+  margin-top: 0;
+  margin-bottom: 5px;
+}
+
+.console-callout p:last-child {
+  margin-bottom: 0;
+}
+
+/* Tighten up space between multiple callouts */
+.console-callout + .console-callout {
+  margin-top: -5px;
+}
+
+.console-callout-sensor {
+    border-left-color: #1b809e;
+}
+
+.console-callout-sensor h4 {
+    color: #1b809e;
+}
+
+.console-callout-heartbeat {
+    border-left-color: #81CA8D;
+}
+
+.console-callout-heartbeat h4 {
+    color: #81CA8D;
+}
+
+

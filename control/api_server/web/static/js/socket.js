@@ -77,7 +77,7 @@ channel.on("c2_msg", payload => {
 
 function msg_heartbeat(payload) {
 
-  let full_div = `<div class="row"><div class="col-md-1"><span class="glyphicon glyphicon-heart">&nbsp;</span></div><div class="col-md-10">${payload.timestamp}</div></div>`;
+  let full_div = `<div class="row console-callout console-callout-heartbeat"><div class="col-md-1"><span class="glyphicon glyphicon-heart">&nbsp;</span></div><div class="col-md-10"><h4>Heartbeat</h4><p>${payload.timestamp}</p></div></div>`;
 
   messagesContainer.insertAdjacentHTML("afterbegin", full_div)
 
@@ -86,14 +86,15 @@ function msg_heartbeat(payload) {
 function msg_announce_sensor_reg(payload) {
 
 
-    let full_div = `<div class="row">
+    let full_div = `<div class="row console-callout console-callout-sensor">
         <div class="col-md-1"><span class="glyphicon glyphicon-zoom-in">&nbsp;</span></div>
         <div class="col-md-10">
+            <h4>Sensor Registration</h4>
             <dl class="dl-horizontal">
                 <dt>timestamp</dt><dd>${payload.timestamp}</dd>
-                <dt>address</dt><dd>${payload.address}</dd>
-                <dt>sensor</dt><dd>${payload.sensor_name}</dd>
-                <dt>os</dt><dd>${payload.sensor_os}</dd>
+                <dt>address</dt><dd>${payload.sensor.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor.sensor_os}</dd>
             </dl>
         </div>
     </div>`
@@ -104,14 +105,15 @@ function msg_announce_sensor_reg(payload) {
 
 function msg_announce_sensor_dereg(payload) {
 
-    let full_div = `<div class="row">
+    let full_div = `<div class="row console-callout console-callout-sensor">
         <div class="col-md-1"><span class="glyphicon glyphicon-zoom-out">&nbsp;</span></div>
         <div class="col-md-10">
+            <h4>Sensor De-registration</h4>
             <dl class="dl-horizontal">
                 <dt>timestamp</dt><dd>${payload.timestamp}</dd>
-                <dt>address</dt><dd>${payload.address}</dd>
-                <dt>sensor</dt><dd>${payload.sensor_name}</dd>
-                <dt>os</dt><dd>${payload.sensor_os}</dd>
+                <dt>address</dt><dd>${payload.sensor.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor.sensor_os}</dd>
             </dl>
         </div>
     </div>`
