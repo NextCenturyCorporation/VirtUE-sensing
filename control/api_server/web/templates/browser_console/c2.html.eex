@@ -1,0 +1,8 @@
+<h1 class="page-header">Command and Control</h1>
+
+<div class="row">
+    <div class="col-md-10 col-md-offset-1">
+        <ul id="messages"></ul>
+    </div>
+</div>
+<script src="<%= static_path(@conn, "/js/app.js") %>"></script>

@@ -37,4 +37,8 @@ defmodule ApiServer.BrowserConsoleController do
         render conn, "virtue.html", virtue: virtue
     end
   end
+
+  def c2(conn, _params) do
+    render conn, "c2.html"
+  end
 end

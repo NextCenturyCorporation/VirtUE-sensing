@@ -84,6 +84,7 @@ defmodule ApiServer.ControlUtils do
       {:error, reason} ->
         IO.puts("got some kinda error announcing a new sensor: #{reason}")
     end
+
     {:ok, sensor_struct_data}
   end
 
@@ -162,6 +163,11 @@ defmodule ApiServer.ControlUtils do
       {:error, reason} ->
         IO.puts("!! encountered an error broadcasting the C2 heartbeat to the API C2 topic")
     end
+
+    ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", %{
+      body: "heartbeat #{DateTime.to_string(DateTime.utc_now())}"
+    }
+
   end
 
   @doc """
