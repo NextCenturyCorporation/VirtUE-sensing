@@ -85,15 +85,15 @@ ImageLoadNotificationRoutine(
 		"ProcessId=%p,ImageBase=%p,ImageSize=%p,ImageSectionNumber=%ul\n",
 		FullImageName, ProcessId, pImageInfo->ImageBase, (PVOID)pImageInfo->ImageSize,
 		pImageInfo->ImageSectionNumber);
-
-	const USHORT bufsz = sizeof LoadedImageInfo + FullImageName->Length;
+	
+	const USHORT bufsz = ROUND_TO_SIZE(sizeof(LoadedImageInfo) + FullImageName->Length, 0x10);
 	const PUCHAR buf = new UCHAR[bufsz];
 	if (NULL == buf)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for LoadedImageInfo Data!\n");
 		goto ErrorExit;
 	}
-
+	
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	pLoadedImageInfo->Header.Type = DataType::LoadedImage;
 	pLoadedImageInfo->Header.DataSz = bufsz;

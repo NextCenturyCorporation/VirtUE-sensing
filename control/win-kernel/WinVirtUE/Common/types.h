@@ -198,14 +198,11 @@ typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
 } *PSaviorCommandPkt, SaviorCommandPkt;
 
 
-
-
 typedef enum _DataType : USHORT 
 {
-	None = 0x0,
+	None = 0x0000,
 	LoadedImage = 0x0001
 } DataType;
-
 
 typedef struct _ProbeDataHeader 
 {
@@ -225,4 +222,3 @@ typedef struct _LoadedImageInfo
 	USHORT FullImageNameSz;
 	UCHAR FullImageName[0];
 } LoadedImageInfo, *PLoadedImageInfo;
-

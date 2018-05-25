@@ -26,6 +26,9 @@ VOID
 WVUMainThreadStart(PVOID StartContext)
 {
 	PKEVENT WVUMainThreadStartEvt = (PKEVENT)StartContext;
+	OBJECT_ATTRIBUTES SensorThdObjAttr = { 0,0,0,0,0,0 };
+	HANDLE SensorThreadHandle = (HANDLE)-1;
+	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LONG Signaled = 0;
 
@@ -36,6 +39,29 @@ WVUMainThreadStart(PVOID StartContext)
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Acquired runndown protection . . .\n");
 	
+	// create the queue early enough so that callbacks are guaranteed to not be called
+	// before it is created.  
+	pPDQ = new ProbeDataQueue();
+	if (NULL == pPDQ)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
+			"ProbeDataQueue not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
+	
+	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+	// create thread, register stuff and etc
+	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, &Globals.WVUThreadStartEvent);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
+		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
+
 	Status = PsSetLoadImageNotifyRoutine(ImageLoadNotificationRoutine);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -125,7 +151,7 @@ WVUSensorThread(PVOID StartContext)
 	LARGE_INTEGER timeout = { 0LL };
 	LARGE_INTEGER delay = { 0LL };
 	timeout.QuadPart = RELATIVE(SECONDS(5));  // five second timeout
-	delay.QuadPart = RELATIVE(MILLISECONDS(5));  // five ms
+	delay.QuadPart = RELATIVE(SECONDS(5));  // five ms
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
@@ -137,15 +163,6 @@ WVUSensorThread(PVOID StartContext)
 	
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
-
-	pPDQ = new ProbeDataQueue();
-	if (NULL == pPDQ)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"ProbeDataQueue not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
 
 	ReplyBuffer = (PUCHAR)ALLOC_POOL(NonPagedPool, REPLYLEN);
 	if (NULL == ReplyBuffer)
@@ -175,13 +192,13 @@ WVUSensorThread(PVOID StartContext)
 
 		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER
 		// be the first type in the structure defintion.  We first get the address of ProbeDataHeader, add the offset
-		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.
+		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.		
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
-		PFILTER_MESSAGE_HEADER pfmh = (PFILTER_MESSAGE_HEADER)(Add2Ptr(pPDH,sizeof(FILTER_MESSAGE_HEADER)));
-		pfmh->MessageId = pPDQ->GetMessageId();
-		pfmh->ReplyLength = ReplyBufferLen;
 		SenderBufferLen = pPDH->DataSz;
-		SenderBuffer = (PVOID)pPDH;
+		PLoadedImageInfo plii = (PLoadedImageInfo)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
+		SenderBuffer = (PVOID)plii;
+		plii->FltMsgHeader.MessageId = pPDQ->GetMessageId();
+		plii->FltMsgHeader.ReplyLength = ReplyBufferLen;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &timeout);
@@ -196,7 +213,7 @@ WVUSensorThread(PVOID StartContext)
 		else if (TRUE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %ld Messagse=%s!\n", ReplyBufferLen, ReplyBuffer);
-			pPDQ->Dispose(pPDH);
+			pPDQ->Dispose(plii);
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;

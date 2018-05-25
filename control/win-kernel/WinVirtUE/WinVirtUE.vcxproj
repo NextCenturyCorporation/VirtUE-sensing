@@ -166,7 +166,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -174,7 +174,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -191,7 +191,7 @@
       <WppEnabled>false</WppEnabled>
       <WppRecorderEnabled>true</WppRecorderEnabled>
       <WppScanConfigurationData>trace.h</WppScanConfigurationData>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -207,7 +207,7 @@
       <WppEnabled>false</WppEnabled>
       <WppRecorderEnabled>true</WppRecorderEnabled>
       <WppScanConfigurationData>trace.h</WppScanConfigurationData>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
@@ -215,7 +215,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -223,7 +223,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -231,7 +231,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -239,7 +239,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
