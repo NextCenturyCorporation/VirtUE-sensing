@@ -195,3 +195,13 @@ You can find the Docker Engine/Daemon log at (see [stackoverflow](https://stacko
  - OpenSuSE - `journalctl -u docker.service`
  - OSX - `~/Library/Containers/com.docker.docker/Datacom.docker.driver.amd64-linux/log/d‌​ocker.log`
  - Windows - `Get-EventLog -LogName Application -Source Docker -After (Get-Date).AddMinutes(-5) | Sort-Object Time`
+
+## The dockerized-* commands don't work!
+
+Do you have the environment variable `API_MODE` set to `dev`? If not, then:
+
+```bash
+export API_MODE=dev
+```
+
+This is necessary so that the dockerized commands get properly attached to the local `apinet` network when running in local swarm mode.
