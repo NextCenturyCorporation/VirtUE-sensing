@@ -131,7 +131,7 @@ function msg_summary(payload) {
         <div class="col-md-1"><span class="glyphicon glyphicon-globe">&nbsp;</span></div>
         <div class="col-md-10">
             <h4>Sensor Summary</h4>
-            <small> %{payload.hosts} sensor hosts</small>
+            <small> ${payload.hosts} sensor hosts</small>
 
             <h5>Sensor Types</h5>
             <pre>${JSON.stringify(payload.sensor_type, null, 4)}</pre>
