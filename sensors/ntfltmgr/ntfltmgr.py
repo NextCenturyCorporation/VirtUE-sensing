@@ -615,8 +615,15 @@ def main():
     while True:
         (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x400) 
         info = cast(msg_pkt.Message, POINTER(LoadedImageInfo))
-        print("info.contents={0}\n".format(info.contents.FltMsgHeader.MessageId,))
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "Response to Message Id {0}\n".format(info.contents.FltMsgHeader.MessageId,))
+        msgid = info.contents.FltMsgHeader.MessageId
+        length = info.contents.FullImageNameSz
+        offset = type(info.contents).FullImageName.offset
+        sb = create_string_buffer(msg_pkt.Message)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ModuleName = "".join(map(chr, slc[::2]))
+        print("ModuleName Size= {0}, ModuleName = {1}\n".format(length, ModuleName,))
+        FilterReplyMessage(hFltComms, 0, msgid, "Response to Message Id {0}\n".format(msgid,))
     CloseHandle(hFltComms)
     sys.exit(0)
     
