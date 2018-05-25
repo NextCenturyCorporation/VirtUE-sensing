@@ -134,6 +134,14 @@ body {
   margin-top: -5px;
 }
 
+.console-callout-info {
+    border-left-color: #0000ff;
+}
+
+.console-callout-info h4 {
+    color: #0000ff;
+}
+
 .console-callout-sensor {
     border-left-color: #1b809e;
 }
@@ -156,6 +164,14 @@ body {
 
 .console-callout-summary h4 {
     color: #bb74ca;
+}
+
+.console-callout-observe {
+    border-left-color: #98a72d;
+}
+
+.console-callout-observe h4 {
+    color: #98a72d;
 }
 
 

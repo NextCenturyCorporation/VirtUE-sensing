@@ -54,34 +54,32 @@ let socket = new Socket("/socket", {params: {token: window.userToken}})
 
 socket.connect()
 
-// Now that you are connected, you can join channels with a topic:
-let channel = socket.channel("c2:all", {})
-
-let messagesContainer = document.querySelector("#messages")
-
-channel.on("c2_msg", payload => {
-
-    if (payload.action == "heartbeat") {
-        msg_heartbeat(payload)
-    }
-    else if (payload.action == "sensor-registration") {
-        msg_announce_sensor_reg(payload)
-    }
-    else if (payload.action == "sensor-deregistration") {
-        msg_announce_sensor_dereg(payload)
-    }
-    else if (payload.action == "sensors-status") {
-        console.log(payload);
-        msg_summary(payload);
-    }
-    else {
-        console.log(payload)
-    }
-})
 
 function msg_heartbeat(payload) {
 
   let full_div = `<div class="row console-callout console-callout-heartbeat"><div class="col-md-1"><span class="glyphicon glyphicon-heart">&nbsp;</span></div><div class="col-md-10"><h4>Heartbeat</h4><p>${payload.timestamp}</p></div></div>`;
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_announce_sensor_observe(payload) {
+
+    let full_div = `<div class="row console-callout console-callout-observe">
+        <div class="col-md-1"><span class="glyphicon glyphicon-eye-open">&nbsp;</span></div>
+        <div class="col-md-10">
+            <h4>Sensor Observation Level Change ( ${payload.old_level} ➡ ${payload.new_level})</h4>
+
+            <dl class="dl-horizontal">
+                <dt>timestamp</dt><dd>${payload.timestamp}</dd>
+                <dt>address</dt><dd>${payload.sensor.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor.sensor_os}</dd>
+                <dt>Old Level</dt><dd>${payload.old_level}</dd>
+                <dt>New Level</dt><dd>${payload.new_level}</dd>
+            </dl>
+        </div>
+    </div>`
 
   messagesContainer.insertAdjacentHTML("afterbegin", full_div)
 
@@ -145,8 +143,47 @@ function msg_summary(payload) {
 
 }
 
-channel.join()
-  .receive("ok", resp => { console.log("Joined successfully", resp) })
-  .receive("error", resp => { console.log("Unable to join", resp) })
+function msg_info(title, msg) {
+    let full_div = `<div class="row console-callout console-callout-info"><div class="col-md-1"><span class="glyphicon glyphicon-info-sign">&nbsp;</span></div><div class="col-md-10"><h4>${title}</h4><p>${msg}</p></div></div>`;
+    messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+}
+
+
+
+function subscribe_to_c2() {
+
+
+    // Now that you are connected, you can join channels with a topic:
+    let channel = socket.channel("c2:all", {})
+
+    let messagesContainer = document.querySelector("#messages")
+
+    channel.on("c2_msg", payload => {
+
+        if (payload.action == "heartbeat") {
+            msg_heartbeat(payload)
+        }
+        else if (payload.action == "sensor-registration") {
+            msg_announce_sensor_reg(payload)
+        }
+        else if (payload.action == "sensor-deregistration") {
+            msg_announce_sensor_dereg(payload)
+        }
+        else if (payload.action == "sensors-status") {
+            msg_summary(payload);
+        }
+        else if (payload.action == "sensor-observe") {
+            msg_announce_sensor_observe(payload);
+        }
+        else {
+            console.log(payload)
+        }
+    })
+
+    channel.join()
+      .receive("ok", resp => { msg_info("Subscribed to C2", "Successfully subscribed to Sensing API Command and Control Monitoring stream.") })
+      .receive("error", resp => { console.log("Unable to join", resp) })
+
+}
 
 export default socket

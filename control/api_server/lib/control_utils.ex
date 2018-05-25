@@ -25,22 +25,27 @@ defmodule ApiServer.ControlUtils do
     {:ok, %Sensor{}}
   """
   def announce_sensor_observation(sensor, level) do
-    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(
-      %{
-        error: false,
-        action: "sensor-observe",
-        sensor: ApiServer.Sensor.clean_json(sensor, include_component: true, include_configuration: true),
-        timestamp: DateTime.to_string(DateTime.utc_now()),
-        old_level: sensor.configuration.level,
-        new_level: level
-      }
-    )) do
+
+    announce_msg = %{
+      error: false,
+      action: "sensor-observe",
+      sensor: ApiServer.Sensor.clean_json(sensor, include_component: true, include_configuration: true),
+      timestamp: DateTime.to_string(DateTime.utc_now()),
+      old_level: sensor.configuration.level,
+      new_level: level
+    }
+
+    # Kafka C2
+    case KafkaEx.produce(Application.get_env(:api_server, :c2_kafka_topic), 0, Poison.encode!(announce_msg)) do
 
       :ok ->
         IO.puts("announced sensor observe change sensor(id=#{sensor.sensor_id}) old level(#{sensor.configuration.level}) new level(#{level})")
       {:error, reason} ->
         IO.puts("got an error announcing a sensor observe change: #{reason}")
     end
+
+    # WebSocket C2
+    ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", announce_msg
 
     {:ok, sensor}
   end
