@@ -275,8 +275,8 @@ class LoadedImageInfo(SaviorStruct):
     ]
 
 GetLoadedImageInfo = namedtuple('GetLoadedImageInfo', 
-        ['Type', 'DataSz', 'Message', 'ReplyLength', 'MessageId', 'ProcessId', 'EProcess', 'ImageBase',
-            'ImageSize', 'FullImageName'])
+            ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'ProcessId', 
+                'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -668,8 +668,16 @@ def main():
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        info.contents.FullImageName = ModuleName
-        print(json.dumps(info.contents.to_dict(), 4))
+        img_nfo = GetLoadedImageInfo(info.contents.FltMsgHeader.ReplyLength, 
+                msgid,
+                info.contents.Header.Type, 
+                info.contents.Header.DataSz,
+                info.contents.ProcessId,
+                info.contents.EProcess,
+                info.contents.ImageBase, 
+                0,
+                ModuleName)
+        print(json.dumps(img_nfo._asdict(), indent=4))
         print("ModuleName Size= {0}, ModuleName = {1}\n".format(length, ModuleName,))
         FilterReplyMessage(hFltComms, 0, msgid, "Response to Message Id {0}\n".format(msgid,))
     CloseHandle(hFltComms)
