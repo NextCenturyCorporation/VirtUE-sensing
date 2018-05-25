@@ -2,6 +2,7 @@
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
+import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
@@ -48,6 +49,51 @@ class SaviorStruct(Structure):
         return state
 
     __repr__ = __str__
+
+    def to_dict(self):
+        '''
+        returns a dictionary object representative of this object instance internal state
+        '''
+        instance = {}
+        szfields = len(type(self)._fields_)        
+        for ndx in range(0, szfields):            
+            this_name = type(self)._fields_[ndx][0]
+            this_value = getattr(self, this_name)
+            instance[this_name] = this_value
+            if isinstance(this_value, str):
+                instance[this_name] = this_value
+            elif isinstance(this_value, UNICODE_STRING):
+                try:
+                    value = this_value.Buffer.encode('utf-8', 'ignore').decode('ascii')
+                    instance[this_name] = value
+                except Exception as exc:
+                    instance[this_name] = None
+            elif isinstance(this_value, CLIENT_ID):
+                instance["UniqueProcess"] = this_value.UniqueProcess
+                instance["UniqueThread"] = this_value.UniqueThread
+                del instance[this_name]
+            elif isinstance(this_value, GENERIC_MAPPING):
+                instance["GenericRead"] = this_value.GenericRead
+                instance["GenericWrite"] = this_value.GenericWrite
+                instance["GenericExecute"] = this_value.GenericExecute
+                instance["GenericAll"] = this_value.GenericAll
+                del instance[this_name]
+            elif isinstance(this_value,LIST_ENTRY):
+                instance["Flink"] = this_value.Flink
+                instance["Blink"] = this_value.Blink
+                del instance[this_name]
+            elif isinstance(this_value,FILTER_MESSAGE_HEADER):
+                instance["ReplyLength"] = this_value.ReplyLength
+                instance["MessageId"] = this_value.MessageId
+                del instance[this_name]
+            elif isinstance(this_value,ProbeDataHeader):
+                instance["Type"] = this_value.Type
+                instance["DataSz"] = this_value.DataSz
+                instance["ListEntry"] = this_value.ListEntry
+                del instance[this_name]
+            else:
+                instance[this_name] = this_value
+        return instance   
 
 class CtypesEnum(IntEnum):
     '''
@@ -229,8 +275,8 @@ class LoadedImageInfo(SaviorStruct):
     ]
 
 GetLoadedImageInfo = namedtuple('GetLoadedImageInfo', 
-        ['Type', 'DataSz', 'Message', 'ReplyLength', 'MessageId', 'ProcessId', 'EProcess', 'ImageBase',
-            'ImageSize', 'FullImageName'])
+            ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'ProcessId', 
+                'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -613,19 +659,27 @@ def main():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
-        (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x1000) 
-#        info = cast(msg_pkt.raw, POINTER(LoadedImageInfo))
-#        
-#        Type =  info.contents.Header.Type
-#        DataSz =  info.contents.Header.DataSz
-#        ProcessId =  info.contents.ProcessId
-#        EProcess =  info.contents.EProcess
-#        ImageBase =  info.contents.ImageBase
-#        ImageSize =  info.contents.ImageSize
-#        FullImageName =  info.contents.FullImageName
-#
-
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
+        (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x400) 
+        info = cast(msg_pkt.Message, POINTER(LoadedImageInfo))
+        msgid = info.contents.FltMsgHeader.MessageId
+        length = info.contents.FullImageNameSz
+        offset = type(info.contents).FullImageName.offset
+        sb = create_string_buffer(msg_pkt.Message)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ModuleName = "".join(map(chr, slc[::2]))
+        img_nfo = GetLoadedImageInfo(info.contents.FltMsgHeader.ReplyLength, 
+                msgid,
+                info.contents.Header.Type, 
+                info.contents.Header.DataSz,
+                info.contents.ProcessId,
+                info.contents.EProcess,
+                info.contents.ImageBase, 
+                0,
+                ModuleName)
+        print(json.dumps(img_nfo._asdict(), indent=4))
+        print("ModuleName Size= {0}, ModuleName = {1}\n".format(length, ModuleName,))
+        FilterReplyMessage(hFltComms, 0, msgid, "Response to Message Id {0}\n".format(msgid,))
     CloseHandle(hFltComms)
     sys.exit(0)
     
