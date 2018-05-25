@@ -2,6 +2,7 @@
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
+import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
@@ -49,7 +50,7 @@ class SaviorStruct(Structure):
 
     __repr__ = __str__
 
-        def to_dict(self):
+    def to_dict(self):
         '''
         returns a dictionary object representative of this object instance internal state
         '''
@@ -667,6 +668,8 @@ def main():
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
+        info.contents.FullImageName = ModuleName
+        print(json.dumps(info.contents.to_dict(), 4))
         print("ModuleName Size= {0}, ModuleName = {1}\n".format(length, ModuleName,))
         FilterReplyMessage(hFltComms, 0, msgid, "Response to Message Id {0}\n".format(msgid,))
     CloseHandle(hFltComms)
