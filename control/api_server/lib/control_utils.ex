@@ -181,6 +181,7 @@ defmodule ApiServer.ControlUtils do
 
     # WebSocket C2
     ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", heartbeat_msg
+    ApiServer.Endpoint.broadcast! "c2:heartbeat", "heartbeat", heartbeat_msg
 
   end
 
@@ -214,6 +215,7 @@ defmodule ApiServer.ControlUtils do
 
       # WebSocket c2
       ApiServer.Endpoint.broadcast! "c2:all", "c2_msg", announce_msg
+      ApiServer.Endpoint.broadcast! "c2:summary", "summary", announce_msg
     end
 
   end

@@ -6,9 +6,8 @@
     </div>
 </div>
 
-<script src="<%= static_path(@conn, "/js/app.js") %>"></script>
+
 
 <script>
-    let app = require("web/static/js/socket").default;
-    app.subscribe_to_c2();
+    require("web/static/js/socket").default.subscribe_to_c2();
 </script>

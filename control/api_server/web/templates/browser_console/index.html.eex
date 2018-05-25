@@ -2,22 +2,22 @@
 
 <div class="row placeholders">
     <div class="col-xs-6 col-sm-3 placeholder">
-      <p class="dashboard-stat"><%= virtue_count() %></p>
+      <p class="dashboard-stat" id="summary-virtue-count"><%= virtue_count() %></p>
       <h4>Virtues</h4>
       <span class="text-muted">Currently Registered</span>
     </div>
     <div class="col-xs-6 col-sm-3 placeholder">
-      <p class="dashboard-stat"><%= sensor_count() %></p>
+      <p class="dashboard-stat" id="summary-sensor-count"><%= sensor_count() %></p>
       <h4>Sensors</h4>
       <span class="text-muted">Currently Registered</span>
     </div>
     <div class="col-xs-6 col-sm-3 placeholder">
-      <p class="dashboard-stat"><%= sensor_type_count() %></p>
+      <p class="dashboard-stat" id="summary-type-count"><%= sensor_type_count() %></p>
       <h4>Sensor Types</h4>
       <span class="text-muted">Distinct Sensor Types</span>
     </div>
     <div class="col-xs-6 col-sm-3 placeholder">
-      <p class="dashboard-stat"><%= sensor_os_count() %></p>
+      <p class="dashboard-stat" id="summary-os-count"><%= sensor_os_count() %></p>
       <h4>Os Types</h4>
       <span class="text-muted">Distinct Os Types</span>
     </div>
@@ -33,3 +33,7 @@
         </dl>
     </div>
 </div>
+
+<script>
+    require("web/static/js/socket").default.subscribe_to_summary();
+</script>

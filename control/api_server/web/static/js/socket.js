@@ -186,4 +186,47 @@ function subscribe_to_c2() {
 
 }
 
-export default {socket, subscribe_to_c2}
+function subscribe_to_heartbeat() {
+
+    let channel = socket.channel("c2:heartbeat", {})
+    let heartbeatContainer = document.querySelector("#heartbeat")
+
+    channel.on("heartbeat", payload => {
+
+        // update the heartbeat indicator
+        heartbeat.innerText = payload.timestamp.split(".")[0];
+    })
+
+    channel.join()
+      .receive("ok", resp => { console.log("joined heartbeat channel") })
+      .receive("error", resp => { console.log("Unable to join", resp) })
+
+}
+
+function subscribe_to_summary() {
+
+    let channel = socket.channel("c2:summary", {})
+    let s_virtue = document.querySelector("#summary-virtue-count")
+    let s_sensor = document.querySelector("#summary-sensor-count")
+    let s_types = document.querySelector("#summary-type-count")
+    let s_oses = document.querySelector("#summary-os-count")
+
+    channel.on("summary", payload => {
+
+        console.log(payload);
+
+        // update the summary data
+        s_virtue.innerText = payload.hosts;
+        s_sensor.innerText = Object.values(payload.sensor_type).reduce( (acc, val) => acc + val, 0)
+        s_types.innerText = Object.keys(payload.sensor_type).length
+        s_oses.innerText = Object.keys(payload.sensor_os).length
+
+    })
+
+    channel.join()
+      .receive("ok", resp => { console.log("joined summary channel") })
+      .receive("error", resp => { console.log("Unable to join", resp) })
+
+}
+
+export default {socket, subscribe_to_c2, subscribe_to_heartbeat, subscribe_to_summary}

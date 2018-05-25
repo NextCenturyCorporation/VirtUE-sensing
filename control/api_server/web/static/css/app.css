@@ -175,4 +175,11 @@ body {
 }
 
 
+.heartbeat-text {
+    color: #111111;
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+}
+
 
