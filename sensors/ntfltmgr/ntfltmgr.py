@@ -658,19 +658,17 @@ def main():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
-        (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x1000) 
-#        info = cast(msg_pkt.raw, POINTER(LoadedImageInfo))
-#        
-#        Type =  info.contents.Header.Type
-#        DataSz =  info.contents.Header.DataSz
-#        ProcessId =  info.contents.ProcessId
-#        EProcess =  info.contents.EProcess
-#        ImageBase =  info.contents.ImageBase
-#        ImageSize =  info.contents.ImageSize
-#        FullImageName =  info.contents.FullImageName
-#
-
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
+        (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x400) 
+        info = cast(msg_pkt.Message, POINTER(LoadedImageInfo))
+        msgid = info.contents.FltMsgHeader.MessageId
+        length = info.contents.FullImageNameSz
+        offset = type(info.contents).FullImageName.offset
+        sb = create_string_buffer(msg_pkt.Message)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ModuleName = "".join(map(chr, slc[::2]))
+        print("ModuleName Size= {0}, ModuleName = {1}\n".format(length, ModuleName,))
+        FilterReplyMessage(hFltComms, 0, msgid, "Response to Message Id {0}\n".format(msgid,))
     CloseHandle(hFltComms)
     sys.exit(0)
     
