@@ -5,11 +5,16 @@
 * @brief VirtUE Startup
 */
 #include "WinVirtUE.h"
+#include "ProbeDataQueue.h"
 
 #define COMMON_POOL_TAG WVU_OBSIDIANWAVE_POOL_TAG
 
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
+
+// Probe Daeta Queue operations
+class ProbeDataQueue *pPDQ;
+
 
 /**
 * @brief Main initialization thread.
@@ -30,7 +35,7 @@ WVUMainThreadStart(PVOID StartContext)
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Acquired runndown protection . . .\n");
-
+	
 	Status = PsSetLoadImageNotifyRoutine(ImageLoadNotificationRoutine);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -118,7 +123,9 @@ WVUSensorThread(PVOID StartContext)
 	const ULONG REPLYLEN = 128;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = -1000 * 1000 * 10 * 5;  // five second timeout
+	LARGE_INTEGER delay = { 0LL };
+	timeout.QuadPart = RELATIVE(SECONDS(5));  // five second timeout
+	delay.QuadPart = RELATIVE(MILLISECONDS(5));  // five ms
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
@@ -131,6 +138,15 @@ WVUSensorThread(PVOID StartContext)
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
+	pPDQ = new ProbeDataQueue();
+	if (NULL == pPDQ)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
+			"ProbeDataQueue not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
+
 	ReplyBuffer = (PUCHAR)ALLOC_POOL(NonPagedPool, REPLYLEN);
 	if (NULL == ReplyBuffer)
 	{
@@ -141,30 +157,28 @@ WVUSensorThread(PVOID StartContext)
 
 	do
 	{		
-		Status = KeWaitForMultipleObjects(NUMBER_OF(Globals.ProbeDataEvents), (PVOID*)&Globals.ProbeDataEvents[0], WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL);
-		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", KeReadStateSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue]));
-		if (FALSE == NT_SUCCESS(Status) && FALSE == Globals.ShuttingDown)
+		Status = pPDQ->WaitForQueueAndPortConnect();
+		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", pPDQ->Count());
+		if (FALSE == NT_SUCCESS(Status) || TRUE == Globals.ShuttingDown)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "KeWaitForMultipleObjects(Globals.ProbeDataEvents,...) Failed! Status=%08x\n", Status);
 			goto ErrorExit;
 		}
 
-		// If the list is empty and we are shutting down then break out
-		if (TRUE == IsListEmpty(&Globals.ProbeDataQueue) && TRUE == Globals.ShuttingDown)
+		// quickly remove a queued entry
+		PLIST_ENTRY pListEntry = pPDQ->Dequeue();
+		if (NULL == pListEntry)
 		{
-			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, WARNING_LEVEL_ID, "IsListEmpty(Globals.ProbeDataQueue,...) returned an empty queue?!\n");
-			goto ErrorExit;
+			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, WARNING_LEVEL_ID, "Dequeued an emtpy list entry - continuing!\n");
+			continue;
 		}
 
-		// quickly remove a queued entry
-		PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&Globals.ProbeDataQueue, &Globals.ProbeDataQueueSpinLock);
-		
 		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER
 		// be the first type in the structure defintion.  We first get the address of ProbeDataHeader, add the offset
 		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
 		PFILTER_MESSAGE_HEADER pfmh = (PFILTER_MESSAGE_HEADER)(Add2Ptr(pPDH,sizeof(FILTER_MESSAGE_HEADER)));
-		pfmh->MessageId = Globals.MessageId;
+		pfmh->MessageId = pPDQ->GetMessageId();
 		pfmh->ReplyLength = ReplyBufferLen;
 		SenderBufferLen = pPDH->DataSz;
 		SenderBuffer = (PVOID)pPDH;
@@ -176,21 +190,18 @@ WVUSensorThread(PVOID StartContext)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed - enqueue and wait! Status=%08x - waiting\n", Status);
-			(VOID)ExInterlockedInsertHeadList(&Globals.ProbeDataQueue, pListEntry, &Globals.ProbeDataQueueSpinLock);
-			KeReleaseSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
-			KeDelayExecutionThread(KernelMode, FALSE, &timeout);
+			pPDQ->Enqueue(pListEntry);
+			KeDelayExecutionThread(KernelMode, FALSE, &delay);
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
-			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %d Messagse=%s!\n", ReplyBufferLen, ReplyBuffer);
-			Globals.MessageId++;
-			delete[] (PUCHAR)pPDH;
+			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %ld Messagse=%s!\n", ReplyBufferLen, ReplyBuffer);
+			pPDQ->Dispose(pPDH);
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;
 		RtlSecureZeroMemory(ReplyBuffer, REPLYLEN);
 	} while (FALSE == Globals.ShuttingDown);
-
 
 ErrorExit:
 	

@@ -1,6 +1,7 @@
 #include "Common.h"
 #include "PortMsgTrans.h"
 #include "Driver.h"
+#include "ProbeDataQueue.h"
 
 /**
 * @brief Filter Manager calls this routine whenever a user-mode application calls FilterConnectCommunicationPort to send a connection request to the mini-filter driver
@@ -11,14 +12,13 @@
 * @param ConnectionPortCookie Pointer to information that uniquely identifies this client port
 * @retval the driver entry's returned status
 */
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 NTSTATUS FLTAPI WVUPortConnect(
-	_In_ PFLT_PORT ClientPort,
-	_In_opt_ _Notnull_ PVOID ServerPortCookie,
-	_In_reads_bytes_opt_(SizeOfContext) PVOID ConnectionContext,
-	_In_ ULONG SizeOfContext,
-	_Outptr_result_maybenull_ PVOID *ConnectionPortCookie)
+	PFLT_PORT ClientPort,
+	PVOID ServerPortCookie,
+	PVOID ConnectionContext,
+	ULONG SizeOfContext,
+	PVOID *ConnectionPortCookie)
 {
 	const NTSTATUS Status = STATUS_SUCCESS;
 	FLT_ASSERTMSG("ClientPort Must Be NULL!!", NULL == Globals.ClientPort);
@@ -35,8 +35,7 @@ NTSTATUS FLTAPI WVUPortConnect(
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.UserProcess, Globals.ClientPort);
 
-	// cause the outbund queue processor to start processing	
-	KeSetEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE);  // Signaled when Port is connected
+	pPDQ->OnConnect();
 	return Status;
 }
 
@@ -46,10 +45,9 @@ NTSTATUS FLTAPI WVUPortConnect(
 * @param ConnectionCookie  Pointer to information that uniquely identifies this client port
 * represent this driver
 */
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 VOID FLTAPI WVUPortDisconnect(
-	_In_opt_ PVOID ConnectionCookie)
+	PVOID ConnectionCookie)
 {
 	UNREFERENCED_PARAMETER(ConnectionCookie);
 
@@ -65,8 +63,7 @@ VOID FLTAPI WVUPortDisconnect(
 
 	Globals.ConnectionCookie = NULL;
 
-	// cause the outbound queue processor to stop
-	(VOID)KeResetEvent((PRKEVENT)Globals.ProbeDataEvents[ProbeDataEvtConnect]);	
+	pPDQ->OnDisconnect();	
 }
 
 /**
@@ -74,10 +71,9 @@ VOID FLTAPI WVUPortDisconnect(
 * @param command specific command to change the state
 * @retval Returned Status
 */
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 NTSTATUS OnProtectionStateChange(
-	_In_ WVU_COMMAND command)
+	WVU_COMMAND command)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
@@ -109,10 +105,9 @@ NTSTATUS OnProtectionStateChange(
 * @param command specific command to change the state
 * @retval Returned Status
 */
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 NTSTATUS OnUnloadStateChange(
-	_In_ WVU_COMMAND command)
+	WVU_COMMAND command)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
@@ -149,11 +144,10 @@ NTSTATUS OnUnloadStateChange(
 * @param InputBufferLength Size, in bytes, of the buffer that InputBufferpoints
 * @retval Returned Status
 */
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 NTSTATUS OnCommandMessage(
-	_In_reads_bytes_(InputBufferLength) PVOID InputBuffer,
-	_In_ ULONG InputBufferLength)
+	PVOID InputBuffer,
+	ULONG InputBufferLength)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PCOMMAND_MESSAGE pCmdMsg = NULL;

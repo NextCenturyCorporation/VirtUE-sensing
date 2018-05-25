@@ -52,7 +52,6 @@ VOID CDECL operator delete(PVOID ptr)
 	ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
 }
 
-
 /////////////////////////////////////////////////////////////////////
 /// @fn operator delete[]
 /// @brief override the delete operator

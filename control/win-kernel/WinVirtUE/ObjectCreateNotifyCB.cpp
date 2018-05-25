@@ -4,6 +4,7 @@
 * @brief Object creation/destruction callback handlers
 */
 #include "ObjectCreateNotifyCB.h"
+#include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_OBJECT_CREATE_POOL_TAG
 
 /**
@@ -18,11 +19,12 @@
 * @param ProcessId  - the new processes process id
 * @param CreateInfo  - provides information about a newly created process
 */
+_Use_decl_annotations_
 VOID
 ProcessNotifyCallbackEx(
-	_Inout_ PEPROCESS  Process,
-	_In_ HANDLE  ProcessId,
-	_Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo)
+	PEPROCESS  Process,
+	HANDLE  ProcessId,
+	const PPS_CREATE_NOTIFY_INFO  CreateInfo)
 {
 	UNREFERENCED_PARAMETER(Process);
 	UNREFERENCED_PARAMETER(ProcessId);
@@ -102,8 +104,7 @@ ImageLoadNotificationRoutine(
 	pLoadedImageInfo->FullImageNameSz = FullImageName->Length;
 	RtlMoveMemory(&pLoadedImageInfo->FullImageName[0], FullImageName->Buffer, pLoadedImageInfo->FullImageNameSz);
 
-	(VOID)ExInterlockedInsertTailList(&Globals.ProbeDataQueue, &pLoadedImageInfo->Header.ListEntry, &Globals.ProbeDataQueueSpinLock);
-	KeReleaseSemaphore((PRKSEMAPHORE)Globals.ProbeDataEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+	pPDQ->Enqueue(&pLoadedImageInfo->Header.ListEntry);
 
 ErrorExit:
 

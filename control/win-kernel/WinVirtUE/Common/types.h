@@ -167,10 +167,6 @@ typedef struct _WVUGlobals
     BOOLEAN EnableProtection;   // if true then the driver is protecting
 	PDRIVER_OBJECT DriverObject;	
 	BOOLEAN ShuttingDown;
-	PVOID ProbeDataEvents[2];
-	KSPIN_LOCK ProbeDataQueueSpinLock;
-	LIST_ENTRY ProbeDataQueue;
-	ULONGLONG MessageId;
 } WVUGlobals, *PWVUGlobals;
 
 

@@ -21,3 +21,4 @@
 #define WVU_REGISTRY_MODIFICATION_POOL_TAG	'domr'
 #define WVU_OBSIDIANWAVE_POOL_TAG           'vwbo'
 #define WVU_DRIVER_POOL_TAG					'rvrd'
+#define WVU_PROBEDATAQUEUE_POOL_TAG         'qdrp'

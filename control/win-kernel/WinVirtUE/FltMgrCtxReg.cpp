@@ -200,7 +200,7 @@ InstanceContextCleanup(
     FLT_ASSERTMSG("Find out why we are freeing a NULL WVU_INSTANCE_CONTEXT pointer!",
         NULL != pVoid);
 
-    PWVU_INSTANCE_CONTEXT pInstanceContext = (PWVU_INSTANCE_CONTEXT)pVoid;
+    const PWVU_INSTANCE_CONTEXT pInstanceContext = (PWVU_INSTANCE_CONTEXT)pVoid;
     UNREFERENCED_PARAMETER(pInstanceContext);
 }
 
@@ -264,9 +264,9 @@ static SIZE_T g_SizeOfFltrMgrStrmCtx = 0;
 */
 _Use_decl_annotations_
 PVOID StreamContextAllocate(
-    _In_ POOL_TYPE PoolType,
-    _In_ SIZE_T Size,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    POOL_TYPE PoolType,
+    SIZE_T Size,
+    FLT_CONTEXT_TYPE ContextType)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PVOID pWVUStreamContext = NULL;
@@ -373,11 +373,11 @@ Done:
 * @param pVoid  - a pointer to the stream context to be released
 * @param ContextType  - context of current filter instance
 */
-
+_Use_decl_annotations_
 VOID
 StreamContextCleanup(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    PVOID pContext,
+    FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -385,10 +385,15 @@ StreamContextCleanup(
         FLT_STREAM_CONTEXT == ContextType);
 
     FLT_ASSERTMSG("Find out why we are freeing a NULL WVU_STREAM_CONTEXT pointer!",
-        NULL != pVoid);
+        NULL != pContext);
 
-    PWVU_STREAM_CONTEXT pStreamContext = (PWVU_STREAM_CONTEXT)pVoid;
-    pStreamContext = (PWVU_STREAM_CONTEXT)pVoid;
+	if (NULL == pContext)
+	{
+		goto ErrorExit;
+	}
+
+    PWVU_STREAM_CONTEXT pStreamContext = (PWVU_STREAM_CONTEXT)pContext;
+    pStreamContext = (PWVU_STREAM_CONTEXT)pContext;
 
     FltReleaseFileNameInformation(pStreamContext->FileNameInformation);
 
@@ -402,6 +407,10 @@ StreamContextCleanup(
     ExDeleteResourceLite(pStreamContext->Header.PagingIoResource);
 
     FsRtlTeardownPerStreamContexts(&pStreamContext->Header);
+
+ErrorExit:
+
+	return;
 }
 
 /**
@@ -451,11 +460,11 @@ StreamContextFree(
 _Use_decl_annotations_
 PWVU_STREAM_CONTEXT
 CreateStreamContext(
-    _In_ PFLT_CALLBACK_DATA          Data,
-    _In_ PFLT_FILE_NAME_INFORMATION  FileNameInformation,
-    _In_ StreamFlags                 Flags,
-    _In_ LARGE_INTEGER               FileId,
-    _Out_ PNTSTATUS                  Status)
+    PFLT_CALLBACK_DATA          Data,
+    PFLT_FILE_NAME_INFORMATION  FileNameInformation,
+    StreamFlags                 Flags,
+    LARGE_INTEGER               FileId,
+    PNTSTATUS                   Status)
 {
     PWVU_STREAM_CONTEXT pStreamContext = NULL;
 

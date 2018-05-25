@@ -137,10 +137,10 @@ typedef enum
         break;                                                  \
     }
 
-void WVUDebugPrintFileName(PVOID String, INT32 Type, INT32 Level);
+void WVUDebugPrintFileName(_Notnull_ _In_ PVOID String, _In_ INT32 Type, _In_ INT32 Level);
 void WVUDebugBreakPoint();
-void WVUDebugPrintBuffer(PUCHAR Buffer, UINT32 Size);
-void WVUDebugBreakOnMatch(PVOID String, WCHAR *Target, INT32 Type);
+void WVUDebugPrintBuffer(_Notnull_ _Inout_bytecount_(Size) const PUCHAR Buffer, _In_ UINT32 Size);
+void WVUDebugBreakOnMatch(_In_ _Notnull_ PVOID String, _Notnull_ _In_ const WCHAR *Target, _In_ INT32 Type);
 
 #else /* No Debug */
 
