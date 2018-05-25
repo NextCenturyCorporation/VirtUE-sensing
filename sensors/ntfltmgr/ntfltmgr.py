@@ -49,6 +49,51 @@ class SaviorStruct(Structure):
 
     __repr__ = __str__
 
+        def to_dict(self):
+        '''
+        returns a dictionary object representative of this object instance internal state
+        '''
+        instance = {}
+        szfields = len(type(self)._fields_)        
+        for ndx in range(0, szfields):            
+            this_name = type(self)._fields_[ndx][0]
+            this_value = getattr(self, this_name)
+            instance[this_name] = this_value
+            if isinstance(this_value, str):
+                instance[this_name] = this_value
+            elif isinstance(this_value, UNICODE_STRING):
+                try:
+                    value = this_value.Buffer.encode('utf-8', 'ignore').decode('ascii')
+                    instance[this_name] = value
+                except Exception as exc:
+                    instance[this_name] = None
+            elif isinstance(this_value, CLIENT_ID):
+                instance["UniqueProcess"] = this_value.UniqueProcess
+                instance["UniqueThread"] = this_value.UniqueThread
+                del instance[this_name]
+            elif isinstance(this_value, GENERIC_MAPPING):
+                instance["GenericRead"] = this_value.GenericRead
+                instance["GenericWrite"] = this_value.GenericWrite
+                instance["GenericExecute"] = this_value.GenericExecute
+                instance["GenericAll"] = this_value.GenericAll
+                del instance[this_name]
+            elif isinstance(this_value,LIST_ENTRY):
+                instance["Flink"] = this_value.Flink
+                instance["Blink"] = this_value.Blink
+                del instance[this_name]
+            elif isinstance(this_value,FILTER_MESSAGE_HEADER):
+                instance["ReplyLength"] = this_value.ReplyLength
+                instance["MessageId"] = this_value.MessageId
+                del instance[this_name]
+            elif isinstance(this_value,ProbeDataHeader):
+                instance["Type"] = this_value.Type
+                instance["DataSz"] = this_value.DataSz
+                instance["ListEntry"] = this_value.ListEntry
+                del instance[this_name]
+            else:
+                instance[this_name] = this_value
+        return instance   
+
 class CtypesEnum(IntEnum):
     '''
     A ctypes-compatible IntEnum superclass
