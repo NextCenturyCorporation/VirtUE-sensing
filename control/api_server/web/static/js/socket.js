@@ -55,7 +55,7 @@ let socket = new Socket("/socket", {params: {token: window.userToken}})
 socket.connect()
 
 
-function msg_heartbeat(payload) {
+function msg_heartbeat(messagesContainer, payload) {
 
   let full_div = `<div class="row console-callout console-callout-heartbeat"><div class="col-md-1"><span class="glyphicon glyphicon-heart">&nbsp;</span></div><div class="col-md-10"><h4>Heartbeat</h4><p>${payload.timestamp}</p></div></div>`;
 
@@ -63,7 +63,7 @@ function msg_heartbeat(payload) {
 
 }
 
-function msg_announce_sensor_observe(payload) {
+function msg_announce_sensor_observe(messagesContainer, payload) {
 
     let full_div = `<div class="row console-callout console-callout-observe">
         <div class="col-md-1"><span class="glyphicon glyphicon-eye-open">&nbsp;</span></div>
@@ -85,7 +85,7 @@ function msg_announce_sensor_observe(payload) {
 
 }
 
-function msg_announce_sensor_reg(payload) {
+function msg_announce_sensor_reg(messagesContainer, payload) {
 
 
     let full_div = `<div class="row console-callout console-callout-sensor">
@@ -105,7 +105,7 @@ function msg_announce_sensor_reg(payload) {
 
 }
 
-function msg_announce_sensor_dereg(payload) {
+function msg_announce_sensor_dereg(messagesContainer, payload) {
 
     let full_div = `<div class="row console-callout console-callout-sensor">
         <div class="col-md-1"><span class="glyphicon glyphicon-zoom-out">&nbsp;</span></div>
@@ -124,7 +124,7 @@ function msg_announce_sensor_dereg(payload) {
 
 }
 
-function msg_summary(payload) {
+function msg_summary(messagesContainer, payload) {
     let full_div = `<div class="row console-callout console-callout-summary">
         <div class="col-md-1"><span class="glyphicon glyphicon-globe">&nbsp;</span></div>
         <div class="col-md-10">
@@ -143,7 +143,7 @@ function msg_summary(payload) {
 
 }
 
-function msg_info(title, msg) {
+function msg_info(messagesContainer, title, msg) {
     let full_div = `<div class="row console-callout console-callout-info"><div class="col-md-1"><span class="glyphicon glyphicon-info-sign">&nbsp;</span></div><div class="col-md-10"><h4>${title}</h4><p>${msg}</p></div></div>`;
     messagesContainer.insertAdjacentHTML("afterbegin", full_div)
 }
@@ -161,19 +161,19 @@ function subscribe_to_c2() {
     channel.on("c2_msg", payload => {
 
         if (payload.action == "heartbeat") {
-            msg_heartbeat(payload)
+            msg_heartbeat(messagesContainer, payload)
         }
         else if (payload.action == "sensor-registration") {
-            msg_announce_sensor_reg(payload)
+            msg_announce_sensor_reg(messagesContainer, payload)
         }
         else if (payload.action == "sensor-deregistration") {
-            msg_announce_sensor_dereg(payload)
+            msg_announce_sensor_dereg(messagesContainer, payload)
         }
         else if (payload.action == "sensors-status") {
-            msg_summary(payload);
+            msg_summary(messagesContainer, payload);
         }
         else if (payload.action == "sensor-observe") {
-            msg_announce_sensor_observe(payload);
+            msg_announce_sensor_observe(messagesContainer, payload);
         }
         else {
             console.log(payload)
@@ -181,9 +181,9 @@ function subscribe_to_c2() {
     })
 
     channel.join()
-      .receive("ok", resp => { msg_info("Subscribed to C2", "Successfully subscribed to Sensing API Command and Control Monitoring stream.") })
+      .receive("ok", resp => { msg_info(messagesContainer, "Subscribed to C2", "Successfully subscribed to Sensing API Command and Control Monitoring stream.") })
       .receive("error", resp => { console.log("Unable to join", resp) })
 
 }
 
-export default socket
+export default {socket, subscribe_to_c2}

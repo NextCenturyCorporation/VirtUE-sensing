@@ -8,6 +8,7 @@
 
 <script src="<%= static_path(@conn, "/js/app.js") %>"></script>
 
-<script lang="javascript">
-    subscribe_to_c2();
+<script>
+    let app = require("web/static/js/socket").default;
+    app.subscribe_to_c2();
 </script>
