@@ -678,8 +678,9 @@ def main():
                 0,
                 ModuleName)
         print(json.dumps(img_nfo._asdict(), indent=4))
-        response = create_string_buffer("Response to Message Id {0}\n".format(msgid,))
-        FilterReplyMessage(hFltComms, 0, msgid, response);
+        response = ("Response to Message Id {0}\n".format(msgid,))
+        sb = create_string_buffer(response)
+        FilterReplyMessage(hFltComms, 0, msgid, sb);
     CloseHandle(hFltComms)
     sys.exit(0)
     
