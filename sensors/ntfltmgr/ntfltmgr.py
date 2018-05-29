@@ -327,10 +327,10 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("Failed to Reply Message Error %d", lasterror)
-       #801F0020 
-        raise
-    else:
-        return res
+         #801F0020 
+        res = lasterror;
+
+    return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
 _FilterGetMessageParamFlags = (0, "hPort"), (0,  "lpMessageBuffer"), (0, "dwMessageBufferSize"), (0,  "lpOverlapped", 0)
@@ -349,7 +349,6 @@ def FilterGetMessage(hPort, msg_len):
     
     sb = create_string_buffer(msg_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
-    import pdb;pdb.set_trace() 
     try:
         res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
     except OSError as osr:
