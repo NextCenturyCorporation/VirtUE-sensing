@@ -349,7 +349,7 @@ def FilterGetMessage(hPort, msg_len):
     
     sb = create_string_buffer(msg_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
-    
+    import pdb;pdb.set_trace() 
     try:
         res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
     except OSError as osr:
@@ -357,8 +357,6 @@ def FilterGetMessage(hPort, msg_len):
         logger.exception("Failed to Get Message Error %d", lasterror)
        #801F0020 
         raise
-    else:
-        return res
 
     ReplyLen = info.contents.ReplyLength
     MessageId = info.contents.MessageId
