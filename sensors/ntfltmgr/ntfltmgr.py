@@ -321,8 +321,16 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     info.contents.Status = status
     info.contents.MessageId = msg_id        
     reply_buffer[sz_frh:sz_frh + msg_len] = msg    
-    res = _FilterReplyMessage(hPort, info, total_len)
-    return res
+
+    try:
+        res = _FilterReplyMessage(hPort, info, total_len)
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("Failed to Reply Message Error %d", lasterror)
+       #801F0020 
+        raise
+    else:
+        return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
 _FilterGetMessageParamFlags = (0, "hPort"), (0,  "lpMessageBuffer"), (0, "dwMessageBufferSize"), (0,  "lpOverlapped", 0)
@@ -341,8 +349,17 @@ def FilterGetMessage(hPort, msg_len):
     
     sb = create_string_buffer(msg_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
-    res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
     
+    try:
+        res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("Failed to Get Message Error %d", lasterror)
+       #801F0020 
+        raise
+    else:
+        return res
+
     ReplyLen = info.contents.ReplyLength
     MessageId = info.contents.MessageId
     msg_pkt = GetMessagePacket (ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
@@ -372,7 +389,6 @@ def FilterConnectCommunicationPort(PortName):
     else:
         time.sleep(1)
         return res, hPort
-        
 def _build_filter_instance_info(buf):
     '''
     Create the FilterInstanceInformation instance
