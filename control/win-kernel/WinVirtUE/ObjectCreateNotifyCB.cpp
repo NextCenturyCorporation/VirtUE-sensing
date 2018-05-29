@@ -97,7 +97,7 @@ ImageLoadNotificationRoutine(
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	pLoadedImageInfo->Header.Type = DataType::LoadedImage;
 	pLoadedImageInfo->Header.DataSz = bufsz;
-	KeQuerySystemTime(&pLoadedImageInfo->CurrentGMT);
+	KeQuerySystemTime(&pLoadedImageInfo->Header.CurrentGMT);
 	pLoadedImageInfo->EProcess = pProcess;
 	pLoadedImageInfo->ProcessId = ProcessId;
 	pLoadedImageInfo->ImageBase = pImageInfo->ImageBase;

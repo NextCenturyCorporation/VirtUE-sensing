@@ -242,6 +242,7 @@ class ProbeDataHeader(SaviorStruct):
     _fields_ = [
         ("Type", USHORT), 
         ("DataSz", USHORT), 
+        ("CurrentGMT", LONGLONG),
         ("ListEntry", LIST_ENTRY)
     ]
 
@@ -660,7 +661,7 @@ def main():
                 msgid,
                 info.contents.Header.Type, 
                 info.contents.Header.DataSz,
-                info.contents.CurrentGMT,
+                info.contents.Header.CurrentGMT,
                 info.contents.ProcessId,
                 info.contents.EProcess,
                 info.contents.ImageBase, 
@@ -668,7 +669,7 @@ def main():
                 ModuleName)
         print(json.dumps(img_nfo._asdict(), indent=4))
         response = ("Response to Message Id {0}\n".format(msgid,))
-        FilterReplyMessage(hFltComms, 0, msgid, response);
+        FilterReplyMessage(hFltComms, 0, msgid, response)
     CloseHandle(hFltComms)
     sys.exit(0)
     

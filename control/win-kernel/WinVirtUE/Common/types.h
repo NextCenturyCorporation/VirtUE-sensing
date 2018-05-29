@@ -208,6 +208,7 @@ typedef struct _ProbeDataHeader
 {
 	DataType    Type;
 	USHORT      DataSz;
+	LARGE_INTEGER CurrentGMT;
 	LIST_ENTRY  ListEntry;
 } ProbeDataHeader, *PProbeDataHeader;
 
@@ -215,7 +216,6 @@ typedef struct _LoadedImageInfo
 {	
 	FILTER_MESSAGE_HEADER FltMsgHeader;
 	ProbeDataHeader Header;
-	LARGE_INTEGER CurrentGMT;
 	HANDLE ProcessId;
 	PEPROCESS  EProcess;
 	PVOID ImageBase;
