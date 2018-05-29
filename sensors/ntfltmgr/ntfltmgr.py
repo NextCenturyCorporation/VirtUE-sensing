@@ -18,6 +18,7 @@ ULONG_PTR = WPARAM
 NTSTATUS = DWORD
 PVOID = c_void_p
 ULONGLONG = c_ulonglong
+LONGLONG = c_longlong
 
 logger = logging.getLogger("ntfltmgr")
 logger.addHandler(logging.NullHandler())
@@ -269,7 +270,7 @@ class LoadedImageInfo(SaviorStruct):
         ("ProcessId", PVOID),
         ("EProcess", PVOID),
         ("ImageBase", PVOID),
-        ("ImageSize", POINTER(ULONG)),
+        ("ImageSize", LONGLONG),
         ("FullImageNameSz", USHORT),
         ("FullImageName", BYTE * 1)
     ]
@@ -668,6 +669,7 @@ def main():
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
+        import pdb;pdb.set_trace()
         img_nfo = GetLoadedImageInfo(info.contents.FltMsgHeader.ReplyLength, 
                 msgid,
                 info.contents.Header.Type, 
