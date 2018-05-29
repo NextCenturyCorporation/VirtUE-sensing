@@ -19,6 +19,7 @@ public:
 	/* All probes are required to include an Disable function */
 	virtual BOOLEAN Disable() = 0;
 	/* All probes are required to include an State function */
+	_Must_inspect_result_
 	virtual BOOLEAN State() = 0;
 	/* All probes are required to include an Mitigate function */
 	virtual BOOLEAN Mitigate() = 0;
