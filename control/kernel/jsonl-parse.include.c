@@ -36,9 +36,11 @@ enum parse_index {OBJECT_START, VER_TAG, VERSION, MSG, JSONL_BRACKET, NONCE, CMD
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
-enum message_command {DISCOVERY = 0, OFF = 1, ON = 2, INCREASE = 3, DECREASE = 4,
-					  LOW = 5, DEFAULT = 6, HIGH = 7, ADVERSARIAL = 8, RESET = 9,
-					  RECORDS = 10};
+
+#define NUM_COMMANDS 12
+enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
+					  LOW, DEFAULT, HIGH, ADVERSARIAL, RESET,
+					  RECORDS};
 
 #define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
 /**
@@ -149,6 +151,7 @@ struct jsmn_session
 static inline int index_command(uint8_t *cmd, int bytes)
 {
 	static uint8_t *table[] = {
+		"connect",
 		"discovery",
 		"off",
 		"on",
@@ -161,10 +164,10 @@ static inline int index_command(uint8_t *cmd, int bytes)
 		"reset",
 		"records"
 	};
-	static int length[] = {2, 2, 2, 2, 3, 2, 3, 2, 2, 3, 3};
+	static int length[] = {1, 2, 2, 2, 1, 3, 1, 3, 1, 1, 3, 3};
 	int i = 0;
 
-	for(i = 0; i < 11; i++) {
+	for(i = 0; i < NUM_COMMANDS; i++) {
 		if (! memcmp(cmd, table[i], (length[i] < bytes) ? length[i] : bytes))
 			return i;
 	}
