@@ -2,6 +2,7 @@
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
+import time
 import json
 import logging
 from enum import IntEnum
@@ -369,6 +370,7 @@ def FilterConnectCommunicationPort(PortName):
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror)
         raise
     else:
+        time.sleep(1)
         return res, hPort
         
 def _build_filter_instance_info(buf):
@@ -669,7 +671,6 @@ def main():
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        import pdb;pdb.set_trace()
         img_nfo = GetLoadedImageInfo(info.contents.FltMsgHeader.ReplyLength, 
                 msgid,
                 info.contents.Header.Type, 
