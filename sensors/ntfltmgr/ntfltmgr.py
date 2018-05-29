@@ -6,7 +6,7 @@ import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
