@@ -5,13 +5,35 @@
 * @brief Abstract Base Class for Windows VirtUE Probes Definition
 */
 #include "AbstractVirtueProbe.h"
+#define COMMON_POOL_TAG WVU_ABSTRACTPROBE_POOL_TAG
 
-
-AbstractVirtueProbe::AbstractVirtueProbe()
+AbstractVirtueProbe::AbstractVirtueProbe() : Enabled(FALSE)
 {
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "AbstractVirtueProbe ctor called!\n")
 }
 
 
 AbstractVirtueProbe::~AbstractVirtueProbe()
 {
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "AbstractVirtueProbe vdtor called!\n")
+}
+
+
+_Use_decl_annotations_
+PVOID
+AbstractVirtueProbe::operator new(size_t size)
+{
+	PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
+	return pVoid;
+}
+
+_Use_decl_annotations_
+VOID CDECL
+AbstractVirtueProbe::operator delete(PVOID ptr)
+{
+	if (!ptr)
+	{
+		return;
+	}
+	ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
 }

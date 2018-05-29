@@ -6,6 +6,7 @@
 */
 #include "WinVirtUE.h"
 #include "ProbeDataQueue.h"
+#include "ImageLoadProbe.h"
 
 #define COMMON_POOL_TAG WVU_OBSIDIANWAVE_POOL_TAG
 
@@ -14,7 +15,7 @@ static LARGE_INTEGER Cookie;
 
 // Probe Daeta Queue operations
 class ProbeDataQueue *pPDQ;
-
+class ImageLoadProbe *pILP;
 
 /**
 * @brief Main initialization thread.
@@ -49,7 +50,20 @@ WVUMainThreadStart(PVOID StartContext)
 			"ProbeDataQueue not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	
+
+	// Make ready the image load probe
+	pILP = new ImageLoadProbe();
+	if (NULL == pPDQ)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
+			"ImageLoadProbe not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	// Enable the image load probe
+	pILP->Enable();
+
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
 	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, &Globals.WVUThreadStartEvent);
@@ -61,14 +75,6 @@ WVUMainThreadStart(PVOID StartContext)
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
-
-	Status = PsSetLoadImageNotifyRoutine(ImageLoadNotificationRoutine);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetLoadImageNotifyRoutine(ImageLoadNotificationRoutine) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
 
 	Status = PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx, FALSE);
 	if (FALSE == NT_SUCCESS(Status))

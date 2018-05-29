@@ -36,9 +36,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AbstractVirtueProbe.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="ImageLoadProbe.cpp" />
     <ClCompile Include="ProbeDataQueue.cpp" />
     <ClCompile Include="RegistryModificationCB.cpp" />
     <ClCompile Include="Debug.cpp" />
@@ -248,8 +255,14 @@
   <ItemGroup>
     <ClInclude Include="..\inc\WVUKernelUserComms.h" />
     <ClInclude Include="AbstractVirtueProbe.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="Common\cmn.h" />
     <ClInclude Include="Common\cmn_pool_tag.h" />
@@ -262,8 +275,9 @@
     <ClInclude Include="Driver.h" />
     <ClInclude Include="FltMgrCallbacks.h" />
     <ClInclude Include="FltMgrCtxReg.h" />
-    <ClInclude Include="PortMsgTrans.h" />
+    <ClInclude Include="ImageLoadProbe.h" />
     <ClInclude Include="ObjectCreateNotifyCB.h" />
+    <ClInclude Include="PortMsgTrans.h" />
     <ClInclude Include="ProbeDataQueue.h" />
     <ClInclude Include="RegistryModificationCB.h" />
     <ClInclude Include="resource.h" />
