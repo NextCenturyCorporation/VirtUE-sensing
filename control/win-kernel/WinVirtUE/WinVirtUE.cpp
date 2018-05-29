@@ -148,14 +148,15 @@ WVUSensorThread(PVOID StartContext)
 	UNREFERENCED_PARAMETER(StartContext);
 	const ULONG REPLYLEN = 128;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	LARGE_INTEGER timeout = { 0LL };
-	LARGE_INTEGER delay = { 0LL };
-	timeout.QuadPart = RELATIVE(SECONDS(5));  // five second timeout
-	delay.QuadPart = RELATIVE(SECONDS(5));  // five ms
+	LARGE_INTEGER send_timeout = { 0LL };
+	send_timeout.QuadPart = RELATIVE(SECONDS(10));  // five second timeout
+	LONGLONG test = -1000 * 1000 * 10 * 10;
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
 	PVOID SenderBuffer = NULL;
+
+	UNREFERENCED_PARAMETER(test);
 
 	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
@@ -201,18 +202,17 @@ WVUSensorThread(PVOID StartContext)
 		plii->FltMsgHeader.ReplyLength = ReplyBufferLen;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
-			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &timeout);
+			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
 
 		if (FALSE == NT_SUCCESS(Status) || STATUS_TIMEOUT == Status) 
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
-				"(...) Message Send Failed - enqueue and wait! Status=%08x - waiting\n", Status);
-			pPDQ->Enqueue(pListEntry);
-			KeDelayExecutionThread(KernelMode, FALSE, &delay);
+				"(...) Message Send Failed - enqueue and wait! Status=%08x\n", Status);			
+			pPDQ->PutBack(pListEntry); // put the dequeued entry back
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
-			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "FltSendMessage(...) Succeeded w/ReplyBufferLen = %ld Messagse=%s!\n", ReplyBufferLen, ReplyBuffer);
+			WVU_DEBUG_PRINT_BUFFER(LOG_SENSOR_THREAD, ReplyBuffer, ReplyBufferLen);
 			pPDQ->Dispose(plii);
 			pListEntry = NULL;
 		}

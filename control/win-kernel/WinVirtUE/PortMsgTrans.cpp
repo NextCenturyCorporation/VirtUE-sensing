@@ -204,6 +204,8 @@ NTSTATUS FLTAPI WVUMessageNotify(
 	UNREFERENCED_PARAMETER(PortCookie);
 	*ReturnOutputBufferLength = 0;
 
+	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Message Notification!\n");
+
 	if (0 < InputBufferLength && NULL != InputBuffer)
 	{
 		Status = OnCommandMessage(InputBuffer, InputBufferLength);

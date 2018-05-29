@@ -22,6 +22,7 @@ public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
 	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
+	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
 	PLIST_ENTRY Dequeue();
 	_Must_inspect_result_

@@ -64,22 +64,6 @@ class SaviorStruct(Structure):
             instance[this_name] = this_value
             if isinstance(this_value, str):
                 instance[this_name] = this_value
-            elif isinstance(this_value, UNICODE_STRING):
-                try:
-                    value = this_value.Buffer.encode('utf-8', 'ignore').decode('ascii')
-                    instance[this_name] = value
-                except Exception as exc:
-                    instance[this_name] = None
-            elif isinstance(this_value, CLIENT_ID):
-                instance["UniqueProcess"] = this_value.UniqueProcess
-                instance["UniqueThread"] = this_value.UniqueThread
-                del instance[this_name]
-            elif isinstance(this_value, GENERIC_MAPPING):
-                instance["GenericRead"] = this_value.GenericRead
-                instance["GenericWrite"] = this_value.GenericWrite
-                instance["GenericExecute"] = this_value.GenericExecute
-                instance["GenericAll"] = this_value.GenericAll
-                del instance[this_name]
             elif isinstance(this_value,LIST_ENTRY):
                 instance["Flink"] = this_value.Flink
                 instance["Blink"] = this_value.Blink
@@ -277,8 +261,9 @@ class LoadedImageInfo(SaviorStruct):
     ]
 
 GetLoadedImageInfo = namedtuple('GetLoadedImageInfo', 
-            ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'ProcessId', 
-                'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
+            ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'CurrentGMT', 
+            'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 
+            'FullImageName'])
 
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -675,6 +660,7 @@ def main():
                 msgid,
                 info.contents.Header.Type, 
                 info.contents.Header.DataSz,
+                info.contents.CurrentGMT,
                 info.contents.ProcessId,
                 info.contents.EProcess,
                 info.contents.ImageBase, 

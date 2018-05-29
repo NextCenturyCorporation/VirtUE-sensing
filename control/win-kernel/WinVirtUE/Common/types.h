@@ -215,10 +215,11 @@ typedef struct _LoadedImageInfo
 {	
 	FILTER_MESSAGE_HEADER FltMsgHeader;
 	ProbeDataHeader Header;
+	LARGE_INTEGER CurrentGMT;
 	HANDLE ProcessId;
 	PEPROCESS  EProcess;
 	PVOID ImageBase;
 	SIZE_T ImageSize;
 	USHORT FullImageNameSz;
-	UCHAR FullImageName[0];
+	UCHAR FullImageName[1];
 } LoadedImageInfo, *PLoadedImageInfo;

@@ -119,6 +119,21 @@ ProbeDataQueue::Enqueue(
 	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
 	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
 }
+
+_Use_decl_annotations_
+BOOLEAN 
+ProbeDataQueue::PutBack(PLIST_ENTRY pListEntry)
+{
+	if (FALSE == IsQueueBuilt)
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
+			return FALSE;
+	}
+	const PLIST_ENTRY pEntry = ExInterlockedInsertHeadList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
+	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
+}
+
 _Use_decl_annotations_
 PLIST_ENTRY 
 ProbeDataQueue::Dequeue()

@@ -177,7 +177,7 @@ DriverEntry(
 			WVUPortConnect,
 			WVUPortDisconnect,
 			WVUMessageNotify,
-			1);
+			2);
 
 		//
 		//  Free the security descriptor in all cases. It is not needed once
