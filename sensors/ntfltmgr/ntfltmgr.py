@@ -675,7 +675,7 @@ def main():
                 info.contents.ProcessId,
                 info.contents.EProcess,
                 info.contents.ImageBase, 
-                0,
+                info.contents.ImageSize,
                 ModuleName)
         print(json.dumps(img_nfo._asdict(), indent=4))
         response = ("Response to Message Id {0}\n".format(msgid,))
