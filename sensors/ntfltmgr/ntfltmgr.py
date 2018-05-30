@@ -662,8 +662,12 @@ def main():
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
         (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x400) 
+        
         info = cast(msg_pkt.Message, POINTER(LoadedImageInfo))
-        msgid = info.contents.FltMsgHeader.MessageId
+        msgid = info.contents.FltMsgHeader.MessageId        
+        response = ("Response to Message Id {0}\n".format(msgid,))
+        FilterReplyMessage(hFltComms, 0, msgid, response)
+        
         length = info.contents.FullImageNameSz
         offset = type(info.contents).FullImageName.offset
         sb = create_string_buffer(msg_pkt.Message)
@@ -681,8 +685,8 @@ def main():
                 info.contents.ImageSize,
                 ModuleName)
         print(json.dumps(img_nfo._asdict(), indent=4))
-        response = ("Response to Message Id {0}\n".format(msgid,))
-        FilterReplyMessage(hFltComms, 0, msgid, response)
+
+
     CloseHandle(hFltComms)
     sys.exit(0)
     

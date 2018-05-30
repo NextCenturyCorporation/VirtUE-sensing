@@ -25,7 +25,9 @@ public:
 	~ProcessCreateProbe();
 	BOOLEAN Enable();
 	BOOLEAN Disable();
-	BOOLEAN State();
-	BOOLEAN Mitigate();
+	BOOLEAN State();	
+	NTSTATUS Mitigate(
+		PCHAR argv[],
+		UINT32 argc);
 };
 

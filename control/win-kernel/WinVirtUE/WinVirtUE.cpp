@@ -165,13 +165,10 @@ WVUSensorThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER send_timeout = { 0LL };
 	send_timeout.QuadPart = RELATIVE(SECONDS(10));  // five second timeout
-	LONGLONG test = -1000 * 1000 * 10 * 10;
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
 	PVOID SenderBuffer = NULL;
-
-	UNREFERENCED_PARAMETER(test);
 
 	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
@@ -222,7 +219,7 @@ WVUSensorThread(PVOID StartContext)
 		if (FALSE == NT_SUCCESS(Status) || STATUS_TIMEOUT == Status) 
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
-				"(...) Message Send Failed - enqueue and wait! Status=%08x\n", Status);			
+				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);			
 			pPDQ->PutBack(pListEntry); // put the dequeued entry back
 		}
 		else if (TRUE == NT_SUCCESS(Status))

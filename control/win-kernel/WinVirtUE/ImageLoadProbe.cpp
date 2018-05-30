@@ -3,7 +3,7 @@
 * @file ImageLoadProbe.cpp
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
-* @brief ImageLoad Probe Class definiopm
+* @brief ImageLoad Probe Class definition
 */
 #include "ImageLoadProbe.h"
 #include "ProbeDataQueue.h"
@@ -21,6 +21,7 @@ ImageLoadProbe::~ImageLoadProbe()
 	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully Destroyed The Image Load Sensor\n");
 }
 
+_Use_decl_annotations_
 BOOLEAN ImageLoadProbe::Enable()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
@@ -41,6 +42,7 @@ ErrorExit:
 	return NT_SUCCESS(Status);
 }
 
+_Use_decl_annotations_
 BOOLEAN ImageLoadProbe::Disable()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
@@ -60,16 +62,21 @@ ErrorExit:
 	return NT_SUCCESS(Status);
 }
 
+_Use_decl_annotations_
 BOOLEAN ImageLoadProbe::State()
 {
 	return this->Enabled;
 }
 
-BOOLEAN ImageLoadProbe::Mitigate()
+_Use_decl_annotations_
+NTSTATUS ImageLoadProbe::Mitigate(
+	PCHAR argv[], 
+	UINT32 argc)
 {
-	return FALSE;
+	UNREFERENCED_PARAMETER(argv);
+	UNREFERENCED_PARAMETER(argc);
+	return NTSTATUS();
 }
-
 
 /**
 * @brief The Image Load Notify Callback Routine
@@ -116,7 +123,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	pLoadedImageInfo->Header.Type = DataType::LoadedImage;
 	pLoadedImageInfo->Header.DataSz = bufsz;
-	KeQuerySystemTime(&pLoadedImageInfo->Header.CurrentGMT);
+	KeQuerySystemTimePrecise(&pLoadedImageInfo->Header.CurrentGMT);
 	pLoadedImageInfo->EProcess = pProcess;
 	pLoadedImageInfo->ProcessId = ProcessId;
 	pLoadedImageInfo->ImageBase = pImageInfo->ImageBase;

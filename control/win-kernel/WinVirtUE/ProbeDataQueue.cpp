@@ -8,7 +8,7 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-ProbeDataQueue::ProbeDataQueue() : MessageId(1), IsQueueBuilt(FALSE)
+ProbeDataQueue::ProbeDataQueue() : MessageId(1), IsQueueBuilt(FALSE), PDQEvents{NULL, NULL}
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 

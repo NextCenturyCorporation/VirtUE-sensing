@@ -201,7 +201,16 @@ typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
 typedef enum _DataType : USHORT 
 {
 	None = 0x0000,
-	LoadedImage = 0x0001
+	/** Loaded Image (.exe,.dll, etc) notificaton type */
+	LoadedImage    = 0x0001,
+	/** Process Creation notificaton type */
+	ProcessCreate  = 0x0002,
+	/** Process Destruction notificaton type */
+	ProcessDestroy = 0x0003,
+	/** Thread Creation notificaton type */
+	ThreadCreate   = 0x0004,
+	/** Thread Destruction notificaton type */
+	ThreadDestroy  = 0x0005
 } DataType;
 
 typedef struct _ProbeDataHeader 
@@ -234,6 +243,7 @@ typedef struct _ProcessCreateInfo
 	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
 	_In_ ProbeDataHeader Header;	
 	_In_ HANDLE ParentProcessId;
+	_In_ HANDLE ProcessId;
 	_In_ PEPROCESS EProcess;
 	_In_ CLIENT_ID CreatingThreadId;
 	_Inout_ struct _FILE_OBJECT *FileObject;
@@ -247,6 +257,6 @@ typedef struct _ProcessDestroyInfo
 {
 	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
 	_In_ ProbeDataHeader Header;
-	_In_ HANDLE ParentProcessId;
+	_In_ HANDLE ProcessId;
 	_In_ PEPROCESS EProcess;
 } ProcessDestroyInfo, *PProcessDestroyInfo;

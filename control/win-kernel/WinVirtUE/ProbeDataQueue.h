@@ -42,6 +42,7 @@ public:
 		return KeWaitForMultipleObjects(NUMBER_OF(PDQEvents),
 			(PVOID*)&PDQEvents[0], WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL); }
 	_Must_inspect_impl_
-	PVOID operator new(_In_ size_t size);
+		_Success_(NULL != return)
+		PVOID operator new(_In_ size_t size);
 	VOID CDECL operator delete(_In_ PVOID ptr);
 };

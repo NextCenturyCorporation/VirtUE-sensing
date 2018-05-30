@@ -24,6 +24,8 @@ public:
 	BOOLEAN Enable();
 	BOOLEAN Disable();
 	BOOLEAN State();
-	BOOLEAN Mitigate();
+	NTSTATUS Mitigate(
+		PCHAR argv[],
+		UINT32 argc);
 };
 
