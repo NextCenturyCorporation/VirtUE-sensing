@@ -804,20 +804,21 @@ def test_packet_decode():
     MAXPKTSZ = 0x200  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
-        import pdb;pdb.set_trace()
+
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         
         fmh = SaviorStruct.GetFilterMessageHeader(msg_pkt)
         response = ("Response to Message Id {0}\n".format(fmh.MessageId,))
         FilterReplyMessage(hFltComms, 0, fmh.MessageId, response)                
-        
-        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt)        
+
+        import pdb;pdb.set_trace()        
+        pdh = SaviorStruct.GetProbeDataHeader(fmh.Message)        
         if pdh.Type == DataType.LoadedImage:            
-            msg_data = LoadedImageInfo.build(msg_pkt)
+            msg_data = LoadedImageInfo.build(fmh.Message)
         elif pdh.Type == DataType.ProcessCreate:
-            msg_data = ProcessCreateInfo.build(msg_pkt)
+            msg_data = ProcessCreateInfo.build(fmh.Message)
         elif pdh.Type == DataType.ProcessDestroy:
-            msg_data = ProcessDestroyInfo.build(msg_pkt)
+            msg_data = ProcessDestroyInfo.build(fmh.Message)
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
             continue
