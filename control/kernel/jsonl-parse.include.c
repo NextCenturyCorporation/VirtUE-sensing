@@ -174,6 +174,31 @@ static inline int index_command(uint8_t *cmd, int bytes)
 	return -JSMN_ERROR_INVAL;
 }
 
+/**
+ * @brief requirements for cmd_table message parsing functions
+ *
+ * int (cmd_table[])(struct jsmn_message *m, int index);
+ *
+ * @return zero upon success, < 0 if an error
+ *        - if message is attached to a session, must call free_session
+ *        - otherwise, call free_message
+ *
+ *        - if returns < 0, the caller will end up destroying the connection
+ *        - if returns 0, connection will stay open.
+ *
+ *       the connection struct is not visible to this level of the parser,
+ *       it correlates messages to an accepted socket, and can be re-used for
+ *       multiple request-reply messages pairs.
+ *
+ *       either way (<0  or 0), the session and message(s) need to be freed.
+ *
+ *       free_session will un-allocate the session and free both messages
+ *       attached to it (request and reply)
+ *
+ *       request messages not yet attached to a session can be freed by calling
+ *       free_message.
+ **/
+
 
 static inline int
 process_records_cmd(struct jsmn_message *m, int index);
@@ -185,6 +210,7 @@ static inline int
 process_jsmn_cmd(struct jsmn_message *m, int index);
 int (*cmd_table[])(struct jsmn_message *m, int index) =
 {
+	process_jsmn_cmd, /* connect */
 	process_discovery_request, /* DISCOVERY */
 	process_jsmn_cmd, /* OFF */
 	process_jsmn_cmd, /* ON */
@@ -386,11 +412,64 @@ err_out:
  * is typed as either a request or reply
  **/
 
+/**
+ * nonce is m->s->nonce
+ * cmd is m->s->cmd
+ * probe is m->s->probe (ignored for this request)
+ *
+ * - build the discovery buffer
+ * - allocate a reply message struct, copy the struct, link to session
+ * - build the json reply message in the 'line' field
+ * - write the reply to line to the socket
+ * - free the session
+**/
 static int
 process_discovery_request(struct jsmn_message *m, int index)
 {
-	return 0;
+	struct jsmn_message *reply_msg;
+	uint8_t *response = NULL;
+	size_t len = 0;
+	int ccode = 0;
 
+	assert(m);
+
+	reply_msg = kzalloc(GFP_KERNEL, sizeof(struct jsmn_message));
+	if (!reply_msg) {
+		ccode = -ENOMEM;
+		DMSG();
+		goto err_out;
+	}
+	reply_msg->type = REPLY;
+
+	/**
+	 * copy some fields from the request msg to the rply msg
+	 **/
+	/* session */
+	reply_msg->s = m->s;
+	/* socket */
+	reply_msg->socket = m->socket;
+
+	/**
+	 * build the discovery buffer
+	 **/
+	if (build_discovery_buffer(&response, & len) <= 0) {
+		kfree(reply_msg);
+		ccode = -ENFILE;
+		goto err_out;
+	}
+
+
+	/**
+	 * build the JSONL buffer
+	 **/
+
+
+
+
+err_out:
+
+	free_message(m);
+	return ccode;
 }
 
 /**
