@@ -55,7 +55,8 @@ class SaviorStruct(Structure):
         '''     
         offset = sizeof(FILTER_MESSAGE_HEADER)
         length = offset + sizeof(ProbeDataHeader)               
-        info = cast(msg_pkt[offset:length], POINTER(ProbeDataHeader))        
+        info = cast(msg_pkt.Message[offset:length], 
+                POINTER(ProbeDataHeader))        
         pdh = GetProbeDataHeader(DataType(info.contents.Type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT)        
@@ -69,7 +70,8 @@ class SaviorStruct(Structure):
         '''        
         offset = 0
         length = offset + sizeof(FILTER_MESSAGE_HEADER)               
-        info = cast(msg_pkt[offset:length], POINTER(FILTER_MESSAGE_HEADER))        
+        info = cast(msg_pkt.Message[offset:length], 
+                POINTER(FILTER_MESSAGE_HEADER))
         pdh = FilterMessageHeader(info.contents.ReplyLength, 
                                      info.contents.MessageId) 
         return pdh
@@ -802,9 +804,10 @@ def test_packet_decode():
     '''
     Test WinVirtUE packet decode
     '''
-    MAXPKTSZ = 0x1000  # max packet size
+    MAXPKTSZ = 0x200  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
+        import pdb;pdb.set_trace()
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         
         fmh = SaviorStruct.GetFilterMessageHeader(msg_pkt)
