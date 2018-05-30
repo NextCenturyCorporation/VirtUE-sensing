@@ -55,7 +55,7 @@ class SaviorStruct(Structure):
         '''     
         offset = sizeof(FILTER_MESSAGE_HEADER)
         length = offset + sizeof(ProbeDataHeader)               
-        info = cast(msg_pkt.Message[offset:length], 
+        info = cast(msg_pkt[offset:length], 
                 POINTER(ProbeDataHeader))        
         pdh = GetProbeDataHeader(DataType(info.contents.Type), 
                                  info.contents.DataSz, 
