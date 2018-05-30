@@ -68,13 +68,9 @@ class SaviorStruct(Structure):
         accepts raw packet data from the driver and returns
         the FILTER_MESSAGE_HEADER in the form of a named tuple
         '''        
-        offset = 0
-        length = offset + sizeof(FILTER_MESSAGE_HEADER)               
-        info = cast(msg_pkt.Message[offset:length], 
-                POINTER(FILTER_MESSAGE_HEADER))
-        pdh = FilterMessageHeader(info.contents.ReplyLength, 
-                                     info.contents.MessageId,
-                                     None) 
+        pdh = FilterMessageHeader(msg_pkt.ReplyLength, 
+                                  msg_pkt.MessageId,
+                                  msg_pkt.Message) 
         return pdh
 
 class CtypesEnum(IntEnum):
