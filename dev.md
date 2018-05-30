@@ -157,3 +157,51 @@ Developing components that need to talk to the API, but don't need to attach to 
 ```
 
 Then your component should be able to use the normal DNS names of the services, with the Swarm hosting the Sensing API receiving the traffic on your local Docker Swarm.
+
+# FAQ
+
+## How can I do a COMPLETE rebuild
+
+This is tricky - it requires basically removing **all** existing Docker images. This is not a careful pruning, this is removing **every** image on your system:
+
+```bash
+docker stack rm savior-api
+docker service rm registry
+docker network rm apinet
+docker kill $(docker ps -q)
+docker rmi $(docker images -a --filter=dangling=true -q) --force
+docker rm $(docker ps --filter=status=exited --filter=status=created -q) --force
+docker rmi $(docker images -a -q) --force
+```
+
+This **should** remove every image on your system. Rebuilding at this point is a simple build:
+
+```bash
+docker-compose build --no-cache
+```
+
+## Where's the Docker daemon log? How do I debug a container that wouldn't launch?
+
+You can find the Docker Engine/Daemon log at (see [stackoverflow](https://stackoverflow.com/questions/45372848/docker-swarm-how-to-find-out-why-service-cant-start?noredirect=1&lq=1) ):
+
+ - Ubuntu (old using upstart) - `/var/log/upstart/docker.log`
+ - Ubuntu (new using systemd) - `journalctl -u docker.service`
+ - Boot2Docker - `/var/log/docker.log`
+ - Debian GNU/Linux - `/var/log/daemon.log`
+ - CentOS - `/var/log/daemon.log | grep docker`
+ - CoreOS - `journalctl -u docker.service`
+ - Fedora - `journalctl -u docker.service`
+ - Red Hat Enterprise Linux Server - `/var/log/messages | grep docker`
+ - OpenSuSE - `journalctl -u docker.service`
+ - OSX - `~/Library/Containers/com.docker.docker/Datacom.docker.driver.amd64-linux/log/d‌​ocker.log`
+ - Windows - `Get-EventLog -LogName Application -Source Docker -After (Get-Date).AddMinutes(-5) | Sort-Object Time`
+
+## The dockerized-* commands don't work!
+
+Do you have the environment variable `API_MODE` set to `dev`? If not, then:
+
+```bash
+export API_MODE=dev
+```
+
+This is necessary so that the dockerized commands get properly attached to the local `apinet` network when running in local swarm mode.
