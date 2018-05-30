@@ -73,7 +73,8 @@ class SaviorStruct(Structure):
         info = cast(msg_pkt.Message[offset:length], 
                 POINTER(FILTER_MESSAGE_HEADER))
         pdh = FilterMessageHeader(info.contents.ReplyLength, 
-                                     info.contents.MessageId) 
+                                     info.contents.MessageId,
+                                     None) 
         return pdh
 
 class CtypesEnum(IntEnum):
