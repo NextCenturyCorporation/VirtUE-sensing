@@ -20,7 +20,7 @@ private:
 
 public:
 	ImageLoadProbe();
-	virtual ~ImageLoadProbe();
+	~ImageLoadProbe();
 	BOOLEAN Enable();
 	BOOLEAN Disable();
 	BOOLEAN State();

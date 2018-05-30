@@ -92,6 +92,9 @@
     <ClCompile Include="ImageLoadProbe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ProcessCreateProbe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CPPRuntime\CPPRuntime.h">
@@ -161,6 +164,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ObjectCreateNotifyCB.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessCreateProbe.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

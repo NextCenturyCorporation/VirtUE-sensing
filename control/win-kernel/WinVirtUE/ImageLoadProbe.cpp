@@ -12,13 +12,13 @@
 
 ImageLoadProbe::ImageLoadProbe()
 {
-	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully Constructed The Image Load Sensor\n");
+	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully Constructed The Image Load Sensor\n");
 }
 
 
 ImageLoadProbe::~ImageLoadProbe()
 {
-	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully Destroyed The Image Load Sensor\n");
+	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully Destroyed The Image Load Sensor\n");
 }
 
 BOOLEAN ImageLoadProbe::Enable()

@@ -4,6 +4,9 @@
 * @brief filter registeration module
 */
 #include "FltMgrReg.h"
+#include "ProcessCreateProbe.h"
+#include "ImageLoadProbe.h"
+#include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_FLT_REG_POOL_TAG
 
 #pragma region Filter Registration
@@ -307,6 +310,20 @@ WVUUnload(
 
     // disable all protection
     Globals.EnableProtection = FALSE;
+
+	// destroy the queue andb basic probe classes
+	if (NULL != pPDQ)
+	{
+		delete pPDQ;
+	}
+	if (NULL != pILP)
+	{
+		delete pILP;
+	}
+	if (NULL != pPCP)
+	{
+		delete pPCP;
+	}
 
     // wait for all of that to end
     ExWaitForRundownProtectionRelease(&Globals.RunDownRef);

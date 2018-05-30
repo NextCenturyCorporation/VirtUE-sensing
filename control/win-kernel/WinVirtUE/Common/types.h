@@ -206,20 +206,47 @@ typedef enum _DataType : USHORT
 
 typedef struct _ProbeDataHeader 
 {
-	DataType    Type;
-	USHORT      DataSz;
-	LARGE_INTEGER CurrentGMT;
-	LIST_ENTRY  ListEntry;
+	_In_ DataType    Type;
+	_In_ USHORT      DataSz;
+	_In_ LARGE_INTEGER CurrentGMT;
+	_In_ LIST_ENTRY  ListEntry;
 } ProbeDataHeader, *PProbeDataHeader;
 
 typedef struct _LoadedImageInfo
 {	
-	FILTER_MESSAGE_HEADER FltMsgHeader;
-	ProbeDataHeader Header;
-	HANDLE ProcessId;
-	PEPROCESS  EProcess;
-	PVOID ImageBase;
-	SIZE_T ImageSize;
-	USHORT FullImageNameSz;
-	UCHAR FullImageName[1];
+	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
+	_In_ ProbeDataHeader Header;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS  EProcess;
+	_In_ PVOID ImageBase;
+	_In_ SIZE_T ImageSize;
+	_In_ USHORT FullImageNameSz;
+	_In_ UCHAR FullImageName[1];
 } LoadedImageInfo, *PLoadedImageInfo;
+
+
+/**
+* @note Is it important to also include the imagefilename or is it 
+* duplicate information from module load?
+*/
+typedef struct _ProcessCreateInfo
+{
+	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
+	_In_ ProbeDataHeader Header;	
+	_In_ HANDLE ParentProcessId;
+	_In_ PEPROCESS EProcess;
+	_In_ CLIENT_ID CreatingThreadId;
+	_Inout_ struct _FILE_OBJECT *FileObject;
+	_Inout_ NTSTATUS CreationStatus;
+	_In_ USHORT CommandLineSz;
+	_In_ UCHAR CommandLine[1];
+} ProcessCreateInfo, *PProcessCreateInfo;
+
+
+typedef struct _ProcessDestroyInfo
+{
+	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
+	_In_ ProbeDataHeader Header;
+	_In_ HANDLE ParentProcessId;
+	_In_ PEPROCESS EProcess;
+} ProcessDestroyInfo, *PProcessDestroyInfo;

@@ -22,3 +22,5 @@ extern CONST LONGLONG FILE_ALLOCATION_NA;
 extern CONST ULONG FILE_ATTRIBUTES_NA;
 
 extern class ProbeDataQueue *pPDQ;
+extern class ImageLoadProbe *pILP;
+extern class ProcessCreateProbe *pPCP;

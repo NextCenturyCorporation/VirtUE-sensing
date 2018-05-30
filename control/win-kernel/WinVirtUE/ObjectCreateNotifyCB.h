@@ -8,13 +8,6 @@
 #include "common.h"
 #include "externs.h"
 
-
-VOID
-ProcessNotifyCallbackEx(
-    _Inout_ PEPROCESS  Process,
-    _In_ HANDLE  ProcessId,
-    _Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo);
-
 VOID
 ThreadCreateCallback(
 	_In_ HANDLE  ProcessId,
