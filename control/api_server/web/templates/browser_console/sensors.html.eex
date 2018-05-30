@@ -1,0 +1,29 @@
+<h2 class="sub-header">Sensors</h2>
+<div class="table-responsive">
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Virtue</th>
+      <th>Username</th>
+      <th>Component</th>
+      <th>OS</th>
+      <th>Level</th>
+    </tr>
+  </thead>
+  <tbody>
+    <%= for sensor <- @sensors do %>
+    <tr>
+      <td>
+        <a href="/ui/sensor/<%= sensor.sensor_id %>"><%= sensor.sensor_id %></a>
+      </td>
+      <td><%= sensor.address %></td>
+      <td><%= sensor.username %></td>
+      <td><%= sensor.component.name %></td>
+      <td><%= sensor.component.os %></td>
+      <td><%= sensor.configuration.level %></td>
+    </tr>
+    <% end %>
+  </tbody>
+</table>
+</div>

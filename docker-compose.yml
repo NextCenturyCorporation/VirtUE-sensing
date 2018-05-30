@@ -92,6 +92,15 @@ services:
         aliases:
           - api_server_postgres
           - postgres
+  api_ntpd:
+    image: 127.0.0.1:5000/api-ntpd
+    build: "./control/savior-ntpd"
+    ports:
+      - "123:123/udp"
+    networks:
+      apinet:
+        aliases:
+          - ntp.savior.internal
 volumes:
   db-data:
 networks:
