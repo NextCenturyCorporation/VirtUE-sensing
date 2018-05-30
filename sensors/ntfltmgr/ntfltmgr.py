@@ -317,7 +317,7 @@ class ProcessCreateInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
-        create_info = GetLoadedImageInfo(
+        create_info = GetProcessCreateInfo(
             info.contents.FltMsgHeader.ReplyLength, 
             info.contents.FltMsgHeader.MessageId,
             DataType(info.contents.Header.Type).name, 
@@ -329,8 +329,7 @@ class ProcessCreateInfo(SaviorStruct):
             info.contents.CreatingThreadId.UniqueProcess, 
             info.contents.CreatingThreadId.UniqueThread,
             info.contents.FileObject,
-            info.contents.CreationStatus,
-            info.contents.EProcess,            
+            info.contents.CreationStatus,          
             CommandLine)
         return create_info
 
@@ -355,13 +354,12 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt, POINTER(cls))
-        create_info = GetLoadedImageInfo(
+        create_info = GetProcessDestroyInfo(
             info.contents.FltMsgHeader.ReplyLength, 
             info.contents.FltMsgHeader.MessageId,
             DataType(info.contents.Header.Type).name, 
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
-            info.contents.ParentProcessId,
             info.contents.ProcessId,
             info.contents.EProcess)
         return create_info
