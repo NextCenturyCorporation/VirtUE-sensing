@@ -208,10 +208,9 @@ WVUSensorThread(PVOID StartContext)
 		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.		
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
 		SenderBufferLen = pPDH->DataSz;
-		PLoadedImageInfo plii = (PLoadedImageInfo)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
-		SenderBuffer = (PVOID)plii;
-		plii->FltMsgHeader.MessageId = pPDQ->GetMessageId();
-		plii->FltMsgHeader.ReplyLength = ReplyBufferLen;
+		SenderBuffer = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
+		((PFILTER_MESSAGE_HEADER)SenderBuffer)->MessageId = pPDQ->GetMessageId();
+		((PFILTER_MESSAGE_HEADER)SenderBuffer)->ReplyLength = ReplyBufferLen;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
@@ -225,7 +224,7 @@ WVUSensorThread(PVOID StartContext)
 		else if (TRUE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT_BUFFER(LOG_SENSOR_THREAD, ReplyBuffer, ReplyBufferLen);
-			pPDQ->Dispose(plii);
+			pPDQ->Dispose(SenderBuffer);
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;
