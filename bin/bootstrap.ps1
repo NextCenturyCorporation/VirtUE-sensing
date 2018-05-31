@@ -5,7 +5,7 @@
 # To run this script, copy and paste the text between <# and #> Below
 <# powershell -NoProfile -ExecutionPolicy ByPass -File .\bootstrap.ps1 #>
 
-Write-Output "Downloading python 2.7, git and chrome"
+Write-Output "Downloading python 3.6.4 and git"
 
 mkdir c:\temp
 
