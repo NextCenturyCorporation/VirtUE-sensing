@@ -10,7 +10,7 @@
 class ProbeDataQueue
 {
 private:
-	const int MAXQUEUESIZE = 0x2000;
+	const int MAXQUEUESIZE = 0x10;
 	KSPIN_LOCK PDQueueSpinLock;
 	LIST_ENTRY PDQueue;
 	ULONGLONG MessageId;

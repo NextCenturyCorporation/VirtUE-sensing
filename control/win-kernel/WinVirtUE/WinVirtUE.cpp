@@ -93,21 +93,21 @@ WVUMainThreadStart(PVOID StartContext)
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
 
-	Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateThreadNotifyRoutine(ThreadCreateCallback) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-	
-	Cookie.QuadPart = (LONGLONG)Globals.DriverObject;
-	Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, NULL, &Cookie, NULL);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
-		goto ErrorExit;
-	}
+	//Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
+	//if (FALSE == NT_SUCCESS(Status))
+	//{
+	//	WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateThreadNotifyRoutine(ThreadCreateCallback) "
+	//		"Add Failed! Status=%08x\n", Status);
+	//	goto ErrorExit;
+	//}
+	//
+	//Cookie.QuadPart = (LONGLONG)Globals.DriverObject;
+	//Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, NULL, &Cookie, NULL);
+	//if (FALSE == NT_SUCCESS(Status))
+	//{
+	//	WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
+	//	goto ErrorExit;
+	//}
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
 #pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh

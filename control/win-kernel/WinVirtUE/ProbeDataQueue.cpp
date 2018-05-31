@@ -165,10 +165,13 @@ ProbeDataQueue::Dequeue()
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
 			return FALSE;
 	}
-	PLIST_ENTRY pEntry = ExInterlockedRemoveHeadList(&this->PDQueue, &this->PDQueueSpinLock);
-	SemaphoreRelease();
-	update_counters(pEntry);
-	return pEntry;
+	PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&this->PDQueue, &this->PDQueueSpinLock);
+	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
+	InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %lld\n",
+		this->SizeOfDataInQueue, this->NumberOfQueueEntries)
+	return pListEntry;
 }
 
 _Use_decl_annotations_
