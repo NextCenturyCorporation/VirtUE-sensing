@@ -808,8 +808,6 @@ def test_packet_decode():
         fmh = SaviorStruct.GetFilterMessageHeader(msg_pkt)
         response = ("Response to Message Id {0}\n".format(fmh.MessageId,))
         FilterReplyMessage(hFltComms, 0, fmh.MessageId, response)                
-
-        import pdb;pdb.set_trace()        
         pdh = SaviorStruct.GetProbeDataHeader(fmh.Message)        
         if pdh.Type == DataType.LoadedImage:            
             msg_data = LoadedImageInfo.build(fmh.Message)
