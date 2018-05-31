@@ -327,10 +327,12 @@ WVUUnload(
 	}
 	if (NULL != pILP)
 	{
+		pILP->Disable();
 		delete pILP;
 	}
 	if (NULL != pPCP)
 	{
+		pPCP->Disable();
 		delete pPCP;
 	}
     

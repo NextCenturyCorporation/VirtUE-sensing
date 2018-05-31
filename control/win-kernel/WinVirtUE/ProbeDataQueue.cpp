@@ -8,7 +8,7 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-ProbeDataQueue::ProbeDataQueue() : MessageId(1), IsQueueBuilt(FALSE), SizeOfDataInQueue(0LL), NumberOfQueueEntries(0LL), PDQEvents{NULL, NULL}
+ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), NumberOfQueueEntries(0LL), PDQEvents{NULL, NULL}
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
@@ -44,10 +44,10 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), IsQueueBuilt(FALSE), SizeOfData
 	InitializeListHead(&this->PDQueue);
 
 	// we build the queue successfully
-	this->IsQueueBuilt = TRUE;
+	this->Enabled = TRUE;
 	goto SuccessExit;
 ErrorExit:
-	this->IsQueueBuilt = FALSE;
+	this->Enabled = FALSE;
 SuccessExit:
 	return;
 }
@@ -71,7 +71,7 @@ ProbeDataQueue::dtor_exc_filter(
 
 ProbeDataQueue::~ProbeDataQueue()
 {
-	this->IsQueueBuilt = FALSE;
+	this->Enabled = FALSE;
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 
 	// Cause the Multiple Event Water to proceed in the loop and exit
@@ -124,14 +124,17 @@ BOOLEAN
 ProbeDataQueue::Enqueue(
 	PLIST_ENTRY pListEntry)
 {	
-	if (FALSE == IsQueueBuilt)
+	if (FALSE == Enabled)
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
 		return FALSE;
 	}
 	if (this->MAXQUEUESIZE <= this->Count())  // remove the oldest entry if we're too big
 	{
-		(VOID)Dequeue();
+		const PLIST_ENTRY pDequedEntry = Dequeue(TRUE);  // cause the WaitForSingleObject to drop the semaphore count
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, ProbeDataHeader, ListEntry);
+		PVOID plii = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
+		delete[] plii;
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
 	}
 	const PLIST_ENTRY pEntry = ExInterlockedInsertTailList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
@@ -145,10 +148,18 @@ BOOLEAN
 ProbeDataQueue::PutBack(
 	PLIST_ENTRY pListEntry)
 {
-	if (FALSE == IsQueueBuilt)
+	if (FALSE == Enabled)
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
 			return FALSE;
+	}
+	if (this->MAXQUEUESIZE <= this->Count())  // discard the entry if we're full
+	{		
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
+		PVOID plii = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
+		delete[] plii;
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Queue Full - discarded a ProbeDataQueue entry!\n");
+		return TRUE;
 	}
 	const PLIST_ENTRY pEntry = ExInterlockedInsertHeadList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
 	SemaphoreRelease();
@@ -158,12 +169,16 @@ ProbeDataQueue::PutBack(
 
 _Use_decl_annotations_
 PLIST_ENTRY 
-ProbeDataQueue::Dequeue()
+ProbeDataQueue::Dequeue(BOOLEAN wfso)
 {
-	if (FALSE == IsQueueBuilt)
+	if (FALSE == Enabled)
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
 			return FALSE;
+	}
+	if (wfso == TRUE)
+	{
+		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
 	}
 	PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&this->PDQueue, &this->PDQueueSpinLock);
 	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);

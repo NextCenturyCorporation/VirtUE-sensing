@@ -10,11 +10,11 @@
 class ProbeDataQueue
 {
 private:
-	const int MAXQUEUESIZE = 0x10;
+	const int MAXQUEUESIZE = 0x8;
 	KSPIN_LOCK PDQueueSpinLock;
 	LIST_ENTRY PDQueue;
 	ULONGLONG MessageId;
-	BOOLEAN IsQueueBuilt;	
+	BOOLEAN Enabled;	
 	PVOID PDQEvents[2];
 	static _Must_inspect_result_ int dtor_exc_filter(_In_ UINT32 code, _In_ _EXCEPTION_POINTERS * ep);
 	VOID
@@ -29,7 +29,7 @@ public:
 	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
 	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
-	PLIST_ENTRY Dequeue();
+	PLIST_ENTRY Dequeue(BOOLEAN wfso = FALSE);
 	_Must_inspect_result_
 	ULONGLONG& GetMessageId() { return this->MessageId;  }
 	VOID Dispose(_In_ PVOID pBuf);
@@ -41,6 +41,12 @@ public:
 	VOID OnDisconnect() { (VOID)KeResetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
 	_Must_inspect_result_
 	BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+	// Wait for the queue to have at least one entry and the port to be connected
+	_Success_(NT_SUCCESS(return) == TRUE)
+		NTSTATUS AcquireQueueSempahore() {
+		return KeWaitForSingleObject((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], 
+			Executive, KernelMode, FALSE, 0LL);
+	}
 	// Wait for the queue to have at least one entry and the port to be connected
 	_Success_(NT_SUCCESS(return) == TRUE)
 	NTSTATUS WaitForQueueAndPortConnect() {
