@@ -86,6 +86,9 @@
     <ClCompile Include="AbstractVirtueProbe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ProbeDataQueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CPPRuntime\CPPRuntime.h">
@@ -150,6 +153,9 @@
     </ClInclude>
     <ClInclude Include="trace.h">
       <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="ProbeDataQueue.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

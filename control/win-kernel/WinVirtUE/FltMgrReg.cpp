@@ -288,7 +288,6 @@ WVUUnload(
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
 
     WVUDebugBreakPoint();
 

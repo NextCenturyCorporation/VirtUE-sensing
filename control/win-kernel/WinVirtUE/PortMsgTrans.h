@@ -36,7 +36,7 @@ _IRQL_requires_same_
 NTSTATUS
 FLTAPI WVUPortConnect(
 	_In_ PFLT_PORT ClientPort,
-	_In_opt_ PVOID ServerPortCookie,
+	_In_opt_ _Notnull_ PVOID ServerPortCookie,
 	_In_reads_bytes_opt_(SizeOfContext) PVOID ConnectionContext,
 	_In_ ULONG SizeOfContext,
 	_Outptr_result_maybenull_ PVOID *ConnectionPortCookie);

@@ -4,6 +4,7 @@
 * @brief Object creation/destruction callback handlers
 */
 #include "ObjectCreateNotifyCB.h"
+#include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_OBJECT_CREATE_POOL_TAG
 
 /**
@@ -18,11 +19,12 @@
 * @param ProcessId  - the new processes process id
 * @param CreateInfo  - provides information about a newly created process
 */
+_Use_decl_annotations_
 VOID
 ProcessNotifyCallbackEx(
-	_Inout_ PEPROCESS  Process,
-	_In_ HANDLE  ProcessId,
-	_Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo)
+	PEPROCESS  Process,
+	HANDLE  ProcessId,
+	const PPS_CREATE_NOTIFY_INFO  CreateInfo)
 {
 	UNREFERENCED_PARAMETER(Process);
 	UNREFERENCED_PARAMETER(ProcessId);
@@ -76,16 +78,36 @@ ImageLoadNotificationRoutine(
 	const NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
 	if (FALSE == NT_SUCCESS(Status))
 	{		
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
-		goto Done;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);		
 	}
 	
 	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "FullImageName=%wZ,"
 		"ProcessId=%p,ImageBase=%p,ImageSize=%p,ImageSectionNumber=%ul\n",
 		FullImageName, ProcessId, pImageInfo->ImageBase, (PVOID)pImageInfo->ImageSize,
 		pImageInfo->ImageSectionNumber);
+	
+	const USHORT bufsz = ROUND_TO_SIZE(sizeof(LoadedImageInfo) + FullImageName->Length, 0x10);
+	const PUCHAR buf = new UCHAR[bufsz];
+	if (NULL == buf)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for LoadedImageInfo Data!\n");
+		goto ErrorExit;
+	}
+	
+	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
+	pLoadedImageInfo->Header.Type = DataType::LoadedImage;
+	pLoadedImageInfo->Header.DataSz = bufsz;
+	KeQuerySystemTime(&pLoadedImageInfo->Header.CurrentGMT);
+	pLoadedImageInfo->EProcess = pProcess;
+	pLoadedImageInfo->ProcessId = ProcessId;
+	pLoadedImageInfo->ImageBase = pImageInfo->ImageBase;
+	pLoadedImageInfo->ImageSize = pImageInfo->ImageSize;
+	pLoadedImageInfo->FullImageNameSz = FullImageName->Length;
+	RtlMoveMemory(&pLoadedImageInfo->FullImageName[0], FullImageName->Buffer, pLoadedImageInfo->FullImageNameSz);
 
-Done:
+	pPDQ->Enqueue(&pLoadedImageInfo->Header.ListEntry);
+
+ErrorExit:
 
 	// Drop a rundown reference 
 	ExReleaseRundownProtection(&Globals.RunDownRef);

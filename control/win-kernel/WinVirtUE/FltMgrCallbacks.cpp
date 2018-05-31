@@ -320,11 +320,12 @@ MiniFilter callback routines.
 * operation.
 * @return Operations Callback Status
 */
+_Use_decl_annotations_
 FLT_PREOP_CALLBACK_STATUS
 WinVirtUEPreOperation(
-	_Inout_ PFLT_CALLBACK_DATA Data,
-	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_Flt_CompletionContext_Outptr_ PVOID *CompletionContext)
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext)
 {
 	NTSTATUS status;
 
@@ -379,12 +380,13 @@ WinVirtUEPreOperation(
 * @param RequesterContext context for the completion routine for this operation.
 * @return Operations Callback Status
 */
+_Use_decl_annotations_
 VOID
 WinVirtUEOperationStatusCallback(
-	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_In_ const PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
-	_In_ NTSTATUS OperationStatus,
-	_In_ PVOID RequesterContext)
+	PCFLT_RELATED_OBJECTS FltObjects,
+	const PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
+	NTSTATUS OperationStatus,
+	PVOID RequesterContext)
 {
 	UNREFERENCED_PARAMETER(FltObjects);
 
@@ -468,7 +470,7 @@ BOOLEAN
 WinVirtUEDoRequestOperationStatus(
 	_In_ PFLT_CALLBACK_DATA Data)
 {
-	const PFLT_IO_PARAMETER_BLOCK iopb = Data->Iopb;
+	CONST PFLT_IO_PARAMETER_BLOCK iopb = Data->Iopb;
 
 	//
 	//  return boolean state based on which operations we are interested in
@@ -522,7 +524,6 @@ WinVirtUEShutdownPreOp(
 	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEShutdownPreOp: Entered\n");
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
 
 	return FLT_PREOP_SUCCESS_NO_CALLBACK;
 }

@@ -5,6 +5,7 @@
 * @brief main module of the Windows VirtUE miniFilter driver.
 */
 #include "Driver.h"
+#define COMMON_POOL_TAG WVU_DRIVER_POOL_TAG
 
 // globaL scoped variables
 WVUGlobals Globals;
@@ -70,14 +71,13 @@ DriverUnload(
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 
-	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
+	Globals.ShuttingDown = TRUE;
 
 	WVUDebugBreakPoint();
 
 	// destroy global object instances
 	CallGlobalDestructors();
-
+	
 	return _IRQL_requires_same_ VOID();
 }
 
@@ -102,14 +102,11 @@ DriverEntry(
 	UNREFERENCED_PARAMETER(RegistryPath);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };
-	OBJECT_ATTRIBUTES SensorThdObjAttr = { 0,0,0,0,0,0 };
 	OBJECT_ATTRIBUTES WVUPortObjAttr = { 0,0,0,0,0,0 };
 	PSECURITY_DESCRIPTOR pWVUPortSecDsc = NULL;
 	HANDLE MainThreadHandle = (HANDLE)-1;
-	HANDLE SensorThreadHandle = (HANDLE)-1;
-	
 	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
-	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
+
 	UNICODE_STRING usPortName = { 0,0,NULL };	
 
 	LARGE_INTEGER timeout = { 0LL };
@@ -121,7 +118,7 @@ DriverEntry(
 
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
 
-	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
+	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default	
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 
@@ -133,13 +130,8 @@ DriverEntry(
 	// intialization, it will signal and wait simultaneously.  It will continue
 	// to wait until the DriverUnload routine signals it.  When the thread
 	// continues the objects created will have their destructors called.
-	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
+	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);	
 
-	// init the Port Connection Event  This coordinate the connections from user space
-	// so that the outbound queue processor will start or stop processing depending on
-	// current connection state
-	KeInitializeEvent(&Globals.PortConnectEvt, EVENT_TYPE::NotificationEvent, FALSE);
-	
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
 
 	//  Register with FltMgr to tell it our callback routines
@@ -185,7 +177,7 @@ DriverEntry(
 			WVUPortConnect,
 			WVUPortDisconnect,
 			WVUMessageNotify,
-			1);
+			2);
 
 		//
 		//  Free the security descriptor in all cases. It is not needed once
@@ -224,17 +216,6 @@ DriverEntry(
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Main thread %p process %p thread id %p\n",
 		MainThreadHandle, MainClientId.UniqueProcess, MainClientId.UniqueThread);
 
-	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
-	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, &Globals.WVUThreadStartEvent);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
-		goto ErrorExit;
-	}	
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
-		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
-
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -261,9 +242,6 @@ DriverEntry(
 
 
 ErrorExit:
-
-	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
 
 	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);  // exits the intialization thread
 

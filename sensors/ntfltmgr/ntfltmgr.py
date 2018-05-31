@@ -2,10 +2,12 @@
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
+import time
+import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
@@ -17,6 +19,7 @@ ULONG_PTR = WPARAM
 NTSTATUS = DWORD
 PVOID = c_void_p
 ULONGLONG = c_ulonglong
+LONGLONG = c_longlong
 
 logger = logging.getLogger("ntfltmgr")
 logger.addHandler(logging.NullHandler())
@@ -48,6 +51,35 @@ class SaviorStruct(Structure):
         return state
 
     __repr__ = __str__
+
+    def to_dict(self):
+        '''
+        returns a dictionary object representative of this object instance internal state
+        '''
+        instance = {}
+        szfields = len(type(self)._fields_)        
+        for ndx in range(0, szfields):            
+            this_name = type(self)._fields_[ndx][0]
+            this_value = getattr(self, this_name)
+            instance[this_name] = this_value
+            if isinstance(this_value, str):
+                instance[this_name] = this_value
+            elif isinstance(this_value,LIST_ENTRY):
+                instance["Flink"] = this_value.Flink
+                instance["Blink"] = this_value.Blink
+                del instance[this_name]
+            elif isinstance(this_value,FILTER_MESSAGE_HEADER):
+                instance["ReplyLength"] = this_value.ReplyLength
+                instance["MessageId"] = this_value.MessageId
+                del instance[this_name]
+            elif isinstance(this_value,ProbeDataHeader):
+                instance["Type"] = this_value.Type
+                instance["DataSz"] = this_value.DataSz
+                instance["ListEntry"] = this_value.ListEntry
+                del instance[this_name]
+            else:
+                instance[this_name] = this_value
+        return instance   
 
 class CtypesEnum(IntEnum):
     '''
@@ -183,7 +215,57 @@ class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
         ("CmdMsgSize", USHORT), 
         ("CmdMsg", BYTE * 1)
     ]
+
+
+class DataType(CtypesEnum):
+    '''
+    Type of filter driver data to unpack
+    '''
+    NONE                = 0x0000
+    LoadedImage         = 0x0001
+
+class LIST_ENTRY(SaviorStruct):
+    '''
+    Two Way Linked List - forward declare an incomplete type
+    '''
+    pass
+
+LIST_ENTRY._fields_ = [
+    ("Flink", POINTER(LIST_ENTRY)),
+    ("Blink", POINTER(LIST_ENTRY))
+]
     
+class ProbeDataHeader(SaviorStruct):
+    '''
+    Probe Data Header
+    '''
+    _fields_ = [
+        ("Type", USHORT), 
+        ("DataSz", USHORT), 
+        ("CurrentGMT", LONGLONG),
+        ("ListEntry", LIST_ENTRY)
+    ]
+
+class LoadedImageInfo(SaviorStruct):
+    '''
+    Probe Data Header
+    '''
+    _fields_ = [
+        ("FltMsgHeader", FILTER_MESSAGE_HEADER),
+        ("Header", ProbeDataHeader),
+        ("ProcessId", PVOID),
+        ("EProcess", PVOID),
+        ("ImageBase", PVOID),
+        ("ImageSize", LONGLONG),
+        ("FullImageNameSz", USHORT),
+        ("FullImageName", BYTE * 1)
+    ]
+
+GetLoadedImageInfo = namedtuple('GetLoadedImageInfo', 
+            ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'CurrentGMT', 
+            'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 
+            'FullImageName'])
+
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
 ERROR_NO_MORE_ITEMS = 0x103
@@ -225,7 +307,15 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     info.contents.Status = status
     info.contents.MessageId = msg_id        
     reply_buffer[sz_frh:sz_frh + msg_len] = msg    
-    res = _FilterReplyMessage(hPort, info, total_len)
+
+    try:
+        res = _FilterReplyMessage(hPort, info, total_len)
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("Failed to Reply Message Error %d", lasterror)
+         #801F0020 
+        res = lasterror;
+
     return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
@@ -245,11 +335,17 @@ def FilterGetMessage(hPort, msg_len):
     
     sb = create_string_buffer(msg_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
-    res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
-    
-    replylen = info.contents.ReplyLength
-    msgid = info.contents.MessageId
-    msg_pkt = GetMessagePacket(replylen, msgid, sb[sizeof(FILTER_MESSAGE_HEADER):])
+    try:
+        res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("Failed to Get Message Error %d", lasterror)
+       #801F0020 
+        raise
+
+    ReplyLen = info.contents.ReplyLength
+    MessageId = info.contents.MessageId
+    msg_pkt = GetMessagePacket (ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
     return res, msg_pkt
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
@@ -274,8 +370,8 @@ def FilterConnectCommunicationPort(PortName):
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror)
         raise
     else:
+        time.sleep(1)
         return res, hPort
-        
 def _build_filter_instance_info(buf):
     '''
     Create the FilterInstanceInformation instance
@@ -563,12 +659,32 @@ def main():
     '''
     let's test some stuff
     '''
+    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
-        (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-        (res, msg_pkt,) = FilterGetMessage(hFltComms, 128) 
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
-        CloseHandle(hFltComms)
-        sys.exit(0)
+        (res, msg_pkt,) = FilterGetMessage(hFltComms, 0x400) 
+        info = cast(msg_pkt.Message, POINTER(LoadedImageInfo))
+        msgid = info.contents.FltMsgHeader.MessageId
+        length = info.contents.FullImageNameSz
+        offset = type(info.contents).FullImageName.offset
+        sb = create_string_buffer(msg_pkt.Message)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ModuleName = "".join(map(chr, slc[::2]))
+        img_nfo = GetLoadedImageInfo(info.contents.FltMsgHeader.ReplyLength, 
+                msgid,
+                info.contents.Header.Type, 
+                info.contents.Header.DataSz,
+                info.contents.Header.CurrentGMT,
+                info.contents.ProcessId,
+                info.contents.EProcess,
+                info.contents.ImageBase, 
+                info.contents.ImageSize,
+                ModuleName)
+        print(json.dumps(img_nfo._asdict(), indent=4))
+        response = ("Response to Message Id {0}\n".format(msgid,))
+        FilterReplyMessage(hFltComms, 0, msgid, response)
+    CloseHandle(hFltComms)
+    sys.exit(0)
     
     stats = {}
     (handle, info,) = FilterFindFirst()
