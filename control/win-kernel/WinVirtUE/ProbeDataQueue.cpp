@@ -137,8 +137,8 @@ ProbeDataQueue::Enqueue(
 		delete[] plii;
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
 	}
-	const PLIST_ENTRY pEntry = ExInterlockedInsertTailList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
 	SemaphoreRelease();
+	const PLIST_ENTRY pEntry = ExInterlockedInsertTailList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
 	update_counters(pListEntry);
 	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
 }
@@ -161,8 +161,8 @@ ProbeDataQueue::PutBack(
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Queue Full - discarded a ProbeDataQueue entry!\n");
 		return TRUE;
 	}
-	const PLIST_ENTRY pEntry = ExInterlockedInsertHeadList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
 	SemaphoreRelease();
+	const PLIST_ENTRY pEntry = ExInterlockedInsertHeadList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
 	update_counters(pListEntry);
 	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
 }
