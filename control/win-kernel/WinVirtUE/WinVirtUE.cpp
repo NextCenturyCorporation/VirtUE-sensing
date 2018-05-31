@@ -218,13 +218,9 @@ WVUSensorThread(PVOID StartContext)
 
 		if (FALSE == NT_SUCCESS(Status) || STATUS_TIMEOUT == Status) 
 		{
-			pPDQ->Dispose(plii);
-			pListEntry = NULL;
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
-				"(...) Message Send Failed - disposing and going back for more - Status=%08x\n", Status);	
-			//WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
-			//	"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);			
-			//pPDQ->PutBack(pListEntry); // put the dequeued entry back
+				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);			
+			pPDQ->PutBack(&pPDH->ListEntry); // put the dequeued entry back
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{

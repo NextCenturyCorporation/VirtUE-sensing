@@ -288,18 +288,21 @@ WVUUnload(
         
     }
 
+	WVUDebugBreakPoint();
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-
-    WVUDebugBreakPoint();
-
+	
     if (NULL != Globals.ClientPort)
     {
         // close our handle to the connection 
         FltCloseClientPort(Globals.FilterHandle, &Globals.ClientPort);
         Globals.ClientPort = NULL;
     }
+
+	// the next two instructions will cause the consumer loop to terminate
+	pPDQ->SemaphoreRelease();
+	pPDQ->OnConnect();
 
     // close the server port
     FltCloseCommunicationPort(Globals.WVUServerPort);
@@ -310,6 +313,12 @@ WVUUnload(
 
     // disable all protection
     Globals.EnableProtection = FALSE;
+
+	// wait for all of that to end
+	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
+
+	// unregister all callbacks
+	FltUnregisterFilter(Globals.FilterHandle);
 
 	// destroy the queue andb basic probe classes
 	if (NULL != pPDQ)
@@ -324,13 +333,7 @@ WVUUnload(
 	{
 		delete pPCP;
 	}
-
-    // wait for all of that to end
-    ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
-
-    // unregister all callbacks
-    FltUnregisterFilter(Globals.FilterHandle);
-
+    
 	// we've made, all is well
 	Status = STATUS_SUCCESS;
 

@@ -101,6 +101,25 @@ ProbeDataQueue::~ProbeDataQueue()
 }
 
 _Use_decl_annotations_
+VOID
+ProbeDataQueue::SemaphoreRelease()
+{
+	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+}
+
+_Use_decl_annotations_
+VOID
+ProbeDataQueue::update_counters(
+	PLIST_ENTRY pListEntry)
+{
+	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
+	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
+	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %lld\n",
+		this->SizeOfDataInQueue, this->NumberOfQueueEntries);
+}
+
+_Use_decl_annotations_
 BOOLEAN 
 ProbeDataQueue::Enqueue(
 	PLIST_ENTRY pListEntry)
@@ -116,18 +135,15 @@ ProbeDataQueue::Enqueue(
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
 	}
 	const PLIST_ENTRY pEntry = ExInterlockedInsertTailList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
-	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
-	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
-	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %lld\n", 
-		this->SizeOfDataInQueue, this->NumberOfQueueEntries);
+	SemaphoreRelease();
+	update_counters(pListEntry);
 	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
 }
 
 _Use_decl_annotations_
 BOOLEAN 
-ProbeDataQueue::PutBack(PLIST_ENTRY pListEntry)
+ProbeDataQueue::PutBack(
+	PLIST_ENTRY pListEntry)
 {
 	if (FALSE == IsQueueBuilt)
 	{
@@ -135,12 +151,8 @@ ProbeDataQueue::PutBack(PLIST_ENTRY pListEntry)
 			return FALSE;
 	}
 	const PLIST_ENTRY pEntry = ExInterlockedInsertHeadList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
-	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
-	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
-	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %lld\n",
-		this->SizeOfDataInQueue, this->NumberOfQueueEntries);
+	SemaphoreRelease();
+	update_counters(pListEntry);
 	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
 }
 
@@ -153,13 +165,10 @@ ProbeDataQueue::Dequeue()
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
 			return FALSE;
 	}
-	PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&this->PDQueue, &this->PDQueueSpinLock);
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
-	InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
-	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %lld\n",
-		this->SizeOfDataInQueue, this->NumberOfQueueEntries);
-	return pListEntry;
+	PLIST_ENTRY pEntry = ExInterlockedRemoveHeadList(&this->PDQueue, &this->PDQueueSpinLock);
+	SemaphoreRelease();
+	update_counters(pEntry);
+	return pEntry;
 }
 
 _Use_decl_annotations_

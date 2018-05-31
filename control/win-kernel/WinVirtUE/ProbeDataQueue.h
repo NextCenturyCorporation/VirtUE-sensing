@@ -17,11 +17,15 @@ private:
 	BOOLEAN IsQueueBuilt;	
 	PVOID PDQEvents[2];
 	static _Must_inspect_result_ int dtor_exc_filter(_In_ UINT32 code, _In_ _EXCEPTION_POINTERS * ep);
+	VOID
+		update_counters(
+			_Inout_ PLIST_ENTRY pListEntry);
 	volatile LONGLONG SizeOfDataInQueue;
 	volatile LONGLONG NumberOfQueueEntries;
 public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
+	VOID SemaphoreRelease();
 	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
 	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_

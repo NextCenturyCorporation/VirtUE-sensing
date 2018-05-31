@@ -118,7 +118,14 @@ DriverEntry(
 
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
 
-	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default	
+	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
+
+	Globals.AllowFilterUnload =
+#if defined(WVU_DEBUG)
+		TRUE;
+#else
+		FALSE;
+#endif
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 
