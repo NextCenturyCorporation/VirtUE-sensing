@@ -132,6 +132,10 @@ ProbeDataQueue::Enqueue(
 	if (this->MAXQUEUESIZE <= this->Count())  // remove the oldest entry if we're too big
 	{
 		const PLIST_ENTRY pDequedEntry = Dequeue(TRUE);  // cause the WaitForSingleObject to drop the semaphore count
+		if (NULL == pDequedEntry)
+		{
+			return FALSE;
+		}
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, ProbeDataHeader, ListEntry);
 		PVOID plii = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
 		delete[] plii;
@@ -181,6 +185,10 @@ ProbeDataQueue::Dequeue(BOOLEAN wfso)
 		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
 	}
 	PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&this->PDQueue, &this->PDQueueSpinLock);
+	if (NULL == pListEntry)
+	{
+		return NULL;
+	}
 	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
 	InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
 	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
