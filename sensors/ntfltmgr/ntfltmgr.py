@@ -53,24 +53,14 @@ class SaviorStruct(Structure):
         accepts raw packet data from the driver and returns
         the ProbeDataHeader in the form of a named tuple
         '''     
-        offset = sizeof(FILTER_MESSAGE_HEADER)
-        length = offset + sizeof(ProbeDataHeader)               
+        offset = 0
+        length = sizeof(ProbeDataHeader)               
         info = cast(msg_pkt[offset:length], 
                 POINTER(ProbeDataHeader))        
         pdh = GetProbeDataHeader(DataType(info.contents.Type), 
                                  info.contents.DataSz, 
-                                 info.contents.CurrentGMT)        
-        return pdh
-    
-    @classmethod
-    def GetFilterMessageHeader(cls, msg_pkt):
-        '''
-        accepts raw packet data from the driver and returns
-        the FILTER_MESSAGE_HEADER in the form of a named tuple
-        '''        
-        pdh = FilterMessageHeader(msg_pkt.ReplyLength, 
-                                  msg_pkt.MessageId,
-                                  msg_pkt.Message) 
+                                 info.contents.CurrentGMT,
+                                 msg_pkt[length:])
         return pdh
 
 class CtypesEnum(IntEnum):
@@ -223,7 +213,7 @@ LIST_ENTRY._fields_ = [
     ("Blink", POINTER(LIST_ENTRY))
 ]
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['Type', 'DataSz', 'CurrentGMT'])
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['Type', 'DataSz', 'CurrentGMT', 'Message'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
@@ -268,11 +258,6 @@ class LoadedImageInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         img_nfo = GetLoadedImageInfo(
-            info.contents.FltMsgHeader.ReplyLength, 
-            info.contents.FltMsgHeader.MessageId,
-            DataType(info.contents.Header.Type).name, 
-            info.contents.Header.DataSz,
-            info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             info.contents.EProcess,
             info.contents.ImageBase, 
@@ -318,11 +303,6 @@ class ProcessCreateInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
         create_info = GetProcessCreateInfo(
-            info.contents.FltMsgHeader.ReplyLength, 
-            info.contents.FltMsgHeader.MessageId,
-            DataType(info.contents.Header.Type).name, 
-            info.contents.Header.DataSz,
-            info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
             info.contents.ProcessId,
             info.contents.EProcess,
@@ -355,11 +335,6 @@ class ProcessDestroyInfo(SaviorStruct):
         '''
         info = cast(msg_pkt, POINTER(cls))
         create_info = GetProcessDestroyInfo(
-            info.contents.FltMsgHeader.ReplyLength, 
-            info.contents.FltMsgHeader.MessageId,
-            DataType(info.contents.Header.Type).name, 
-            info.contents.Header.DataSz,
-            info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             info.contents.EProcess)
         return create_info
@@ -804,17 +779,16 @@ def test_packet_decode():
     while True:
 
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
-        
-        fmh = SaviorStruct.GetFilterMessageHeader(msg_pkt)
-        response = ("Response to Message Id {0}\n".format(fmh.MessageId,))
-        FilterReplyMessage(hFltComms, 0, fmh.MessageId, response)                
-        pdh = SaviorStruct.GetProbeDataHeader(fmh.Message)        
+                
+        response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
+        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)                
+        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)        
         if pdh.Type == DataType.LoadedImage:            
-            msg_data = LoadedImageInfo.build(fmh.Message)
+            msg_data = LoadedImageInfo.build(pdh.Message)
         elif pdh.Type == DataType.ProcessCreate:
-            msg_data = ProcessCreateInfo.build(fmh.Message)
+            msg_data = ProcessCreateInfo.build(pdh.Message)
         elif pdh.Type == DataType.ProcessDestroy:
-            msg_data = ProcessDestroyInfo.build(fmh.Message)
+            msg_data = ProcessDestroyInfo.build(pdh.Message)
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
             continue

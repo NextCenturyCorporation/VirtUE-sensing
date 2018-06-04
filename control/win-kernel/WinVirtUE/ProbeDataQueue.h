@@ -12,6 +12,7 @@ class ProbeDataQueue
 private:
 	const int MAXQUEUESIZE = 0x8;
 	KSPIN_LOCK PDQueueSpinLock;
+	KGUARDED_MUTEX mutex;
 	LIST_ENTRY PDQueue;
 	ULONGLONG MessageId;
 	BOOLEAN Enabled;	
@@ -26,10 +27,10 @@ public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
 	VOID SemaphoreRelease();
-	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
-	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
+	VOID Enqueue(_Inout_ PLIST_ENTRY pListEntry);
+	VOID PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
-	PLIST_ENTRY Dequeue(BOOLEAN wfso = FALSE);
+	PLIST_ENTRY Dequeue();
 	_Must_inspect_result_
 	ULONGLONG& GetMessageId() { return this->MessageId;  }
 	VOID Dispose(_In_ PVOID pBuf);
