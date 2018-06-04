@@ -414,6 +414,8 @@ def FilterGetMessage(hPort, msg_len):
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("FilterGetMessage failed to Get Message - Error %d", lasterror)
         raise
+    else:
+        print("sb = {0}\n".format(sb.raw))
 
     ReplyLen = info.contents.ReplyLength
     MessageId = info.contents.MessageId
@@ -776,13 +778,15 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+#    import pdb;pdb.set_trace()
     while True:
-        import pdb;pdb.set_trace()
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
+        print("msg_pkt={0}\n".format(msg_pkt,))
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         print(response)
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)                
-#        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)        
+        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)
+#        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)
+#        print(pdh)
 #        if pdh.Type == DataType.LoadedImage:            
 #            msg_data = LoadedImageInfo.build(pdh.Message)
 #        elif pdh.Type == DataType.ProcessCreate:
