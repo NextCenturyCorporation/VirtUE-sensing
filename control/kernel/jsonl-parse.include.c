@@ -147,6 +147,7 @@ struct jsmn_session
 
 };
 
+uint8_t *add_nl_at_end(uint8_t *in, int len);
 
 static inline int index_command(uint8_t *cmd, int bytes)
 {
@@ -427,8 +428,9 @@ static int
 process_discovery_request(struct jsmn_message *m, int index)
 {
 	struct jsmn_message *reply_msg;
-	uint8_t *response = NULL;
-	size_t len = 0;
+	uint8_t *probe_ids = NULL;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+	size_t probe_ids_len = 0;
 	int ccode = 0;
 
 	assert(m);
@@ -437,7 +439,7 @@ process_discovery_request(struct jsmn_message *m, int index)
 	if (!reply_msg) {
 		ccode = -ENOMEM;
 		DMSG();
-		goto err_out;
+		goto err_out_session;
 	}
 	reply_msg->type = REPLY;
 
@@ -451,24 +453,66 @@ process_discovery_request(struct jsmn_message *m, int index)
 
 	/**
 	 * build the discovery buffer
+	 * '[probe ids]'
 	 **/
-	if (build_discovery_buffer(&response, & len) <= 0) {
+	if (build_discovery_buffer(&probe_ids, &probe_ids_len) <= 0) {
 		kfree(reply_msg);
 		ccode = -ENFILE;
-		goto err_out;
+		goto err_out_session;
+	}
+
+	/**
+	 * allocate the message buffer (line), MAX_HEADER, to be realloc'd
+	 * when we know the actual size.
+	 * TODO: start with a smaller buffer and realloc bigger
+	 **/
+	reply_msg->line = kzalloc(GFP_KERNEL, CONNECTION_MAX_HEADER);
+	if (!reply_msg->line) {
+		DMSG();
+		ccode = -ENOMEM;
+		goto err_out_reply_msg;
+	} else {
+		/**
+	     * build the JSONL buffer
+	     * '{Virtue-protocol-verion: 0.1, reply: [nonce, discovery, [probe ids]] }\n'
+	     **/
+
+		size_t remaining = CONNECTION_MAX_HEADER - 1;
+		strncat(reply_msg->line, r_header, remaining);
+		remaining -= strlen(reply_msg->line);
+		if (remaining <= probe_ids_len + 4) {
+			goto err_out_reply_msg;
+		}
+
+		strncat(reply_msg->line, reply_msg->s->nonce, remaining);
+		remaining -= strlen(reply_msg->line);
+		if (remaining <= probe_ids_len + 4) {
+			goto err_out_reply_msg;
+		}
+
+		strncat(reply_msg->line, ", discovery, ", remaining);
+		remaining -= strlen(reply_msg->line);
+		if (remaining <= probe_ids_len + 4) {
+			goto err_out_reply_msg;
+		}
+
+		strncat(reply_msg->line, probe_ids, remaining);
+		remaining -= strlen(reply_msg->line);
+		if (remaining <= 4) {
+			goto err_out_reply_msg;
+		}
+
+		strncat(reply_msg->line, "] }", remaining);
+		reply_msg->line = add_nl_at_end(reply_msg->line, strlen(reply_msg->line));
 	}
 
 
-	/**
-	 * build the JSONL buffer
-	 **/
+	return ccode;
 
-
-
-
-err_out:
-
-	free_message(m);
+err_out_reply_msg:
+	free_message(reply_msg);
+err_out_session:
+	free_session(m->s);
 	return ccode;
 }
 
