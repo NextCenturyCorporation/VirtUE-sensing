@@ -777,23 +777,23 @@ def test_packet_decode():
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
-
+        import pdb;pdb.set_trace()
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
-                
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
+        print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)                
-        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)        
-        if pdh.Type == DataType.LoadedImage:            
-            msg_data = LoadedImageInfo.build(pdh.Message)
-        elif pdh.Type == DataType.ProcessCreate:
-            msg_data = ProcessCreateInfo.build(pdh.Message)
-        elif pdh.Type == DataType.ProcessDestroy:
-            msg_data = ProcessDestroyInfo.build(pdh.Message)
-        else:
-            print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
-            continue
-        print("Decoded a %s data message\n" % (pdh.Type.name,))
-        print(json.dumps(msg_data._asdict(), indent=4))
+#        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)        
+#        if pdh.Type == DataType.LoadedImage:            
+#            msg_data = LoadedImageInfo.build(pdh.Message)
+#        elif pdh.Type == DataType.ProcessCreate:
+#            msg_data = ProcessCreateInfo.build(pdh.Message)
+#        elif pdh.Type == DataType.ProcessDestroy:
+#            msg_data = ProcessDestroyInfo.build(pdh.Message)
+#        else:
+#            print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
+#            continue
+#        print("Decoded a %s data message\n" % (pdh.Type.name,))
+#        print(json.dumps(msg_data._asdict(), indent=4))
 
     CloseHandle(hFltComms)
     
