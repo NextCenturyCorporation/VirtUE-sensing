@@ -262,7 +262,7 @@ class LoadedImageInfo(SaviorStruct):
         img_nfo = GetLoadedImageInfo(
             info.contents.Header.ReplyLength,
             info.contents.Header.MessageId,
-            info.contents.Header.Type,
+            DataType(info.contents.Header.Type),
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
