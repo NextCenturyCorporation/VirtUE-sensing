@@ -61,6 +61,17 @@ kfs_read(struct file *file, void *buf, size_t count, loff_t *pos);
 ssize_t
 kfs_write(struct file *file, void *buf, size_t count, loff_t *pos);
 
+ssize_t k_socket_read(struct socket *sock,
+					  size_t size,
+					  void *in,
+					  unsigned int flags);
+
+
+ssize_t k_socket_write(struct socket *sock,
+					   size_t size,
+					   void *out,
+					   unsigned int flags);
+
 /* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
  */

@@ -420,6 +420,7 @@ err_out:
  *
  * - build the discovery buffer
  * - allocate a reply message struct, copy the struct, link to session
+ * - is session locked? is reply list locked?
  * - build the json reply message in the 'line' field
  * - write the reply to line to the socket
  * - free the session
@@ -439,7 +440,7 @@ process_discovery_request(struct jsmn_message *m, int index)
 	if (!reply_msg) {
 		ccode = -ENOMEM;
 		DMSG();
-		goto err_out_session;
+		goto out_session;
 	}
 	reply_msg->type = REPLY;
 
@@ -458,7 +459,7 @@ process_discovery_request(struct jsmn_message *m, int index)
 	if (build_discovery_buffer(&probe_ids, &probe_ids_len) <= 0) {
 		kfree(reply_msg);
 		ccode = -ENFILE;
-		goto err_out_session;
+		goto out_session;
 	}
 
 	/**
@@ -470,48 +471,60 @@ process_discovery_request(struct jsmn_message *m, int index)
 	if (!reply_msg->line) {
 		DMSG();
 		ccode = -ENOMEM;
-		goto err_out_reply_msg;
+		goto out_reply_msg;
 	} else {
 		/**
 	     * build the JSONL buffer
 	     * '{Virtue-protocol-verion: 0.1, reply: [nonce, discovery, [probe ids]] }\n'
 	     **/
-
+		unsigned long replies_flag;
 		size_t remaining = CONNECTION_MAX_HEADER - 1;
 		strncat(reply_msg->line, r_header, remaining);
 		remaining -= strlen(reply_msg->line);
 		if (remaining <= probe_ids_len + 4) {
-			goto err_out_reply_msg;
+			goto out_reply_msg;
 		}
 
 		strncat(reply_msg->line, reply_msg->s->nonce, remaining);
 		remaining -= strlen(reply_msg->line);
 		if (remaining <= probe_ids_len + 4) {
-			goto err_out_reply_msg;
+			goto out_reply_msg;
 		}
 
 		strncat(reply_msg->line, ", discovery, ", remaining);
 		remaining -= strlen(reply_msg->line);
 		if (remaining <= probe_ids_len + 4) {
-			goto err_out_reply_msg;
+			goto out_reply_msg;
 		}
 
 		strncat(reply_msg->line, probe_ids, remaining);
 		remaining -= strlen(reply_msg->line);
 		if (remaining <= 4) {
-			goto err_out_reply_msg;
+			goto out_reply_msg;
 		}
 
 		strncat(reply_msg->line, "] }", remaining);
 		reply_msg->line = add_nl_at_end(reply_msg->line, strlen(reply_msg->line));
+		/**
+		 * link the discovery reply message to the session
+		 **/
+		spin_lock_irqsave(&reply_msg->s->sl, replies_flag);
+		list_add_tail_rcu(&reply_msg->e_messages, &reply_msg->s->h_replies);
+		spin_unlock_irqrestore(&reply_msg->s->sl, replies_flag);
+
+		/**
+		 * write the reply message to the socket, then free the session
+		 **/
+		ccode = k_socket_write(reply_msg->socket,
+							   strlen(reply_msg->line) + 1,
+							   reply_msg->line,
+							   0L);
+		goto out_session;
 	}
 
-
-	return ccode;
-
-err_out_reply_msg:
+out_reply_msg:
 	free_message(reply_msg);
-err_out_session:
+out_session:
 	free_session(m->s);
 	return ccode;
 }

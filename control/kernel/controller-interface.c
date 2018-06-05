@@ -23,7 +23,7 @@ init_connection(struct connection *, uint64_t, void *);
  * sk refers to struct sock
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
-static ssize_t k_socket_read(struct socket *sock,
+ssize_t k_socket_read(struct socket *sock,
 							 size_t size,
 							 void *in,
 							 unsigned int flags)
@@ -41,10 +41,7 @@ static ssize_t k_socket_read(struct socket *sock,
 }
 STACK_FRAME_NON_STANDARD(k_socket_read);
 
-
-#pragma GCC diagnostic ignored "-Wunused-function"
-
-static ssize_t k_socket_write(struct socket *sock,
+ssize_t k_socket_write(struct socket *sock,
 							  size_t size,
 							  void *out,
 							  unsigned int flags)
@@ -368,6 +365,8 @@ err_out1:
 }
 STACK_FRAME_NON_STANDARD(k_read_write);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 static void k_poll(struct kthread_work *work)
 {
@@ -475,6 +474,7 @@ close_out_quit:
 	return;
 }
 
+#pragma GCC diagnostic pop
 
 static void k_accept(struct kthread_work *work)
 {
