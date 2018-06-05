@@ -420,10 +420,13 @@ err_out:
  *
  * - build the discovery buffer
  * - allocate a reply message struct, copy the struct, link to session
- * - is session locked? is reply list locked?
+ * - session is allocated and attached to message but not locked.
  * - build the json reply message in the 'line' field
+ * - link the reply to the session reply list
  * - write the reply to line to the socket
  * - free the session
+ *
+ * TODO: optimize away redundant usage of string library functions
 **/
 static int
 process_discovery_request(struct jsmn_message *m, int index)
