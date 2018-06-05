@@ -305,7 +305,7 @@ class ProcessCreateInfo(SaviorStruct):
         info = cast(msg_pkt.Remainder, POINTER(cls))
         length = info.contents.CommandLineSz
         offset = type(info.contents).CommandLine.offset
-        sb = create_string_buffer(msg_pkt)
+        sb = create_string_buffer(msg_pkt.Remainder)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
