@@ -340,7 +340,7 @@ PVOID StreamContextAllocate(
     /*
     * Setup the main context common header
     */
-    PFSRTL_COMMON_FCB_HEADER comHeader = (PFSRTL_COMMON_FCB_HEADER)&pStreamContextPointer->Header;
+    PFSRTL_COMMON_FCB_HEADER comHeader = (PFSRTL_COMMON_FCB_HEADER)&pStreamContextPointer->ProbeDataHeader;
     comHeader->IsFastIoPossible = FastIoIsPossible;
     comHeader->NodeTypeCode = NodeTypeCode::StreamContext;
     comHeader->NodeByteSize = sizeof(WVU_STREAM_CONTEXT);
@@ -351,15 +351,15 @@ PVOID StreamContextAllocate(
     comHeader->Resource = &pStreamContextPointer->Resource;
     comHeader->PagingIoResource = &pStreamContextPointer->PagingIoResource;
     /* Assign the standard header data portion */
-    pStreamContextPointer->Header.FastMutex = &pStreamContextPointer->FastMutex;
+    pStreamContextPointer->ProbeDataHeader.FastMutex = &pStreamContextPointer->FastMutex;
 #pragma warning( pop )
     /* initialize the mutex and resources */
-    ExInitializeFastMutex(pStreamContextPointer->Header.FastMutex);
+    ExInitializeFastMutex(pStreamContextPointer->ProbeDataHeader.FastMutex);
     ExInitializeResourceLite(comHeader->Resource);
     ExInitializeResourceLite(comHeader->PagingIoResource);
 
     /* configure the advanced header */
-    FsRtlSetupAdvancedHeader(&pStreamContextPointer->Header, pStreamContextPointer->Header.FastMutex);
+    FsRtlSetupAdvancedHeader(&pStreamContextPointer->ProbeDataHeader, pStreamContextPointer->ProbeDataHeader.FastMutex);
 
 Done:
 
@@ -399,14 +399,14 @@ StreamContextCleanup(
 
     FltReleaseContext(pStreamContext->InstanceContext);
 
-    ExReleaseResourceLite(pStreamContext->Header.Resource);
+    ExReleaseResourceLite(pStreamContext->ProbeDataHeader.Resource);
 
     /*
     * Delete the resources.
     */
-    ExDeleteResourceLite(pStreamContext->Header.PagingIoResource);
+    ExDeleteResourceLite(pStreamContext->ProbeDataHeader.PagingIoResource);
 
-    FsRtlTeardownPerStreamContexts(&pStreamContext->Header);
+    FsRtlTeardownPerStreamContexts(&pStreamContext->ProbeDataHeader);
 
 ErrorExit:
 
@@ -509,7 +509,7 @@ CreateStreamContext(
     /* add previously collected flags to context */
     InterlockedOr((PLONG)&pStreamContext->SFlags, Flags);
 
-    FltAcquireResourceExclusive(pStreamContext->Header.Resource);
+    FltAcquireResourceExclusive(pStreamContext->ProbeDataHeader.Resource);
 
     // assigne the file id
     pStreamContext->FileId = FileId;

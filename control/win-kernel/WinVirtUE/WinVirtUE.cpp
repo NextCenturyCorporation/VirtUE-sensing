@@ -163,6 +163,8 @@ WVUSensorThread(PVOID StartContext)
 	UNREFERENCED_PARAMETER(StartContext);
 	const ULONG REPLYLEN = 128;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	LARGE_INTEGER putback_wait_interval = { 0LL };
+	putback_wait_interval.QuadPart = RELATIVE(SECONDS(10));  // five second wait interval
 	LARGE_INTEGER send_timeout = { 0LL };
 	send_timeout.QuadPart = RELATIVE(SECONDS(10));  // five second timeout
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
@@ -203,14 +205,14 @@ WVUSensorThread(PVOID StartContext)
 			continue;
 		}
 
-		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER
-		// be the first type in the structure defintion.  We first get the address of ProbeDataHeader, add the offset
-		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.		
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
-		SenderBufferLen = pPDH->DataSz;
-		SenderBuffer = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
-		((PFILTER_MESSAGE_HEADER)SenderBuffer)->MessageId = pPDQ->GetMessageId();
-		((PFILTER_MESSAGE_HEADER)SenderBuffer)->ReplyLength = ReplyBufferLen;
+		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER data
+		// be the first type in the structure defintion.  We first get the address of PROBE_DATA_HEADER, add the offset
+		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.	
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		SenderBuffer = (PVOID)pPDH;
+		pPDH->MessageId = pPDQ->GetMessageId();
+		pPDH->ReplyLength = REPLYLEN;
+		SenderBufferLen = pPDH->DataSz;	
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
@@ -219,7 +221,12 @@ WVUSensorThread(PVOID StartContext)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);			
-			pPDQ->PutBack(&pPDH->ListEntry); // put the dequeued entry back
+			if (FALSE == pPDQ->PutBack(&pPDH->ListEntry)) // put the dequeued entry back
+			{
+				pPDQ->Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
+				pListEntry = NULL;
+			}
+			KeDelayExecutionThread(KernelMode, FALSE, &putback_wait_interval);
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{

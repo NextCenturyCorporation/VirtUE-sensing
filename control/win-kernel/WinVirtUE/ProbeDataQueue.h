@@ -10,7 +10,9 @@
 class ProbeDataQueue
 {
 private:
-	const int MAXQUEUESIZE = 0x8;
+	LARGE_INTEGER wfso_timeout;
+	LARGE_INTEGER timeout;	
+	const int MAXQUEUESIZE = PROBEDATAQUEUESZ;
 	KSPIN_LOCK PDQueueSpinLock;
 	KGUARDED_MUTEX mutex;
 	LIST_ENTRY PDQueue;
@@ -27,10 +29,11 @@ public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
 	VOID SemaphoreRelease();
-	VOID Enqueue(_Inout_ PLIST_ENTRY pListEntry);
-	VOID PutBack(_Inout_ PLIST_ENTRY pListEntry);
+	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
+	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
 	PLIST_ENTRY Dequeue();
+	VOID TrimProbeDataQueue();
 	_Must_inspect_result_
 	ULONGLONG& GetMessageId() { return this->MessageId;  }
 	VOID Dispose(_In_ PVOID pBuf);
@@ -46,13 +49,13 @@ public:
 	_Success_(NT_SUCCESS(return) == TRUE)
 		NTSTATUS AcquireQueueSempahore() {
 		return KeWaitForSingleObject((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], 
-			Executive, KernelMode, FALSE, 0LL);
+			Executive, KernelMode, FALSE, &wfso_timeout);
 	}
 	// Wait for the queue to have at least one entry and the port to be connected
 	_Success_(NT_SUCCESS(return) == TRUE)
 	NTSTATUS WaitForQueueAndPortConnect() {
 		return KeWaitForMultipleObjects(NUMBER_OF(PDQEvents),
-			(PVOID*)&PDQEvents[0], WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL); }
+			(PVOID*)&PDQEvents[0], WaitAll, Executive, KernelMode, FALSE, &timeout, NULL); }
 	_Must_inspect_impl_
 		_Success_(NULL != return)
 		PVOID operator new(_In_ size_t size);

@@ -347,12 +347,6 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Remainder, POINTER(cls))
-        length = info.contents.FullImageNameSz
-        offset = type(info.contents).FullImageName.offset
-        sb = create_string_buffer(msg_pkt.Remainder)
-        array_of_info = memoryview(sb)[offset:length+offset]
-        slc = (BYTE * length).from_buffer(array_of_info)
-        ModuleName = "".join(map(chr, slc[::2]))
         create_info = GetLoadedImageInfo(
             info.contents.Header.ReplyLength,
             info.contents.Header.MessageId,
@@ -802,9 +796,8 @@ def test_packet_decode():
     '''
     Test WinVirtUE packet decode
     '''
-    MAXPKTSZ = 0x200  # max packet size
+    MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))

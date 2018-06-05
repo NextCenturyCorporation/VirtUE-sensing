@@ -11,6 +11,13 @@
 ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), PDQEvents{NULL, NULL}
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	wfso_timeout.QuadPart = 0LL;
+	timeout.QuadPart =
+#if defined(WVU_DEBUG)
+		RELATIVE(SECONDS(10));
+#else
+		RELATRIVE(SECONDS(1));
+#endif
 
 	// initialize the queue entry count semaphore such that processing halts when there are no
 	// more entries in the queue
@@ -112,97 +119,82 @@ VOID
 ProbeDataQueue::update_counters(
 	PLIST_ENTRY pListEntry)
 {
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
+	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
 }
 
 _Use_decl_annotations_
-VOID 
-ProbeDataQueue::Enqueue(
-	PLIST_ENTRY pListEntry)
+VOID
+ProbeDataQueue::TrimProbeDataQueue()
 {
-	KLOCK_QUEUE_HANDLE LockHandle;
-
-	if (FALSE == Enabled)
-	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n");
-		return;
-	}
-
-	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
-
 	while (this->Count() >= this->MAXQUEUESIZE)  // remove the oldest entry if we're too big
 	{
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
-		if (NULL == pDequedEntry)
-		{
-			WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Error attempting remove a queue entry!\n");
-			goto Exit;
-		}
 		InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, ProbeDataHeader, ListEntry);
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
 		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
-		PVOID plii = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
-		delete[] plii;
+		delete[] pPDH;
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
 		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
 		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
 	}
-
-	InsertTailList(&this->PDQueue, pListEntry);
-	update_counters(pListEntry);	
-	SemaphoreRelease();
-Exit:
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %ld, Entry Count: %ld\n",
-		this->SizeOfDataInQueue, this->Count());
-	KeReleaseInStackQueuedSpinLock(&LockHandle);
 }
 
 _Use_decl_annotations_
-VOID 
+BOOLEAN
+ProbeDataQueue::Enqueue(
+	PLIST_ENTRY pListEntry)
+{
+	KLOCK_QUEUE_HANDLE LockHandle;
+	BOOLEAN success = FALSE;
+
+	if (FALSE == Enabled)
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
+		goto Error;
+	}
+
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
+	TrimProbeDataQueue();
+	InsertTailList(&this->PDQueue, pListEntry);
+	update_counters(pListEntry);	
+	SemaphoreRelease();
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %ld, Entry Count: %ld\n",
+		this->SizeOfDataInQueue, this->Count());
+	KeReleaseInStackQueuedSpinLock(&LockHandle);
+	success = TRUE;
+Error:
+	return success;
+}
+
+_Use_decl_annotations_
+BOOLEAN 
 ProbeDataQueue::PutBack(
 	PLIST_ENTRY pListEntry)
 {
 	KLOCK_QUEUE_HANDLE LockHandle;
+	BOOLEAN success = FALSE;
 
 	if (FALSE == Enabled)
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n");
-		return;
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
+		goto Error;
 	}
 
-	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
-	  
-	while (this->Count() >= this->MAXQUEUESIZE)  // remove the oldest entry if we're too big
-	{
-		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
-		if (NULL == pDequedEntry)
-		{
-			WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Error attempting remove a queue entry!\n");
-			goto Exit;
-		}
-
-		InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, ProbeDataHeader, ListEntry);
-		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
-		PVOID plii = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
-		delete[] plii;
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
-		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one 
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
-			this->SizeOfDataInQueue, this->Count());
-	}
-
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);	  
+	TrimProbeDataQueue();
 	InsertHeadList(&this->PDQueue, pListEntry);	
 	update_counters(pListEntry);
 	SemaphoreRelease();
-Exit:
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
 	KeReleaseInStackQueuedSpinLock(&LockHandle);
+	success = TRUE;
+Error:
+	return success;
 }
 
 _Use_decl_annotations_
@@ -212,10 +204,10 @@ ProbeDataQueue::Dequeue()
 	KLOCK_QUEUE_HANDLE LockHandle;
 	PLIST_ENTRY retval = NULL;
 
-	if (FALSE == Enabled)
+	if (FALSE == Enabled || TRUE == IsListEmpty(&this->PDQueue))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
-			return NULL;
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid or empty queue!\n");
+		return NULL;
 	}
 
 	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
@@ -226,7 +218,7 @@ ProbeDataQueue::Dequeue()
 		retval = NULL;
 		goto Exit;
 	}
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
+	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 	InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
 	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
 

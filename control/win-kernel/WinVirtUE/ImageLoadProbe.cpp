@@ -121,9 +121,12 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	}
 
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
-	pLoadedImageInfo->Header.Type = DataType::LoadedImage;
-	pLoadedImageInfo->Header.DataSz = bufsz;
-	KeQuerySystemTimePrecise(&pLoadedImageInfo->Header.CurrentGMT);
+	RtlSecureZeroMemory(buf, bufsz);
+	pLoadedImageInfo->ProbeDataHeader.MessageId = 0LL;
+	pLoadedImageInfo->ProbeDataHeader.ReplyLength = 0L;
+	pLoadedImageInfo->ProbeDataHeader.Type = DataType::LoadedImage;
+	pLoadedImageInfo->ProbeDataHeader.DataSz = bufsz;
+	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.CurrentGMT);
 	pLoadedImageInfo->EProcess = pProcess;
 	pLoadedImageInfo->ProcessId = ProcessId;
 	pLoadedImageInfo->ImageBase = pImageInfo->ImageBase;
@@ -131,7 +134,14 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	pLoadedImageInfo->FullImageNameSz = FullImageName->Length;
 	RtlMoveMemory(&pLoadedImageInfo->FullImageName[0], FullImageName->Buffer, pLoadedImageInfo->FullImageNameSz);
 
-	pPDQ->Enqueue(&pLoadedImageInfo->Header.ListEntry);
+	if (FALSE == pPDQ->Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
+	{
+		delete[] buf;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Load Module Enqueue Operation Failed: FullImageName=%wZ,"
+			"ProcessId=%p,ImageBase=%p,ImageSize=%p,ImageSectionNumber=%ul\n",
+			FullImageName, ProcessId, pImageInfo->ImageBase, (PVOID)pImageInfo->ImageSize,
+			pImageInfo->ImageSectionNumber);
+	}
 
 ErrorExit:
 

@@ -114,7 +114,7 @@ typedef struct _WVU_INSTANCE_CONTEXT
 //
 typedef struct _WVU_STREAM_CONTEXT
 {
-    FSRTL_ADVANCED_FCB_HEADER Header;  // common FCB header also used for synchronization     
+    FSRTL_ADVANCED_FCB_HEADER ProbeDataHeader;  // common FCB header also used for synchronization     
     volatile StreamFlags SFlags;
     ERESOURCE Resource;
     ERESOURCE PagingIoResource;
@@ -215,16 +215,18 @@ typedef enum _DataType : USHORT
 
 typedef struct _ProbeDataHeader 
 {
-	_In_ DataType    Type;
-	_In_ USHORT      DataSz;
+	_In_ ULONG ReplyLength;
+	_In_ ULONGLONG MessageId;
+	_In_ DataType  Type;
+	_In_ USHORT    DataSz;
 	_In_ LARGE_INTEGER CurrentGMT;
 	_In_ LIST_ENTRY  ListEntry;
-} ProbeDataHeader, *PProbeDataHeader;
+} PROBE_DATA_HEADER, *PProbeDataHeader;
+
 
 typedef struct _LoadedImageInfo
 {	
-	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
-	_In_ ProbeDataHeader Header;
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
 	_In_ HANDLE ProcessId;
 	_In_ PEPROCESS  EProcess;
 	_In_ PVOID ImageBase;
@@ -240,8 +242,7 @@ typedef struct _LoadedImageInfo
 */
 typedef struct _ProcessCreateInfo
 {
-	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
-	_In_ ProbeDataHeader Header;	
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	
 	_In_ HANDLE ParentProcessId;
 	_In_ HANDLE ProcessId;
 	_In_ PEPROCESS EProcess;
@@ -255,8 +256,7 @@ typedef struct _ProcessCreateInfo
 
 typedef struct _ProcessDestroyInfo
 {
-	_In_ FILTER_MESSAGE_HEADER FltMsgHeader;
-	_In_ ProbeDataHeader Header;
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
 	_In_ HANDLE ProcessId;
 	_In_ PEPROCESS EProcess;
 } ProcessDestroyInfo, *PProcessDestroyInfo;

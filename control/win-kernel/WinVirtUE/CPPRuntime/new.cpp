@@ -19,7 +19,7 @@
 PVOID CDECL operator new(size_t lBlockSize)
 {
     PVOID pVoid = NULL;
-    pVoid = ExAllocatePoolWithTag(POOL_TYPE::PagedPool, lBlockSize, COMMON_POOL_TAG);
+    pVoid = ExAllocatePoolWithTag(NonPagedPool, lBlockSize, COMMON_POOL_TAG);
     return pVoid;
 }
 
@@ -32,7 +32,7 @@ PVOID CDECL operator new(size_t lBlockSize)
 PVOID CDECL operator new[](size_t lBlockSize)
 {
     PVOID pVoid = NULL;
-    pVoid = ExAllocatePoolWithTag(POOL_TYPE::PagedPool, lBlockSize, COMMON_POOL_TAG);
+    pVoid = ExAllocatePoolWithTag(NonPagedPool, lBlockSize, COMMON_POOL_TAG);
 	return pVoid;
 }
 

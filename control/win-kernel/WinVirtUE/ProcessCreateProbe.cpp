@@ -95,9 +95,13 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for ProcessCreateInfo Data!\n");
 			goto ErrorExit;
 		}
+		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessCreateInfo pPCI = (PProcessCreateInfo)buf;
-		KeQuerySystemTimePrecise(&pPCI->Header.CurrentGMT);
-		pPCI->Header.Type = DataType::ProcessCreate;
+		pPCI->ProbeDataHeader.MessageId = 0LL;
+		pPCI->ProbeDataHeader.ReplyLength = 0L;
+		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.CurrentGMT);
+		pPCI->ProbeDataHeader.Type = DataType::ProcessCreate;
+		pPCI->ProbeDataHeader.DataSz = bufsz;
 		pPCI->EProcess = Process;
 		pPCI->ProcessId = ProcessId;
 		pPCI->ParentProcessId = CreateInfo->ParentProcessId;
@@ -107,7 +111,13 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPCI->CreationStatus = CreateInfo->CreationStatus;
 		pPCI->CommandLineSz = CreateInfo->CommandLine->Length;
 		RtlMoveMemory(&pPCI->CommandLine[0], CreateInfo->CommandLine->Buffer, pPCI->CommandLineSz);
-		pPDQ->Enqueue(&pPCI->Header.ListEntry);
+		if (FALSE == pPDQ->Enqueue(&pPCI->ProbeDataHeader.ListEntry))
+		{
+			delete[] buf;
+			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+				"***** Process Created Enqueue Operation Failed: Image File Name=%wZ, EPROCESS=%p, ProcessId=%p\n",
+				CreateInfo->ImageFileName, Process, ProcessId);
+		}
 	}
 	else
 	{
@@ -121,13 +131,22 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for ProcessDestroyInfo Data!\n");
 			goto ErrorExit;
 		}
+		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessDestroyInfo pPDI= (PProcessDestroyInfo)buf;
-		KeQuerySystemTimePrecise(&pPDI->Header.CurrentGMT);
-		pPDI->Header.Type = DataType::ProcessDestroy;
-		pPDI->Header.DataSz = bufsz;
+		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.CurrentGMT);
+		pPDI->ProbeDataHeader.MessageId = 0LL;
+		pPDI->ProbeDataHeader.ReplyLength = 0L;
+		pPDI->ProbeDataHeader.Type = DataType::ProcessDestroy;
+		pPDI->ProbeDataHeader.DataSz = bufsz;
 		pPDI->EProcess = Process;
-		pPDI->ProcessId = ProcessId;
-		pPDQ->Enqueue(&pPDI->Header.ListEntry);
+		pPDI->ProcessId = ProcessId;		
+		if (FALSE == pPDQ->Enqueue(&pPDI->ProbeDataHeader.ListEntry))
+		{
+			delete[] buf;
+			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+				"***** Process Destroyed Enqueue Operation Failed: EPROCESS %p, ProcessId %p, \n",
+				Process, ProcessId);
+		}
 	}
 
 	
