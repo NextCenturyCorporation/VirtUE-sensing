@@ -213,17 +213,19 @@ LIST_ENTRY._fields_ = [
     ("Blink", POINTER(LIST_ENTRY))
 ]
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['Type', 'DataSz', 'CurrentGMT', 'Message'])
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'CurrentGMT', 'Remainder'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
     Probe Data Header
     '''
     _fields_ = [
-        ("Type", USHORT), 
-        ("DataSz", USHORT), 
-        ("CurrentGMT", LONGLONG),
-        ("ListEntry", LIST_ENTRY)
+        ('ReplyLength', ULONG),
+        ('MessageId', ULONGLONG),
+        ('Type', USHORT), 
+        ('DataSz', USHORT), 
+        ('CurrentGMT', LONGLONG),
+        ('ListEntry', LIST_ENTRY)
     ]
 
     
@@ -234,7 +236,6 @@ class LoadedImageInfo(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
-        ("FltMsgHeader", FILTER_MESSAGE_HEADER),
         ("Header", ProbeDataHeader),
         ("ProcessId", PVOID),
         ("EProcess", PVOID),
@@ -410,16 +411,20 @@ def FilterGetMessage(hPort, msg_len):
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
     try:
         res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
+        pkt = create_string_buffer(sb.raw[sizeof(FILTER_MESSAGE_HEADER):])
+        info = cast(pkt, POINTER(FILTER_MESSAGE_HEADER))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("FilterGetMessage failed to Get Message - Error %d", lasterror)
+        logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror)
         raise
-    else:
-        print("sb = {0}\n".format(sb.raw))
+    except Exception as exc:
+        print("Exception: FilterGetMessage failed to Get Message - Error %s", exc)
+        raise
 
     ReplyLen = info.contents.ReplyLength
     MessageId = info.contents.MessageId
     msg_pkt = FilterMessageHeader(ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
+    import pdb;pdb.set_trace()
     return res, msg_pkt
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
@@ -776,7 +781,7 @@ def test_packet_decode():
     '''
     Test WinVirtUE packet decode
     '''
-    MAXPKTSZ = 0x400  # max packet size
+    MAXPKTSZ = 0x100  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
 #    import pdb;pdb.set_trace()
     while True:
