@@ -273,16 +273,16 @@ class LoadedImageInfo(SaviorStruct):
         return img_nfo
 
 
-GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'CurrentGMT', 
-    'ParentProcessId', 'ProcessId', 'EProcess', 
-    'UniqueProcess', 'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLine'])
+GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'MessageId', 
+    'Type', 'DataSz', 'CurrentGMT', 
+    'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 'UniqueThread', 
+    'FileObject', 'CreationStatus', 'CommandLine'])
     
 class ProcessCreateInfo(SaviorStruct):
     '''
     ProcessCreateInfo Definition
     '''
     _fields_ = [
-        ("FltMsgHeader", FILTER_MESSAGE_HEADER),
         ("Header", ProbeDataHeader),
         ("ParentProcessId", HANDLE),
         ("ProcessId", HANDLE),
@@ -302,7 +302,7 @@ class ProcessCreateInfo(SaviorStruct):
         build named tuple instance representing this
         classes instance data
         '''
-        info = cast(msg_pkt, POINTER(cls))
+        info = cast(msg_pkt.Remainder, POINTER(cls))
         length = info.contents.CommandLineSz
         offset = type(info.contents).CommandLine.offset
         sb = create_string_buffer(msg_pkt)
@@ -310,6 +310,11 @@ class ProcessCreateInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
         create_info = GetProcessCreateInfo(
+            info.contents.Header.ReplyLength,
+            info.contents.Header.MessageId,
+            DataType(info.contents.Header.Type),
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
             info.contents.ProcessId,
             info.contents.EProcess,
@@ -320,15 +325,16 @@ class ProcessCreateInfo(SaviorStruct):
             CommandLine)
         return create_info
 
-GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  ['ReplyLength', 
-    'MessageId', 'Type', 'DataSz', 'CurrentGMT', 'ProcessId', 'EProcess'])
+GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
+        ['ReplyLength', 'MessageId', 
+         'Type', 'DataSz', 'CurrentGMT', 
+         'ProcessId', 'EProcess'])
     
 class ProcessDestroyInfo(SaviorStruct):
     '''
     ProcessDestroyInfo Definition
     '''
     _fields_ = [
-        ("FltMsgHeader", FILTER_MESSAGE_HEADER),
         ("Header", ProbeDataHeader),
         ("ProcessId", HANDLE),
         ("EProcess", PVOID) 
@@ -340,13 +346,23 @@ class ProcessDestroyInfo(SaviorStruct):
         build named tuple instance representing this
         classes instance data
         '''
-        info = cast(msg_pkt, POINTER(cls))
-        create_info = GetProcessDestroyInfo(
+        info = cast(msg_pkt.Remainder, POINTER(cls))
+        length = info.contents.FullImageNameSz
+        offset = type(info.contents).FullImageName.offset
+        sb = create_string_buffer(msg_pkt.Remainder)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ModuleName = "".join(map(chr, slc[::2]))
+        create_info = GetLoadedImageInfo(
+            info.contents.Header.ReplyLength,
+            info.contents.Header.MessageId,
+            DataType(info.contents.Header.Type),
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             info.contents.EProcess)
         return create_info
     
-        
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
 ERROR_NO_MORE_ITEMS = 0x103
