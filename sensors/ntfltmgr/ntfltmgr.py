@@ -174,7 +174,7 @@ class FILTER_REPLY_HEADER(SaviorStruct):
        ('MessageId', ULONGLONG)
     ]
 
-FilterReplyHeader = namedtuple('FilterReplyHeader', ['Status', 'MessageId', 'Message'])    
+FilterReplyHeader = namedtuple('FilterReplyHeader', ['Status', 'MessageId', 'Remainder'])    
     
 class FILTER_MESSAGE_HEADER(SaviorStruct):
     '''
@@ -188,7 +188,7 @@ class FILTER_MESSAGE_HEADER(SaviorStruct):
        ('MessageId', ULONGLONG)       
     ]
     
-FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'MessageId', 'Message'])
+FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'MessageId', 'Remainder'])
         
 
 class DataType(CtypesEnum):
