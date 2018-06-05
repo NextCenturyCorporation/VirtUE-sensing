@@ -252,7 +252,6 @@ class LoadedImageInfo(SaviorStruct):
         build named tuple instance representing this
         classes instance data
         '''
-        import pdb;pdb.set_trace()
         info = cast(msg_pkt.Remainder, POINTER(cls))
         length = info.contents.FullImageNameSz
         offset = type(info.contents).FullImageName.offset
@@ -261,11 +260,11 @@ class LoadedImageInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         img_nfo = GetLoadedImageInfo(
-            msg_pkt.ReplyLength,
-            msg_pkt.MessageId,
-            msg_pkt.Type,
-            msg_pkt.DataSz,
-            msg_pkt.CurrentGMT,
+            info.contents.Header.ReplyLength,
+            info.contents.Header.MessageId,
+            info.contents.Header.Type,
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             info.contents.EProcess,
             info.contents.ImageBase, 
