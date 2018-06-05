@@ -347,7 +347,7 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Remainder, POINTER(cls))
-        create_info = GetLoadedImageInfo(
+        create_info = GetProcessDestroyInfo(
             info.contents.Header.ReplyLength,
             info.contents.Header.MessageId,
             DataType(info.contents.Header.Type),
