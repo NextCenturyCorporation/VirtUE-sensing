@@ -781,7 +781,6 @@ def test_packet_decode():
 #    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
-        print("msg_pkt={0}\n".format(msg_pkt,))
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)
