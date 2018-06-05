@@ -213,7 +213,7 @@ LIST_ENTRY._fields_ = [
     ("Blink", POINTER(LIST_ENTRY))
 ]
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'CurrentGMT', 'Remainder'])
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['Type', 'DataSz', 'CurrentGMT', 'Remainder'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
@@ -229,8 +229,9 @@ class ProbeDataHeader(SaviorStruct):
     ]
 
     
-GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'CurrentGMT',  'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
-    
+GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  ['ReplyLength', 'MessageId', 
+    'Type', 'DataSz', 'CurrentGMT', 
+    'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 class LoadedImageInfo(SaviorStruct):
     '''
     Probe Data Header
@@ -251,14 +252,20 @@ class LoadedImageInfo(SaviorStruct):
         build named tuple instance representing this
         classes instance data
         '''
-        info = cast(msg_pkt, POINTER(cls))
+        import pdb;pdb.set_trace()
+        info = cast(msg_pkt.Remainder, POINTER(cls))
         length = info.contents.FullImageNameSz
         offset = type(info.contents).FullImageName.offset
-        sb = create_string_buffer(msg_pkt)
+        sb = create_string_buffer(msg_pkt.Remainder)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         img_nfo = GetLoadedImageInfo(
+            msg_pkt.ReplyLength,
+            msg_pkt.MessageId,
+            msg_pkt.Type,
+            msg_pkt.DataSz,
+            msg_pkt.CurrentGMT,
             info.contents.ProcessId,
             info.contents.EProcess,
             info.contents.ImageBase, 
@@ -267,8 +274,8 @@ class LoadedImageInfo(SaviorStruct):
         return img_nfo
 
 
-GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 
-    'MessageId', 'Type', 'DataSz', 'CurrentGMT', 'ParentProcessId', 'ProcessId', 'EProcess', 
+GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'MessageId', 'Type', 'DataSz', 'CurrentGMT', 
+    'ParentProcessId', 'ProcessId', 'EProcess', 
     'UniqueProcess', 'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLine'])
     
 class ProcessCreateInfo(SaviorStruct):
@@ -424,7 +431,6 @@ def FilterGetMessage(hPort, msg_len):
     ReplyLen = info.contents.ReplyLength
     MessageId = info.contents.MessageId
     msg_pkt = FilterMessageHeader(ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
-    import pdb;pdb.set_trace()
     return res, msg_pkt
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
@@ -783,25 +789,23 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x100  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-#    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
-        print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)
-#        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)
-#        print(pdh)
-#        if pdh.Type == DataType.LoadedImage:            
-#            msg_data = LoadedImageInfo.build(pdh.Message)
-#        elif pdh.Type == DataType.ProcessCreate:
-#            msg_data = ProcessCreateInfo.build(pdh.Message)
-#        elif pdh.Type == DataType.ProcessDestroy:
-#            msg_data = ProcessDestroyInfo.build(pdh.Message)
-#        else:
-#            print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
-#            continue
-#        print("Decoded a %s data message\n" % (pdh.Type.name,))
-#        print(json.dumps(msg_data._asdict(), indent=4))
+        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)
+        print("ProbeDataHeader={0}\n".format(pdh))
+        if pdh.Type == DataType.LoadedImage:            
+            msg_data = LoadedImageInfo.build(pdh)
+        elif pdh.Type == DataType.ProcessCreate:
+            msg_data = ProcessCreateInfo.build(pdh.Remainder)
+        elif pdh.Type == DataType.ProcessDestroy:
+            msg_data = ProcessDestroyInfo.build(pdh.Remainder)
+        else:
+            print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
+            continue
+        print("Decoded a %s data message\n" % (pdh.Type.name,))
+        print(json.dumps(msg_data._asdict(), indent=4))
 
     CloseHandle(hFltComms)
     
