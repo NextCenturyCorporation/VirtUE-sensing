@@ -48,10 +48,9 @@ enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
  * allow shorter nonces, allowing the client to choose,
  * up to MAX_NONCE_SIZE
  **/
-#define MAX_NONCE_SIZE 128
-#define MIN_NONCE_SIZE 16
-#define MAX_CMD_SIZE MAX_NONCE_SIZE
-#define MAX_ID_SIZE MAX_NONCE_SIZE
+#define MAX_NONCE_SIZE 16
+#define MAX_CMD_SIZE 128
+#define MAX_ID_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
 struct jsmn_message;
 struct jsmn_session;
