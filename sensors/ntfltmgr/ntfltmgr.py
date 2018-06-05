@@ -792,7 +792,7 @@ def test_packet_decode():
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)
-        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)
+        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
         print("ProbeDataHeader={0}\n".format(pdh))
         if pdh.Type == DataType.LoadedImage:            
             msg_data = LoadedImageInfo.build(msg_pkt)
