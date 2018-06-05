@@ -795,11 +795,11 @@ def test_packet_decode():
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Message)
         print("ProbeDataHeader={0}\n".format(pdh))
         if pdh.Type == DataType.LoadedImage:            
-            msg_data = LoadedImageInfo.build(pdh)
+            msg_data = LoadedImageInfo.build(msg_pkt)
         elif pdh.Type == DataType.ProcessCreate:
-            msg_data = ProcessCreateInfo.build(pdh.Remainder)
+            msg_data = ProcessCreateInfo.build(msg_pkt)
         elif pdh.Type == DataType.ProcessDestroy:
-            msg_data = ProcessDestroyInfo.build(pdh.Remainder)
+            msg_data = ProcessDestroyInfo.build(msg_pkt)
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
             continue
