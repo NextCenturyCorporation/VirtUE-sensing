@@ -802,15 +802,14 @@ def test_packet_decode():
     '''
     Test WinVirtUE packet decode
     '''
-    MAXPKTSZ = 0x1000  # max packet size
+    MAXPKTSZ = 0x200  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
-        
         fmh = SaviorStruct.GetFilterMessageHeader(msg_pkt)
         response = ("Response to Message Id {0}\n".format(fmh.MessageId,))
-        FilterReplyMessage(hFltComms, 0, fmh.MessageId, response)                
-        
+        FilterReplyMessage(hFltComms, 0, fmh.MessageId, response)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt)        
         if pdh.Type == DataType.LoadedImage:            
             msg_data = LoadedImageInfo.build(msg_pkt)
