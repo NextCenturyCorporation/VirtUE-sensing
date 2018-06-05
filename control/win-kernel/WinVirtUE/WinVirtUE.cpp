@@ -93,21 +93,21 @@ WVUMainThreadStart(PVOID StartContext)
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
 
-	Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateThreadNotifyRoutine(ThreadCreateCallback) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-	
-	Cookie.QuadPart = (LONGLONG)Globals.DriverObject;
-	Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, NULL, &Cookie, NULL);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
-		goto ErrorExit;
-	}
+	//Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
+	//if (FALSE == NT_SUCCESS(Status))
+	//{
+	//	WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateThreadNotifyRoutine(ThreadCreateCallback) "
+	//		"Add Failed! Status=%08x\n", Status);
+	//	goto ErrorExit;
+	//}
+	//
+	//Cookie.QuadPart = (LONGLONG)Globals.DriverObject;
+	//Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, NULL, &Cookie, NULL);
+	//if (FALSE == NT_SUCCESS(Status))
+	//{
+	//	WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
+	//	goto ErrorExit;
+	//}
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
 #pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh
@@ -208,10 +208,9 @@ WVUSensorThread(PVOID StartContext)
 		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.		
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
 		SenderBufferLen = pPDH->DataSz;
-		PLoadedImageInfo plii = (PLoadedImageInfo)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
-		SenderBuffer = (PVOID)plii;
-		plii->FltMsgHeader.MessageId = pPDQ->GetMessageId();
-		plii->FltMsgHeader.ReplyLength = ReplyBufferLen;
+		SenderBuffer = (PVOID)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
+		((PFILTER_MESSAGE_HEADER)SenderBuffer)->MessageId = pPDQ->GetMessageId();
+		((PFILTER_MESSAGE_HEADER)SenderBuffer)->ReplyLength = ReplyBufferLen;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
@@ -220,12 +219,12 @@ WVUSensorThread(PVOID StartContext)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);			
-			pPDQ->PutBack(pListEntry); // put the dequeued entry back
+			pPDQ->PutBack(&pPDH->ListEntry); // put the dequeued entry back
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT_BUFFER(LOG_SENSOR_THREAD, ReplyBuffer, ReplyBufferLen);
-			pPDQ->Dispose(plii);
+			pPDQ->Dispose(SenderBuffer);
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;
