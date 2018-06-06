@@ -381,7 +381,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
     res = HRESULT()
         
     if (msg is None or not hasattr(msg, "__len__") or len(msg) <= 0
-        or msg_len > len(msg) or msg_len >= sizeof(FILTER_REPLY_HEADER)):
+        or msg_len < len(msg) or msg_len >= sizeof(FILTER_REPLY_HEADER)):
         raise ValueError("Parameter msg or msg_len is invalid!")
     
     if isinstance(msg, str):
@@ -790,6 +790,7 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
@@ -798,7 +799,6 @@ def test_packet_decode():
         if pdh.Type == DataType.LoadedImage:            
             msg_data = LoadedImageInfo.build(msg_pkt)
         elif pdh.Type == DataType.ProcessCreate:
-            import pdb;pdb.set_trace()
             msg_data = ProcessCreateInfo.build(msg_pkt)
         elif pdh.Type == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(msg_pkt)
