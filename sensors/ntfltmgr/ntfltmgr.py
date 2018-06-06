@@ -2,10 +2,8 @@
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
-import time
 import json
 import logging
-from abc import ABC, abstractmethod
 from enum import IntEnum
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
@@ -368,7 +366,7 @@ logger.setLevel(logging.ERROR)
 _FilterReplyMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
 _FilterReplyMessageParamFlags = (0, "hPort"), (0,  "lpReplyBuffer"), (0, "dwReplyBufferSize")
 _FilterReplyMessage = _FilterReplyMessageProto(("FilterReplyMessage", windll.fltlib), _FilterReplyMessageParamFlags)
-def FilterReplyMessage(hPort, status, msg_id, msg):
+def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
     '''    
     replies to a message from a kernel-mode minifilter 
     @note close the handle returned using CloseHandle
@@ -382,25 +380,21 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     '''    
     res = HRESULT()
         
-    if msg is None or not hasattr(msg, "__len__") or len(msg) <= 0:
-        raise ValueError("Parameter msg is invalid!")
+    if (msg is None or not hasattr(msg, "__len__") or len(msg) <= 0
+        or msg_len > len(msg) or msg_len >= sizeof(FILTER_REPLY_HEADER)):
+        raise ValueError("Parameter msg or msg_len is invalid!")
     
     if isinstance(msg, str):
         txt = msg
         msg = bytearray()
-        msg.extend(map(ord, txt))                    
-    msg_len = len(msg)    
-    sz_frh = sizeof(FILTER_REPLY_HEADER)
-    # What's the messages total length in bytes
-    total_len = msg_len + sz_frh
-    reply_buffer = create_string_buffer(total_len)
+        msg.extend(map(ord, txt))                     
+    reply_buffer = create_string_buffer(msg, msg_len)
     info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
     info.contents.Status = status
-    info.contents.MessageId = msg_id        
-    reply_buffer[sz_frh:sz_frh + msg_len] = msg    
+    info.contents.MessageId = msg_id           
 
     try:
-        res = _FilterReplyMessage(hPort, info, total_len)
+        res = _FilterReplyMessage(hPort, byref(info.contents), msg_len)
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("FilterReplyMessage Failed on Message Reply - Error %d", lasterror)
@@ -799,7 +793,7 @@ def test_packet_decode():
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response)
+        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
         if pdh.Type == DataType.LoadedImage:            
             msg_data = LoadedImageInfo.build(msg_pkt)

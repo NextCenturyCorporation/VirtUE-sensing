@@ -112,6 +112,7 @@ VOID
 ProbeDataQueue::SemaphoreRelease()
 {
 	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+	this->NumberOfQueueEntries = this->Count();
 }
 
 _Use_decl_annotations_
