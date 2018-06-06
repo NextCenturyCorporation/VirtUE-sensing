@@ -1,0 +1,25 @@
+<h2 class="sub-header">Virtues</h2>
+<div class="table-responsive">
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Context</th>
+      <th>OS</th>
+      <th>Sensors</th>
+    </tr>
+  </thead>
+  <tbody>
+    <%= for virtue <- @virtues do %>
+    <tr>
+      <td>
+        <a href="/ui/virtue/<%= virtue.virtue %>"><%= virtue.virtue %></a>
+      </td>
+      <td><%= virtue.context  %></td>
+      <td><%= virtue.os %></td>
+      <td><%= virtue.sensor_count %></td>
+    </tr>
+    <% end %>
+  </tbody>
+</table>
+</div>

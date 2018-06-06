@@ -54,10 +54,179 @@ let socket = new Socket("/socket", {params: {token: window.userToken}})
 
 socket.connect()
 
-// Now that you are connected, you can join channels with a topic:
-let channel = socket.channel("topic:subtopic", {})
-channel.join()
-  .receive("ok", resp => { console.log("Joined successfully", resp) })
-  .receive("error", resp => { console.log("Unable to join", resp) })
 
-export default socket
+function msg_heartbeat(messagesContainer, payload) {
+
+  let full_div = `<div class="row console-callout console-callout-heartbeat"><div class="col-md-1"><span class="glyphicon glyphicon-heart">&nbsp;</span></div><div class="col-md-10"><h4>Heartbeat</h4><p>${payload.timestamp}</p></div></div>`;
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_announce_sensor_observe(messagesContainer, payload) {
+
+    let full_div = `<div class="row console-callout console-callout-observe">
+        <div class="col-md-1"><span class="glyphicon glyphicon-eye-open">&nbsp;</span></div>
+        <div class="col-md-10">
+            <h4>Sensor Observation Level Change ( ${payload.old_level} ➡ ${payload.new_level})</h4>
+
+            <dl class="dl-horizontal">
+                <dt>timestamp</dt><dd>${payload.timestamp}</dd>
+                <dt>address</dt><dd>${payload.sensor.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor.sensor_os}</dd>
+                <dt>Old Level</dt><dd>${payload.old_level}</dd>
+                <dt>New Level</dt><dd>${payload.new_level}</dd>
+            </dl>
+        </div>
+    </div>`
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_announce_sensor_reg(messagesContainer, payload) {
+
+
+    let full_div = `<div class="row console-callout console-callout-sensor">
+        <div class="col-md-1"><span class="glyphicon glyphicon-zoom-in">&nbsp;</span></div>
+        <div class="col-md-10">
+            <h4>Sensor Registration</h4>
+            <dl class="dl-horizontal">
+                <dt>timestamp</dt><dd>${payload.timestamp}</dd>
+                <dt>address</dt><dd>${payload.sensor.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor.sensor_os}</dd>
+            </dl>
+        </div>
+    </div>`
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_announce_sensor_dereg(messagesContainer, payload) {
+
+    let full_div = `<div class="row console-callout console-callout-sensor">
+        <div class="col-md-1"><span class="glyphicon glyphicon-zoom-out">&nbsp;</span></div>
+        <div class="col-md-10">
+            <h4>Sensor De-registration</h4>
+            <dl class="dl-horizontal">
+                <dt>timestamp</dt><dd>${payload.timestamp}</dd>
+                <dt>address</dt><dd>${payload.sensor.address}</dd>
+                <dt>sensor</dt><dd>${payload.sensor.sensor_name}</dd>
+                <dt>os</dt><dd>${payload.sensor.sensor_os}</dd>
+            </dl>
+        </div>
+    </div>`
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_summary(messagesContainer, payload) {
+    let full_div = `<div class="row console-callout console-callout-summary">
+        <div class="col-md-1"><span class="glyphicon glyphicon-globe">&nbsp;</span></div>
+        <div class="col-md-10">
+            <h4>Sensor Summary</h4>
+            <small> ${payload.hosts} sensor hosts</small>
+
+            <h5>Sensor Types</h5>
+            <pre>${JSON.stringify(payload.sensor_type, null, 4)}</pre>
+
+            <h5>OSes</h5>
+            <pre>${JSON.stringify(payload.sensor_os, null, 4)}</pre>
+        </div>
+    </div>`
+
+  messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+
+}
+
+function msg_info(messagesContainer, title, msg) {
+    let full_div = `<div class="row console-callout console-callout-info"><div class="col-md-1"><span class="glyphicon glyphicon-info-sign">&nbsp;</span></div><div class="col-md-10"><h4>${title}</h4><p>${msg}</p></div></div>`;
+    messagesContainer.insertAdjacentHTML("afterbegin", full_div)
+}
+
+
+
+function subscribe_to_c2() {
+
+
+    // Now that you are connected, you can join channels with a topic:
+    let channel = socket.channel("c2:all", {})
+
+    let messagesContainer = document.querySelector("#messages")
+
+    channel.on("c2_msg", payload => {
+
+        if (payload.action == "heartbeat") {
+            msg_heartbeat(messagesContainer, payload)
+        }
+        else if (payload.action == "sensor-registration") {
+            msg_announce_sensor_reg(messagesContainer, payload)
+        }
+        else if (payload.action == "sensor-deregistration") {
+            msg_announce_sensor_dereg(messagesContainer, payload)
+        }
+        else if (payload.action == "sensors-status") {
+            msg_summary(messagesContainer, payload);
+        }
+        else if (payload.action == "sensor-observe") {
+            msg_announce_sensor_observe(messagesContainer, payload);
+        }
+        else {
+            console.log(payload)
+        }
+    })
+
+    channel.join()
+      .receive("ok", resp => { msg_info(messagesContainer, "Subscribed to C2", "Successfully subscribed to Sensing API Command and Control Monitoring stream.") })
+      .receive("error", resp => { console.log("Unable to join", resp) })
+
+}
+
+function subscribe_to_heartbeat() {
+
+    let channel = socket.channel("c2:heartbeat", {})
+    let heartbeatContainer = document.querySelector("#heartbeat")
+
+    channel.on("heartbeat", payload => {
+
+        // update the heartbeat indicator
+        heartbeat.innerText = payload.timestamp.split(".")[0];
+    })
+
+    channel.join()
+      .receive("ok", resp => { console.log("joined heartbeat channel") })
+      .receive("error", resp => { console.log("Unable to join", resp) })
+
+}
+
+function subscribe_to_summary() {
+
+    let channel = socket.channel("c2:summary", {})
+    let s_virtue = document.querySelector("#summary-virtue-count")
+    let s_sensor = document.querySelector("#summary-sensor-count")
+    let s_types = document.querySelector("#summary-type-count")
+    let s_oses = document.querySelector("#summary-os-count")
+
+    channel.on("summary", payload => {
+
+        console.log(payload);
+
+        // update the summary data
+        s_virtue.innerText = payload.hosts;
+        s_sensor.innerText = Object.values(payload.sensor_type).reduce( (acc, val) => acc + val, 0)
+        s_types.innerText = Object.keys(payload.sensor_type).length
+        s_oses.innerText = Object.keys(payload.sensor_os).length
+
+    })
+
+    channel.join()
+      .receive("ok", resp => { console.log("joined summary channel") })
+      .receive("error", resp => { console.log("Unable to join", resp) })
+
+}
+
+export default {socket, subscribe_to_c2, subscribe_to_heartbeat, subscribe_to_summary}

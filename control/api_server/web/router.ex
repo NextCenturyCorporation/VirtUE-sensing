@@ -1,6 +1,14 @@
 defmodule ApiServer.Router do
   use ApiServer.Web, :router
 
+  pipeline :browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_flash
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
   # There are a small number of routes that we'll allow over HTTP and without authentication
   pipeline :insecure do
     plug :accepts, ["json"]
@@ -23,6 +31,18 @@ defmodule ApiServer.Router do
   pipeline :api_no_auth do
     plug Plug.SSL
     plug :accepts, ["json"]
+  end
+
+  scope "/ui", ApiServer do
+    pipe_through :browser
+
+    get "/", BrowserConsoleController, :index
+    get "/sensors", BrowserConsoleController, :sensors
+    get "/virtues", BrowserConsoleController, :virtues
+    get "/status", BrowserConsoleController, :status
+    get "/sensor/:sensor_id", BrowserConsoleController, :sensor
+    get "/virtue/:virtue_id", BrowserConsoleController, :virtue
+    get "/c2", BrowserConsoleController, :c2
   end
 
   scope "/version", ApiServer do

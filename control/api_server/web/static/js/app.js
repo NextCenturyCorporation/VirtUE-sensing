@@ -18,4 +18,8 @@ import "phoenix_html"
 // Local files can be imported directly using relative
 // paths "./socket" or full ones "web/static/js/socket".
 
-// import socket from "./socket"
+import {socket, subscribe_to_c2} from "./socket"
+
+export var App = {
+    subscribe_to_c2: subscribe_to_c2,
+}

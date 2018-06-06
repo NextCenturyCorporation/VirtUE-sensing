@@ -10,13 +10,24 @@ Version 0.1.0.1
 
 
 # How To Build and Run
+<<<<<<< HEAD
 0. Open the WinVirtUE.sln solution file, select either Debug or Release profiles and rebuild.
+=======
+0. Open the WinVirtUE.sln soluation file, select either Debug or Release profiles and rebuild.  Debug is recommended for the purposes herein.  
+0.5 Optional:  Look at the savior/control/win-kernel/WinVirtUE/config.h file and locate the LOG_MODULE definition.  Configure that so that only those subsystems you wish to view activity on will output debug/status information to the debugger console - recompile.
+>>>>>>> master
 1. Copy/Paste the x64\$(Configuration)\WinVirtUE directory to the VM's desktop
 2. Right click and select install the WinVirtUE.inf file
 3. Open a administrators command prompt and execute the following command:
 ```Cmd
 sc start WinVirtUE
 ```
+The driver, if compiled in debug mode ( recommended ) will stop at an embedded debug command.  At this point enter the following command into the windbg.exe command windows:
+``` windbg.exe
+ed kd_default_mask 0xff
+```
+This command will enable all detail levels for the debugger and provide the most verbose ouput.  Press the F5 button to continue past these points.
+
 4. Verify that the driver is loaded and running by executing these two commands:
 ```Cmd
 C:\> driverquery
@@ -27,16 +38,20 @@ C:\> sc queryex WinVirtUE
 ```
 Output of driverquery should show at the last position that the driver is loaded.  The output of the sc queryex command should show that the service started.
 
-# How to Verify Comms
-0. Follow the instructions above to create a windows kernel driver installation and install it
-1. Copy the ntfltmgr.py file located at https://github.com/twosixlabs/savior/blob/enh-windows-kernel-user-comms/sensors/ntfltmgr/ntfltmgr.py to the target where the driver was installed
-2. Ensure that the target instance has python 3.6.4 or greater installed.  
+
+# Kernel Sensor to User Comms
+
+## How it Works
+Basically the probe starts collecting data by activating specific system callbacks; during the callback context the probe en-queues the collected data onto an interlocked queue and returns.  The consumer side is woken up  (if it's connected) and then transmits it to the listening user space program.  If there is no connection, then the queue is treated like a circular queue only keeping the last 'n'  (currently 8192) elements.  The user  space program (python in this example) unpacks the data, converts it and then simply prints it to standard out.  When the user space program sends it's response, the entry de-queued by the kernel consumer thread is freed.  If no response occurs within the time-out period, the entry is pushed back on to the head of the queue and a wait ensues.  The cycle is repeated until tear-down.
+
+## How to run it
+1. Build, install and run the driver as mentioned above.  For clarity and ease, bulid the driver and load it with windbg attached so that various operations can be used.  This can be done in a variety of different ways, I recommand using VMware and VirtualKD 3.0 and later.
+2. Ensure that the target instance has python 3.6.4 installed. Earlier versions will probably not work, later versions might work.  I've only tested with 3.6.4. 
 3. Execute the ntfltmgr.py file by
 ```Cmd
 python .\ntfltmgr.py
 ```
-The output from the driver (assuming the debugger is attached and active) should show the driver connecting to the 
-python program, continuously sending data and waiting for a response, and then finally disconnecting from the python
+4. The python program itself will output in json format the probe data as collected by the WinVirtUE.sys driver.  Currently this data is confined to loaded module data probe.  The output from the driver (assuming the debugger is attached and active) should show the driver connecting to the python program, continuously sending data and waiting for a response, and then finally disconnecting from the python
 program when it exits.
 
 #  Kernel Comms Design Notes

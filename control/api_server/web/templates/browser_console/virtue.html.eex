@@ -1,0 +1,40 @@
+<h1 class="page-header">Virtue Details</h1>
+
+<div class="row">
+    <div class="col-md-10 col-md-offset-1">
+
+        <h3>Virtue Details</h3>
+        <dl class="dl-horizontal">
+            <dt>Address</dt><dd><%= @virtue.virtue %></dd>
+            <dt>OS</dt><dd><%= @virtue.os %></dd>
+            <dt>Context</dt><dd><%= @virtue.context %></dd>
+        </dl>
+
+        <h3>Sensors</h3>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Component</th>
+              <th>OS</th>
+              <th>Level</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for sensor <- @virtue.sensors do %>
+            <tr>
+              <td>
+                <a href="/ui/sensor/<%= sensor.sensor_id %>"><%= sensor.sensor_id %></a>
+              </td>
+              <td><%= sensor.username %></td>
+              <td><%= sensor.component.name %></td>
+              <td><%= sensor.component.os %></td>
+              <td><%= sensor.configuration.level %></td>
+            </tr>
+            <% end %>
+          </tbody>
+        </table>
+
+    </div>
+</div>
