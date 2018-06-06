@@ -12,7 +12,6 @@ class ProbeDataQueue
 private:
 	LARGE_INTEGER wfso_timeout;
 	LARGE_INTEGER timeout;	
-	const int MAXQUEUESIZE = PROBEDATAQUEUESZ;
 	KSPIN_LOCK PDQueueSpinLock;
 	KGUARDED_MUTEX mutex;
 	LIST_ENTRY PDQueue;

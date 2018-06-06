@@ -28,7 +28,7 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
-	KeInitializeSemaphore(pSemaphore, 0, MAXQUEUESIZE);
+	KeInitializeSemaphore(pSemaphore, 0, PROBEDATAQUEUESZ);
 	this->PDQEvents[ProbeDataSemEmptyQueue] = pSemaphore;
 
 	// init the Port Connection Event  This coordinate the connections from user space
@@ -130,7 +130,7 @@ _Use_decl_annotations_
 VOID
 ProbeDataQueue::TrimProbeDataQueue()
 {
-	while (this->Count() >= this->MAXQUEUESIZE)  // remove the oldest entry if we're too big
+	while (this->Count() >= ::PROBEDATAQUEUESZ)  // remove the oldest entry if we're too big
 	{
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
 		InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
