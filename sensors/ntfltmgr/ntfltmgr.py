@@ -388,8 +388,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
         txt = msg
         msg = bytearray()
         msg.extend(map(ord, txt))                     
-    txt = bytes(msg.decode('utf-8'))
-    reply_buffer = create_string_buffer(txt, msg_len)
+    reply_buffer = create_string_buffer(bytes(msg), msg_len)
     info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
     info.contents.Status = status
     info.contents.MessageId = msg_id           
