@@ -20,9 +20,6 @@ NTSTATUS FLTAPI WVUPortConnect(
 	ULONG SizeOfContext,
 	PVOID *ConnectionPortCookie)
 {
-	LARGE_INTEGER connect_settle_timeout = { 0LL };
-	connect_settle_timeout.QuadPart = RELATIVE(SECONDS(1));
-
 	const NTSTATUS Status = STATUS_SUCCESS;
 	FLT_ASSERTMSG("ClientPort Must Be NULL!!", NULL == Globals.ClientPort);
 	FLT_ASSERTMSG("UserProcess Must Be NULL!!", NULL == Globals.UserProcess);
@@ -37,8 +34,6 @@ NTSTATUS FLTAPI WVUPortConnect(
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.UserProcess, Globals.ClientPort);
-
-	KeDelayExecutionThread(KernelMode, FALSE, &connect_settle_timeout);
 
 	pPDQ->OnConnect();
 	return Status;

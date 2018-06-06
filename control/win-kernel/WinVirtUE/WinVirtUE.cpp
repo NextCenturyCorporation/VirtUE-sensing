@@ -163,10 +163,8 @@ WVUSensorThread(PVOID StartContext)
 	UNREFERENCED_PARAMETER(StartContext);
 	const ULONG REPLYLEN = 128;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	LARGE_INTEGER putback_wait_interval = { 0LL };
-	putback_wait_interval.QuadPart = RELATIVE(SECONDS(10));  // five second wait interval
 	LARGE_INTEGER send_timeout = { 0LL };
-	send_timeout.QuadPart = RELATIVE(SECONDS(10));  // five second timeout
+	send_timeout.QuadPart = RELATIVE(MILLISECONDS(10)); 
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
@@ -183,7 +181,7 @@ WVUSensorThread(PVOID StartContext)
 	if (NULL == ReplyBuffer)
 	{
 		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "Unable ato allocate from NonPagedPool! Status=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "Unable to allocate from NonPagedPool! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -226,7 +224,6 @@ WVUSensorThread(PVOID StartContext)
 				pPDQ->Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
 				pListEntry = NULL;
 			}
-			KeDelayExecutionThread(KernelMode, FALSE, &putback_wait_interval);
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{

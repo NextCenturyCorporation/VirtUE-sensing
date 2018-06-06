@@ -110,7 +110,7 @@ DriverEntry(
 	UNICODE_STRING usPortName = { 0,0,NULL };	
 
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
+	timeout.QuadPart = RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
 
 	WVUDebugBreakPoint();
 	

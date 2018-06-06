@@ -14,7 +14,7 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 	wfso_timeout.QuadPart = 0LL;
 	timeout.QuadPart =
 #if defined(WVU_DEBUG)
-		RELATIVE(SECONDS(10));
+		RELATIVE(SECONDS(300));
 #else
 		RELATRIVE(SECONDS(1));
 #endif

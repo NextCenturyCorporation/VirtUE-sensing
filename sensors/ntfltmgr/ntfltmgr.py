@@ -463,9 +463,7 @@ def FilterConnectCommunicationPort(PortName):
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror)
         raise
-    else:
-        time.sleep(1)
-        return res, hPort
+    return res, hPort
 def _build_filter_instance_info(buf):
     '''
     Create the FilterInstanceInformation instance
