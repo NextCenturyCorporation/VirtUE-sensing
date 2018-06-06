@@ -381,7 +381,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
     res = HRESULT()
         
     if (msg is None or not hasattr(msg, "__len__") or len(msg) <= 0
-        or msg_len < len(msg) or msg_len >= sizeof(FILTER_REPLY_HEADER)):
+        or msg_len < len(msg) or msg_len <= sizeof(FILTER_REPLY_HEADER)):
         raise ValueError("Parameter msg or msg_len is invalid!")
     
     if isinstance(msg, str):
