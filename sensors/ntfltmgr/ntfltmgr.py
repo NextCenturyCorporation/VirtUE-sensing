@@ -5,6 +5,7 @@ import sys
 import time
 import json
 import logging
+from abc import ABC
 from enum import IntEnum
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
@@ -276,7 +277,7 @@ class LoadedImageInfo(SaviorStruct):
 GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'MessageId', 
     'Type', 'DataSz', 'CurrentGMT', 
     'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 'UniqueThread', 
-    'FileObject', 'CreationStatus', 'CommandLine'])
+    'FileObject', 'CreationStatus', 'CommandLineSz', 'CommandLine'])
     
 class ProcessCreateInfo(SaviorStruct):
     '''
@@ -318,10 +319,11 @@ class ProcessCreateInfo(SaviorStruct):
             info.contents.ParentProcessId,
             info.contents.ProcessId,
             info.contents.EProcess,
-            info.contents.CreatingThreadId.UniqueProcess, 
+            info.contents.CreatingThreadId.UniqueProcess,
             info.contents.CreatingThreadId.UniqueThread,
             info.contents.FileObject,
-            info.contents.CreationStatus,          
+            info.contents.CreationStatus,
+            info.contents.CommandLineSz,
             CommandLine)
         return create_info
 
@@ -804,6 +806,7 @@ def test_packet_decode():
         if pdh.Type == DataType.LoadedImage:            
             msg_data = LoadedImageInfo.build(msg_pkt)
         elif pdh.Type == DataType.ProcessCreate:
+            import pdb;pdb.set_trace()
             msg_data = ProcessCreateInfo.build(msg_pkt)
         elif pdh.Type == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(msg_pkt)
