@@ -5,7 +5,7 @@ import sys
 import time
 import json
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from enum import IntEnum
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
@@ -279,7 +279,7 @@ GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'Mess
     'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 'UniqueThread', 
     'FileObject', 'CreationStatus', 'CommandLineSz', 'CommandLine'])
     
-class ProcessCreateInfo(SaviorStruct):
+class ProcessCreateInfo(SaviorStruct ):
     '''
     ProcessCreateInfo Definition
     '''
@@ -291,8 +291,6 @@ class ProcessCreateInfo(SaviorStruct):
         ("CreatingThreadId", CLIENT_ID),
         ("FileObject", PVOID),
         ("CreationStatus", NTSTATUS),
-        ("FileObject", PVOID),
-        ("CreationStatus", NTSTATUS),        
         ("CommandLineSz", USHORT),
         ("CommandLine", BYTE * 1)        
     ]
