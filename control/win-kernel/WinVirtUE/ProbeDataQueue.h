@@ -18,12 +18,22 @@ private:
 	ULONGLONG MessageId;
 	BOOLEAN Enabled;	
 	PVOID PDQEvents[2];
+
+	VOID TrimProbeDataQueue();
 	static _Must_inspect_result_ int dtor_exc_filter(_In_ UINT32 code, _In_ _EXCEPTION_POINTERS * ep);
-	VOID
-		update_counters(
-			_Inout_ PLIST_ENTRY pListEntry);
+	VOID update_counters(_Inout_ PLIST_ENTRY pListEntry);
 	volatile LONGLONG SizeOfDataInQueue;
+	/** for debugging ease, show the number of current queue entries */
 	volatile LONGLONG NumberOfQueueEntries;
+	// Wait for the queue to have at least one entry and the port to be connected
+	_Success_(NT_SUCCESS(return) == TRUE)
+		NTSTATUS AcquireQueueSempahore() {
+		return KeWaitForSingleObject((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue],
+			Executive, KernelMode, FALSE, &wfso_timeout);
+	}
+
+	_Must_inspect_result_
+		BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
 public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
@@ -32,24 +42,16 @@ public:
 	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
 	PLIST_ENTRY Dequeue();
-	VOID TrimProbeDataQueue();
 	_Must_inspect_result_
 	ULONGLONG& GetMessageId() { return this->MessageId;  }
-	VOID Dispose(_In_ PVOID pBuf);
-	_Must_inspect_result_
-	LONG Count() { return KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]); }																								 
+	VOID Dispose(_In_ PVOID pBuf);																							 
 	// cause the outbund queue processor to start processing
 	VOID OnConnect() { KeSetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE); }
 	// cause the outbound queue processor to stop on disconnect
 	VOID OnDisconnect() { (VOID)KeResetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+	/** The count function utilizes the semaphore state to show the number of queued entries */
 	_Must_inspect_result_
-	BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
-	// Wait for the queue to have at least one entry and the port to be connected
-	_Success_(NT_SUCCESS(return) == TRUE)
-		NTSTATUS AcquireQueueSempahore() {
-		return KeWaitForSingleObject((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], 
-			Executive, KernelMode, FALSE, &wfso_timeout);
-	}
+	LONG Count() { return KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]); }
 	// Wait for the queue to have at least one entry and the port to be connected
 	_Success_(NT_SUCCESS(return) == TRUE)
 	NTSTATUS WaitForQueueAndPortConnect() {
