@@ -7,17 +7,7 @@
 #include "AbstractVirtueProbe.h"
 #define COMMON_POOL_TAG WVU_ABSTRACTPROBE_POOL_TAG
 
-AbstractVirtueProbe::AbstractVirtueProbe() : Enabled(FALSE)
-{
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "AbstractVirtueProbe ctor called!\n")
-}
-
-
-AbstractVirtueProbe::~AbstractVirtueProbe()
-{
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "AbstractVirtueProbe vdtor called!\n")
-}
-
+#pragma warning(suppress: 26439)
 
 _Use_decl_annotations_
 PVOID

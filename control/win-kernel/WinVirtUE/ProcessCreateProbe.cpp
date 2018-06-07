@@ -8,16 +8,6 @@
 #include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_PROCESSCTORDTORPROBE_POOL_TAG
 
-ProcessCreateProbe::ProcessCreateProbe()
-{
-	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully Constructed The Process Create Sensor\n");
-}
-
-ProcessCreateProbe::~ProcessCreateProbe()
-{
-	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully Destroyed The Process Create Sensor\n");
-}
-
 _Use_decl_annotations_
 BOOLEAN 
 ProcessCreateProbe::RemoveNotify(BOOLEAN remove)
@@ -89,7 +79,8 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 			CreateInfo->ImageFileName, Process, ProcessId);
 
 		const USHORT bufsz = ROUND_TO_SIZE(sizeof(ProcessCreateInfo) + CreateInfo->CommandLine->Length, 0x10);
-		const PUCHAR buf = new UCHAR[bufsz];
+#pragma warning(suppress: 6014)  // we allocate memory, put stuff into, enqueue it and return we do leak!
+		const auto buf = new UCHAR[bufsz];
 		if (NULL == buf)
 		{
 			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for ProcessCreateInfo Data!\n");
@@ -113,6 +104,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		RtlMoveMemory(&pPCI->CommandLine[0], CreateInfo->CommandLine->Buffer, pPCI->CommandLineSz);
 		if (FALSE == pPDQ->Enqueue(&pPCI->ProbeDataHeader.ListEntry))
 		{
+#pragma warning(suppress: 26407)
 			delete[] buf;
 			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
 				"***** Process Created Enqueue Operation Failed: Image File Name=%wZ, EPROCESS=%p, ProcessId=%p\n",
@@ -125,7 +117,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 			"***** Process Destroyed: EPROCESS %p, ProcessId %p, \n",
 			Process, ProcessId);
 		const USHORT bufsz = ROUND_TO_SIZE(sizeof(ProcessDestroyInfo), 0x10);
-		const PUCHAR buf = new UCHAR[bufsz];
+		auto const buf = new UCHAR[bufsz];
 		if (NULL == buf)
 		{
 			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for ProcessDestroyInfo Data!\n");
@@ -142,6 +134,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPDI->ProcessId = ProcessId;		
 		if (FALSE == pPDQ->Enqueue(&pPDI->ProbeDataHeader.ListEntry))
 		{
+#pragma warning(suppress: 26407)
 			delete[] buf;
 			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
 				"***** Process Destroyed Enqueue Operation Failed: EPROCESS %p, ProcessId %p, \n",

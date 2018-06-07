@@ -159,6 +159,7 @@ typedef struct _WVUGlobals
 
     EX_RUNDOWN_REF RunDownRef;
 #if defined(WVU_DEBUG)
+	_Interlocked_
 	volatile LONG StreamContextLookasideAllocateCnt;
 #endif
     RTL_OSVERSIONINFOEXW lpVersionInformation;
@@ -213,6 +214,7 @@ typedef enum _DataType : USHORT
 	ThreadDestroy  = 0x0005
 } DataType;
 
+_Struct_size_bytes_(DataSz)
 typedef struct _ProbeDataHeader 
 {
 	_In_ ULONG ReplyLength;

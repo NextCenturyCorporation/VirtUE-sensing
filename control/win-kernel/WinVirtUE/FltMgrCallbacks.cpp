@@ -414,12 +414,13 @@ WinVirtUEOperationStatusCallback(
 * @param Flags Denotes whether the completion is successful or is being drained
 * @return Operations Callback Status
 */
+_Use_decl_annotations_
 FLT_POSTOP_CALLBACK_STATUS
 WinVirtUEPostOperation(
-	_Inout_ PFLT_CALLBACK_DATA Data,
-	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_In_opt_ PVOID CompletionContext,
-	_In_ FLT_POST_OPERATION_FLAGS Flags)
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID CompletionContext,
+	FLT_POST_OPERATION_FLAGS Flags)
 {
 	UNREFERENCED_PARAMETER(Data);
 	UNREFERENCED_PARAMETER(FltObjects);
@@ -443,11 +444,12 @@ WinVirtUEPostOperation(
 * operation.
 * @return Operations Callback Status
 */
+_Use_decl_annotations_
 FLT_PREOP_CALLBACK_STATUS
 WinVirtUEPreOperationNoPostOperation(
-	_Inout_ PFLT_CALLBACK_DATA Data,
-	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_Flt_CompletionContext_Outptr_ PVOID *CompletionContext)
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext)
 {
 	UNREFERENCED_PARAMETER(Data);
 	UNREFERENCED_PARAMETER(FltObjects);
@@ -466,9 +468,10 @@ WinVirtUEPreOperationNoPostOperation(
 * @param Data Pointer to the filter callbackData that is passed to us
 * @return TRUE If we want the operation status else FALSE
 */
+_Use_decl_annotations_
 BOOLEAN
 WinVirtUEDoRequestOperationStatus(
-	_In_ PFLT_CALLBACK_DATA Data)
+	PFLT_CALLBACK_DATA Data)
 {
 	CONST PFLT_IO_PARAMETER_BLOCK iopb = Data->Iopb;
 
@@ -511,11 +514,12 @@ WinVirtUEDoRequestOperationStatus(
 * operation.
 * @return Operations Callback Status
 */
+_Use_decl_annotations_
 FLT_PREOP_CALLBACK_STATUS
 WinVirtUEShutdownPreOp(
-	_Inout_ PFLT_CALLBACK_DATA Data,
-	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_Flt_CompletionContext_Outptr_ PVOID *CompletionContext)
+	PFLT_CALLBACK_DATA Data,
+	PCFLT_RELATED_OBJECTS FltObjects,
+	PVOID *CompletionContext)
 {
 	UNREFERENCED_PARAMETER(Data);
 	UNREFERENCED_PARAMETER(FltObjects);

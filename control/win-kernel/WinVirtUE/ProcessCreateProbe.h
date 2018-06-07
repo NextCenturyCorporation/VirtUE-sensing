@@ -21,13 +21,18 @@ private:
 			_In_ HANDLE  ProcessId,
 			_Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo);;
 public:
-	ProcessCreateProbe();
-	~ProcessCreateProbe();
-	BOOLEAN Enable();
-	BOOLEAN Disable();
-	BOOLEAN State();	
-	NTSTATUS Mitigate(
-		PCHAR argv[],
-		UINT32 argc);
+	ProcessCreateProbe() = default;
+	~ProcessCreateProbe() = default;
+	_Success_(TRUE == return)
+		BOOLEAN Enable();
+	_Success_(TRUE == return)
+		BOOLEAN Disable();
+	_Must_inspect_result_
+		BOOLEAN State();
+	_Must_inspect_result_
+		_Success_(TRUE == NT_SUCCESS(return))
+		NTSTATUS Mitigate(
+			_In_opt_count_(argc) PCHAR argv[],
+			_In_ UINT32 argc);
 };
 

@@ -42,6 +42,7 @@ WinVirtUEPreOperationNoPostOperation(
 	_Flt_CompletionContext_Outptr_ PVOID *CompletionContext
 );
 
+_Must_inspect_result_
 BOOLEAN
 WinVirtUEDoRequestOperationStatus(
 	_In_ PFLT_CALLBACK_DATA Data

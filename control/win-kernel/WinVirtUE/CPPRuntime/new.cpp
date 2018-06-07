@@ -16,7 +16,8 @@
 /// @param lBlockSize size of allocated memory block
 /// @returns pointer to newly allocated memory
 /////////////////////////////////////////////////////////////////////
-PVOID CDECL operator new(size_t lBlockSize)
+__drv_allocatesMem(object)
+PVOID CDECL operator new(_In_ size_t lBlockSize)
 {
     PVOID pVoid = NULL;
     pVoid = ExAllocatePoolWithTag(NonPagedPool, lBlockSize, COMMON_POOL_TAG);
@@ -29,7 +30,9 @@ PVOID CDECL operator new(size_t lBlockSize)
 /// @param lBlockSize size of allocated memory block
 /// @returns pointer to newly allocated memory
 /////////////////////////////////////////////////////////////////////
-PVOID CDECL operator new[](size_t lBlockSize)
+__drv_allocatesMem(object)
+
+PVOID CDECL operator new[](_In_ size_t lBlockSize)
 {
     PVOID pVoid = NULL;
     pVoid = ExAllocatePoolWithTag(NonPagedPool, lBlockSize, COMMON_POOL_TAG);
@@ -43,7 +46,10 @@ PVOID CDECL operator new[](size_t lBlockSize)
 /// @param ptr pointer to block of memory to be freed
 /// @returns pointer to newly allocated memory
 /////////////////////////////////////////////////////////////////////
-VOID CDECL operator delete(PVOID ptr)
+_IRQL_requires_max_(DISPATCH_LEVEL)
+VOID CDECL operator delete(
+	_Pre_notnull_ 
+	__drv_freesMem(object) PVOID ptr)
 {
 	if (!ptr)
 	{
@@ -58,7 +64,10 @@ VOID CDECL operator delete(PVOID ptr)
 /// @param ptr pointer to block of memory to be freed
 /// @returns pointer to newly allocated memory
 /////////////////////////////////////////////////////////////////////
-VOID CDECL operator delete[](PVOID ptr)
+_IRQL_requires_max_(DISPATCH_LEVEL)
+VOID CDECL operator delete[](
+	_Pre_notnull_ 
+	__drv_freesMem(object) PVOID ptr)
 {
 	if (!ptr)
 	{

@@ -8,7 +8,9 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), PDQEvents{NULL, NULL}
+#pragma warning(suppress: 26439)
+#pragma warning(suppress: 26495)
+ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	wfso_timeout.QuadPart = 0LL;
@@ -107,7 +109,6 @@ ProbeDataQueue::~ProbeDataQueue()
 	}
 }
 
-_Use_decl_annotations_
 VOID
 ProbeDataQueue::SemaphoreRelease()
 {
@@ -126,7 +127,6 @@ ProbeDataQueue::update_counters(
 		this->SizeOfDataInQueue, this->Count());
 }
 
-_Use_decl_annotations_
 VOID
 ProbeDataQueue::TrimProbeDataQueue()
 {
@@ -149,7 +149,7 @@ BOOLEAN
 ProbeDataQueue::Enqueue(
 	PLIST_ENTRY pListEntry)
 {
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
 	BOOLEAN success = FALSE;
 
 	if (FALSE == Enabled)
@@ -163,7 +163,7 @@ ProbeDataQueue::Enqueue(
 	InsertTailList(&this->PDQueue, pListEntry);
 	update_counters(pListEntry);	
 	SemaphoreRelease();
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %ld, Entry Count: %ld\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
 	KeReleaseInStackQueuedSpinLock(&LockHandle);
 	success = TRUE;
@@ -176,7 +176,7 @@ BOOLEAN
 ProbeDataQueue::PutBack(
 	PLIST_ENTRY pListEntry)
 {
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
 	BOOLEAN success = FALSE;
 
 	if (FALSE == Enabled)
@@ -202,7 +202,7 @@ _Use_decl_annotations_
 PLIST_ENTRY 
 ProbeDataQueue::Dequeue()
 {
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
 	PLIST_ENTRY retval = NULL;
 
 	if (FALSE == Enabled || TRUE == IsListEmpty(&this->PDQueue))

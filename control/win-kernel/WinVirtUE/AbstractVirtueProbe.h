@@ -12,11 +12,13 @@ class AbstractVirtueProbe
 protected:
 	BOOLEAN Enabled;
 public:
-	AbstractVirtueProbe();
-	virtual ~AbstractVirtueProbe();
+	AbstractVirtueProbe() : Enabled(FALSE) {}
+	virtual ~AbstractVirtueProbe() = default;
 	/* Enable the probe - required functionality */
+	_Success_(TRUE == return)
 	virtual BOOLEAN Enable() = 0;
 	/* Disable the probe - required functionality */
+	_Success_(TRUE == return)
 	virtual BOOLEAN Disable() = 0;
 	/* Determine probe state where TRUE is enabled else FALSE is disabled */
 	_Must_inspect_result_

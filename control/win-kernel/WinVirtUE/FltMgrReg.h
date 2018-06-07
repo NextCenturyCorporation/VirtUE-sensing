@@ -12,6 +12,7 @@
 /**
 ** Instance setup, teardown, filter unload and etc
 */
+_Success_(TRUE == NT_SUCCESS(return))
 NTSTATUS
 WVUInstanceSetup(
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
@@ -32,17 +33,20 @@ WVUInstanceTeardownComplete(
     _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
 );
 
+_Success_(TRUE == NT_SUCCESS(return))
 NTSTATUS
 WVUUnload(
     _In_ FLT_FILTER_UNLOAD_FLAGS Flags
 );
 
+_Success_(TRUE == NT_SUCCESS(return))
 NTSTATUS
 WVUInstanceQueryTeardown(
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
 );
 
+_Success_(TRUE == NT_SUCCESS(return))
 NTSTATUS 
 WVUNormalizeNameComponentExCallback(
     _In_ PFLT_INSTANCE Instance,
@@ -55,6 +59,7 @@ WVUNormalizeNameComponentExCallback(
     _In_ FLT_NORMALIZE_NAME_FLAGS Flags,
     _Inout_ PVOID *NormalizationContext);
 
+_Success_(TRUE == NT_SUCCESS(return))
 NTSTATUS 
 WVUGenerateFileNameCallback(
     _In_   PFLT_INSTANCE Instance,

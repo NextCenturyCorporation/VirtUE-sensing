@@ -208,6 +208,7 @@ WVUSensorThread(PVOID StartContext)
 		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.	
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 		SenderBuffer = (PVOID)pPDH;
+#pragma warning(suppress: 28193)  // message id will be inspected in the user space service
 		pPDH->MessageId = pPDQ->GetMessageId();
 		pPDH->ReplyLength = REPLYLEN;
 		SenderBufferLen = pPDH->DataSz;	

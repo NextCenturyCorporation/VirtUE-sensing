@@ -13,7 +13,6 @@ private:
 	LARGE_INTEGER wfso_timeout;
 	LARGE_INTEGER timeout;	
 	KSPIN_LOCK PDQueueSpinLock;
-	KGUARDED_MUTEX mutex;
 	LIST_ENTRY PDQueue;
 	ULONGLONG MessageId;
 	BOOLEAN Enabled;	

@@ -43,7 +43,7 @@ static NTSTATUS GetOsVersion()
 
 	if (Globals.lpVersionInformation.szCSDVersion[0] != (TCHAR)0)
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Service Pack: %ws\n", Globals.lpVersionInformation.szCSDVersion);
+		WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Service Pack: %ws\n", &Globals.lpVersionInformation.szCSDVersion[0]);
 	}
 
 	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "******************************\n");
@@ -62,9 +62,7 @@ MiniFilter initialization and unload routines.
 * @param DriverObject  Pointer to driver object created by the system to
 * represent this driver
 */
-_Function_class_(DRIVER_UNLOAD)
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 extern "C" VOID
 DriverUnload(
 	_In_ PDRIVER_OBJECT DriverObject)
@@ -90,9 +88,7 @@ DriverUnload(
 * driver are located in the registry
 * @retval the driver entry's returned status
 */
-_Function_class_(DRIVER_INITIALIZE)
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 extern "C"
 NTSTATUS
 DriverEntry(

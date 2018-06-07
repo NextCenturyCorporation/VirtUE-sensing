@@ -9,18 +9,6 @@
 #include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_IMAGELOADPROBE_POOL_TAG
 
-
-ImageLoadProbe::ImageLoadProbe()
-{
-	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully Constructed The Image Load Sensor\n");
-}
-
-
-ImageLoadProbe::~ImageLoadProbe()
-{
-	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully Destroyed The Image Load Sensor\n");
-}
-
 _Use_decl_annotations_
 BOOLEAN ImageLoadProbe::Enable()
 {
@@ -113,7 +101,8 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 		pImageInfo->ImageSectionNumber);
 
 	const USHORT bufsz = ROUND_TO_SIZE(sizeof(LoadedImageInfo) + FullImageName->Length, 0x10);
-	const PUCHAR buf = new UCHAR[bufsz];
+#pragma warning(suppress: 6014)  // we allocate memory, put stuff into, enqueue it and return we do leak!
+	const auto buf = new UCHAR[bufsz];
 	if (NULL == buf)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for LoadedImageInfo Data!\n");
@@ -136,6 +125,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 
 	if (FALSE == pPDQ->Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
 	{
+#pragma warning(suppress: 26407)
 		delete[] buf;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "***** Load Module Enqueue Operation Failed: FullImageName=%wZ,"
 			"ProcessId=%p,ImageBase=%p,ImageSize=%p,ImageSectionNumber=%ul\n",

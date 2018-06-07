@@ -213,7 +213,7 @@ NTSTATUS FLTAPI WVUMessageNotify(
 			PWVU_REPLY pReply = (PWVU_REPLY)OutputBuffer;
 			pReply->Size = sizeof(WVU_RESPONSE) + sizeof(Status);
 			pReply->Response = NT_SUCCESS(Status) ? WVUSuccess : WVUFailure;
-			memcpy((PUCHAR)pReply->Data, (PUCHAR)&Status, sizeof(Status));
+			memcpy(&pReply->Data[0], (PVOID)&Status, sizeof(Status));
 			*ReturnOutputBufferLength = sizeof(Status) + sizeof(WVU_REPLY);
 		}
 	}
