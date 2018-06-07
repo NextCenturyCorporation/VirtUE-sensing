@@ -8,9 +8,7 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-#pragma warning(suppress: 26439)
-#pragma warning(suppress: 26495)
-ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL)
+ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), PDQEvents{NULL, NULL}
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	wfso_timeout.QuadPart = 0LL;
@@ -133,7 +131,7 @@ ProbeDataQueue::TrimProbeDataQueue()
 	while (this->Count() >= ::PROBEDATAQUEUESZ)  // remove the oldest entry if we're too big
 	{
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
-		InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
+		this->NumberOfQueueEntries = this->Count();
 		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
 		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
 		delete[] pPDH;
@@ -221,7 +219,7 @@ ProbeDataQueue::Dequeue()
 	}
 	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 	InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
-	InterlockedExchange64(&this->NumberOfQueueEntries, KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]));
+	this->NumberOfQueueEntries = this->Count();
 
 Exit:
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
