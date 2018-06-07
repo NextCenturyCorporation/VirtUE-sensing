@@ -1,5 +1,5 @@
 /**
-* @file FltMgrCallbacks.cpp
+* @file FltMgrCallbacks.h
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
 * @brief Define the filter drivers registration and instance setup / teardown entry points

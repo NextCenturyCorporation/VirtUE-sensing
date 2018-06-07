@@ -6,7 +6,6 @@
 */
 #pragma once
 #include "common.h"
-#include "PortMsgTrans.h"
 #include "WinVirtUE.h"
 #include "externs.h"
 

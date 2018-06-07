@@ -59,6 +59,9 @@ ErrorExit:
 */
 FltrCommsMgr::~FltrCommsMgr()
 {
+	FltUnregisterFilter(Globals.FilterHandle);
+
+	Globals.EnableProtection = FALSE;
 }
 
 /**
@@ -124,10 +127,6 @@ FltrCommsMgr::Disable()
 	FltCloseCommunicationPort(Globals.WVUServerPort);
 
 	Globals.WVUServerPort = NULL;
-
-	FltUnregisterFilter(Globals.FilterHandle);
-
-	Globals.EnableProtection = FALSE;
 }
 
 /**

@@ -69,8 +69,6 @@ DriverUnload(
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 
-	Globals.ShuttingDown = TRUE;
-
 	WVUDebugBreakPoint();
 
 	// destroy global object instances
@@ -97,13 +95,10 @@ DriverEntry(
 {
 	UNREFERENCED_PARAMETER(RegistryPath);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };
-	OBJECT_ATTRIBUTES WVUPortObjAttr = { 0,0,0,0,0,0 };
-	PSECURITY_DESCRIPTOR pWVUPortSecDsc = NULL;
+	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };	
 	HANDLE MainThreadHandle = (HANDLE)-1;
 	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
 
-	UNICODE_STRING usPortName = { 0,0,NULL };	
 
 	LARGE_INTEGER timeout = { 0LL };
 	timeout.QuadPart = RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
@@ -134,17 +129,7 @@ DriverEntry(
 	// to wait until the DriverUnload routine signals it.  When the thread
 	// continues the objects created will have their destructors called.
 	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);	
-
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
-
-	//  Register with FltMgr to tell it our callback routines
-	Status = FltRegisterFilter(DriverObject, &FilterRegistration, &Globals.FilterHandle);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltRegisterFilter() FAIL=%08x\n", Status);
-		goto ErrorExit;
-	}
-
+	
 	ExInitializeRundownProtection(&Globals.RunDownRef);
 	Globals.ShuttingDown = FALSE;
 
@@ -152,60 +137,6 @@ DriverEntry(
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "RtlGetVersion Failed! Status=%08x\n", Status);
-	}
-
-	//
-	//  Create a communication port.
-	//
-	RtlInitUnicodeString(&usPortName, WVUPortName);
-
-	//
-	//  We secure the port so only ADMINs & SYSTEM can acecss it.
-	//
-	Status = FltBuildDefaultSecurityDescriptor(&pWVUPortSecDsc, FLT_PORT_ALL_ACCESS);
-
-	if (NT_SUCCESS(Status))
-	{
-
-		InitializeObjectAttributes(&WVUPortObjAttr,
-			&usPortName,
-			OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-			NULL,
-			pWVUPortSecDsc);
-
-		Status = FltCreateCommunicationPort(Globals.FilterHandle,
-			&Globals.WVUServerPort,
-			&WVUPortObjAttr,
-			Globals.DriverObject,
-			WVUPortConnect,
-			WVUPortDisconnect,
-			WVUMessageNotify,
-			2);
-
-		//
-		//  Free the security descriptor in all cases. It is not needed once
-		//  the call to FltCreateCommunicationPort() is made.
-		//
-		FltFreeSecurityDescriptor(pWVUPortSecDsc);
-
-		if (NT_SUCCESS(Status))
-		{
-			Globals.EnableProtection = TRUE;
-
-			//  Start filtering i/o
-			Status = FltStartFiltering(Globals.FilterHandle);
-			if (FALSE == NT_SUCCESS(Status))
-			{
-				WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltStartFiltering() Failed! - FAIL=%08x\n", Status);
-				FltUnregisterFilter(Globals.FilterHandle);
-				goto ErrorExit;
-			}
-		}
-		else
-		{
-			WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
-			goto ErrorExit;
-		}
 	}
 	
 	InitializeObjectAttributes(&MainThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);

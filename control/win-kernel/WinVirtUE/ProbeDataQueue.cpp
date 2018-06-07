@@ -83,7 +83,6 @@ ProbeDataQueue::dtor_exc_filter(
 ProbeDataQueue::~ProbeDataQueue()
 {
 	this->Enabled = FALSE;
-	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 
 	// Cause the Multiple Event Water to proceed in the loop and exit
 	__try
@@ -109,6 +108,14 @@ ProbeDataQueue::~ProbeDataQueue()
 		FREE_POOL(this->PDQEvents[ProbeDataSemEmptyQueue]);
 		this->PDQEvents[ProbeDataSemEmptyQueue] = NULL;
 	}
+}
+
+VOID
+ProbeDataQueue::TerminateLoop()
+{
+	// the next two instructions will cause the consumer loop to terminate
+	this->SemaphoreRelease();
+	this->OnConnect();
 }
 
 VOID

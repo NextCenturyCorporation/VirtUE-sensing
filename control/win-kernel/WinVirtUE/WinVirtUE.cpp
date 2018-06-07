@@ -8,6 +8,7 @@
 #include "ProbeDataQueue.h"
 #include "ImageLoadProbe.h"
 #include "ProcessCreateProbe.h"
+#include "FltrCommsMgr.h"
 
 #define COMMON_POOL_TAG WVU_OBSIDIANWAVE_POOL_TAG
 
@@ -18,9 +19,9 @@ static LARGE_INTEGER Cookie;
 class ProbeDataQueue *pPDQ;
 
 // Probes
-class ImageLoadProbe *pILP;
-class ProcessCreateProbe *pPCP;
-
+class ImageLoadProbe *pILP = nullptr;
+class ProcessCreateProbe *pPCP = nullptr;
+class FltrCommsMgr *pFCM = nullptr;
 /**
 * @brief Main initialization thread.
 * @note this thread remains active through out the lifetime of the driver
@@ -54,6 +55,16 @@ WVUMainThreadStart(PVOID StartContext)
 			"ProbeDataQueue not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
+
+	pFCM = new FltrCommsMgr();
+	if (NULL == pFCM)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
+			"FltrCommsMgr not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
+	pFCM->Enable();
 
 	// Make ready the image load probe
 	pILP = new ImageLoadProbe();
