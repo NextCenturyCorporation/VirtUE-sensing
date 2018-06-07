@@ -201,7 +201,7 @@ static inline int index_command(uint8_t *cmd, int bytes)
 
 
 static inline int
-process_records_cmd(struct jsmn_message *m, int index);
+process_records_request(struct jsmn_message *m, int index);
 
 static int
 process_discovery_request(struct jsmn_message *m, int index);
@@ -221,7 +221,7 @@ int (*cmd_table[])(struct jsmn_message *m, int index) =
 	process_jsmn_cmd, /* HIGH */
 	process_jsmn_cmd, /* ADVERSARIAL */
 	process_jsmn_cmd, /* RESET */
-	process_records_cmd /* RECORDS */
+	process_records_request /* RECORDS */
 };
 
 int verbose_flag = 0;
@@ -419,17 +419,15 @@ err_out:
 	return JSMN_ERROR_INVAL;
 }
 
-/**
- * message is guaranteed to be connected to a session,
- * is typed as either a request or reply
- **/
 
 /**
- * nonce is m->s->nonce
- * cmd is m->s->cmd
- * probe is m->s->probe (ignored for this request)
+ * Process Request Messages
+ * message is guaranteed to be connected to a session,
+ * is typed as either a request or reply
+ * nonce is msg->s->nonce
+ * cmd is msg->s->cmd
+ * probe is msg->s->probe_id
  *
- * - build the discovery buffer
  * - allocate a reply message struct, copy the struct, link to session
  * - session is allocated and attached to message but not locked.
  * - build the json reply message in the 'line' field
@@ -437,11 +435,57 @@ err_out:
  * - write the reply to line to the socket
  * - free the session
  *
- * TODO: optimize away redundant usage of string library functions
+ * For Records replies:
+ *   - link each reply to the session reply list (at least one,
+ *     likely more than one)
+ *   - call send_session_replies to write the replies to the socket
+ *   - free the session
  **/
+
+/**
+ * Note:
+ * Individual elements in the array can be cleared with::
+ *  int flex_array_clear(struct flex_array *array, unsigned int element_nr);
+ **/
+
+/**
+ * Records request:
+ * find the struct probe, run it, read the flex array, clear each
+ * array element after its read.
+ **/
+
+static int
+process_records_request(struct jsmn_message *msg, int index)
+{
+	int ccode = 0;
+	struct probe *probe_p = NULL;
+
+
+	do {
+		ccode = get_probe(msg->s->probe_id, &probe_p);
+	} while (ccode == -EAGAIN);
+
+	if (!ccode && probe_p != NULL) {
+		uint8_t *buf = NULL;
+
+        /* send this probe a records request */
+		probe_p->rcv_msg(probe_p, RECORDS, (void **)&buf);
+
+		goto out_unlock;
+	}
+out_unlock:
+	spin_unlock(&probe_p->lock);
+	return ccode;
+}
+
+
 static int
 process_discovery_request(struct jsmn_message *m, int index)
 {
+
+/**
+ * TODO: optimize away redundant usage of string library functions
+ **/
 	struct jsmn_message *reply_msg = NULL;
 	uint8_t *probe_ids = NULL;
 	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";

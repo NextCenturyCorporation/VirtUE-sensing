@@ -258,6 +258,35 @@ unlock_out:
 STACK_FRAME_NON_STANDARD(build_pid_index);
 
 /**
+ *  probe is LOCKED upon return
+ **/
+int
+get_probe(uint8_t *probe_id, struct probe **p)
+{
+	struct probe *probe_p = NULL;
+	int ccode = -ENFILE;
+	assert(probe_id);
+	assert(p && *p);
+
+	*p = NULL;
+	rcu_read_lock();
+	list_for_each_entry_rcu(probe_p, &k_sensor.probes, l_node) {
+		if (! strncmp(probe_p->id, probe_id, strlen(probe_id))) {
+			if(!spin_trylock(&probe_p->lock)) {
+				ccode =  -EAGAIN;
+			} else {
+				p = &probe_p;
+				ccode = 0;
+				goto exit;
+			}
+		}
+	}
+exit:
+	rcu_read_unlock();
+	return ccode;
+}
+
+/**
  * The discovery buffer needs to be a formatted as a JSON array,
  * with each probe's ID string as an element in the array.
  **/

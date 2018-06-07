@@ -245,6 +245,8 @@ struct probe {
 	struct list_head l_node;
 };
 
+int
+get_probe(uint8_t *probe_id, struct probe **p);
 
 /**
  * @brief The kernel sensor is the parent of one or more probes
