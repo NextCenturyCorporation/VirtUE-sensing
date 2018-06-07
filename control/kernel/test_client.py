@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import socket, sys, os, subprocess
+import socket, sys, os, subprocess, uuid
 
 def json_connect(sock):
     try:
@@ -56,7 +56,28 @@ def send_discovery_test(sock):
         print >>sys.stderr, 'send_discover_test: closing socket'
         sock.close()
 
+# send a proper discovery protocol message, with the
+# header, messsage type, nonce, and command
+# '{Virtue-protocol-verion: 0.1, request: [nonce, discovery, *]}'
+def send_discovery_message(sock):
+   try:
+       message_header = "{Virtue-protocol-version: 0.1, request: ["
+       message_nonce = uuid.uuid4().hex
+       message_footer = ", discovery, *]}"
+       print >>sys.stderr, 'sending "%s%s%s"' \
+           %(message_header, message_nonce, message_footer)
+       sock.sendall("%s%s%s" %(message_header, message_nonce, message_footer))
 
+       amount_received = 0
+       max_amount = 0x400
+       data = sock.recv(max_amount)
+       amount_received = len(data)
+       print >>sys.stderr, 'discovery test received "%s"' % data
+       
+   except:
+        print >>sys.stderr, 'send_discovery_message: closing socket'
+        sock.close()
+       
 def connect_domain_sock(sockname): # Create a UDS socket
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
@@ -100,7 +121,7 @@ def client_main(args):
         print >> sys.stderr, sys.exc_info()
 
     if args.discover:
-        send_discovery_test(s)
+        send_discovery_message(s)
 
     if args.echo:
         send_echo_test(s)

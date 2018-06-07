@@ -114,7 +114,7 @@ struct jsmn_message
 	uint8_t *line;
 	size_t len;
 	int type;
-	size_t count; /* token count */
+	int count; /* token count */
 	struct jsmn_session *s;
 #ifdef USERSPACE
 	FILE *file;
@@ -179,7 +179,7 @@ static inline int index_command(uint8_t *cmd, int bytes)
  *
  * int (cmd_table[])(struct jsmn_message *m, int index);
  *
- * @return zero upon success, < 0 if an error
+ * @return zero or COMPLETE upon success, < 0 if an error
  *        - if message is attached to a session, must call free_session
  *        - otherwise, call free_message
  *
@@ -252,9 +252,16 @@ const uint8_t escape [] = {0x5c, 0x00};
 static inline void
 free_message(struct jsmn_message *m)
 {
+
+	printk(KERN_DEBUG "m: %p, m->line: %p\n", m, m->line);
+
 	if(m->line)
 		kfree(m->line);
+
+
  	kfree(m);
+
+
 	return;
 }
 
@@ -294,19 +301,24 @@ free_session(struct jsmn_session *s)
 		spin_lock_irqsave(&sessions_lock, sessions_flag);
 		rcu_read_lock();
 		list_del_rcu(&s->session_entry);
-		while ((m = list_first_or_null_rcu(&s->h_replies,
+		while (NULL != (m = list_first_or_null_rcu(&s->h_replies,
 										   struct jsmn_message,
 										   e_messages))) {
+			printk(KERN_DEBUG "free reply message: %p\n", m);
 			list_del_rcu(&m->e_messages);
 			synchronize_rcu();
 			free_message(m);
+
 		}
 		rcu_read_unlock();
 		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
 		if (s->req) {
+
 			free_message(s->req);
+
 		}
 		kfree(s);
+
 	}
 #endif
 }
@@ -426,22 +438,27 @@ err_out:
  * - free the session
  *
  * TODO: optimize away redundant usage of string library functions
-**/
+ **/
 static int
 process_discovery_request(struct jsmn_message *m, int index)
 {
-	struct jsmn_message *reply_msg;
+	struct jsmn_message *reply_msg = NULL;
 	uint8_t *probe_ids = NULL;
 	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
 	size_t probe_ids_len = 0;
 	int ccode = 0;
 
 	assert(m);
+	printk(KERN_DEBUG "allocating a reply message size %ld\n",
+		   sizeof(struct jsmn_message));
 
-	reply_msg = kzalloc(GFP_KERNEL, sizeof(struct jsmn_message));
+	reply_msg = kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
+	printk(KERN_DEBUG "reply_msg, kzalloc returned: %p\n", reply_msg);
+
+
 	if (!reply_msg) {
 		ccode = -ENOMEM;
-		DMSG();
+
 		goto out_session;
 	}
 	reply_msg->type = REPLY;
@@ -458,7 +475,7 @@ process_discovery_request(struct jsmn_message *m, int index)
 	 * build the discovery buffer
 	 * '[probe ids]'
 	 **/
-	if (build_discovery_buffer(&probe_ids, &probe_ids_len) <= 0) {
+	if (build_discovery_buffer(&probe_ids, &probe_ids_len) < 0) {
 		kfree(reply_msg);
 		ccode = -ENFILE;
 		goto out_session;
@@ -469,9 +486,9 @@ process_discovery_request(struct jsmn_message *m, int index)
 	 * when we know the actual size.
 	 * TODO: start with a smaller buffer and realloc bigger
 	 **/
-	reply_msg->line = kzalloc(GFP_KERNEL, CONNECTION_MAX_HEADER);
+	reply_msg->line = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
 	if (!reply_msg->line) {
-		DMSG();
+
 		ccode = -ENOMEM;
 		goto out_reply_msg;
 	} else {
@@ -528,7 +545,7 @@ out_reply_msg:
 	free_message(reply_msg);
 out_session:
 	free_session(m->s);
-	return ccode;
+	return COMPLETE;
 }
 
 /**
@@ -707,20 +724,30 @@ check_protocol_version(struct jsmn_message *m)
 
 	start = m->line  + tag.start;
 	bytes = tag.end - tag.start;
-	if (bytes != strlen(prot_tag))
+	if (bytes != strlen(prot_tag)) {
+		printk(KERN_DEBUG "bytes: %ld; tag len: %ld\n", bytes, strlen(prot_tag));
+
+
 		return JSMN_ERROR_INVAL;
+	}
+
 	ccode = memcmp(prot_tag, start, bytes);
 	if (ccode) {
+
 		printk(KERN_INFO "message tag value is unexpected\n");
 		return JSMN_ERROR_INVAL;
 	}
 
 	start = m->line + version.start;
 	bytes = version.end - version.start;
-	if (bytes != strlen(ver_tag))
+	if (bytes != strlen(ver_tag)) {
+
 		return JSMN_ERROR_INVAL;
+	}
+
 	ccode = memcmp(ver_tag, start, bytes);
 	if (ccode) {
+
 		printk(KERN_INFO "Protocol version value is unexpected\n");
 		return JSMN_ERROR_INVAL;
 	}
@@ -736,18 +763,22 @@ validate_message_tokens(struct jsmn_message *m)
 	if (!m->line ||
 		m->len >= MAX_LINE_LEN ||
 		m->line[m->len] != 0x00) {
+
+
 		return -EINVAL;
 	}
 
 	if (m->count < 1 ||
 		m->count > MAX_TOKENS ||
 		m->tokens[0].type != JSMN_OBJECT) {
+
 		return -JSMN_ERROR_INVAL;
 	}
 	for (i = 0, len = m->len; i < m->count; i++) {
 		if (m->tokens[i].start > len ||
 			m->tokens[i].end > len ||
 			m->tokens[i].end - m->tokens[i].start < 0) {
+
 			return -JSMN_ERROR_INVAL;
 		}
 	}
@@ -764,7 +795,6 @@ parse_json_message(struct jsmn_message *m)
 
 	assert(m);
 	if (!m->count) {
-
 		jsmn_init(&m->parser);
 		m->count = jsmn_parse(&m->parser,
 							  m->line,
@@ -773,11 +803,14 @@ parse_json_message(struct jsmn_message *m)
 							  MAX_TOKENS);
 	}
 
+	printk(KERN_DEBUG "token count for msg: %d\n", m->count);
+
 	if (m->count < 0 ) {
 		printk(KERN_INFO "failed to parse JSON: %d\n", (int)m->count);
 		return m->count;
 	}
 	assert(m->line && m->line[m->len] == 0x00);
+
 	if (validate_message_tokens(m)) {
 		printk(KERN_INFO "each message must be a well-formed JSON object" \
 			   " %d\n", (int)m->count);
@@ -795,11 +828,14 @@ parse_json_message(struct jsmn_message *m)
 		switch (i) {
 		case OBJECT_START:
 		case OBJECT_END:
+		{
 			break;
+		}
 
 		case VER_TAG:
 		{
 			if (check_protocol_version(m)) {
+
 				return JSMN_ERROR_INVAL;
 			}
 			i  = VERSION; /* we validated the tag and value, so increment the index */
@@ -813,22 +849,27 @@ parse_json_message(struct jsmn_message *m)
 			 */
 			m->type = check_protocol_message(m);
 			if (m->type == JSMN_ERROR_INVAL) {
+
 				return m->type;
 			}
+
 			break;
 		}
 		case JSONL_BRACKET:
 		case JSONR_BRACKET:
+		{
 			break;
+		}
+
 		case NONCE:
 		{
 			if (!(m->s = get_session(m))) {
+
 				printk(KERN_INFO "unable to find session corresponding to message:");
 				dump(m->line, m->tokens, m->parser.toknext, 0);
 				free_message(m);
 				return JSMN_ERROR_INVAL;
 			}
-
 			break;
 		}
 		case CMD:
@@ -837,16 +878,18 @@ parse_json_message(struct jsmn_message *m)
 			 * pre_process_jsmn_cmd(m):
 			 *
 			 **/
+
 			ccode = pre_process_jsmn_request_cmd(m);
 
 			if (!ccode || ccode == COMPLETE)
 				return 0;
-			else
+			else {
 				return JSMN_ERROR_INVAL;
+			}
 		}
-
 		default:
 			return JSMN_ERROR_INVAL;
+
 		}
 	}
 

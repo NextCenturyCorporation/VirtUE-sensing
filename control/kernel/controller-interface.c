@@ -14,7 +14,6 @@ extern char *lockfile_name;
 struct connection listener;
 EXPORT_SYMBOL(listener);
 
-
 struct connection *
 init_connection(struct connection *, uint64_t, void *);
 
@@ -23,7 +22,8 @@ init_connection(struct connection *, uint64_t, void *);
  * sk refers to struct sock
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
-ssize_t k_socket_read(struct socket *sock,
+ssize_t
+k_socket_read(struct socket *sock,
 							 size_t size,
 							 void *in,
 							 unsigned int flags)
@@ -36,12 +36,27 @@ ssize_t k_socket_read(struct socket *sock,
 	printk(KERN_DEBUG "k_socket_read sock %p, num bytes to read %ld," \
 		   "inbuf %p, flags %x\n",
 		   sock, size, in, flags);
+again:
 	res = kernel_recvmsg(sock, &msg, &iov, 1, size, flags);
+	if (res == -EAGAIN)
+		goto again;
+
 	return res;
 }
 STACK_FRAME_NON_STANDARD(k_socket_read);
 
-ssize_t k_socket_write(struct socket *sock,
+ssize_t
+k_socket_peak(struct socket *sock)
+{
+	static uint8_t in[CONNECTION_MAX_MESSAGE];
+
+	return k_socket_read(sock, CONNECTION_MAX_MESSAGE,
+						 in, MSG_PEEK);
+}
+
+
+ssize_t
+k_socket_write(struct socket *sock,
 							  size_t size,
 							  void *out,
 							  unsigned int flags)
@@ -54,7 +69,11 @@ ssize_t k_socket_write(struct socket *sock,
 	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
 		   "outbuf %p, flags %x\n",
 		   sock, size, out, flags);
+again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
+	if (res == -EAGAIN)
+		goto again;
+
 	return res;
 }
 
@@ -127,19 +146,20 @@ again:
 }
 
 
+
 static void
 k_echo_server(struct kthread_work *work)
 {
 
 	int ccode = 0;
-	unsigned long flags = MSG_PEEK;
 	/**
 	 * allocate these buffers dynamically so this function can
 	 * be re-entrant. Also avoid allocation on the stack.
 	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
-	static uint8_t read_buf[CONNECTION_MAX_REQUEST];
+	ssize_t read_size = 0;
+	uint8_t *read_buf = NULL;
 	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00 };
 	uint8_t discover[] = { 'd', 'i', 's', 'c', 'o', 'v', 'e', 'r', 0x00 };
 	uint8_t session[] = "{Virtue-protocol-version: 0.1}\n";
@@ -159,29 +179,30 @@ k_echo_server(struct kthread_work *work)
 	ccode = down_interruptible(&connection->s_lock);
 	if (ccode)
 		goto close_out;
-	memset(read_buf, 0x00, sizeof(read_buf));
-	sock = connection->connected;
 
-again:
-	ccode = k_socket_read(sock, sizeof(read_buf), read_buf, flags);
-	if (ccode <= 0){
-		if (ccode == -EAGAIN) {
-			goto again;
+	sock = connection->connected;
+	read_size = k_socket_peak(sock);
+	if (read_size >= 5) {
+		read_buf = kzalloc(read_size + 1, GFP_KERNEL);
+		if (!read_buf) {
+
+			printk(KERN_DEBUG "k_socket read unable to allocate read buffer: " \
+				   "%d bytes\n", ccode);
+			__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+			goto close_out;
+
 		}
-		DMSG();
-		printk(KERN_DEBUG "k_socket read ccode: %d\n", ccode);
-		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+		ccode = k_socket_read(sock, read_size, read_buf, 0L);
+		printk(KERN_DEBUG "k_socket_read %d\n", ccode);
+		if (ccode <= 0) {
+
+			printk(KERN_DEBUG "k_socket_read returned error: %d\n", ccode);
+			__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+			goto close_out;
+		}
+	} else {
 		goto close_out;
 	}
-
-	if (flags == MSG_PEEK) {
-		printk(KERN_DEBUG "k_socket_read MSG_PEEK: %d\n", ccode);
-		if (ccode >= 5) {
-			flags = 0L;
-			goto again;
-		}
-	}
-	printk(KERN_DEBUG "k_socket_read 0L: %d\n", ccode);
 
 	if (!memcmp(read_buf, echo, sizeof(echo))) {
 		uint8_t *response = VERSION_STRING;
@@ -212,7 +233,7 @@ again:
  * ccode contains the bytes read - a good value for message->len
  */
 		size_t len = ccode;
-
+		printk(KERN_DEBUG "socket read: %s\n", read_buf);
 		m = new_message(read_buf, len);
 		if(!m) {
 			goto close_out;
@@ -220,11 +241,15 @@ again:
 
 		m->socket = sock;
 		m->count = parse_json_message(m);
+		printk(KERN_DEBUG "message token count: %dn", m->count);
+
 		if (m->count < 0) {
+
 			/* for some reason, didn't read a valid json object */
-			printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
+			printk(KERN_DEBUG "kernel sensor error reading a valid JSON object, " \
 				   "connection is being closed\n");
-			goto err_out_json;
+			up(&connection->s_lock);
+			goto close_out;
 		}
 	}
 
@@ -234,14 +259,15 @@ again:
  	}
 	up(&connection->s_lock);
 	return;
-err_out_json:
-	free_message(m);
+
 close_out:
 	spin_lock(&k_sensor.lock);
 	list_del_rcu(&connection->l_node);
 	spin_unlock(&k_sensor.lock);
 	synchronize_rcu();
 	kfree(connection->_destroy(connection));
+
+
 	return;
 }
 
