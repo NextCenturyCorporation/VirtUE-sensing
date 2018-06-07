@@ -182,7 +182,7 @@ WVUSensorThread(PVOID StartContext)
 	
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
-
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	ReplyBuffer = (PUCHAR)ALLOC_POOL(NonPagedPool, REPLYLEN);
 	if (NULL == ReplyBuffer)
 	{

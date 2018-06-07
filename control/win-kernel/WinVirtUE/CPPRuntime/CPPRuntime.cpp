@@ -78,6 +78,7 @@ VOID CallGlobalDestructors()
 /////////////////////////////////////////////////////////////////////////////
 int CDECL atexit(PVFV func)
 {
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
     PEXIT_FUNC_LIST pFuncListEntry =
         (PEXIT_FUNC_LIST)ALLOC_POOL(NonPagedPool, sizeof(EXIT_FUNC_LIST));
 

@@ -13,6 +13,7 @@ _Use_decl_annotations_
 PVOID
 AbstractVirtueProbe::operator new(size_t size)
 {
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
 	return pVoid;
 }

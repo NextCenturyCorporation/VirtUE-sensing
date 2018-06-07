@@ -147,6 +147,7 @@ PVOID InstanceContextAllocate(
     /*
     * Allocate the actual stream context.
     */
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
     pVoid = ExAllocatePoolWithTag(NonPagedPool, Size, INSTANCECONTEXT_POOL_TAG);
     if (NULL == pVoid)
     {

@@ -121,6 +121,7 @@ WVUDebugBreakOnMatch(
     case STRING_UNICODE:
         uStr = (PCUNICODE_STRING)String;
         wStrLen = sizeof(WCHAR) * ((size_t)uStr->Length + 1);
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
         wStr = (PWCHAR)ALLOC_POOL(NonPagedPool, wStrLen);
         FLT_ASSERTMSG("ALLOC_POOL", NULL == wStr);
         if (NULL == wStr)

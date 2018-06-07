@@ -36,3 +36,4 @@ public:
 	VOID CDECL operator delete(_In_ PVOID ptr);
 };
 
+// C26439, C26433, C26432, C26403, C26401

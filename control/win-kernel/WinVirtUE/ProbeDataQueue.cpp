@@ -23,6 +23,7 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 
 	// initialize the queue entry count semaphore such that processing halts when there are no
 	// more entries in the queue
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	PRKSEMAPHORE pSemaphore = (PKSEMAPHORE)ALLOC_POOL(NonPagedPool, sizeof KSEMAPHORE);
 	if (NULL == pSemaphore)
 	{
@@ -36,6 +37,7 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 	// init the Port Connection Event  This coordinate the connections from user space
 	// so that the outbound queue processor will start or stop processing depending on
 	// current connection state	
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	PRKEVENT pKEvent = (PRKEVENT)ALLOC_POOL(NonPagedPool, sizeof KEVENT);
 	if (NULL == pKEvent)
 	{
@@ -243,6 +245,7 @@ _Use_decl_annotations_
 PVOID 
 ProbeDataQueue::operator new(size_t size)
 {
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
 	return pVoid;
 }

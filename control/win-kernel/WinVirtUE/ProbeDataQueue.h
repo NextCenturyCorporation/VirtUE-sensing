@@ -37,7 +37,9 @@ public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
 	VOID SemaphoreRelease();
+	_Success_(TRUE == return)
 	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
+	_Success_(TRUE == return)
 	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
 	PLIST_ENTRY Dequeue();

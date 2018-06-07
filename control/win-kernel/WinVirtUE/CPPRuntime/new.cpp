@@ -20,6 +20,7 @@ __drv_allocatesMem(object)
 PVOID CDECL operator new(_In_ size_t lBlockSize)
 {
     PVOID pVoid = NULL;
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
     pVoid = ExAllocatePoolWithTag(NonPagedPool, lBlockSize, COMMON_POOL_TAG);
     return pVoid;
 }
@@ -35,6 +36,7 @@ __drv_allocatesMem(object)
 PVOID CDECL operator new[](_In_ size_t lBlockSize)
 {
     PVOID pVoid = NULL;
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
     pVoid = ExAllocatePoolWithTag(NonPagedPool, lBlockSize, COMMON_POOL_TAG);
 	return pVoid;
 }
