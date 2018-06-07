@@ -358,6 +358,10 @@ FltrCommsMgr::OnCommandMessage(
 	return Status;
 }
 
+/**
+* @brief construct an instance of this object utilizing non paged pool memory
+* @return pListEntry an item that was on the probe data queue for further processing
+*/
 _Use_decl_annotations_
 PVOID
 FltrCommsMgr::operator new(size_t size)
@@ -367,6 +371,10 @@ FltrCommsMgr::operator new(size_t size)
 	return pVoid;
 }
 
+/**
+* @brief destroys an instance of this object and releases its memory
+* @param ptr pointer to the object instance to be destroyed
+*/
 _Use_decl_annotations_
 VOID CDECL
 FltrCommsMgr::operator delete(PVOID ptr)

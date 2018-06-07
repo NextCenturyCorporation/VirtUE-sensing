@@ -8,6 +8,10 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
+/**
+* @brief construct an instance of the ProbeDataQueue.  The ProbeDataQueue constructs a 
+* simple producer/consumer lockable queue that moves data to a connected user space program.
+*/
 #pragma warning(suppress: 26439)
 #pragma warning(suppress: 26495)
 ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), NumberOfQueueEntries(0LL)
@@ -63,6 +67,9 @@ SuccessExit:
 	return;
 }
 
+/**
+* @brief filter exceptions for the destructor
+*/
 _Use_decl_annotations_
 int 
 ProbeDataQueue::dtor_exc_filter(
@@ -80,20 +87,15 @@ ProbeDataQueue::dtor_exc_filter(
 	}
 }
 
+/**
+* @brief destroy this instance of the ProbeDataQueue
+*/
 ProbeDataQueue::~ProbeDataQueue()
 {
 	this->Enabled = FALSE;
 
 	// Cause the Multiple Event Water to proceed in the loop and exit
-	__try
-	{
-		// cause the semaphore to move through the processing loop
-		KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty		
-	}
-	__except (dtor_exc_filter(GetExceptionCode(), GetExceptionInformation()) )
-	{
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Error augmenting semaphore value - ignored!\n")
-	}
+	SemaphoreRelease();
 
 	KeSetEvent((PRKEVENT)this->PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE);  // Signaled when Port is Connected
 
@@ -110,21 +112,41 @@ ProbeDataQueue::~ProbeDataQueue()
 	}
 }
 
+/**
+* @brief cause the data queue to exit
+* @note if the queue is full, then exception will be emitted. We will catch that exception
+* and move on.
+*/
 VOID
 ProbeDataQueue::TerminateLoop()
 {
+	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 	// the next two instructions will cause the consumer loop to terminate
 	this->SemaphoreRelease();
 	this->OnConnect();
 }
 
+/**
+* @brief cause the sempahore count to be incremented. Ignore exceptions
+*/
 VOID
 ProbeDataQueue::SemaphoreRelease()
 {
-	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
-	this->NumberOfQueueEntries = this->Count();
+	__try
+	{
+		// cause the semaphore to move through the processing loop
+		KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty		
+		this->NumberOfQueueEntries = this->Count();
+	}
+	__except (dtor_exc_filter(GetExceptionCode(), GetExceptionInformation()))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Error augmenting semaphore value - ignored!\n")
+	}
 }
 
+/**
+* @brief adjust non-critical counter data
+*/
 _Use_decl_annotations_
 VOID
 ProbeDataQueue::update_counters(
@@ -136,6 +158,9 @@ ProbeDataQueue::update_counters(
 		this->SizeOfDataInQueue, this->Count());
 }
 
+/**
+* @brief cause the queue to be trimmed a level that is at or below the max queue size
+*/
 VOID
 ProbeDataQueue::TrimProbeDataQueue()
 {
@@ -153,6 +178,11 @@ ProbeDataQueue::TrimProbeDataQueue()
 	}
 }
 
+/**
+* @brief enqueue a probe data item to be transmitted to the listening userspace program
+* @param pListEntry The item to be enqueued
+* @return TRUE if item was successfully enqueued else FALSE if queue is disabled
+*/
 _Use_decl_annotations_
 BOOLEAN
 ProbeDataQueue::Enqueue(
@@ -168,18 +198,31 @@ ProbeDataQueue::Enqueue(
 	}
 
 	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
-	TrimProbeDataQueue();
-	InsertTailList(&this->PDQueue, pListEntry);
-	update_counters(pListEntry);	
-	SemaphoreRelease();
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
-		this->SizeOfDataInQueue, this->Count());
-	KeReleaseInStackQueuedSpinLock(&LockHandle);
+	__try
+	{
+		TrimProbeDataQueue();
+		InsertTailList(&this->PDQueue, pListEntry);
+		update_counters(pListEntry);
+		SemaphoreRelease();
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+			this->SizeOfDataInQueue, this->Count());
+	}
+	__finally
+	{
+		KeReleaseInStackQueuedSpinLock(&LockHandle);
+	}
 	success = TRUE;
 Error:
 	return success;
 }
 
+/**
+* @brief return a probe data item that cannot be transmitted to the listening userspace program
+* @note If the queue is full at the time the putback is attempted, this data item will be discarded
+* because it will be the oldest data in the queue.
+* @param pListEntry The item to be enqueued
+* @return TRUE if item was successfully enqueued else FALSE if queue is disabled
+*/
 _Use_decl_annotations_
 BOOLEAN 
 ProbeDataQueue::PutBack(
@@ -194,51 +237,70 @@ ProbeDataQueue::PutBack(
 		goto Error;
 	}
 
-	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);	  
-	TrimProbeDataQueue();
-	InsertHeadList(&this->PDQueue, pListEntry);	
-	update_counters(pListEntry);
-	SemaphoreRelease();
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
-		this->SizeOfDataInQueue, this->Count());
-	KeReleaseInStackQueuedSpinLock(&LockHandle);
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
+	__try
+	{
+		TrimProbeDataQueue();
+		InsertHeadList(&this->PDQueue, pListEntry);
+		update_counters(pListEntry);
+		SemaphoreRelease();
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+			this->SizeOfDataInQueue, this->Count());
+	}
+	__finally
+	{
+		KeReleaseInStackQueuedSpinLock(&LockHandle);
+	}
 	success = TRUE;
 Error:
 	return success;
 }
 
+/**
+* @brief dequeue and return a pointer an item to be processed
+* @return NULL if memory allocation not successfull else pointer to 
+* the new object instance
+*/
 _Use_decl_annotations_
 PLIST_ENTRY 
 ProbeDataQueue::Dequeue()
 {
 	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
-	PLIST_ENTRY retval = NULL;
-
-	if (FALSE == Enabled || TRUE == IsListEmpty(&this->PDQueue))
-	{
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid or empty queue!\n");
-		return NULL;
-	}
+	PLIST_ENTRY pListEntry = NULL;
 
 	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
-
-	PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
-	if (NULL == pListEntry)
+	__try
 	{
-		retval = NULL;
-		goto Exit;
+		if (FALSE == Enabled || TRUE == IsListEmpty(&this->PDQueue))
+		{
+			WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid or empty queue!\n");
+			pListEntry = NULL;
+			__leave;
+		}
+		pListEntry = RemoveHeadList(&this->PDQueue);
+		if (NULL == pListEntry)
+		{
+			WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Unable to remove a queue entry!\n");
+			pListEntry = NULL;
+			__leave;
+		}
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		this->NumberOfQueueEntries = this->Count();
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+			this->SizeOfDataInQueue, this->Count());
 	}
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-	InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
-	this->NumberOfQueueEntries = this->Count();
-
-Exit:
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
-		this->SizeOfDataInQueue, this->Count());
-	KeReleaseInStackQueuedSpinLock(&LockHandle);
+	__finally
+	{
+		KeReleaseInStackQueuedSpinLock(&LockHandle);
+	}
 	return pListEntry;
 }
 
+/**
+* @brief disposes a successfully transmitted probe data item
+* @note bumps the message id count
+*/
 _Use_decl_annotations_
 VOID 
 ProbeDataQueue::Dispose(PVOID pBuf)
@@ -248,6 +310,10 @@ ProbeDataQueue::Dispose(PVOID pBuf)
 	return VOID();
 }
 
+/**
+* @brief construct an instance of this object utilizing non paged pool memory
+* @return pListEntry an item that was on the probe data queue for further processing
+*/
 _Use_decl_annotations_
 PVOID 
 ProbeDataQueue::operator new(size_t size)
@@ -257,6 +323,10 @@ ProbeDataQueue::operator new(size_t size)
 	return pVoid;
 }
 
+/**
+* @brief destroys an instance of this object and releases its memory
+* @param ptr pointer to the object instance to be destroyed
+*/
 _Use_decl_annotations_
 VOID CDECL 
 ProbeDataQueue::operator delete(PVOID ptr)

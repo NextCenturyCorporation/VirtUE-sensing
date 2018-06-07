@@ -24,22 +24,44 @@ ErrorExit:
 
 	return NT_SUCCESS(Status);
 }
+
+/**
+* @brief Enable the ImageLoadProbe by setting the notification callback
+* @returns TRUE if successfully installed the notification routine callback
+*/
 _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Enable()
 {
 	return this->RemoveNotify(FALSE);
 }
+
+/**
+* @brief Disable the ImageLoadProbe by unsetting the notification callback
+* @returns TRUE if successfully removed the notification routine callback
+*/
 _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Disable()
 {
 	return this->RemoveNotify(TRUE);
 }
+
+/**
+* @brief returns the probes current state
+* @returns TRUE if enabled else FALSE
+*/
 _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::State()
 {
 	return this->Enabled;
 }
 
+/**
+* @brief Mitigate known issues that this probe discovers
+* @note Mitigation is not being called as of June 2018
+* @param argv array of arguments
+* @param argc argument count
+* @returns Status returns operational status
+*/
 _Use_decl_annotations_
 NTSTATUS ProcessCreateProbe::Mitigate(
 	PCHAR argv[], 

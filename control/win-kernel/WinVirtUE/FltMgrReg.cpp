@@ -294,8 +294,6 @@ WVUUnload(
 	WVUDebugBreakPoint();
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
-	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-
 	pPDQ->TerminateLoop();
 
     // cause the WVU Thread to proceed with object destruction

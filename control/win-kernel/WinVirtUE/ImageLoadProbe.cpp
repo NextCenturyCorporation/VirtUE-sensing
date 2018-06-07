@@ -9,6 +9,10 @@
 #include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_IMAGELOADPROBE_POOL_TAG
 
+/**
+* @brief Enable the ImageLoadProbe by setting the notification callback
+* @returns TRUE if successfully installed the notification routine callback
+*/
 _Use_decl_annotations_
 BOOLEAN ImageLoadProbe::Enable()
 {
@@ -30,6 +34,10 @@ ErrorExit:
 	return NT_SUCCESS(Status);
 }
 
+/**
+* @brief Disable the ImageLoadProbe by unsetting the notification callback
+* @returns TRUE if successfully removed the notification routine callback
+*/
 _Use_decl_annotations_
 BOOLEAN ImageLoadProbe::Disable()
 {
@@ -50,12 +58,23 @@ ErrorExit:
 	return NT_SUCCESS(Status);
 }
 
+/**
+* @brief returns the probes current state
+* @returns TRUE if enabled else FALSE
+*/
 _Use_decl_annotations_
 BOOLEAN ImageLoadProbe::State()
 {
 	return this->Enabled;
 }
 
+/**
+* @brief Mitigate known issues that this probe discovers
+* @note Mitigation is not being called as of June 2018
+* @param argv array of arguments 
+* @param argc argument count
+* @returns Status returns operational status
+*/
 _Use_decl_annotations_
 NTSTATUS ImageLoadProbe::Mitigate(
 	PCHAR argv[], 

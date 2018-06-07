@@ -9,6 +9,10 @@
 
 #pragma warning(suppress: 26439)
 
+/**
+* @brief construct an instance of this object utilizing non paged pool memory
+* @return pListEntry an item that was on the probe data queue for further processing
+*/
 _Use_decl_annotations_
 PVOID
 AbstractVirtueProbe::operator new(size_t size)
@@ -18,6 +22,10 @@ AbstractVirtueProbe::operator new(size_t size)
 	return pVoid;
 }
 
+/**
+* @brief destroys an instance of this object and releases its memory
+* @param ptr pointer to the object instance to be destroyed
+*/
 _Use_decl_annotations_
 VOID CDECL
 AbstractVirtueProbe::operator delete(PVOID ptr)
