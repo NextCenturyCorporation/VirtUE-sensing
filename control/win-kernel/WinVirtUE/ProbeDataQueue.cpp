@@ -8,7 +8,9 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), PDQEvents{NULL, NULL}
+#pragma warning(suppress: 26439)
+#pragma warning(suppress: 26495)
+ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), NumberOfQueueEntries(0LL)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	wfso_timeout.QuadPart = 0LL;
