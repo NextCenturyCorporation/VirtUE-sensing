@@ -7,6 +7,12 @@
 #pragma once
 #include "common.h"
 #include "externs.h"
+
+
+#undef _HAS_EXCEPTIONS
+#include <new.h>
+#include <cstddef>
+
 class AbstractVirtueProbe
 {
 protected:

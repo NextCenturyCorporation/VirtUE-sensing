@@ -7,7 +7,9 @@
 #pragma once
 #include "common.h"
 #include "ProbeDataQueue.h"
-#include "externs.h"
+#include <new.h>
+#include <cstddef>
+
 class FltrCommsMgr
 {
 public:

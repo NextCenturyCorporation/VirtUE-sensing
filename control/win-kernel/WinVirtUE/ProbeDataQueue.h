@@ -6,6 +6,8 @@
 */
 #pragma once
 #include "common.h"
+#include <new.h>
+#include <cstddef>
 
 class ProbeDataQueue
 {
