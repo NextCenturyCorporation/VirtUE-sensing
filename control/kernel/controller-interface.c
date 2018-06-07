@@ -24,9 +24,9 @@ init_connection(struct connection *, uint64_t, void *);
  **/
 ssize_t
 k_socket_read(struct socket *sock,
-							 size_t size,
-							 void *in,
-							 unsigned int flags)
+			  size_t size,
+			  void *in,
+			  unsigned int flags)
 {
 
 	ssize_t res = 0;
@@ -57,9 +57,9 @@ k_socket_peak(struct socket *sock)
 
 ssize_t
 k_socket_write(struct socket *sock,
-							  size_t size,
-							  void *out,
-							  unsigned int flags)
+			   size_t size,
+			   void *out,
+			   unsigned int flags)
 {
 	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
@@ -240,9 +240,16 @@ k_echo_server(struct kthread_work *work)
 		}
 
 		m->socket = sock;
+/**
+ * TODO: use an appropriately named variable to store
+ *       return of parse_json_message
+ **/
 		m->count = parse_json_message(m);
 		printk(KERN_DEBUG "message token count: %dn", m->count);
-
+/**
+ * TODO: if parse_json_message returns COMPLETE, close connection
+ *       else if it returns 0, keep connection open
+ **/
 		if (m->count < 0) {
 
 			/* for some reason, didn't read a valid json object */
