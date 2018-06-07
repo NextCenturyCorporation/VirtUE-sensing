@@ -10,38 +10,55 @@
 class ProbeDataQueue
 {
 private:
-	const int MAXQUEUESIZE = 0x2000;
+	LARGE_INTEGER wfso_timeout;
+	LARGE_INTEGER timeout;	
 	KSPIN_LOCK PDQueueSpinLock;
+	KGUARDED_MUTEX mutex;
 	LIST_ENTRY PDQueue;
 	ULONGLONG MessageId;
-	BOOLEAN IsQueueBuilt;	
+	BOOLEAN Enabled;	
 	PVOID PDQEvents[2];
-	static _Must_inspect_result_ int dtor_exc_filter(_In_ UINT32 code, _In_ _EXCEPTION_POINTERS * ep);
 
+	VOID TrimProbeDataQueue();
+	static _Must_inspect_result_ int dtor_exc_filter(_In_ UINT32 code, _In_ _EXCEPTION_POINTERS * ep);
+	VOID update_counters(_Inout_ PLIST_ENTRY pListEntry);
+	volatile LONGLONG SizeOfDataInQueue;
+	/** for debugging ease, show the number of current queue entries */
+	volatile LONGLONG NumberOfQueueEntries;
+	// Wait for the queue to have at least one entry and the port to be connected
+	_Success_(NT_SUCCESS(return) == TRUE)
+		NTSTATUS AcquireQueueSempahore() {
+		return KeWaitForSingleObject((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue],
+			Executive, KernelMode, FALSE, &wfso_timeout);
+	}
+
+	_Must_inspect_result_
+		BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
 public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
+	VOID SemaphoreRelease();
 	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
 	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
 	PLIST_ENTRY Dequeue();
 	_Must_inspect_result_
 	ULONGLONG& GetMessageId() { return this->MessageId;  }
-	VOID Dispose(_In_ PVOID pBuf);
-	_Must_inspect_result_
-	LONG Count() { return KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]); }																								 
+	VOID Dispose(_In_ PVOID pBuf);																							 
 	// cause the outbund queue processor to start processing
 	VOID OnConnect() { KeSetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE); }
 	// cause the outbound queue processor to stop on disconnect
 	VOID OnDisconnect() { (VOID)KeResetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+	/** The count function utilizes the semaphore state to show the number of queued entries */
 	_Must_inspect_result_
-	BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+	LONG Count() { return KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]); }
 	// Wait for the queue to have at least one entry and the port to be connected
 	_Success_(NT_SUCCESS(return) == TRUE)
 	NTSTATUS WaitForQueueAndPortConnect() {
 		return KeWaitForMultipleObjects(NUMBER_OF(PDQEvents),
-			(PVOID*)&PDQEvents[0], WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL); }
+			(PVOID*)&PDQEvents[0], WaitAll, Executive, KernelMode, FALSE, &timeout, NULL); }
 	_Must_inspect_impl_
-	PVOID operator new(_In_ size_t size);
+		_Success_(NULL != return)
+		PVOID operator new(_In_ size_t size);
 	VOID CDECL operator delete(_In_ PVOID ptr);
 };

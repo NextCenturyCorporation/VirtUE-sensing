@@ -56,4 +56,4 @@ FLTAPI WVUMessageNotify(
 	_In_ ULONG InputBufferLength,
 	_Out_writes_bytes_opt_(OutputBufferLength) PVOID OutputBuffer,
 	_In_ ULONG OutputBufferLength,
-	_Out_ PULONG ReturnOutputBufferLength);
+	_Out_ _Notnull_ PULONG ReturnOutputBufferLength);

@@ -6,15 +6,20 @@
 */
 #include "WinVirtUE.h"
 #include "ProbeDataQueue.h"
+#include "ImageLoadProbe.h"
+#include "ProcessCreateProbe.h"
 
 #define COMMON_POOL_TAG WVU_OBSIDIANWAVE_POOL_TAG
 
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
 
-// Probe Daeta Queue operations
+// Probe Data Queue operations
 class ProbeDataQueue *pPDQ;
 
+// Probes
+class ImageLoadProbe *pILP;
+class ProcessCreateProbe *pPCP;
 
 /**
 * @brief Main initialization thread.
@@ -49,7 +54,33 @@ WVUMainThreadStart(PVOID StartContext)
 			"ProbeDataQueue not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	
+
+	// Make ready the image load probe
+	pILP = new ImageLoadProbe();
+	if (NULL == pILP)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
+			"ImageLoadProbe not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	// Enable the image load probe
+	pILP->Enable();
+
+	// Make ready the process create probe
+	pPCP = new ProcessCreateProbe();
+	if (NULL == pPCP)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
+			"ProcessCreateProbe not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	// Enable the process create probe
+	pPCP->Enable();
+
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
 	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, &Globals.WVUThreadStartEvent);
@@ -62,22 +93,11 @@ WVUMainThreadStart(PVOID StartContext)
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
 
-	Status = PsSetLoadImageNotifyRoutine(ImageLoadNotificationRoutine);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetLoadImageNotifyRoutine(ImageLoadNotificationRoutine) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-
-	Status = PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx, FALSE);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateProcessNotifyRoutineEx(ProcessNotifyCallbackEx, FALSE) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-
+	/**
+	* To ensure that we don't cause verifier faults during unload, do not include the thread notification
+	* routines.  Verifier will fault because we don't undo what we've done.
+	*/
+#if defined(MFSCOMMENTEDCODE)
 	Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -93,6 +113,7 @@ WVUMainThreadStart(PVOID StartContext)
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
 		goto ErrorExit;
 	}
+#endif
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
 #pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh
@@ -149,14 +170,11 @@ WVUSensorThread(PVOID StartContext)
 	const ULONG REPLYLEN = 128;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER send_timeout = { 0LL };
-	send_timeout.QuadPart = RELATIVE(SECONDS(10));  // five second timeout
-	LONGLONG test = -1000 * 1000 * 10 * 10;
+	send_timeout.QuadPart = RELATIVE(SECONDS(20)); 
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
 	PVOID SenderBuffer = NULL;
-
-	UNREFERENCED_PARAMETER(test);
 
 	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
@@ -169,7 +187,7 @@ WVUSensorThread(PVOID StartContext)
 	if (NULL == ReplyBuffer)
 	{
 		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "Unable ato allocate from NonPagedPool! Status=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "Unable to allocate from NonPagedPool! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -191,15 +209,14 @@ WVUSensorThread(PVOID StartContext)
 			continue;
 		}
 
-		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER
-		// be the first type in the structure defintion.  We first get the address of ProbeDataHeader, add the offset
-		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.		
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, ProbeDataHeader, ListEntry);
-		SenderBufferLen = pPDH->DataSz;
-		PLoadedImageInfo plii = (PLoadedImageInfo)((PUCHAR)pPDH - sizeof(FILTER_MESSAGE_HEADER));
-		SenderBuffer = (PVOID)plii;
-		plii->FltMsgHeader.MessageId = pPDQ->GetMessageId();
-		plii->FltMsgHeader.ReplyLength = ReplyBufferLen;
+		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER data
+		// be the first type in the structure defintion.  We first get the address of PROBE_DATA_HEADER, add the offset
+		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.	
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		SenderBuffer = (PVOID)pPDH;
+		pPDH->MessageId = pPDQ->GetMessageId();
+		pPDH->ReplyLength = REPLYLEN;
+		SenderBufferLen = pPDH->DataSz;	
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
@@ -207,13 +224,17 @@ WVUSensorThread(PVOID StartContext)
 		if (FALSE == NT_SUCCESS(Status) || STATUS_TIMEOUT == Status) 
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
-				"(...) Message Send Failed - enqueue and wait! Status=%08x\n", Status);			
-			pPDQ->PutBack(pListEntry); // put the dequeued entry back
+				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);			
+			if (FALSE == pPDQ->PutBack(&pPDH->ListEntry)) // put the dequeued entry back
+			{
+				pPDQ->Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
+				pListEntry = NULL;
+			}
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT_BUFFER(LOG_SENSOR_THREAD, ReplyBuffer, ReplyBufferLen);
-			pPDQ->Dispose(plii);
+			pPDQ->Dispose(SenderBuffer);
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;

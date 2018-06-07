@@ -110,7 +110,7 @@ DriverEntry(
 	UNICODE_STRING usPortName = { 0,0,NULL };	
 
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
+	timeout.QuadPart = RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
 
 	WVUDebugBreakPoint();
 	
@@ -118,7 +118,14 @@ DriverEntry(
 
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
 
-	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default	
+	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
+
+	Globals.AllowFilterUnload =
+#if defined(WVU_DEBUG)
+		TRUE;
+#else
+		FALSE;
+#endif
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 

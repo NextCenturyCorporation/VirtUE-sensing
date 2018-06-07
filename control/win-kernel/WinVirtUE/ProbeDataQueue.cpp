@@ -8,9 +8,16 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-ProbeDataQueue::ProbeDataQueue() : MessageId(1), IsQueueBuilt(FALSE)
+ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), NumberOfQueueEntries(0), PDQEvents{ NULL, NULL }
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	wfso_timeout.QuadPart = 0LL;
+	timeout.QuadPart =
+#if defined(WVU_DEBUG)
+		RELATIVE(SECONDS(300));
+#else
+		RELATRIVE(SECONDS(1));
+#endif
 
 	// initialize the queue entry count semaphore such that processing halts when there are no
 	// more entries in the queue
@@ -21,7 +28,7 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), IsQueueBuilt(FALSE)
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
-	KeInitializeSemaphore(pSemaphore, 0, MAXQUEUESIZE);
+	KeInitializeSemaphore(pSemaphore, 0, PROBEDATAQUEUESZ);
 	this->PDQEvents[ProbeDataSemEmptyQueue] = pSemaphore;
 
 	// init the Port Connection Event  This coordinate the connections from user space
@@ -44,10 +51,10 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), IsQueueBuilt(FALSE)
 	InitializeListHead(&this->PDQueue);
 
 	// we build the queue successfully
-	this->IsQueueBuilt = TRUE;
+	this->Enabled = TRUE;
 	goto SuccessExit;
 ErrorExit:
-	this->IsQueueBuilt = FALSE;
+	this->Enabled = FALSE;
 SuccessExit:
 	return;
 }
@@ -71,7 +78,7 @@ ProbeDataQueue::dtor_exc_filter(
 
 ProbeDataQueue::~ProbeDataQueue()
 {
-	this->IsQueueBuilt = FALSE;
+	this->Enabled = FALSE;
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 
 	// Cause the Multiple Event Water to proceed in the loop and exit
@@ -101,49 +108,125 @@ ProbeDataQueue::~ProbeDataQueue()
 }
 
 _Use_decl_annotations_
-BOOLEAN 
+VOID
+ProbeDataQueue::SemaphoreRelease()
+{
+	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
+	this->NumberOfQueueEntries = this->Count();
+}
+
+_Use_decl_annotations_
+VOID
+ProbeDataQueue::update_counters(
+	PLIST_ENTRY pListEntry)
+{
+	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+		this->SizeOfDataInQueue, this->Count());
+}
+
+_Use_decl_annotations_
+VOID
+ProbeDataQueue::TrimProbeDataQueue()
+{
+	while (this->Count() >= ::PROBEDATAQUEUESZ)  // remove the oldest entry if we're too big
+	{
+		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
+		this->NumberOfQueueEntries = this->Count();
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		delete[] pPDH;
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
+		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+			this->SizeOfDataInQueue, this->Count());
+	}
+}
+
+_Use_decl_annotations_
+BOOLEAN
 ProbeDataQueue::Enqueue(
 	PLIST_ENTRY pListEntry)
-{	
-	if (FALSE == IsQueueBuilt)
+{
+	KLOCK_QUEUE_HANDLE LockHandle;
+	BOOLEAN success = FALSE;
+
+	if (FALSE == Enabled)
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
-		return FALSE;
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
+		goto Error;
 	}
-	if (this->MAXQUEUESIZE <= this->Count())  // remove the oldest entry if we're too big
-	{
-		(VOID)Dequeue();
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
-	}
-	const PLIST_ENTRY pEntry = ExInterlockedInsertTailList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
-	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
-	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
+
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
+	TrimProbeDataQueue();
+	InsertTailList(&this->PDQueue, pListEntry);
+	update_counters(pListEntry);	
+	SemaphoreRelease();
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %ld, Entry Count: %ld\n",
+		this->SizeOfDataInQueue, this->Count());
+	KeReleaseInStackQueuedSpinLock(&LockHandle);
+	success = TRUE;
+Error:
+	return success;
 }
 
 _Use_decl_annotations_
 BOOLEAN 
-ProbeDataQueue::PutBack(PLIST_ENTRY pListEntry)
+ProbeDataQueue::PutBack(
+	PLIST_ENTRY pListEntry)
 {
-	if (FALSE == IsQueueBuilt)
+	KLOCK_QUEUE_HANDLE LockHandle;
+	BOOLEAN success = FALSE;
+
+	if (FALSE == Enabled)
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
-			return FALSE;
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
+		goto Error;
 	}
-	const PLIST_ENTRY pEntry = ExInterlockedInsertHeadList(&this->PDQueue, pListEntry, &this->PDQueueSpinLock);
-	(VOID)KeReleaseSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue], IO_NO_INCREMENT, 1, FALSE);  // Signaled when the Queue is not empty
-	return NULL == pEntry ? FALSE : TRUE;  // Return TRUE if we were not empty else FALSE
+
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);	  
+	TrimProbeDataQueue();
+	InsertHeadList(&this->PDQueue, pListEntry);	
+	update_counters(pListEntry);
+	SemaphoreRelease();
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+		this->SizeOfDataInQueue, this->Count());
+	KeReleaseInStackQueuedSpinLock(&LockHandle);
+	success = TRUE;
+Error:
+	return success;
 }
 
 _Use_decl_annotations_
 PLIST_ENTRY 
 ProbeDataQueue::Dequeue()
 {
-	if (FALSE == IsQueueBuilt)
+	KLOCK_QUEUE_HANDLE LockHandle;
+	PLIST_ENTRY retval = NULL;
+
+	if (FALSE == Enabled || TRUE == IsListEmpty(&this->PDQueue))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Attempting to use an invalid queue!\n")
-			return FALSE;
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid or empty queue!\n");
+		return NULL;
 	}
-	PLIST_ENTRY pListEntry = ExInterlockedRemoveHeadList(&this->PDQueue, &this->PDQueueSpinLock);
+
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
+
+	PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
+	if (NULL == pListEntry)
+	{
+		retval = NULL;
+		goto Exit;
+	}
+	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+	InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+	this->NumberOfQueueEntries = this->Count();
+
+Exit:
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+		this->SizeOfDataInQueue, this->Count());
+	KeReleaseInStackQueuedSpinLock(&LockHandle);
 	return pListEntry;
 }
 

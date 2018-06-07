@@ -4,6 +4,9 @@
 * @brief filter registeration module
 */
 #include "FltMgrReg.h"
+#include "ProcessCreateProbe.h"
+#include "ImageLoadProbe.h"
+#include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_FLT_REG_POOL_TAG
 
 #pragma region Filter Registration
@@ -285,18 +288,21 @@ WVUUnload(
         
     }
 
+	WVUDebugBreakPoint();
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-
-    WVUDebugBreakPoint();
-
+	
     if (NULL != Globals.ClientPort)
     {
         // close our handle to the connection 
         FltCloseClientPort(Globals.FilterHandle, &Globals.ClientPort);
         Globals.ClientPort = NULL;
     }
+
+	// the next two instructions will cause the consumer loop to terminate
+	pPDQ->SemaphoreRelease();
+	pPDQ->OnConnect();
 
     // close the server port
     FltCloseCommunicationPort(Globals.WVUServerPort);
@@ -308,12 +314,28 @@ WVUUnload(
     // disable all protection
     Globals.EnableProtection = FALSE;
 
-    // wait for all of that to end
-    ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
+	// wait for all of that to end
+	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
 
-    // unregister all callbacks
-    FltUnregisterFilter(Globals.FilterHandle);
+	// unregister all callbacks
+	FltUnregisterFilter(Globals.FilterHandle);
 
+	// destroy the queue andb basic probe classes
+	if (NULL != pPDQ)
+	{
+		delete pPDQ;
+	}
+	if (NULL != pILP)
+	{
+		pILP->Disable();
+		delete pILP;
+	}
+	if (NULL != pPCP)
+	{
+		pPCP->Disable();
+		delete pPCP;
+	}
+    
 	// we've made, all is well
 	Status = STATUS_SUCCESS;
 

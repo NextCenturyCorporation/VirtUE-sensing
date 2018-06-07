@@ -48,7 +48,7 @@ NTSTATUS FLTAPI WVUPortConnect(
 _Use_decl_annotations_
 VOID FLTAPI WVUPortDisconnect(
 	PVOID ConnectionCookie)
-{
+{	
 	UNREFERENCED_PARAMETER(ConnectionCookie);
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Disconnected - Port 0x%p!\n", Globals.ClientPort);
@@ -190,15 +190,14 @@ NTSTATUS OnCommandMessage(
 * @param ReturnOutputBufferLength Pointer to a caller-allocated variable that receives the number of bytes returned in the buffer that OutputBuffer points to.
 * @retval the driver entry's returned status
 */
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 NTSTATUS FLTAPI WVUMessageNotify(
-	_In_ PVOID PortCookie,
-	_In_reads_bytes_opt_(InputBufferLength) PVOID InputBuffer,
-	_In_ ULONG InputBufferLength,
-	_Out_writes_bytes_opt_(OutputBufferLength) PVOID OutputBuffer,
-	_In_ ULONG OutputBufferLength,
-	_Out_ _Notnull_ PULONG ReturnOutputBufferLength)
+	PVOID PortCookie,
+	PVOID InputBuffer,
+	ULONG InputBufferLength,
+	PVOID OutputBuffer,
+	ULONG OutputBufferLength,
+	PULONG ReturnOutputBufferLength)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	UNREFERENCED_PARAMETER(PortCookie);

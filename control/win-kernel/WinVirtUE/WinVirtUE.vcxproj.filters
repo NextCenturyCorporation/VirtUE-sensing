@@ -89,6 +89,12 @@
     <ClCompile Include="ProbeDataQueue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ImageLoadProbe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessCreateProbe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CPPRuntime\CPPRuntime.h">
@@ -142,9 +148,6 @@
     <ClInclude Include="WinVirtUE.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ObjectCreateNotifyCB.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="RegistryModificationCB.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -155,6 +158,15 @@
       <Filter>Header Files\Common</Filter>
     </ClInclude>
     <ClInclude Include="ProbeDataQueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImageLoadProbe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectCreateNotifyCB.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessCreateProbe.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

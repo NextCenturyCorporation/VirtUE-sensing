@@ -22,3 +22,6 @@
 #define WVU_OBSIDIANWAVE_POOL_TAG           'vwbo'
 #define WVU_DRIVER_POOL_TAG					'rvrd'
 #define WVU_PROBEDATAQUEUE_POOL_TAG         'qdrp'
+#define WVU_IMAGELOADPROBE_POOL_TAG         'bpli'
+#define WVU_PROCESSCTORDTORPROBE_POOL_TAG   'corp'
+#define WVU_ABSTRACTPROBE_POOL_TAG	        'ebrp'
