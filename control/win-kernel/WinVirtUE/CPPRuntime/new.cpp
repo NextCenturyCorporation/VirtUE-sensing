@@ -32,7 +32,6 @@ PVOID CDECL operator new(_In_ size_t lBlockSize)
 /// @returns pointer to newly allocated memory
 /////////////////////////////////////////////////////////////////////
 __drv_allocatesMem(object)
-
 PVOID CDECL operator new[](_In_ size_t lBlockSize)
 {
     PVOID pVoid = NULL;
