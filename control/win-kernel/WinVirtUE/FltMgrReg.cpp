@@ -37,7 +37,6 @@ CONST FLT_REGISTRATION FilterRegistration = {
 	OperationCallbacks,                 //  Operation callbacks
 
     (PFLT_FILTER_UNLOAD_CALLBACK)WVUUnload,                              //  MiniFilterUnload
-
     (PFLT_INSTANCE_SETUP_CALLBACK)WVUInstanceSetup,                      //  InstanceSetup
     (PFLT_INSTANCE_QUERY_TEARDOWN_CALLBACK)WVUInstanceQueryTeardown,     //  InstanceQueryTeardown
     (PFLT_INSTANCE_TEARDOWN_CALLBACK)WVUInstanceTeardownStart,           //  InstanceTeardownStart
@@ -277,6 +276,8 @@ WVUUnload(
     FLT_FILTER_UNLOAD_FLAGS Flags)
 {
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	PKTHREAD pThread = NULL;
+
     UNREFERENCED_PARAMETER(Flags);
 
     if (FLTFL_FILTER_UNLOAD_MANDATORY == (FLTFL_FILTER_UNLOAD_MANDATORY & Flags))
@@ -292,26 +293,42 @@ WVUUnload(
     }
 
 	WVUDebugBreakPoint();
-    WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
-	pPDQ->TerminateLoop();
+	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
-    // cause the WVU Thread to proceed with object destruction
-    KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);
+	// cause the WVU Thread to proceed with object destruction
+	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);
+
+	Status = ObReferenceObjectByHandle(Globals.MainThreadHandle, (SYNCHRONIZE | DELETE), NULL, KernelMode, (PVOID*)&pThread, NULL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "ObReferenceObjectByHandle() Failed! - FAIL=%08x\n", Status);
+	}
+	else
+	{
+		Status = KeWaitForSingleObject((PVOID)pThread, KWAIT_REASON::Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed waiting for the Sensor Thread! Status=%08x\n", Status);
+		}
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Main Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pThread));
+		(VOID)ObDereferenceObject(pThread);
+	}
 
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
 
 	// destroy the queue andb basic probe classes
-	if (NULL != pILP)
-	{
-		pILP->Disable();
-		delete pILP;
-	}
 	if (NULL != pPCP)
 	{
-		pPCP->Disable();
+		NT_ASSERTMSG("Failed to disable the process create probe!", TRUE == pPCP->Disable());
 		delete pPCP;
+	}
+
+	if (NULL != pILP)
+	{
+		NT_ASSERTMSG("Failed to disable the image load probe!", TRUE == pILP->Disable());
+		delete pILP;
 	}
 
 	if (NULL != pFCM)

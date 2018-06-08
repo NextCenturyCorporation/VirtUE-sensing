@@ -168,6 +168,7 @@ typedef struct _WVUGlobals
     BOOLEAN EnableProtection;   // if true then the driver is protecting
 	PDRIVER_OBJECT DriverObject;	
 	BOOLEAN ShuttingDown;
+	HANDLE MainThreadHandle;
 } WVUGlobals, *PWVUGlobals;
 
 

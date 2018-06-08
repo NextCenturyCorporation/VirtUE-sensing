@@ -16,12 +16,13 @@ static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
 
 // Probe Data Queue operations
-class ProbeDataQueue *pPDQ;
+class ProbeDataQueue *pPDQ = nullptr;
 
 // Probes
 class ImageLoadProbe *pILP = nullptr;
 class ProcessCreateProbe *pPCP = nullptr;
 class FltrCommsMgr *pFCM = nullptr;
+
 /**
 * @brief Main initialization thread.
 * @note this thread remains active through out the lifetime of the driver
@@ -37,8 +38,10 @@ WVUMainThreadStart(PVOID StartContext)
 	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LONG Signaled = 0;
+	PKTHREAD pThread = NULL;
 
 	FLT_ASSERTMSG("WVUMainThreadStart must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);	
+
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -64,7 +67,8 @@ WVUMainThreadStart(PVOID StartContext)
 			"FltrCommsMgr not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	pFCM->Enable();
+	// Enable the filter comms manager
+	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == pFCM->Enable());
 
 	// Make ready the image load probe
 	pILP = new ImageLoadProbe();
@@ -75,9 +79,8 @@ WVUMainThreadStart(PVOID StartContext)
 			"ImageLoadProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
 	// Enable the image load probe
-	pILP->Enable();
+	NT_ASSERTMSG("Failed to enable the image load probe!", TRUE == pILP->Enable());
 
 	// Make ready the process create probe
 	pPCP = new ProcessCreateProbe();
@@ -88,9 +91,8 @@ WVUMainThreadStart(PVOID StartContext)
 			"ProcessCreateProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
 	// Enable the process create probe
-	pPCP->Enable();
+	NT_ASSERTMSG("Failed to enable the process create probe!", TRUE == pPCP->Enable());
 
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
@@ -98,6 +100,13 @@ WVUMainThreadStart(PVOID StartContext)
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	Status = ObReferenceObjectByHandle(SensorThreadHandle, (SYNCHRONIZE | DELETE), NULL, KernelMode, (PVOID*)&pThread, NULL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "ObReferenceObjectByHandle() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -160,12 +169,20 @@ WVUMainThreadStart(PVOID StartContext)
 		}
 	} while (Status == STATUS_ALERTED || Status == STATUS_USER_APC);  // don't bail if we get alerted or APC'd
 
+	pPDQ->TerminateLoop();
+	Status = KeWaitForSingleObject((PVOID)pThread, KWAIT_REASON::Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed waiting for the Sensor Thread! Status=%08x\n", Status);		
+	}	
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Sensor Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pThread));
+	(VOID)ObDereferenceObject(pThread);
+	ZwClose(SensorThreadHandle);
+	
 ErrorExit:
-
 	// Drop a rundown reference 
 	ExReleaseRundownProtection(&Globals.RunDownRef);
-	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Exiting Thread w/Status=0x%08x!\n", Status);
-	return;
+	PsTerminateSystemThread(Status);
 }
 
 /**
@@ -181,7 +198,7 @@ WVUSensorThread(PVOID StartContext)
 	const ULONG REPLYLEN = 128;
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER send_timeout = { 0LL };
-	send_timeout.QuadPart = RELATIVE(SECONDS(20)); 
+	send_timeout.QuadPart = RELATIVE(SECONDS(20));
 	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
@@ -190,7 +207,7 @@ WVUSensorThread(PVOID StartContext)
 	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
 	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Acquired rundown protection . . .\n");
-	
+
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 #pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
@@ -203,7 +220,7 @@ WVUSensorThread(PVOID StartContext)
 	}
 
 	do
-	{		
+	{
 		Status = pPDQ->WaitForQueueAndPortConnect();
 		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", pPDQ->Count());
 		if (FALSE == NT_SUCCESS(Status) || TRUE == Globals.ShuttingDown)
@@ -228,15 +245,15 @@ WVUSensorThread(PVOID StartContext)
 #pragma warning(suppress: 28193)  // message id will be inspected in the user space service
 		pPDH->MessageId = pPDQ->GetMessageId();
 		pPDH->ReplyLength = REPLYLEN;
-		SenderBufferLen = pPDH->DataSz;	
+		SenderBufferLen = pPDH->DataSz;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
 
-		if (FALSE == NT_SUCCESS(Status) || STATUS_TIMEOUT == Status) 
+		if (FALSE == NT_SUCCESS(Status) || STATUS_TIMEOUT == Status)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
-				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);			
+				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);
 			if (FALSE == pPDQ->PutBack(&pPDH->ListEntry)) // put the dequeued entry back
 			{
 				pPDQ->Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
@@ -254,8 +271,8 @@ WVUSensorThread(PVOID StartContext)
 	} while (FALSE == Globals.ShuttingDown);
 
 ErrorExit:
-	
-	if(NULL != ReplyBuffer)
+
+	if (NULL != ReplyBuffer)
 	{
 		FREE_POOL(ReplyBuffer);
 	}
@@ -263,6 +280,6 @@ ErrorExit:
 	// Drop a rundown reference 
 	ExReleaseRundownProtection(&Globals.RunDownRef);
 	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Exiting WVUSensorThread Thread w/Status=0x%08x!\n", Status);
-	
-	return;
+
+	PsTerminateSystemThread(Status);
 }

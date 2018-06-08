@@ -104,7 +104,6 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 
 	PEPROCESS  pProcess = NULL;
 
-
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 

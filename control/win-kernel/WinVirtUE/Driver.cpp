@@ -71,6 +71,8 @@ DriverUnload(
 
 	WVUDebugBreakPoint();
 
+	ZwClose(Globals.MainThreadHandle);
+
 	// destroy global object instances
 	CallGlobalDestructors();
 	
@@ -95,8 +97,7 @@ DriverEntry(
 {
 	UNREFERENCED_PARAMETER(RegistryPath);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };	
-	HANDLE MainThreadHandle = (HANDLE)-1;
+	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };		
 	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
 
 
@@ -141,14 +142,14 @@ DriverEntry(
 	
 	InitializeObjectAttributes(&MainThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
+	Status = PsCreateSystemThread(&Globals.MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Main thread %p process %p thread id %p\n",
-		MainThreadHandle, MainClientId.UniqueProcess, MainClientId.UniqueThread);
+		Globals.MainThreadHandle, MainClientId.UniqueProcess, MainClientId.UniqueThread);
 
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
 	if (FALSE == NT_SUCCESS(Status))

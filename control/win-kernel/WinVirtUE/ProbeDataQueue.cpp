@@ -92,12 +92,15 @@ ProbeDataQueue::dtor_exc_filter(
 */
 ProbeDataQueue::~ProbeDataQueue()
 {
-	this->Enabled = FALSE;
 
-	// Cause the Multiple Event Water to proceed in the loop and exit
-	SemaphoreRelease();
+	PLIST_ENTRY pListEntry = this->PDQueue.Flink;
 
-	KeSetEvent((PRKEVENT)this->PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE);  // Signaled when Port is Connected
+	while(NULL != pListEntry && pListEntry != &this->PDQueue)
+	{
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		pListEntry = pListEntry->Flink;
+		delete[](PUCHAR)pPDH;		
+	}
 
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])
 	{
@@ -110,6 +113,8 @@ ProbeDataQueue::~ProbeDataQueue()
 		FREE_POOL(this->PDQEvents[ProbeDataSemEmptyQueue]);
 		this->PDQEvents[ProbeDataSemEmptyQueue] = NULL;
 	}
+
+	this->Enabled = FALSE;
 }
 
 /**
