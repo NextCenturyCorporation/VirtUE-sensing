@@ -37,11 +37,6 @@ enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
 
-#define NUM_COMMANDS 12
-enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
-					  LOW, DEFAULT, HIGH, ADVERSARIAL, RESET,
-					  RECORDS};
-
 #define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
 /**
  * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
@@ -435,9 +430,10 @@ process_records_request(struct jsmn_message *msg, int index)
 
 	if (!ccode && probe_p != NULL) {
 		uint8_t *buf = NULL;
+		ssize_t len;
 
         /* send this probe a records request */
-		probe_p->rcv_msg(probe_p, RECORDS, (void **)&buf);
+		probe_p->rcv_msg_from_probe(probe_p, RECORDS, (void **)&buf, &len);
 
 		goto out_unlock;
 	}

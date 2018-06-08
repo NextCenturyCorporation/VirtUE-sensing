@@ -759,6 +759,20 @@ void  run_kps_probe(struct kthread_work *work)
  *
  **/
 
+/**
+ * probe is RECEIVING the message
+ **/
+
+
+extern int
+default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len);
+
+extern int
+default_rcv_msg_from(struct probe *probe,
+					 int msg,
+					 void **out_buf,
+					 ssize_t *len);
+
 struct probe *init_probe(struct probe *probe,
 						 uint8_t *id, int id_size)
 {
@@ -768,6 +782,8 @@ struct probe *init_probe(struct probe *probe,
 	INIT_LIST_HEAD_RCU(&probe->l_node);
 	probe->init =  init_probe;
 	probe->destroy = destroy_probe;
+	probe->send_msg_to_probe = default_send_msg_to;
+	probe->rcv_msg_from_probe = default_rcv_msg_from;
 	if (id && id_size > 0) {
 		probe->id = kzalloc(id_size, GFP_KERNEL);
 		if (!probe->id) {

@@ -40,6 +40,17 @@ enum json_array_chars {
 	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d
 };
 
+#define NUM_COMMANDS 12
+enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
+					  LOW, DEFAULT, HIGH, ADVERSARIAL, RESET,
+					  RECORDS};
+
+/* max message header size */
+#define CONNECTION_MAX_HEADER 0x400
+#define CONNECTION_MAX_REQUEST CONNECTION_MAX_HEADER
+#define CONNECTION_MAX_MESSAGE 0x1000
+#define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
+
 static inline void sleep(unsigned sec)
 {
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
@@ -227,6 +238,7 @@ static inline void task_cputime(struct task_struct *t,
    structures.
 
 **/
+
 struct probe {
 	union {
 		spinlock_t lock;
@@ -235,8 +247,8 @@ struct probe {
 	uint8_t *id;
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
-	int (*send_msg)(struct probe *, int, void *);
-	int (*rcv_msg)(struct probe *, int, void **);
+	int (*send_msg_to_probe)(struct probe *, int, void *, ssize_t);
+	int (*rcv_msg_from_probe)(struct probe *, int, void **, ssize_t *);
 	int (*start_stop)(struct probe *, uint64_t flags);
 	uint64_t flags;  /* expect that flags will contain level bits */
 	int timeout, repeat;
@@ -244,6 +256,36 @@ struct probe {
 	struct kthread_work work;
 	struct list_head l_node;
 };
+
+
+inline int
+default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len)
+{
+	assert(probe && in_buf);
+
+	if (msg < CONNECT || msg > RECORDS || len < 0 || len > CONNECTION_MAX_MESSAGE) {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+inline int
+default_rcv_msg_from(struct probe *probe,
+					 int msg,
+					 void **out_buf,
+					 ssize_t *len)
+{
+	assert(probe && out_buf && len);
+
+	if (msg < CONNECT || msg > RECORDS ) {
+		return -EINVAL;
+	}
+
+	*len = 0;
+	*out_buf = NULL;
+	return 0;
+}
 
 int
 get_probe(uint8_t *probe_id, struct probe **p);
@@ -284,11 +326,7 @@ get_probe(uint8_t *probe_id, struct probe **p);
  * struct socket: include/linux/net.h: 110
  **/
 
-/* max message header size */
-#define CONNECTION_MAX_HEADER 0x400
-#define CONNECTION_MAX_REQUEST CONNECTION_MAX_HEADER
-#define CONNECTION_MAX_MESSAGE 0x1000
-#define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
+
 /* connection struct is used for both listening and connected sockets */
 /* function pointers for listen, accept, close */
 struct connection {
