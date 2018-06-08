@@ -324,38 +324,6 @@ free_session(struct jsmn_session *s)
 }
 
 
-
-/**
- * assumes: we have already attached the message to
- * a session
- **/
-/**
- * NOTE: records replies won't work with this as written
- * it is a server request processor
- **/
-static inline int
-process_records_cmd(struct jsmn_message *m, int index)
-{
-	/**
-	 * every record command must be targeted to a probe id
-	 * the id may be a wildcard, we assume the command
-	 * and id are both stored in the message struct
-	 **/
-
-	if (m->type == REQUEST) {
-		/* here is where to call in to the probe */
-		printk(KERN_INFO "Dispatching a record request to %s, %s\n",
-			   m->s->probe_id, m->s->nonce);
-		return 0;
-	}
-
-	return 0;
-
-}
-STACK_FRAME_NON_STANDARD(process_records_cmd);
-
-
-
 /**
  * assumes: we have already attached the message to
  * a session.
