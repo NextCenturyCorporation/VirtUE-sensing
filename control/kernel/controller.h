@@ -276,6 +276,7 @@ default_rcv_msg_from(struct probe *probe,
 					 void **out_buf,
 					 ssize_t *len)
 {
+
 	assert(probe && out_buf && len);
 
 	if (msg < CONNECT || msg > RECORDS ) {

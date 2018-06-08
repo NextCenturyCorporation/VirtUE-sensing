@@ -411,6 +411,40 @@ err_out:
  *  int flex_array_clear(struct flex_array *array, unsigned int element_nr);
  **/
 
+
+static inline struct jsmn_message *
+allocate_reply_message(struct jsmn_message *request)
+{
+	struct jsmn_message *rply = NULL;
+
+	rply = kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
+	if (!rply) {
+		return NULL;
+	}
+	rply->line = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (!rply->line) {
+		goto err_out_rply;
+	}
+	/**
+	 * copy some fields from the request msg to the rply msg
+	 **/
+	/* session */
+	rply->s = request->s;
+	/* socket */
+	rply->socket = request->socket;
+	return rply;
+
+err_out_rply:
+	kfree(rply);
+	return NULL;
+}
+
+static inline ssize_t
+rem_line(uint8_t *str, ssize_t sz)
+{
+	return sz - strnlen(str, sz);
+}
+
 /**
  * Records request:
  * find the struct probe, run it, read the flex array, clear each
@@ -422,7 +456,8 @@ process_records_request(struct jsmn_message *msg, int index)
 {
 	int ccode = 0;
 	struct probe *probe_p = NULL;
-
+	struct jsmn_message *records_reply = NULL;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
 
 	do {
 		ccode = get_probe(msg->s->probe_id, &probe_p);
@@ -430,18 +465,88 @@ process_records_request(struct jsmn_message *msg, int index)
 
 	if (!ccode && probe_p != NULL) {
 		uint8_t *buf = NULL;
-		ssize_t len;
+		ssize_t len = 0;
 
+		/**
+		 * TODO:
+		 * call the probe in a loop until we have all the record replies
+		 **/
         /* send this probe a records request */
-		probe_p->rcv_msg_from_probe(probe_p, RECORDS, (void **)&buf, &len);
+		ccode = probe_p->rcv_msg_from_probe(probe_p, RECORDS, (void **)&buf, &len);           /* now unlock the probe */
+		spin_unlock(&probe_p->lock);
 
-		goto out_unlock;
+		if (!ccode && buf && len > 0) {
+			records_reply = allocate_reply_message(msg);
+			if (records_reply) {
+            /* now build and send the reply response */
+				unsigned long replies_flag;
+				ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
+				ssize_t remaining = orig_len;
+            /* "{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 1] }\n" */
+
+				strncat(records_reply->line, r_header, remaining);
+				remaining = rem_line(records_reply->line, orig_len);
+				if (remaining <= len + 4) {
+					goto out_records_reply;
+				}
+
+				strncat(records_reply->line, records_reply->s->nonce, remaining);
+				remaining = rem_line(records_reply->line, orig_len);
+				if (remaining <= len + 4) {
+					goto out_records_reply;
+				}
+
+				strncat(records_reply->line, ", ", remaining);
+				remaining = rem_line(records_reply->line, orig_len);
+				if (remaining <= len + 4) {
+					goto out_records_reply;
+				}
+
+				strncat(records_reply->line, probe_p->id, remaining);
+				remaining = rem_line(records_reply->line, orig_len);
+				if (remaining <= len + 4) {
+					goto out_records_reply;
+				}
+
+				strncat(records_reply->line, ", ", remaining);
+				remaining = rem_line(records_reply->line, orig_len);
+				if (remaining <= len + 4) {
+					goto out_records_reply;
+				}
+
+				strncat(records_reply->line, buf,
+						(remaining < len) ? remaining: len);
+				remaining = rem_line(records_reply->line, orig_len);
+
+				strncat(records_reply->line, "] }", remaining);
+				records_reply->line = add_nl_at_end(records_reply->line,
+												strlen(records_reply->line));
+				/**
+				 * link the discovery reply message to the session
+				 **/
+				spin_lock_irqsave(&records_reply->s->sl, replies_flag);
+				list_add_tail_rcu(&records_reply->e_messages,
+								  &records_reply->s->h_replies);
+				spin_unlock_irqrestore(&records_reply->s->sl, replies_flag);
+
+				/**
+				 * write the reply message to the socket, then free the session
+				 **/
+				ccode = k_socket_write(records_reply->socket,
+									   strlen(records_reply->line) + 1,
+									   records_reply->line,
+									   0L);
+				goto out_session;
+			}
+		}
+
 	}
-out_unlock:
-	spin_unlock(&probe_p->lock);
-	return ccode;
+out_records_reply:
+	free_message(records_reply);
+out_session:
+	free_session(msg->s);
+	return COMPLETE;
 }
-
 
 static int
 process_discovery_request(struct jsmn_message *m, int index)
@@ -505,21 +610,22 @@ process_discovery_request(struct jsmn_message *m, int index)
 	     * '{Virtue-protocol-verion: 0.1, reply: [nonce, discovery, [probe ids]] }\n'
 	     **/
 		unsigned long replies_flag;
-		size_t remaining = CONNECTION_MAX_HEADER - 1;
+		ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
+		ssize_t remaining = orig_len;
 		strncat(reply_msg->line, r_header, remaining);
-		remaining -= strlen(reply_msg->line);
+		remaining = rem_line(reply_msg->line, orig_len);
 		if (remaining <= probe_ids_len + 4) {
 			goto out_reply_msg;
 		}
 
 		strncat(reply_msg->line, reply_msg->s->nonce, remaining);
-		remaining -= strlen(reply_msg->line);
+		remaining = rem_line(reply_msg->line, orig_len);
 		if (remaining <= probe_ids_len + 4) {
 			goto out_reply_msg;
 		}
 
 		strncat(reply_msg->line, ", discovery, ", remaining);
-		remaining -= strlen(reply_msg->line);
+		remaining = rem_line(reply_msg->line, orig_len);
 		if (remaining <= probe_ids_len + 4) {
 			goto out_reply_msg;
 		}
