@@ -439,17 +439,24 @@ err_out_rply:
 	return NULL;
 }
 
-static inline ssize_t
-rem_line(uint8_t *str, ssize_t sz)
-{
-	return sz - strnlen(str, sz);
-}
-
 /**
  * Records request:
  * find the struct probe, run it, read the flex array, clear each
  * array element after its read.
  **/
+
+static inline ssize_t
+add_to_line(uint8_t *line, uint8_t *concat, ssize_t max)
+{
+	ssize_t  add, existing;
+
+	existing = strnlen(line, max);
+	add = strnlen(concat, max - existing);
+	strncat(line, concat, add);
+	return max - (existing + add);
+}
+
+
 
 static int
 process_records_request(struct jsmn_message *msg, int index)
@@ -478,47 +485,33 @@ process_records_request(struct jsmn_message *msg, int index)
 		if (!ccode && buf && len > 0) {
 			records_reply = allocate_reply_message(msg);
 			if (records_reply) {
-            /* now build and send the reply response */
+				/* now build and send the reply response */
 				unsigned long replies_flag;
 				ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
 				ssize_t remaining = orig_len;
-            /* "{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 1] }\n" */
+				/* "{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 1] }\n" */
 
-				strncat(records_reply->line, r_header, remaining);
-				remaining = rem_line(records_reply->line, orig_len);
-				if (remaining <= len + 4) {
-					goto out_records_reply;
-				}
+				remaining = add_to_line(records_reply->line, r_header, orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
 
-				strncat(records_reply->line, records_reply->s->nonce, remaining);
-				remaining = rem_line(records_reply->line, orig_len);
-				if (remaining <= len + 4) {
-					goto out_records_reply;
-				}
+				remaining = add_to_line(records_reply->line,
+										records_reply->s->nonce,
+										orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
 
-				strncat(records_reply->line, ", ", remaining);
-				remaining = rem_line(records_reply->line, orig_len);
-				if (remaining <= len + 4) {
-					goto out_records_reply;
-				}
+				remaining = add_to_line(records_reply->line, ", ", orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
 
-				strncat(records_reply->line, probe_p->id, remaining);
-				remaining = rem_line(records_reply->line, orig_len);
-				if (remaining <= len + 4) {
-					goto out_records_reply;
-				}
+				remaining = add_to_line(records_reply->line, probe_p->id, orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
 
-				strncat(records_reply->line, ", ", remaining);
-				remaining = rem_line(records_reply->line, orig_len);
-				if (remaining <= len + 4) {
-					goto out_records_reply;
-				}
+				remaining = add_to_line(records_reply->line, ", ", orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
 
-				strncat(records_reply->line, buf,
-						(remaining < len) ? remaining: len);
-				remaining = rem_line(records_reply->line, orig_len);
+				remaining = add_to_line(records_reply->line, buf, orig_len);
 
-				strncat(records_reply->line, "] }", remaining);
+				strncat(records_reply->line, buf, len);
+				strcat(records_reply->line, "] }");
 				records_reply->line = add_nl_at_end(records_reply->line,
 												strlen(records_reply->line));
 				/**
@@ -611,32 +604,27 @@ process_discovery_request(struct jsmn_message *m, int index)
 	     **/
 		unsigned long replies_flag;
 		ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
-		ssize_t remaining = orig_len;
-		strncat(reply_msg->line, r_header, remaining);
-		remaining = rem_line(reply_msg->line, orig_len);
+		ssize_t remaining = add_to_line(reply_msg->line, r_header, orig_len);
 		if (remaining <= probe_ids_len + 4) {
 			goto out_reply_msg;
 		}
 
-		strncat(reply_msg->line, reply_msg->s->nonce, remaining);
-		remaining = rem_line(reply_msg->line, orig_len);
+		remaining = add_to_line(reply_msg->line, reply_msg->s->nonce, orig_len);
 		if (remaining <= probe_ids_len + 4) {
 			goto out_reply_msg;
 		}
 
-		strncat(reply_msg->line, ", discovery, ", remaining);
-		remaining = rem_line(reply_msg->line, orig_len);
+		remaining = add_to_line(reply_msg->line, ", discovery, ", orig_len);
 		if (remaining <= probe_ids_len + 4) {
 			goto out_reply_msg;
 		}
 
-		strncat(reply_msg->line, probe_ids, remaining);
-		remaining -= strlen(reply_msg->line);
+		remaining = add_to_line(reply_msg->line, probe_ids, orig_len);
 		if (remaining <= 4) {
 			goto out_reply_msg;
 		}
 
-		strncat(reply_msg->line, "] }", remaining);
+		strcat(reply_msg->line, "] }");
 		reply_msg->line = add_nl_at_end(reply_msg->line, strlen(reply_msg->line));
 		/**
 		 * link the discovery reply message to the session
