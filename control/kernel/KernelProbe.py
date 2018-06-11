@@ -100,13 +100,9 @@ class KernelProbe:
     def send_records_message(self):
         try:
             message_header = "{Virtue-protocol-version: 0.1, request: ["
-            print >> sys.stderr, "%s" % message_header
             message_nonce = uuid.uuid4().hex
-            print >> sys.stderr, "%s" % message_nonce
             message_command = ", records, "
-            print >> sys.stderr, "%s" % message_command
             message_footer = "]}"
-            print >> sys.stderr, "%s" % message_footer
             print >> sys.stderr, 'sending "%s%s%s%s%s"' \
                 %(message_header, message_nonce, message_command, \
                   self.target_probe, message_footer)
