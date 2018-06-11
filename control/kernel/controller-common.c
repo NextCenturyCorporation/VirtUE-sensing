@@ -433,8 +433,8 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 	}
 
 	if (! spin_trylock(&parent->lock)) {
-		ccode = -EAGAIN;
-		goto out_free_record;
+		kfree(*json_record);
+		return -EAGAIN;
 	}
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
@@ -453,7 +453,10 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 				   "%s %d %s [%d] [%d] [%llx]\n",
 				   tag, index, kpsd_p->comm, kpsd_p->pid_nr,
 				   kpsd_p->user_id.val, nonce);
-	*json_record = krealloc(*json_record, len + 1, GFP_KERNEL);
+
+	if (len < CONNECTION_MAX_HEADER - 1) {
+		*json_record = krealloc(*json_record, len, GFP_KERNEL);
+	}
 
 	goto out_unlock;
 
