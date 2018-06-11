@@ -7,16 +7,24 @@
 #pragma once
 #include "common.h"
 #include "externs.h"
+
+
+#undef _HAS_EXCEPTIONS
+#include <new.h>
+#include <cstddef>
+
 class AbstractVirtueProbe
 {
 protected:
 	BOOLEAN Enabled;
 public:
-	AbstractVirtueProbe();
-	virtual ~AbstractVirtueProbe();
+	AbstractVirtueProbe() : Enabled(FALSE) {}
+	virtual ~AbstractVirtueProbe() = default;
 	/* Enable the probe - required functionality */
+	_Success_(TRUE == return)
 	virtual BOOLEAN Enable() = 0;
 	/* Disable the probe - required functionality */
+	_Success_(TRUE == return)
 	virtual BOOLEAN Disable() = 0;
 	/* Determine probe state where TRUE is enabled else FALSE is disabled */
 	_Must_inspect_result_
@@ -34,3 +42,4 @@ public:
 	VOID CDECL operator delete(_In_ PVOID ptr);
 };
 
+// C26439, C26433, C26432, C26403, C26401

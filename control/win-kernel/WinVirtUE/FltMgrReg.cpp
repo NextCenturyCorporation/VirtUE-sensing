@@ -5,6 +5,7 @@
 */
 #include "FltMgrReg.h"
 #include "ProcessCreateProbe.h"
+#include "FltrCommsMgr.h"
 #include "ImageLoadProbe.h"
 #include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_FLT_REG_POOL_TAG
@@ -21,6 +22,7 @@
 //  This defines what we want to filter with FltMgr
 //
 
+#pragma warning(suppress: 26485)  // false positive, cannot decay if it's not an array
 CONST FLT_REGISTRATION FilterRegistration = {
 
     sizeof(FLT_REGISTRATION),         //  Size
@@ -35,7 +37,6 @@ CONST FLT_REGISTRATION FilterRegistration = {
 	OperationCallbacks,                 //  Operation callbacks
 
     (PFLT_FILTER_UNLOAD_CALLBACK)WVUUnload,                              //  MiniFilterUnload
-
     (PFLT_INSTANCE_SETUP_CALLBACK)WVUInstanceSetup,                      //  InstanceSetup
     (PFLT_INSTANCE_QUERY_TEARDOWN_CALLBACK)WVUInstanceQueryTeardown,     //  InstanceQueryTeardown
     (PFLT_INSTANCE_TEARDOWN_CALLBACK)WVUInstanceTeardownStart,           //  InstanceTeardownStart
@@ -127,7 +128,7 @@ QueryVolumeName(
     {
         InstanceContext->VolumeName.Length = (USHORT)VolumeInformation->VolumeLabelLength;
         InstanceContext->VolumeName.MaximumLength = InstanceContext->VolumeName.Length;
-        InstanceContext->VolumeName.Buffer = VolumeInformation->VolumeLabel;
+        InstanceContext->VolumeName.Buffer = &VolumeInformation->VolumeLabel[0];
         InstanceContext->AllocatedVolumeName = TRUE;
     }
     else
@@ -171,7 +172,7 @@ QueryVolumeInformation(
 
     ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
 
-    VolumeInformation = (PFILE_FS_VOLUME_INFORMATION)&VolumeInfoStack;
+    VolumeInformation = (PFILE_FS_VOLUME_INFORMATION)&VolumeInfoStack[0];
 
     Status = FltQueryVolumeInformation(
         FltObjects->Instance,
@@ -269,11 +270,14 @@ QueryVolumeInformation(
 * @param Flags Indicating if this is a mandatory unload
 * @retval this operations callback status
 */
+_Use_decl_annotations_
 NTSTATUS
 WVUUnload(
-    _In_ FLT_FILTER_UNLOAD_FLAGS Flags)
+    FLT_FILTER_UNLOAD_FLAGS Flags)
 {
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	PKTHREAD pThread = NULL;
+
     UNREFERENCED_PARAMETER(Flags);
 
     if (FLTFL_FILTER_UNLOAD_MANDATORY == (FLTFL_FILTER_UNLOAD_MANDATORY & Flags))
@@ -289,53 +293,54 @@ WVUUnload(
     }
 
 	WVUDebugBreakPoint();
-    WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
-	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	
-    if (NULL != Globals.ClientPort)
-    {
-        // close our handle to the connection 
-        FltCloseClientPort(Globals.FilterHandle, &Globals.ClientPort);
-        Globals.ClientPort = NULL;
-    }
+	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
 
-	// the next two instructions will cause the consumer loop to terminate
-	pPDQ->SemaphoreRelease();
-	pPDQ->OnConnect();
+	// cause the WVU Thread to proceed with object destruction
+	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);
 
-    // close the server port
-    FltCloseCommunicationPort(Globals.WVUServerPort);
-    Globals.WVUServerPort = NULL;
-
-    // cause the WVU Thread to proceed with object destruction
-    KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);
-
-    // disable all protection
-    Globals.EnableProtection = FALSE;
+	Status = ObReferenceObjectByHandle(Globals.MainThreadHandle, (SYNCHRONIZE | DELETE), NULL, KernelMode, (PVOID*)&pThread, NULL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "ObReferenceObjectByHandle() Failed! - FAIL=%08x\n", Status);
+	}
+	else
+	{
+		Status = KeWaitForSingleObject((PVOID)pThread, KWAIT_REASON::Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed waiting for the Sensor Thread! Status=%08x\n", Status);
+		}
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Main Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pThread));
+		(VOID)ObDereferenceObject(pThread);
+	}
 
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
 
-	// unregister all callbacks
-	FltUnregisterFilter(Globals.FilterHandle);
-
 	// destroy the queue andb basic probe classes
+	if (NULL != pPCP)
+	{
+		NT_ASSERTMSG("Failed to disable the process create probe!", TRUE == pPCP->Disable());
+		delete pPCP;
+	}
+
+	if (NULL != pILP)
+	{
+		NT_ASSERTMSG("Failed to disable the image load probe!", TRUE == pILP->Disable());
+		delete pILP;
+	}
+
+	if (NULL != pFCM)
+	{
+		pFCM->Disable();
+		delete pFCM;
+	}
+
 	if (NULL != pPDQ)
 	{
 		delete pPDQ;
 	}
-	if (NULL != pILP)
-	{
-		pILP->Disable();
-		delete pILP;
-	}
-	if (NULL != pPCP)
-	{
-		pPCP->Disable();
-		delete pPCP;
-	}
-    
 	// we've made, all is well
 	Status = STATUS_SUCCESS;
 
@@ -352,12 +357,13 @@ Error:
 * @param VolumeFilesystemType File system type of the volume
 * @return returns STATUS_SUCCESS or STATUS_FLT_DO_NOT_ATTACH
 */
+_Use_decl_annotations_
 NTSTATUS
 WVUInstanceSetup(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_SETUP_FLAGS Flags,
-    _In_ DEVICE_TYPE VolumeDeviceType,
-    _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType)
+    PCFLT_RELATED_OBJECTS FltObjects,
+    FLT_INSTANCE_SETUP_FLAGS Flags,
+    DEVICE_TYPE VolumeDeviceType,
+    FLT_FILESYSTEM_TYPE VolumeFilesystemType)
 {
     PWVU_INSTANCE_CONTEXT InstanceContext = NULL;
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
@@ -468,6 +474,7 @@ Done:
 * @param Flags Indicating where this detach request came from
 * @return status of this operation
 */
+_Use_decl_annotations_
 NTSTATUS
 WVUInstanceQueryTeardown(
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
@@ -490,10 +497,11 @@ WVUInstanceQueryTeardown(
 * opaque handles to this filter, instance and its associated volume
 * @param Flags Reason why this instance is being deleted.
 */
+_Use_decl_annotations_
 VOID
 WVUInstanceTeardownStart(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags)
+    PCFLT_RELATED_OBJECTS FltObjects,
+    FLT_INSTANCE_TEARDOWN_FLAGS Flags)
 {
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
     PWVU_INSTANCE_CONTEXT InstanceContext = NULL;
@@ -542,10 +550,11 @@ Done:
 * opaque handles to this filter, instance and its associated volume
 * @param Flags Reason why this instance is being deleted.
 */
+_Use_decl_annotations_
 VOID
 WVUInstanceTeardownComplete(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags)
+    PCFLT_RELATED_OBJECTS FltObjects,
+    FLT_INSTANCE_TEARDOWN_FLAGS Flags)
 {
     NTSTATUS Status = STATUS_UNSUCCESSFUL;
     PWVU_INSTANCE_CONTEXT InstanceContext = NULL;
@@ -590,14 +599,15 @@ Done:
 * @param FileName A pointer to a filter manager-allocated FLT_NAME_CONTROL structure to receive the file name on output
 * @returns returns STATUS_SUCCESS or an appropriate NTSTATUS value
 */
+_Use_decl_annotations_
 NTSTATUS 
 WVUGenerateFileNameCallback(
-    __in   PFLT_INSTANCE Instance,
-    __in   PFILE_OBJECT FileObject,
-    __in_opt PFLT_CALLBACK_DATA CallbackData,
-    __in   FLT_FILE_NAME_OPTIONS NameOptions,
-    __out   PBOOLEAN CacheFileNameInformation,
-    __out   PFLT_NAME_CONTROL FileName)
+      PFLT_INSTANCE Instance,
+      PFILE_OBJECT FileObject,
+      PFLT_CALLBACK_DATA CallbackData,
+      FLT_FILE_NAME_OPTIONS NameOptions,
+      PBOOLEAN CacheFileNameInformation,
+      PFLT_NAME_CONTROL FileName)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PFLT_FILE_NAME_INFORMATION belowFileName = NULL;    
@@ -733,17 +743,18 @@ WVUGenerateFileNameCallback(
 * @param NormalizationContextPointer to minifilter driver-provided context information to be passed in any subsequent calls to this callback routine that are made to normalize the remaining components in the same file name path
 * @returns returns STATUS_SUCCESS or an appropriate NTSTATUS value
 */
+_Use_decl_annotations_
 NTSTATUS
 WVUNormalizeNameComponentExCallback(
-    _In_ PFLT_INSTANCE Instance,
-    _In_ PFILE_OBJECT FileObject,
-    _In_ PCUNICODE_STRING ParentDirectory,
-    _In_ USHORT VolumeNameLength,
-    _In_ PCUNICODE_STRING Component,
-    _Out_writes_bytes_(ExpandComponentNameLength) PFILE_NAMES_INFORMATION ExpandComponentName,
-    _In_ ULONG ExpandComponentNameLength,
-    _In_ FLT_NORMALIZE_NAME_FLAGS Flags,
-    _Inout_ PVOID *NormalizationContext)
+    PFLT_INSTANCE Instance,
+    PFILE_OBJECT FileObject,
+    PCUNICODE_STRING ParentDirectory,
+    USHORT VolumeNameLength,
+    PCUNICODE_STRING Component,
+    PFILE_NAMES_INFORMATION ExpandComponentName,
+    ULONG ExpandComponentNameLength,
+    FLT_NORMALIZE_NAME_FLAGS Flags,
+    PVOID *NormalizationContext)
 {
     NTSTATUS status = STATUS_SUCCESS;
     HANDLE parentDirHandle = NULL;

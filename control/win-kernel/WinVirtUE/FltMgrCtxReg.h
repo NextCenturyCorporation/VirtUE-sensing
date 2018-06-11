@@ -25,7 +25,8 @@ PVOID StreamContextAllocate(
 _Success_(NULL != return)
 _Must_inspect_result_
 _IRQL_requires_max_(APC_LEVEL)
-_IRQL_raises_(APC_LEVEL)
+_Requires_lock_not_held_(pStreamContext->ProbeDataHeader.Resource)
+_Acquires_exclusive_lock_(pStreamContext->ProbeDataHeader.Resource)
 PWVU_STREAM_CONTEXT
 CreateStreamContext(
     _In_ PFLT_CALLBACK_DATA          Data,
@@ -34,9 +35,12 @@ CreateStreamContext(
     _In_ LARGE_INTEGER               FileId,
     _Out_ PNTSTATUS                  Status);
 
+_IRQL_requires_max_(APC_LEVEL)
+_Requires_lock_held_(pStreamContext->ProbeDataHeader.Resource)
+_Releases_lock_(pStreamContext->ProbeDataHeader.Resource)
 VOID
 StreamContextCleanup(
-    _In_ PVOID pVoid,
+    _In_ PVOID pContext,
     _In_ FLT_CONTEXT_TYPE ContextType);
 
 VOID

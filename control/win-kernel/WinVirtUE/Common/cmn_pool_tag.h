@@ -25,3 +25,4 @@
 #define WVU_IMAGELOADPROBE_POOL_TAG         'bpli'
 #define WVU_PROCESSCTORDTORPROBE_POOL_TAG   'corp'
 #define WVU_ABSTRACTPROBE_POOL_TAG	        'ebrp'
+#define WVU_FLTCOMMSMGR_POOL_TAG            'mocf'

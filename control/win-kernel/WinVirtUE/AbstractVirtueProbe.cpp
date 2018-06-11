@@ -7,26 +7,25 @@
 #include "AbstractVirtueProbe.h"
 #define COMMON_POOL_TAG WVU_ABSTRACTPROBE_POOL_TAG
 
-AbstractVirtueProbe::AbstractVirtueProbe() : Enabled(FALSE)
-{
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "AbstractVirtueProbe ctor called!\n")
-}
+#pragma warning(suppress: 26439)
 
-
-AbstractVirtueProbe::~AbstractVirtueProbe()
-{
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "AbstractVirtueProbe vdtor called!\n")
-}
-
-
+/**
+* @brief construct an instance of this object utilizing non paged pool memory
+* @return pListEntry an item that was on the probe data queue for further processing
+*/
 _Use_decl_annotations_
 PVOID
 AbstractVirtueProbe::operator new(size_t size)
 {
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
 	return pVoid;
 }
 
+/**
+* @brief destroys an instance of this object and releases its memory
+* @param ptr pointer to the object instance to be destroyed
+*/
 _Use_decl_annotations_
 VOID CDECL
 AbstractVirtueProbe::operator delete(PVOID ptr)

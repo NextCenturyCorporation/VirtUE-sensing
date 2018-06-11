@@ -147,6 +147,7 @@ PVOID InstanceContextAllocate(
     /*
     * Allocate the actual stream context.
     */
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
     pVoid = ExAllocatePoolWithTag(NonPagedPool, Size, INSTANCECONTEXT_POOL_TAG);
     if (NULL == pVoid)
     {
@@ -187,10 +188,11 @@ Done:
 * @param pVoid  - a pointer to the instance context to be released
 * @param ContextType  - context type of current filter instance
 */
+_Use_decl_annotations_
 VOID
 InstanceContextCleanup(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    PVOID pVoid,
+    FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -212,10 +214,11 @@ InstanceContextCleanup(
 * @param PVOID  - a void pointer to the entire stream context to be released
 * @param ContextType  - context of current filter instance
 */
+_Use_decl_annotations_
 VOID
 InstanceContextFree(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    PVOID pVoid,
+    FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -376,8 +379,8 @@ Done:
 _Use_decl_annotations_
 VOID
 StreamContextCleanup(
-    PVOID pContext,
-    FLT_CONTEXT_TYPE ContextType)
+	_In_ PVOID pContext,
+	_In_ FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -399,6 +402,7 @@ StreamContextCleanup(
 
     FltReleaseContext(pStreamContext->InstanceContext);
 
+#pragma warning(suppress: 26110)  // not true, this is a callback function with the lock held
     ExReleaseResourceLite(pStreamContext->ProbeDataHeader.Resource);
 
     /*
@@ -410,6 +414,7 @@ StreamContextCleanup(
 
 ErrorExit:
 
+#pragma warning(suppress: 26135) // not true, properly annotated
 	return;
 }
 
@@ -421,10 +426,11 @@ ErrorExit:
 * @param pStreamContext  - a pointer to the stream context to be released
 * @param ContextType  - context of current filter instance
 */
+_Use_decl_annotations_
 VOID
 StreamContextFree(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    PVOID pVoid,
+    FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 

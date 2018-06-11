@@ -6,6 +6,8 @@
 */
 #pragma once
 #include "common.h"
+#include <new.h>
+#include <cstddef>
 
 class ProbeDataQueue
 {
@@ -13,7 +15,6 @@ private:
 	LARGE_INTEGER wfso_timeout;
 	LARGE_INTEGER timeout;	
 	KSPIN_LOCK PDQueueSpinLock;
-	KGUARDED_MUTEX mutex;
 	LIST_ENTRY PDQueue;
 	ULONGLONG MessageId;
 	BOOLEAN Enabled;	
@@ -38,7 +39,10 @@ public:
 	ProbeDataQueue();
 	~ProbeDataQueue();
 	VOID SemaphoreRelease();
+	VOID TerminateLoop();
+	_Success_(TRUE == return)
 	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
+	_Success_(TRUE == return)
 	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
 	_Must_inspect_result_
 	PLIST_ENTRY Dequeue();
