@@ -438,6 +438,8 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 	}
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
+	spin_unlock(&parent->lock);
+
 	if (!kpsd_p) {
 		ccode = -ENFILE;
 		goto out_free_record;
@@ -458,13 +460,11 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 		*json_record = krealloc(*json_record, len, GFP_KERNEL);
 	}
 
-	goto out_unlock;
+	return 0;
 
 out_free_record:
 	if (*json_record)
 		kfree(*json_record);
-out_unlock:
-	spin_unlock(&parent->lock);
 	return ccode;
 }
 
