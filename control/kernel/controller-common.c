@@ -427,13 +427,8 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 	assert(tag);
 	assert(index >= 0 && index < PS_ARRAY_SIZE);
 
-	*json_record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
-	if (! *json_record) {
-		return -ENOMEM;
-	}
 
 	if (! spin_trylock(&parent->lock)) {
-		kfree(*json_record);
 		return -EAGAIN;
 	}
 
@@ -441,13 +436,16 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 	spin_unlock(&parent->lock);
 
 	if (!kpsd_p) {
-		ccode = -ENFILE;
-		goto out_free_record;
+		return -ENFILE;
 	}
 
 	if (nonce != 0 && kpsd_p->nonce != nonce) {
-		ccode = -EINVAL;
-		goto out_free_record;
+		return -EINVAL;
+	}
+
+	*json_record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (! *json_record) {
+		return -ENOMEM;
 	}
 
 	len = snprintf(*json_record,
@@ -461,11 +459,6 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 	}
 
 	return 0;
-
-out_free_record:
-	if (*json_record)
-		kfree(*json_record);
-	return ccode;
 }
 
 
