@@ -266,7 +266,7 @@ get_probe(uint8_t *probe_id, struct probe **p)
 	struct probe *probe_p = NULL;
 	int ccode = -ENFILE;
 	assert(probe_id);
-	assert(p && *p);
+	assert(p);
 
 	*p = NULL;
 	rcu_read_lock();
@@ -275,7 +275,7 @@ get_probe(uint8_t *probe_id, struct probe **p)
 			if(!spin_trylock(&probe_p->lock)) {
 				ccode =  -EAGAIN;
 			} else {
-				p = &probe_p;
+				*p = probe_p;
 				ccode = 0;
 				goto exit;
 			}
@@ -759,19 +759,49 @@ void  run_kps_probe(struct kthread_work *work)
  *
  **/
 
+int
+default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len)
+{
+	assert(probe && in_buf);
+
+	if (msg < CONNECT || msg > RECORDS || len < 0 || len > CONNECTION_MAX_MESSAGE) {
+		DMSG();
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+
 /**
  * probe is RECEIVING the message
  **/
 
 
-extern int
-default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len);
-
-extern int
+int
 default_rcv_msg_from(struct probe *probe,
 					 int msg,
 					 void **out_buf,
-					 ssize_t *len);
+					 ssize_t *len)
+{
+
+	assert(probe && out_buf && len);
+
+	if (msg < CONNECT || msg > RECORDS ) {
+		DMSG();
+		return -EINVAL;
+	}
+
+	*out_buf = kzalloc(0x100, GFP_KERNEL);
+	if (*out_buf) {
+		*len = 0x100;
+		snprintf(*out_buf, 0x100, "default_rcv_from msg ID %d.", msg);
+		printk(KERN_DEBUG "default_rcv_from msg ID %d\n", msg);
+		return 0;
+	}
+	return -ENOMEM;
+}
+
 
 struct probe *init_probe(struct probe *probe,
 						 uint8_t *id, int id_size)

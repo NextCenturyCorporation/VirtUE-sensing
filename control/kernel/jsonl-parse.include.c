@@ -297,8 +297,8 @@ free_session(struct jsmn_session *s)
 		rcu_read_lock();
 		list_del_rcu(&s->session_entry);
 		while (NULL != (m = list_first_or_null_rcu(&s->h_replies,
-										   struct jsmn_message,
-										   e_messages))) {
+												   struct jsmn_message,
+												   e_messages))) {
 			printk(KERN_DEBUG "free reply message: %p\n", m);
 			list_del_rcu(&m->e_messages);
 			synchronize_rcu();
@@ -371,6 +371,8 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 		if (m->parser.toknext > PROBE) {
 			memcpy(m->s->probe_id, id, id_bytes);
 			m->s->probe_id[id_bytes] = 0x00;
+			printk(KERN_DEBUG "request probe id: %s\n", m->s->probe_id);
+
 		}
 		ccode = index_command(c, c_bytes);
 		if (ccode >= 0 && ccode <= RECORDS )
@@ -465,15 +467,13 @@ process_records_request(struct jsmn_message *msg, int index)
 	struct probe *probe_p = NULL;
 	struct jsmn_message *records_reply = NULL;
 	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
-
+	uint8_t *buf = NULL;
 	do {
 		ccode = get_probe(msg->s->probe_id, &probe_p);
 	} while (ccode == -EAGAIN);
 
 	if (!ccode && probe_p != NULL) {
-		uint8_t *buf = NULL;
 		ssize_t len = 0;
-
 		/**
 		 * TODO:
 		 * call the probe in a loop until we have all the record replies
@@ -508,12 +508,10 @@ process_records_request(struct jsmn_message *msg, int index)
 				remaining = add_to_line(records_reply->line, ", ", orig_len);
 				if (remaining <= len + 4) { goto out_records_reply; }
 
-				remaining = add_to_line(records_reply->line, buf, orig_len);
-
 				strncat(records_reply->line, buf, len);
 				strcat(records_reply->line, "] }");
 				records_reply->line = add_nl_at_end(records_reply->line,
-												strlen(records_reply->line));
+													strlen(records_reply->line));
 				/**
 				 * link the discovery reply message to the session
 				 **/
@@ -535,8 +533,13 @@ process_records_request(struct jsmn_message *msg, int index)
 
 	}
 out_records_reply:
-	free_message(records_reply);
+	if (records_reply) {
+		free_message(records_reply);
+	}
 out_session:
+	if (buf) {
+		kfree(buf);
+	}
 	free_session(msg->s);
 	return COMPLETE;
 }

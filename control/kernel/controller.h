@@ -258,35 +258,15 @@ struct probe {
 };
 
 
-inline int
-default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len)
-{
-	assert(probe && in_buf);
+int
+default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len);
 
-	if (msg < CONNECT || msg > RECORDS || len < 0 || len > CONNECTION_MAX_MESSAGE) {
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-inline int
+int
 default_rcv_msg_from(struct probe *probe,
 					 int msg,
 					 void **out_buf,
-					 ssize_t *len)
-{
+					 ssize_t *len);
 
-	assert(probe && out_buf && len);
-
-	if (msg < CONNECT || msg > RECORDS ) {
-		return -EINVAL;
-	}
-
-	*len = 0;
-	*out_buf = NULL;
-	return 0;
-}
 
 int
 get_probe(uint8_t *probe_id, struct probe **p);

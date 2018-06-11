@@ -73,11 +73,34 @@ def send_discovery_message(sock):
        data = sock.recv(max_amount)
        amount_received = len(data)
        print >>sys.stderr, 'discovery test received "%s"' % data
-       
+
    except:
         print >>sys.stderr, 'send_discovery_message: closing socket'
         sock.close()
-       
+
+def send_records_message(sock, probe):
+    print >> sys.stderr, 'send_records_message "%s %s:' %(sock, probe)
+    try:
+        message_header = "{Virtue-protocol-version: 0.1, request: ["
+        message_nonce = uuid.uuid4().hex
+        message_command = ", records, "
+        message_footer = "]}"
+        print >> sys.stderr, 'sending "%s%s%s%s%s"' \
+            %(message_header, message_nonce, message_command,
+              probe, message_footer)
+        sock.sendall("%s%s%s%s%s" %(message_header, message_nonce, message_command,
+                                    probe, message_footer))
+
+        amount_received = 0
+        max_amount = 0x400
+        data = sock.recv(max_amount)
+        amount_received = len(data)
+        print >>sys.stderr, 'discovery test received "%s"' % data
+
+    except:
+        print >>sys.stderr, 'send_records_message: closing socket'
+        sock.close()
+
 def connect_domain_sock(sockname): # Create a UDS socket
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
@@ -96,6 +119,7 @@ def client_main(args):
                              [--socket <path>]""" % sys.argv[0]
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
     socket_name = '/var/run/kernel_sensor'
+    target_probe = '"Kernel PS Probe"'
     parser = argparse.ArgumentParser(description=usage_string)
     parser.add_argument("-s", "--socket",
                         default=socket_name,
@@ -109,16 +133,26 @@ def client_main(args):
     parser.add_argument("-e", "--echo",
                         action='store_true',
                         help="test the controller's echo server")
+    parser.add_argument("-r", "--records",
+                        action = 'store_true',
+                        help="test the controller's echo server")
+    parser.add_argument("--probe",
+                        default=target_probe,
+                        help="target probe for message")
 
     args = parser.parse_args()
 
-    socket_name = args.socket;
+    socket_name = args.socket
+    target_probe = args.probe
 
     s = False
     try:
         s = connect_domain_sock(socket_name)
     except:
         print >> sys.stderr, sys.exc_info()
+
+    if args.records:
+        send_records_message(s, target_probe)
 
     if args.discover:
         send_discovery_message(s)
