@@ -414,6 +414,15 @@ struct kernel_ps_probe {
 };
 
 
+int kernel_ps_record(struct kernel_ps_probe *parent,
+					 uint8_t *tag,
+					 uint64_t nonce,
+					 int index,
+					 uint8_t **json_record);
+
+int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
+
+
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
  */

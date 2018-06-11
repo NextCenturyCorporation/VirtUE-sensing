@@ -397,8 +397,78 @@ err_exit:
  * it should hold the lock while using pointers from the array.
  **/
 
+
 /**
- * output the kernel-ps list to the kernel log
+ * @brief copy one record of the kernel_ps list to a memory buffer
+ * to be called by the record message handler to build a single
+ * record response message
+ *
+ * @param parent - the kernel ps probe instance
+ * @param tag - expected to be the probe id string
+ * @param nonce - 0 means copy record regardless of nonce value,
+ *        otherwise copy only records with matching nonce
+ * @param index - the record number to copy
+ * @param json_record - double pointer that will return the
+ *        allocated memory containing the kernel ps record
+ *
+ * @return error code or zero upon success
+ *
+ **/
+int kernel_ps_record(struct kernel_ps_probe *parent,
+					 uint8_t *tag,
+					 uint64_t nonce,
+					 int index,
+					 uint8_t **json_record)
+{
+	struct kernel_ps_data *kpsd_p;
+	int ccode = 0, len = 0;
+
+	assert(json_record);
+	assert(tag);
+	assert(index >= 0 && index < PS_ARRAY_SIZE);
+
+	*json_record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (! *json_record) {
+		return -ENOMEM;
+	}
+
+	if (! spin_trylock(&parent->lock)) {
+		ccode = -EAGAIN;
+		goto out_free_record;
+	}
+
+	kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
+	if (!kpsd_p) {
+		ccode = -ENFILE;
+		goto out_free_record;
+	}
+
+	if (nonce != 0 && kpsd_p->nonce != nonce) {
+		ccode = -EINVAL;
+		goto out_free_record;
+	}
+
+	len = snprintf(*json_record,
+				   CONNECTION_MAX_HEADER - 1,
+				   "%s %d %s [%d] [%d] [%llx]\n",
+				   tag, index, kpsd_p->comm, kpsd_p->pid_nr,
+				   kpsd_p->user_id.val, nonce);
+	*json_record = krealloc(*json_record, len + 1, GFP_KERNEL);
+
+	goto out_unlock;
+
+out_free_record:
+	if (*json_record)
+		kfree(*json_record);
+out_unlock:
+	spin_unlock(&parent->lock);
+	return ccode;
+}
+
+
+
+/**
+ * @brief output the kernel-ps list to the kernel log
  *
  * @param uint8 *tag - tag added to each line, useful for filtering
  *        log output.
@@ -417,14 +487,13 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 						   int count)
 {
 	int index;
-	unsigned long flags;
 	struct kernel_ps_data *kpsd_p;
 
 	if(unlikely(!print_to_log)) {
 		return 0;
 	}
 
-	if (!spin_trylock_irqsave(&parent->lock, flags)) {
+	if (!spin_trylock(&parent->lock)) {
 		return -EAGAIN;
 	}
 	for (index = 0; index < PS_ARRAY_SIZE; index++)  {
@@ -436,7 +505,7 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 			   tag, count, index, kpsd_p->comm, kpsd_p->pid_nr,
 			   kpsd_p->user_id.val, nonce);
 	}
-	spin_unlock_irqrestore(&parent->lock, flags);
+	spin_unlock(&parent->lock);
 	if (index == PS_ARRAY_SIZE) {
 		return -ENOMEM;
 	}
@@ -700,6 +769,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
  * Once it runs once, it must be re-initialized
  * and re-queued to run again...see /include/linux/kthread.h
  **/
+
 
 /**
  * ps probe function
