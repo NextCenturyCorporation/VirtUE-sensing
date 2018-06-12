@@ -200,7 +200,7 @@ typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
 } *PSaviorCommandPkt, SaviorCommandPkt;
 
 
-typedef enum _DataType : USHORT 
+typedef enum _ProbeIdType : USHORT
 {
 	None = 0x0000,
 	/** Loaded Image (.exe,.dll, etc) notificaton type */
@@ -213,14 +213,14 @@ typedef enum _DataType : USHORT
 	ThreadCreate   = 0x0004,
 	/** Thread Destruction notificaton type */
 	ThreadDestroy  = 0x0005
-} DataType;
+} ProbeIdType;
 
 _Struct_size_bytes_(DataSz)
 typedef struct _ProbeDataHeader 
 {
 	_In_ ULONG ReplyLength;
 	_In_ ULONGLONG MessageId;
-	_In_ DataType  Type;
+	_In_ ProbeIdType  ProbeId;
 	_In_ USHORT    DataSz;
 	_In_ LARGE_INTEGER CurrentGMT;
 	_In_ LIST_ENTRY  ListEntry;

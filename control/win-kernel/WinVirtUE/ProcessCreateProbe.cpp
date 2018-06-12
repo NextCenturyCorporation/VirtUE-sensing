@@ -113,7 +113,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPCI->ProbeDataHeader.MessageId = 0LL;
 		pPCI->ProbeDataHeader.ReplyLength = 0L;
 		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.CurrentGMT);
-		pPCI->ProbeDataHeader.Type = DataType::ProcessCreate;
+		pPCI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessCreate;
 		pPCI->ProbeDataHeader.DataSz = bufsz;
 		pPCI->EProcess = Process;
 		pPCI->ProcessId = ProcessId;
@@ -150,7 +150,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.CurrentGMT);
 		pPDI->ProbeDataHeader.MessageId = 0LL;
 		pPDI->ProbeDataHeader.ReplyLength = 0L;
-		pPDI->ProbeDataHeader.Type = DataType::ProcessDestroy;
+		pPDI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessDestroy;
 		pPDI->ProbeDataHeader.DataSz = bufsz;
 		pPDI->EProcess = Process;
 		pPDI->ProcessId = ProcessId;		

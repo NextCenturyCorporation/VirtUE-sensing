@@ -92,14 +92,16 @@ ProbeDataQueue::dtor_exc_filter(
 */
 ProbeDataQueue::~ProbeDataQueue()
 {
-
-	PLIST_ENTRY pListEntry = this->PDQueue.Flink;
-
-	while(NULL != pListEntry && pListEntry != &this->PDQueue)
+	if (NULL != this->PDQueue.Flink)
 	{
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		pListEntry = pListEntry->Flink;
-		delete[](PUCHAR)pPDH;		
+		PLIST_ENTRY pListEntry = this->PDQueue.Flink;
+
+		while (NULL != pListEntry && pListEntry != &this->PDQueue)
+		{
+			PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+			pListEntry = pListEntry->Flink;
+			delete[](PUCHAR)pPDH;
+		}
 	}
 
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])

@@ -131,7 +131,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	RtlSecureZeroMemory(buf, bufsz);
 	pLoadedImageInfo->ProbeDataHeader.MessageId = 0LL;
 	pLoadedImageInfo->ProbeDataHeader.ReplyLength = 0L;
-	pLoadedImageInfo->ProbeDataHeader.Type = DataType::LoadedImage;
+	pLoadedImageInfo->ProbeDataHeader.ProbeId = ProbeIdType::LoadedImage;
 	pLoadedImageInfo->ProbeDataHeader.DataSz = bufsz;
 	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.CurrentGMT);
 	pLoadedImageInfo->EProcess = pProcess;

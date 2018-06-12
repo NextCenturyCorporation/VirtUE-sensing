@@ -56,7 +56,7 @@ class SaviorStruct(Structure):
         length = sizeof(ProbeDataHeader)               
         info = cast(msg_pkt[offset:length], 
                 POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(DataType(info.contents.Type), 
+        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
                                  msg_pkt[length:])
@@ -94,7 +94,7 @@ class CLIENT_ID(SaviorStruct):
 
 class INSTANCE_INFORMATION_CLASS(CtypesEnum):
     '''
-    Type of filter instance information requested
+    ProbeId of filter instance information requested
     '''
     InstanceBasicInformation   = 0x0
     InstanceFullInformation    = 0x1
@@ -103,7 +103,7 @@ class INSTANCE_INFORMATION_CLASS(CtypesEnum):
 
 class FILTER_INFORMATION_CLASS(CtypesEnum):
     '''
-    Type of filter driver information requested
+    ProbeId of filter driver information requested
     '''
     FilterFullInformation              = 0x0
     FilterAggregateBasicInformation    = 0x1
@@ -192,7 +192,7 @@ FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'Message
 
 class DataType(CtypesEnum):
     '''
-    Type of filter driver data to unpack
+    ProbeId of filter driver data to unpack
     '''
     NONE           = 0x0000
     LoadedImage    = 0x0001
@@ -212,7 +212,7 @@ LIST_ENTRY._fields_ = [
     ("Blink", POINTER(LIST_ENTRY))
 ]
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['Type', 'DataSz', 'CurrentGMT', 'Remainder'])
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ProbeId', 'DataSz', 'CurrentGMT', 'Remainder'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
@@ -221,7 +221,7 @@ class ProbeDataHeader(SaviorStruct):
     _fields_ = [
         ('ReplyLength', ULONG),
         ('MessageId', ULONGLONG),
-        ('Type', USHORT), 
+        ('ProbeId', USHORT), 
         ('DataSz', USHORT), 
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
@@ -229,7 +229,7 @@ class ProbeDataHeader(SaviorStruct):
 
     
 GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  ['ReplyLength', 'MessageId', 
-    'Type', 'DataSz', 'CurrentGMT', 
+    'ProbeId', 'DataSz', 'CurrentGMT', 
     'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 class LoadedImageInfo(SaviorStruct):
     '''
@@ -261,7 +261,7 @@ class LoadedImageInfo(SaviorStruct):
         img_nfo = GetLoadedImageInfo(
             info.contents.Header.ReplyLength,
             info.contents.Header.MessageId,
-            DataType(info.contents.Header.Type),
+            DataType(info.contents.Header.ProbeId),
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -273,7 +273,7 @@ class LoadedImageInfo(SaviorStruct):
 
 
 GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'MessageId', 
-    'Type', 'DataSz', 'CurrentGMT', 
+    'ProbeId', 'DataSz', 'CurrentGMT', 
     'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 'UniqueThread', 
     'FileObject', 'CreationStatus', 'CommandLineSz', 'CommandLine'])
     
@@ -309,7 +309,7 @@ class ProcessCreateInfo(SaviorStruct ):
         create_info = GetProcessCreateInfo(
             info.contents.Header.ReplyLength,
             info.contents.Header.MessageId,
-            DataType(info.contents.Header.Type),
+            DataType(info.contents.Header.ProbeId),
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
@@ -325,7 +325,7 @@ class ProcessCreateInfo(SaviorStruct ):
 
 GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
         ['ReplyLength', 'MessageId', 
-         'Type', 'DataSz', 'CurrentGMT', 
+         'ProbeId', 'DataSz', 'CurrentGMT', 
          'ProcessId', 'EProcess'])
     
 class ProcessDestroyInfo(SaviorStruct):
@@ -348,7 +348,7 @@ class ProcessDestroyInfo(SaviorStruct):
         create_info = GetProcessDestroyInfo(
             info.contents.Header.ReplyLength,
             info.contents.Header.MessageId,
-            DataType(info.contents.Header.Type),
+            DataType(info.contents.Header.ProbeId),
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -796,16 +796,16 @@ def test_packet_decode():
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
-        if pdh.Type == DataType.LoadedImage:            
+        if pdh.ProbeId == DataType.LoadedImage:            
             msg_data = LoadedImageInfo.build(msg_pkt)
-        elif pdh.Type == DataType.ProcessCreate:
+        elif pdh.ProbeId == DataType.ProcessCreate:
             msg_data = ProcessCreateInfo.build(msg_pkt)
-        elif pdh.Type == DataType.ProcessDestroy:
+        elif pdh.ProbeId == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(msg_pkt)
         else:
-            print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
+            print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
             continue
-        print("Decoded a %s data message\n" % (pdh.Type.name,))
+        print("Decoded a %s data message\n" % (pdh.ProbeId.name,))
         print(json.dumps(msg_data._asdict(), indent=4))
 
     CloseHandle(hFltComms)
