@@ -114,7 +114,7 @@ typedef struct _WVU_INSTANCE_CONTEXT
 //
 typedef struct _WVU_STREAM_CONTEXT
 {
-    FSRTL_ADVANCED_FCB_HEADER Header;  // common FCB header also used for synchronization     
+    FSRTL_ADVANCED_FCB_HEADER ProbeDataHeader;  // common FCB header also used for synchronization     
     volatile StreamFlags SFlags;
     ERESOURCE Resource;
     ERESOURCE PagingIoResource;
@@ -159,6 +159,7 @@ typedef struct _WVUGlobals
 
     EX_RUNDOWN_REF RunDownRef;
 #if defined(WVU_DEBUG)
+	_Interlocked_
 	volatile LONG StreamContextLookasideAllocateCnt;
 #endif
     RTL_OSVERSIONINFOEXW lpVersionInformation;
@@ -167,10 +168,18 @@ typedef struct _WVUGlobals
     BOOLEAN EnableProtection;   // if true then the driver is protecting
 	PDRIVER_OBJECT DriverObject;	
 	BOOLEAN ShuttingDown;
-	KEVENT PortConnectEvt;
+	HANDLE MainThreadHandle;
 } WVUGlobals, *PWVUGlobals;
 
 
+/**
+* Utilized when managing the ProbeDataEvents KEVENT array
+*/
+enum ProbeDataEvtEnum
+{
+	ProbeDataSemEmptyQueue, // The SEMAPHORE that signals when the Probe Data Queue is Empty
+	ProbeDataEvtConnect		// Th KEVENT that signals when the service connects
+};
 
 /**
 * Savior Command Enumeration 
@@ -190,3 +199,67 @@ typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
 	UCHAR CmdMsg[1];    // The command message
 } *PSaviorCommandPkt, SaviorCommandPkt;
 
+
+typedef enum _DataType : USHORT 
+{
+	None = 0x0000,
+	/** Loaded Image (.exe,.dll, etc) notificaton type */
+	LoadedImage    = 0x0001,
+	/** Process Creation notificaton type */
+	ProcessCreate  = 0x0002,
+	/** Process Destruction notificaton type */
+	ProcessDestroy = 0x0003,
+	/** Thread Creation notificaton type */
+	ThreadCreate   = 0x0004,
+	/** Thread Destruction notificaton type */
+	ThreadDestroy  = 0x0005
+} DataType;
+
+_Struct_size_bytes_(DataSz)
+typedef struct _ProbeDataHeader 
+{
+	_In_ ULONG ReplyLength;
+	_In_ ULONGLONG MessageId;
+	_In_ DataType  Type;
+	_In_ USHORT    DataSz;
+	_In_ LARGE_INTEGER CurrentGMT;
+	_In_ LIST_ENTRY  ListEntry;
+} PROBE_DATA_HEADER, *PProbeDataHeader;
+
+
+typedef struct _LoadedImageInfo
+{	
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS  EProcess;
+	_In_ PVOID ImageBase;
+	_In_ SIZE_T ImageSize;
+	_In_ USHORT FullImageNameSz;
+	_In_ UCHAR FullImageName[1];
+} LoadedImageInfo, *PLoadedImageInfo;
+
+
+/**
+* @note Is it important to also include the imagefilename or is it 
+* duplicate information from module load?
+*/
+typedef struct _ProcessCreateInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	
+	_In_ HANDLE ParentProcessId;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS EProcess;
+	_In_ CLIENT_ID CreatingThreadId;
+	_Inout_ struct _FILE_OBJECT *FileObject;
+	_Inout_ NTSTATUS CreationStatus;
+	_In_ USHORT CommandLineSz;
+	_In_ UCHAR CommandLine[1];
+} ProcessCreateInfo, *PProcessCreateInfo;
+
+
+typedef struct _ProcessDestroyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS EProcess;
+} ProcessDestroyInfo, *PProcessDestroyInfo;

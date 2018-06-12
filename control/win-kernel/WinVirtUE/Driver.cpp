@@ -5,6 +5,7 @@
 * @brief main module of the Windows VirtUE miniFilter driver.
 */
 #include "Driver.h"
+#define COMMON_POOL_TAG WVU_DRIVER_POOL_TAG
 
 // globaL scoped variables
 WVUGlobals Globals;
@@ -42,7 +43,7 @@ static NTSTATUS GetOsVersion()
 
 	if (Globals.lpVersionInformation.szCSDVersion[0] != (TCHAR)0)
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Service Pack: %ws\n", Globals.lpVersionInformation.szCSDVersion);
+		WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Service Pack: %ws\n", &Globals.lpVersionInformation.szCSDVersion[0]);
 	}
 
 	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "******************************\n");
@@ -61,23 +62,20 @@ MiniFilter initialization and unload routines.
 * @param DriverObject  Pointer to driver object created by the system to
 * represent this driver
 */
-_Function_class_(DRIVER_UNLOAD)
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 extern "C" VOID
 DriverUnload(
 	_In_ PDRIVER_OBJECT DriverObject)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 
-	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
-
 	WVUDebugBreakPoint();
+
+	ZwClose(Globals.MainThreadHandle);
 
 	// destroy global object instances
 	CallGlobalDestructors();
-
+	
 	return _IRQL_requires_same_ VOID();
 }
 
@@ -90,9 +88,7 @@ DriverUnload(
 * driver are located in the registry
 * @retval the driver entry's returned status
 */
-_Function_class_(DRIVER_INITIALIZE)
-_IRQL_requires_(PASSIVE_LEVEL)
-_IRQL_requires_same_
+_Use_decl_annotations_
 extern "C"
 NTSTATUS
 DriverEntry(
@@ -101,19 +97,12 @@ DriverEntry(
 {
 	UNREFERENCED_PARAMETER(RegistryPath);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };
-	OBJECT_ATTRIBUTES SensorThdObjAttr = { 0,0,0,0,0,0 };
-	OBJECT_ATTRIBUTES WVUPortObjAttr = { 0,0,0,0,0,0 };
-	PSECURITY_DESCRIPTOR pWVUPortSecDsc = NULL;
-	HANDLE MainThreadHandle = (HANDLE)-1;
-	HANDLE SensorThreadHandle = (HANDLE)-1;
-	
+	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };		
 	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
-	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
-	UNICODE_STRING usPortName = { 0,0,NULL };	
+
 
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = -1000 * 1000 * 10 * 10;  // ten second timeout
+	timeout.QuadPart = RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
 
 	WVUDebugBreakPoint();
 	
@@ -122,6 +111,13 @@ DriverEntry(
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
 
 	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
+
+	Globals.AllowFilterUnload =
+#if defined(WVU_DEBUG)
+		TRUE;
+#else
+		FALSE;
+#endif
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to call CallGlobalInitializers()!\n");
 
@@ -133,23 +129,8 @@ DriverEntry(
 	// intialization, it will signal and wait simultaneously.  It will continue
 	// to wait until the DriverUnload routine signals it.  When the thread
 	// continues the objects created will have their destructors called.
-	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
-
-	// init the Port Connection Event  This coordinate the connections from user space
-	// so that the outbound queue processor will start or stop processing depending on
-	// current connection state
-	KeInitializeEvent(&Globals.PortConnectEvt, EVENT_TYPE::NotificationEvent, FALSE);
+	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);	
 	
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
-
-	//  Register with FltMgr to tell it our callback routines
-	Status = FltRegisterFilter(DriverObject, &FilterRegistration, &Globals.FilterHandle);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltRegisterFilter() FAIL=%08x\n", Status);
-		goto ErrorExit;
-	}
-
 	ExInitializeRundownProtection(&Globals.RunDownRef);
 	Globals.ShuttingDown = FALSE;
 
@@ -158,82 +139,17 @@ DriverEntry(
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "RtlGetVersion Failed! Status=%08x\n", Status);
 	}
-
-	//
-	//  Create a communication port.
-	//
-	RtlInitUnicodeString(&usPortName, WVUPortName);
-
-	//
-	//  We secure the port so only ADMINs & SYSTEM can acecss it.
-	//
-	Status = FltBuildDefaultSecurityDescriptor(&pWVUPortSecDsc, FLT_PORT_ALL_ACCESS);
-
-	if (NT_SUCCESS(Status))
-	{
-
-		InitializeObjectAttributes(&WVUPortObjAttr,
-			&usPortName,
-			OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
-			NULL,
-			pWVUPortSecDsc);
-
-		Status = FltCreateCommunicationPort(Globals.FilterHandle,
-			&Globals.WVUServerPort,
-			&WVUPortObjAttr,
-			Globals.DriverObject,
-			WVUPortConnect,
-			WVUPortDisconnect,
-			WVUMessageNotify,
-			1);
-
-		//
-		//  Free the security descriptor in all cases. It is not needed once
-		//  the call to FltCreateCommunicationPort() is made.
-		//
-		FltFreeSecurityDescriptor(pWVUPortSecDsc);
-
-		if (NT_SUCCESS(Status))
-		{
-			Globals.EnableProtection = TRUE;
-
-			//  Start filtering i/o
-			Status = FltStartFiltering(Globals.FilterHandle);
-			if (FALSE == NT_SUCCESS(Status))
-			{
-				WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltStartFiltering() Failed! - FAIL=%08x\n", Status);
-				FltUnregisterFilter(Globals.FilterHandle);
-				goto ErrorExit;
-			}
-		}
-		else
-		{
-			WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
-			goto ErrorExit;
-		}
-	}
 	
 	InitializeObjectAttributes(&MainThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
+	Status = PsCreateSystemThread(&Globals.MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Main thread %p process %p thread id %p\n",
-		MainThreadHandle, MainClientId.UniqueProcess, MainClientId.UniqueThread);
-
-	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
-	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, &Globals.WVUThreadStartEvent);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
-		goto ErrorExit;
-	}	
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
-		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
+		Globals.MainThreadHandle, MainClientId.UniqueProcess, MainClientId.UniqueThread);
 
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
 	if (FALSE == NT_SUCCESS(Status))
@@ -261,9 +177,6 @@ DriverEntry(
 
 
 ErrorExit:
-
-	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
-	KeSetEvent(&Globals.PortConnectEvt, IO_NO_INCREMENT, FALSE);  // exit the queue processor
 
 	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);  // exits the intialization thread
 

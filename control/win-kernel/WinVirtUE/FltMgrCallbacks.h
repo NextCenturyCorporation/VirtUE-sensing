@@ -22,7 +22,7 @@ WinVirtUEPreOperation(
 VOID
 WinVirtUEOperationStatusCallback(
 	_In_ PCFLT_RELATED_OBJECTS FltObjects,
-	_In_ PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
+	_In_ const PFLT_IO_PARAMETER_BLOCK ParameterSnapshot,
 	_In_ NTSTATUS OperationStatus,
 	_In_ PVOID RequesterContext
 );
@@ -42,6 +42,7 @@ WinVirtUEPreOperationNoPostOperation(
 	_Flt_CompletionContext_Outptr_ PVOID *CompletionContext
 );
 
+_Must_inspect_result_
 BOOLEAN
 WinVirtUEDoRequestOperationStatus(
 	_In_ PFLT_CALLBACK_DATA Data

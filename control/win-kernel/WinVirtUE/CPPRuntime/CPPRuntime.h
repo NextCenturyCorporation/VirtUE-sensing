@@ -15,21 +15,18 @@ typedef void(__cdecl *PVFV)(void);
 
 ///
 /// pointers to initialization sections
+///
+PVFV __crtXia[];
+PVFV __crtXiz[];
 
-	PVFV __crtXia[];
-	PVFV __crtXiz[];
+PVFV __crtXca[]; // c++
+PVFV __crtXcz[];
 
-	PVFV __crtXca[]; // c++
-	PVFV __crtXcz[];
+PVFV __crtXpa[];
+PVFV __crtXpz[];
 
-	PVFV __crtXpa[];
-	PVFV __crtXpz[];
-
-	PVFV __crtXta[];
-	PVFV __crtXtz[];
-
-
-
+PVFV __crtXta[];
+PVFV __crtXtz[];
 
 typedef struct _EXIT_FUNC_LIST
 {

@@ -37,8 +37,8 @@ _CRTALLOC(".CRT$XCZ") PVFV __crtXcz[] = { NULL };
 /////////////////////////////////////////////////////////////////////////////
 VOID CallGlobalInitializers()
 {
-    _Notnull_ PVFV * pfbegin = __crtXca;
-	_Notnull_ const PVFV * pfend = __crtXcz;
+    _Notnull_ PVFV * pfbegin = &__crtXca[0];
+	_Notnull_ const PVFV * pfend = &__crtXcz[0];
 
     InitializeListHead(&exitList);
 
@@ -78,6 +78,7 @@ VOID CallGlobalDestructors()
 /////////////////////////////////////////////////////////////////////////////
 int CDECL atexit(PVFV func)
 {
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
     PEXIT_FUNC_LIST pFuncListEntry =
         (PEXIT_FUNC_LIST)ALLOC_POOL(NonPagedPool, sizeof(EXIT_FUNC_LIST));
 

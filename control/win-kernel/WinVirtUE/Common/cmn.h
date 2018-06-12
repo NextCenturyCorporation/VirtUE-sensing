@@ -5,6 +5,7 @@
 * @brief Define common defines here
 */
 #pragma once
+#include <driverspecs.h>
 #include "common.h"
 
 #define STDCALL __stdcall

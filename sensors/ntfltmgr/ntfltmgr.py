@@ -2,10 +2,11 @@
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
+import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
@@ -17,6 +18,7 @@ ULONG_PTR = WPARAM
 NTSTATUS = DWORD
 PVOID = c_void_p
 ULONGLONG = c_ulonglong
+LONGLONG = c_longlong
 
 logger = logging.getLogger("ntfltmgr")
 logger.addHandler(logging.NullHandler())
@@ -27,12 +29,6 @@ class SaviorStruct(Structure):
     Implement a base class that takes care of JSON serialization/deserialization, 
     internal object instance state and other housekeeping chores
     '''
-
-    def __init__(self):
-        '''
-        Initialize this instance
-        '''
-        pass
 
     def __str__(self):
         '''
@@ -48,6 +44,23 @@ class SaviorStruct(Structure):
         return state
 
     __repr__ = __str__
+
+    
+    @classmethod
+    def GetProbeDataHeader(cls, msg_pkt):
+        '''
+        accepts raw packet data from the driver and returns
+        the ProbeDataHeader in the form of a named tuple
+        '''     
+        offset = 0
+        length = sizeof(ProbeDataHeader)               
+        info = cast(msg_pkt[offset:length], 
+                POINTER(ProbeDataHeader))        
+        pdh = GetProbeDataHeader(DataType(info.contents.Type), 
+                                 info.contents.DataSz, 
+                                 info.contents.CurrentGMT,
+                                 msg_pkt[length:])
+        return pdh
 
 class CtypesEnum(IntEnum):
     '''
@@ -68,6 +81,16 @@ class PARAM_FLAG(CtypesEnum):
     FOUT  = (1 << 1)
     FLCID = (1 << 2)
     COMBINED = FIN | FOUT | FLCID
+
+
+class CLIENT_ID(SaviorStruct):
+    '''
+    The CLIENT ID Structure
+    '''
+    _fields_ = [
+        ("UniqueProcess", c_void_p),
+        ("UniqueThread", c_void_p)
+    ]
 
 class INSTANCE_INFORMATION_CLASS(CtypesEnum):
     '''
@@ -150,7 +173,7 @@ class FILTER_REPLY_HEADER(SaviorStruct):
        ('MessageId', ULONGLONG)
     ]
 
-ReplyMessagePacket = namedtuple('ReplyMessagePacket', ['Status', 'MessageId', 'Message'])    
+FilterReplyHeader = namedtuple('FilterReplyHeader', ['Status', 'MessageId', 'Remainder'])    
     
 class FILTER_MESSAGE_HEADER(SaviorStruct):
     '''
@@ -164,25 +187,173 @@ class FILTER_MESSAGE_HEADER(SaviorStruct):
        ('MessageId', ULONGLONG)       
     ]
     
-GetMessagePacket = namedtuple('GetMessagePacket', ['ReplyLength', 'MessageId', 'Message'])
+FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'MessageId', 'Remainder'])
         
 
-class SaviorCommand(CtypesEnum):
+class DataType(CtypesEnum):
     '''
-    Type of filter driver information requested
+    Type of filter driver data to unpack
     '''
-    ECHO              = 0x0
+    NONE           = 0x0000
+    LoadedImage    = 0x0001
+    ProcessCreate  = 0x0002
+    ProcessDestroy = 0x0003
+    ThreadCreate   = 0x0004
+    ThreadDestroy  = 0x0005    
 
-
-class SaviorCommandPkt(FILTER_MESSAGE_HEADER):
+class LIST_ENTRY(SaviorStruct):
     '''
-    Savior Command Packet
+    Two Way Linked List - forward declare an incomplete type
+    '''
+    pass
+
+LIST_ENTRY._fields_ = [
+    ("Flink", POINTER(LIST_ENTRY)),
+    ("Blink", POINTER(LIST_ENTRY))
+]
+
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['Type', 'DataSz', 'CurrentGMT', 'Remainder'])
+    
+class ProbeDataHeader(SaviorStruct):
+    '''
+    Probe Data Header
     '''
     _fields_ = [
-        ("SaviorCommand", USHORT), 
-        ("CmdMsgSize", USHORT), 
-        ("CmdMsg", BYTE * 1)
+        ('ReplyLength', ULONG),
+        ('MessageId', ULONGLONG),
+        ('Type', USHORT), 
+        ('DataSz', USHORT), 
+        ('CurrentGMT', LONGLONG),
+        ('ListEntry', LIST_ENTRY)
     ]
+
+    
+GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  ['ReplyLength', 'MessageId', 
+    'Type', 'DataSz', 'CurrentGMT', 
+    'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
+class LoadedImageInfo(SaviorStruct):
+    '''
+    Probe Data Header
+    '''
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", PVOID),
+        ("EProcess", PVOID),
+        ("ImageBase", PVOID),
+        ("ImageSize", LONGLONG),
+        ("FullImageNameSz", USHORT),
+        ("FullImageName", BYTE * 1)
+    ]
+    
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        info = cast(msg_pkt.Remainder, POINTER(cls))
+        length = info.contents.FullImageNameSz
+        offset = type(info.contents).FullImageName.offset
+        sb = create_string_buffer(msg_pkt.Remainder)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ModuleName = "".join(map(chr, slc[::2]))
+        img_nfo = GetLoadedImageInfo(
+            info.contents.Header.ReplyLength,
+            info.contents.Header.MessageId,
+            DataType(info.contents.Header.Type),
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            info.contents.EProcess,
+            info.contents.ImageBase, 
+            info.contents.ImageSize,
+            ModuleName)
+        return img_nfo
+
+
+GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'MessageId', 
+    'Type', 'DataSz', 'CurrentGMT', 
+    'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 'UniqueThread', 
+    'FileObject', 'CreationStatus', 'CommandLineSz', 'CommandLine'])
+    
+class ProcessCreateInfo(SaviorStruct ):
+    '''
+    ProcessCreateInfo Definition
+    '''
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ParentProcessId", HANDLE),
+        ("ProcessId", HANDLE),
+        ("EProcess", PVOID),
+        ("CreatingThreadId", CLIENT_ID),
+        ("FileObject", PVOID),
+        ("CreationStatus", NTSTATUS),
+        ("CommandLineSz", USHORT),
+        ("CommandLine", BYTE * 1)        
+    ]
+    
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        info = cast(msg_pkt.Remainder, POINTER(cls))
+        length = info.contents.CommandLineSz
+        offset = type(info.contents).CommandLine.offset
+        sb = create_string_buffer(msg_pkt.Remainder)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        CommandLine = "".join(map(chr, slc[::2]))
+        create_info = GetProcessCreateInfo(
+            info.contents.Header.ReplyLength,
+            info.contents.Header.MessageId,
+            DataType(info.contents.Header.Type),
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
+            info.contents.ParentProcessId,
+            info.contents.ProcessId,
+            info.contents.EProcess,
+            info.contents.CreatingThreadId.UniqueProcess,
+            info.contents.CreatingThreadId.UniqueThread,
+            info.contents.FileObject,
+            info.contents.CreationStatus,
+            info.contents.CommandLineSz,
+            CommandLine)
+        return create_info
+
+GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
+        ['ReplyLength', 'MessageId', 
+         'Type', 'DataSz', 'CurrentGMT', 
+         'ProcessId', 'EProcess'])
+    
+class ProcessDestroyInfo(SaviorStruct):
+    '''
+    ProcessDestroyInfo Definition
+    '''
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", HANDLE),
+        ("EProcess", PVOID) 
+    ]
+    
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        info = cast(msg_pkt.Remainder, POINTER(cls))
+        create_info = GetProcessDestroyInfo(
+            info.contents.Header.ReplyLength,
+            info.contents.Header.MessageId,
+            DataType(info.contents.Header.Type),
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            info.contents.EProcess)
+        return create_info
     
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -195,7 +366,7 @@ logger.setLevel(logging.ERROR)
 _FilterReplyMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
 _FilterReplyMessageParamFlags = (0, "hPort"), (0,  "lpReplyBuffer"), (0, "dwReplyBufferSize")
 _FilterReplyMessage = _FilterReplyMessageProto(("FilterReplyMessage", windll.fltlib), _FilterReplyMessageParamFlags)
-def FilterReplyMessage(hPort, status, msg_id, msg):
+def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
     '''    
     replies to a message from a kernel-mode minifilter 
     @note close the handle returned using CloseHandle
@@ -209,23 +380,26 @@ def FilterReplyMessage(hPort, status, msg_id, msg):
     '''    
     res = HRESULT()
         
-    if msg is None or not hasattr(msg, "__len__") or len(msg) <= 0:
-        raise ValueError("Parameter msg is invalid!")
+    if (msg is None or not hasattr(msg, "__len__") or len(msg) <= 0
+        or msg_len < len(msg) or msg_len <= sizeof(FILTER_REPLY_HEADER)):
+        raise ValueError("Parameter msg or msg_len is invalid!")
     
     if isinstance(msg, str):
         txt = msg
         msg = bytearray()
-        msg.extend(map(ord, txt))                    
-    msg_len = len(msg)    
-    sz_frh = sizeof(FILTER_REPLY_HEADER)
-    # What's the messages total length in bytes
-    total_len = msg_len + sz_frh
-    reply_buffer = create_string_buffer(total_len)
+        msg.extend(map(ord, txt))                     
+    reply_buffer = create_string_buffer(bytes(msg), msg_len)
     info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
     info.contents.Status = status
-    info.contents.MessageId = msg_id        
-    reply_buffer[sz_frh:sz_frh + msg_len] = msg    
-    res = _FilterReplyMessage(hPort, info, total_len)
+    info.contents.MessageId = msg_id           
+
+    try:
+        res = _FilterReplyMessage(hPort, byref(info.contents), msg_len)
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("FilterReplyMessage Failed on Message Reply - Error %d", lasterror)
+        res = lasterror
+
     return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
@@ -245,11 +419,21 @@ def FilterGetMessage(hPort, msg_len):
     
     sb = create_string_buffer(msg_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
-    res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
-    
-    replylen = info.contents.ReplyLength
-    msgid = info.contents.MessageId
-    msg_pkt = GetMessagePacket(replylen, msgid, sb[sizeof(FILTER_MESSAGE_HEADER):])
+    try:
+        res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
+        pkt = create_string_buffer(sb.raw[sizeof(FILTER_MESSAGE_HEADER):])
+        info = cast(pkt, POINTER(FILTER_MESSAGE_HEADER))
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror)
+        raise
+    except Exception as exc:
+        print("Exception: FilterGetMessage failed to Get Message - Error %s", exc)
+        raise
+
+    ReplyLen = info.contents.ReplyLength
+    MessageId = info.contents.MessageId
+    msg_pkt = FilterMessageHeader(ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
     return res, msg_pkt
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
@@ -273,9 +457,7 @@ def FilterConnectCommunicationPort(PortName):
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror)
         raise
-    else:
-        return res, hPort
-        
+    return res, hPort
 def _build_filter_instance_info(buf):
     '''
     Create the FilterInstanceInformation instance
@@ -559,17 +741,11 @@ def CloseHandle(handle):
     success = _CloseHandle(handle)
     return success
 
-def main():
+
+def test_filter_instance():
     '''
-    let's test some stuff
+    test user space filter instance manipulation
     '''
-    while True:
-        (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-        (res, msg_pkt,) = FilterGetMessage(hFltComms, 128) 
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, "This is a test 123!")
-        CloseHandle(hFltComms)
-        sys.exit(0)
-    
     stats = {}
     (handle, info,) = FilterFindFirst()
     (hFltInstFindFirst, info,) = FilterInstanceFindFirst(info.FilterName)
@@ -603,10 +779,50 @@ def main():
         if hr != S_OK:
             break
         stats[info.FilterName] = 1
-
     _res = FilterInstanceFindClose(hFltInstFindFirst)
     _res = FilterFindClose(handle)
     print(stats)
+    
+    
+def test_packet_decode():
+    '''
+    Test WinVirtUE packet decode
+    '''
+    MAXPKTSZ = 0x400  # max packet size
+    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+    import pdb;pdb.set_trace()
+    while True:
+        (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
+        response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
+        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
+        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
+        if pdh.Type == DataType.LoadedImage:            
+            msg_data = LoadedImageInfo.build(msg_pkt)
+        elif pdh.Type == DataType.ProcessCreate:
+            msg_data = ProcessCreateInfo.build(msg_pkt)
+        elif pdh.Type == DataType.ProcessDestroy:
+            msg_data = ProcessDestroyInfo.build(msg_pkt)
+        else:
+            print("Unknown or unsupported data type %s encountered\n" % (pdh.Type,))
+            continue
+        print("Decoded a %s data message\n" % (pdh.Type.name,))
+        print(json.dumps(msg_data._asdict(), indent=4))
+
+    CloseHandle(hFltComms)
+    
+    
+def main():
+    '''
+    let's test some stuff
+    '''
+    
+    test_packet_decode()
+    
+    #test_filter_instance()     
+    
+    sys.exit(0)
+    
+    
 
 if __name__ == '__main__':
     main()

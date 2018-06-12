@@ -21,5 +21,7 @@ extern CONST ULONG HEADER_BLOCK_SIZE;
 extern CONST LONGLONG FILE_ALLOCATION_NA;
 extern CONST ULONG FILE_ATTRIBUTES_NA;
 
-//extern class ProcessInfoMap *pProcInfoMap;
-//extern class ProcessTracker *pProcessTracker;
+extern class ProbeDataQueue *pPDQ;
+extern class ImageLoadProbe *pILP;
+extern class ProcessCreateProbe *pPCP;
+extern class FltrCommsMgr *pFCM;

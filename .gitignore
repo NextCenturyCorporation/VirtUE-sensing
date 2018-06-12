@@ -8,3 +8,8 @@ pgdata
 /sensors/sensor.wpr
 cscope.files
 cscope.out
+/.vs/savior/v15/Browse.VC.db
+/.vs/ProjectSettings.json
+/.vs/slnx.sqlite
+/.vs/VSWorkspaceState.json
+

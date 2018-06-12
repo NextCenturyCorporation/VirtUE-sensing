@@ -56,6 +56,9 @@
 #define MILLISECONDS( milli ) \
     (((signed __int64) (milli)) * MICROSECONDS(1000L))
 
+#define SECONDS( seconds ) \
+	(((signed __int64) (seconds) * 10 * MILLISECONDS(1000)))
+
 #define ALLOC_POOL(PoolType, Size) ExAllocatePoolWithTag(PoolType, Size, COMMON_POOL_TAG)
 #define FREE_POOL(Buffer)  ExFreePoolWithTag(Buffer, COMMON_POOL_TAG);
 
@@ -68,5 +71,8 @@ CONST ULONG ENCRYPT_PAGE_SIZE = 512;
 CONST LONGLONG FILE_ALLOCATION_NA = 0;
 /** When File Attributes are not used */
 CONST ULONG FILE_ATTRIBUTES_NA = 0;
+
+/** The number of elements in the probe data queue */
+CONST INT PROBEDATAQUEUESZ = 0x4000;
 
 

@@ -17,11 +17,12 @@
 * @param Type -- Type of string, see STRING_TYPES enum
 * @param Level -- Print level
 */
+_Use_decl_annotations_
 void
 WVUDebugPrintFileName(
-	_In_ _Notnull_ PVOID String, 
-	_In_ INT32 Type, 
-	_In_ INT32 Level)
+	PVOID String, 
+	INT32 Type, 
+	INT32 Level)
 {
     switch (Type)
     {
@@ -57,10 +58,11 @@ WVUDebugBreakPoint()
 * @param Buffer -- the buffer you want to print
 * @param Size -- Size of the buffer
 */
+_Use_decl_annotations_
 void
 WVUDebugPrintBuffer(
-	_In_ _Notnull_ const PUCHAR Buffer,
-	_In_ UINT32 Size)
+	const PUCHAR Buffer,
+	UINT32 Size)
 {
 	UINT32 i = 0;
     const UINT32 printSize = min(0x100, Size);
@@ -101,11 +103,15 @@ WVUDebugPrintBuffer(
 * @param Target -- The file name we care about
 * @param Type -- UNICODE_STRING or WCHAR string, see STRING_TYPES enum
 */
+_Use_decl_annotations_
 void
-WVUDebugBreakOnMatch(PVOID String, WCHAR *Target, INT32 Type)
+WVUDebugBreakOnMatch(
+	PVOID String, 
+	const WCHAR *Target, 
+	INT32 Type)
 {
     WCHAR *wStr = NULL;
-    PUNICODE_STRING uStr = NULL;
+    PCUNICODE_STRING uStr = NULL;
     BOOLEAN match = FALSE;
     size_t wStrLen = 0;
     NTSTATUS status = STATUS_SUCCESS;
@@ -113,8 +119,9 @@ WVUDebugBreakOnMatch(PVOID String, WCHAR *Target, INT32 Type)
     switch (Type)
     {
     case STRING_UNICODE:
-        uStr = (UNICODE_STRING*)String;
-        wStrLen = sizeof(WCHAR) * (uStr->Length + 1);
+        uStr = (PCUNICODE_STRING)String;
+        wStrLen = sizeof(WCHAR) * ((size_t)uStr->Length + 1);
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
         wStr = (PWCHAR)ALLOC_POOL(NonPagedPool, wStrLen);
         FLT_ASSERTMSG("ALLOC_POOL", NULL == wStr);
         if (NULL == wStr)

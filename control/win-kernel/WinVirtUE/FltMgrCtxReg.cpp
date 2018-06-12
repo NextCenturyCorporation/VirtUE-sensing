@@ -147,6 +147,7 @@ PVOID InstanceContextAllocate(
     /*
     * Allocate the actual stream context.
     */
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
     pVoid = ExAllocatePoolWithTag(NonPagedPool, Size, INSTANCECONTEXT_POOL_TAG);
     if (NULL == pVoid)
     {
@@ -187,10 +188,11 @@ Done:
 * @param pVoid  - a pointer to the instance context to be released
 * @param ContextType  - context type of current filter instance
 */
+_Use_decl_annotations_
 VOID
 InstanceContextCleanup(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    PVOID pVoid,
+    FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -200,7 +202,7 @@ InstanceContextCleanup(
     FLT_ASSERTMSG("Find out why we are freeing a NULL WVU_INSTANCE_CONTEXT pointer!",
         NULL != pVoid);
 
-    PWVU_INSTANCE_CONTEXT pInstanceContext = (PWVU_INSTANCE_CONTEXT)pVoid;
+    const PWVU_INSTANCE_CONTEXT pInstanceContext = (PWVU_INSTANCE_CONTEXT)pVoid;
     UNREFERENCED_PARAMETER(pInstanceContext);
 }
 
@@ -212,10 +214,11 @@ InstanceContextCleanup(
 * @param PVOID  - a void pointer to the entire stream context to be released
 * @param ContextType  - context of current filter instance
 */
+_Use_decl_annotations_
 VOID
 InstanceContextFree(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    PVOID pVoid,
+    FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -264,9 +267,9 @@ static SIZE_T g_SizeOfFltrMgrStrmCtx = 0;
 */
 _Use_decl_annotations_
 PVOID StreamContextAllocate(
-    _In_ POOL_TYPE PoolType,
-    _In_ SIZE_T Size,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    POOL_TYPE PoolType,
+    SIZE_T Size,
+    FLT_CONTEXT_TYPE ContextType)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PVOID pWVUStreamContext = NULL;
@@ -340,7 +343,7 @@ PVOID StreamContextAllocate(
     /*
     * Setup the main context common header
     */
-    PFSRTL_COMMON_FCB_HEADER comHeader = (PFSRTL_COMMON_FCB_HEADER)&pStreamContextPointer->Header;
+    PFSRTL_COMMON_FCB_HEADER comHeader = (PFSRTL_COMMON_FCB_HEADER)&pStreamContextPointer->ProbeDataHeader;
     comHeader->IsFastIoPossible = FastIoIsPossible;
     comHeader->NodeTypeCode = NodeTypeCode::StreamContext;
     comHeader->NodeByteSize = sizeof(WVU_STREAM_CONTEXT);
@@ -351,15 +354,15 @@ PVOID StreamContextAllocate(
     comHeader->Resource = &pStreamContextPointer->Resource;
     comHeader->PagingIoResource = &pStreamContextPointer->PagingIoResource;
     /* Assign the standard header data portion */
-    pStreamContextPointer->Header.FastMutex = &pStreamContextPointer->FastMutex;
+    pStreamContextPointer->ProbeDataHeader.FastMutex = &pStreamContextPointer->FastMutex;
 #pragma warning( pop )
     /* initialize the mutex and resources */
-    ExInitializeFastMutex(pStreamContextPointer->Header.FastMutex);
+    ExInitializeFastMutex(pStreamContextPointer->ProbeDataHeader.FastMutex);
     ExInitializeResourceLite(comHeader->Resource);
     ExInitializeResourceLite(comHeader->PagingIoResource);
 
     /* configure the advanced header */
-    FsRtlSetupAdvancedHeader(&pStreamContextPointer->Header, pStreamContextPointer->Header.FastMutex);
+    FsRtlSetupAdvancedHeader(&pStreamContextPointer->ProbeDataHeader, pStreamContextPointer->ProbeDataHeader.FastMutex);
 
 Done:
 
@@ -373,11 +376,11 @@ Done:
 * @param pVoid  - a pointer to the stream context to be released
 * @param ContextType  - context of current filter instance
 */
-
+_Use_decl_annotations_
 VOID
 StreamContextCleanup(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+	_In_ PVOID pContext,
+	_In_ FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -385,23 +388,34 @@ StreamContextCleanup(
         FLT_STREAM_CONTEXT == ContextType);
 
     FLT_ASSERTMSG("Find out why we are freeing a NULL WVU_STREAM_CONTEXT pointer!",
-        NULL != pVoid);
+        NULL != pContext);
 
-    PWVU_STREAM_CONTEXT pStreamContext = (PWVU_STREAM_CONTEXT)pVoid;
-    pStreamContext = (PWVU_STREAM_CONTEXT)pVoid;
+	if (NULL == pContext)
+	{
+		goto ErrorExit;
+	}
+
+    PWVU_STREAM_CONTEXT pStreamContext = (PWVU_STREAM_CONTEXT)pContext;
+    pStreamContext = (PWVU_STREAM_CONTEXT)pContext;
 
     FltReleaseFileNameInformation(pStreamContext->FileNameInformation);
 
     FltReleaseContext(pStreamContext->InstanceContext);
 
-    ExReleaseResourceLite(pStreamContext->Header.Resource);
+#pragma warning(suppress: 26110)  // not true, this is a callback function with the lock held
+    ExReleaseResourceLite(pStreamContext->ProbeDataHeader.Resource);
 
     /*
     * Delete the resources.
     */
-    ExDeleteResourceLite(pStreamContext->Header.PagingIoResource);
+    ExDeleteResourceLite(pStreamContext->ProbeDataHeader.PagingIoResource);
 
-    FsRtlTeardownPerStreamContexts(&pStreamContext->Header);
+    FsRtlTeardownPerStreamContexts(&pStreamContext->ProbeDataHeader);
+
+ErrorExit:
+
+#pragma warning(suppress: 26135) // not true, properly annotated
+	return;
 }
 
 /**
@@ -412,10 +426,11 @@ StreamContextCleanup(
 * @param pStreamContext  - a pointer to the stream context to be released
 * @param ContextType  - context of current filter instance
 */
+_Use_decl_annotations_
 VOID
 StreamContextFree(
-    _In_ PVOID pVoid,
-    _In_ FLT_CONTEXT_TYPE ContextType)
+    PVOID pVoid,
+    FLT_CONTEXT_TYPE ContextType)
 {
     UNREFERENCED_PARAMETER(ContextType); // release
 
@@ -451,11 +466,11 @@ StreamContextFree(
 _Use_decl_annotations_
 PWVU_STREAM_CONTEXT
 CreateStreamContext(
-    _In_ PFLT_CALLBACK_DATA          Data,
-    _In_ PFLT_FILE_NAME_INFORMATION  FileNameInformation,
-    _In_ StreamFlags                 Flags,
-    _In_ LARGE_INTEGER               FileId,
-    _Out_ PNTSTATUS                  Status)
+    PFLT_CALLBACK_DATA          Data,
+    PFLT_FILE_NAME_INFORMATION  FileNameInformation,
+    StreamFlags                 Flags,
+    LARGE_INTEGER               FileId,
+    PNTSTATUS                   Status)
 {
     PWVU_STREAM_CONTEXT pStreamContext = NULL;
 
@@ -500,7 +515,7 @@ CreateStreamContext(
     /* add previously collected flags to context */
     InterlockedOr((PLONG)&pStreamContext->SFlags, Flags);
 
-    FltAcquireResourceExclusive(pStreamContext->Header.Resource);
+    FltAcquireResourceExclusive(pStreamContext->ProbeDataHeader.Resource);
 
     // assigne the file id
     pStreamContext->FileId = FileId;

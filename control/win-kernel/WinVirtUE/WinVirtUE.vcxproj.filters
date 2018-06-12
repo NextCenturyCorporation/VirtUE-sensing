@@ -62,9 +62,6 @@
     <ClCompile Include="Driver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PortMsgTrans.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="WinVirtUE.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -84,6 +81,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AbstractVirtueProbe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProbeDataQueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageLoadProbe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessCreateProbe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FltrCommsMgr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -118,9 +127,6 @@
     <ClInclude Include="Driver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PortMsgTrans.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\inc\WVUKernelUserComms.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -139,9 +145,6 @@
     <ClInclude Include="WinVirtUE.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ObjectCreateNotifyCB.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="RegistryModificationCB.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -150,6 +153,21 @@
     </ClInclude>
     <ClInclude Include="trace.h">
       <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="ProbeDataQueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ImageLoadProbe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectCreateNotifyCB.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessCreateProbe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FltrCommsMgr.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
