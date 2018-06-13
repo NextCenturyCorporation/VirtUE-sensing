@@ -415,12 +415,12 @@ struct kernel_ps_probe {
 };
 
 
-int kernel_ps_record(struct kernel_ps_probe *parent,
-					 uint8_t *tag,
-					 uint64_t nonce,
-					 int index,
-					 int clear,
-					 uint8_t **json_record);
+int kernel_ps_get_record(struct kernel_ps_probe *parent,
+						 uint8_t *tag,
+						 uint64_t nonce,
+						 int index,
+						 int clear,
+						 uint8_t **record);
 
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
 

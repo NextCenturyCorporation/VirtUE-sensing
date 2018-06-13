@@ -420,7 +420,7 @@ err_exit:
  * @return error code or zero upon success
  *
  **/
-int kernel_ps_record(struct kernel_ps_probe *parent,
+int kernel_ps_get_record(struct kernel_ps_probe *parent,
 					 uint8_t *tag,
 					 uint64_t nonce,
 					 int index,
