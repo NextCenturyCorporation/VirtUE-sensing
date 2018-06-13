@@ -387,6 +387,10 @@ err_exit:
 
 
 /**
+ * TODO: seperate the kernel-ps probe into its own source file
+ **/
+
+/**
  * locking the kernel-ps flex_array
  * to write to or read from the pre-allocated flex array parts,
  * one must hold the kps_spinlock. The kernel_ps function will
@@ -408,7 +412,7 @@ err_exit:
  * @param nonce - 0 means copy record regardless of nonce value,
  *        otherwise copy only records with matching nonce
  * @param index - the record number to copy
- * @param json_record - double pointer that will return the
+ * @param record - double pointer that will return the
  *        allocated memory containing the kernel ps record
  *
  * @return error code or zero upon success
@@ -418,15 +422,14 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 					 uint8_t *tag,
 					 uint64_t nonce,
 					 int index,
-					 uint8_t **json_record)
+					 uint8_t **record)
 {
 	struct kernel_ps_data *kpsd_p;
-	int ccode = 0, len = 0;
+	int len = 0;
 
-	assert(json_record);
+	assert(record);
 	assert(tag);
 	assert(index >= 0 && index < PS_ARRAY_SIZE);
-
 
 	if (! spin_trylock(&parent->lock)) {
 		return -EAGAIN;
@@ -443,19 +446,19 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 		return -EINVAL;
 	}
 
-	*json_record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
-	if (! *json_record) {
+	*record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (! *record) {
 		return -ENOMEM;
 	}
 
-	len = snprintf(*json_record,
+	len = snprintf(*record,
 				   CONNECTION_MAX_HEADER - 1,
 				   "%s %d %s [%d] [%d] [%llx]\n",
 				   tag, index, kpsd_p->comm, kpsd_p->pid_nr,
 				   kpsd_p->user_id.val, nonce);
 
 	if (len < CONNECTION_MAX_HEADER - 1) {
-		*json_record = krealloc(*json_record, len, GFP_KERNEL);
+		*record = krealloc(*record, len, GFP_KERNEL);
 	}
 
 	return 0;
