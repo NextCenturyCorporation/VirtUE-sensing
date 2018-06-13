@@ -412,6 +412,8 @@ err_exit:
  * @param nonce - 0 means copy record regardless of nonce value,
  *        otherwise copy only records with matching nonce
  * @param index - the record number to copy
+ * @param clear - boolean indicating whether to clear the record
+ *        in the flex array
  * @param record - double pointer that will return the
  *        allocated memory containing the kernel ps record
  *
@@ -422,6 +424,7 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 					 uint8_t *tag,
 					 uint64_t nonce,
 					 int index,
+					 int clear,
 					 uint8_t **record)
 {
 	struct kernel_ps_data *kpsd_p;
@@ -436,16 +439,20 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 	}
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
+	if (kpsd_p && clear) {
+		flex_array_clear(parent->kps_data_flex_array, index);
+	}
 	spin_unlock(&parent->lock);
 
 	if (!kpsd_p) {
 		return -ENFILE;
 	}
-
-	if (nonce != 0 && kpsd_p->nonce != nonce) {
+	if (kpsd_p->clear == FLEX_ARRAY_FREE) {
+		return -ENOENT;
+	}
+	if (nonce && kpsd_p->nonce != nonce) {
 		return -EINVAL;
 	}
-
 	*record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
 	if (! *record) {
 		return -ENOMEM;
@@ -497,7 +504,13 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 	}
 	for (index = 0; index < PS_ARRAY_SIZE; index++)  {
 		kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
-		if (kpsd_p->nonce != nonce) {
+		if (!kpsd_p) {
+			return -ENFILE;
+		}
+		if (kpsd_p->clear == FLEX_ARRAY_FREE) {
+			continue;
+		}
+		if (nonce && kpsd_p->nonce != nonce) {
 			break;
 		}
 		printk(KERN_INFO "%s %d:%d %s [%d] [%d] [%llx]\n",
@@ -514,20 +527,19 @@ STACK_FRAME_NON_STANDARD(print_kernel_ps);
 
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 {
-	int index = 0;
 	struct task_struct *task;
 	struct kernel_ps_data kpsd;
 	unsigned long flags;
+	int index = 0;
 
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;
 	}
+	memset(&kpsd, 0x00, sizeof(kpsd));
 	rcu_read_lock();
 	for_each_process(task) {
 		task_lock(task);
-
 		kpsd.nonce = nonce;
-		kpsd.index = index;
 		kpsd.user_id = task_uid(task);
 		kpsd.pid_nr = task->pid;
 		memcpy(kpsd.comm, task->comm, TASK_COMM_LEN);
@@ -538,8 +550,8 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 			task_unlock(task);
 			goto unlock_out;
 		}
-		index++;
 		task_unlock(task);
+		index++;
 	}
 unlock_out:
 	rcu_read_unlock();

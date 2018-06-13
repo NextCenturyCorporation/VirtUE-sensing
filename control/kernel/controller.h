@@ -342,7 +342,8 @@ struct kernel_sensor {
  *
  ******************************************************************************/
 struct kernel_ps_data {
-	int index; /* used for access to using flex_array.h */
+	uint8_t clear;
+	uint8_t pad[7];
 	uint64_t nonce;
 	kuid_t user_id;
 	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
@@ -418,6 +419,7 @@ int kernel_ps_record(struct kernel_ps_probe *parent,
 					 uint8_t *tag,
 					 uint64_t nonce,
 					 int index,
+					 int clear,
 					 uint8_t **json_record);
 
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
