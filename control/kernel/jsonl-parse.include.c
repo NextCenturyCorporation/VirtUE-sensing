@@ -459,11 +459,45 @@ add_to_line(uint8_t *line, uint8_t *concat, ssize_t max)
 }
 
 
+static int
+write_session_replies(struct jsmn_session *session)
+{
+	struct jsmn_message *msg = NULL;
+	ssize_t ccode;
 
+	rcu_read_lock();
+	list_for_each_entry_rcu(msg, &session->h_replies, e_messages) {
+		ccode = k_socket_write(msg->socket,
+							   strlen(msg->line) + 1,
+							   msg->line,
+						 	   0L);
+		if (ccode < 0) {
+			goto err_socket_write;
+		}
+	}
+	ccode = 0;
+err_socket_write:
+	rcu_read_unlock();
+	return ccode;
+}
+
+
+/**
+ * TODO: optimize the memory usage by allowing rcv_msg_from_probe to use
+ * a pre-allocated buffer. eg.,
+ *
+ * buf = kzalloc(size, GFP_KERNEL);
+ * rcv_msg_from_probe(probe, RECORDS, &buf, &size);
+ *
+ * and rcv_msg_from_probe will NOT re-allocated the memory
+ * as it is now, the same buffer will be allocated, freed, and re-allocated
+ * in a loop.
+ *
+ **/
 static int
 process_records_request(struct jsmn_message *msg, int index)
 {
-	int ccode = 0;
+	int ccode = 0, write_ccode = 0;
 	struct probe *probe_p = NULL;
 	struct jsmn_message *records_reply = NULL;
 	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
@@ -474,73 +508,128 @@ process_records_request(struct jsmn_message *msg, int index)
 
 	if (!ccode && probe_p != NULL) {
 		ssize_t len = 0;
-		/**
-		 * TODO:
-		 * call the probe in a loop until we have all the record replies
-		 **/
         /* send this probe a records request */
-		ccode = probe_p->rcv_msg_from_probe(probe_p, RECORDS, (void **)&buf, &len);           /* now unlock the probe */
-		spin_unlock(&probe_p->lock);
+		/* will return 0 or error if no record. */
+		/* each record is encapsulated in a json object and copied into */
+		/* a reply message, and linked to the session */
+		do {
+			ccode = probe_p->rcv_msg_from_probe(probe_p,
+												RECORDS,
+												(void **)&buf,
+												&len);
 
-		if (!ccode && buf && len > 0) {
-			records_reply = allocate_reply_message(msg);
-			if (records_reply) {
-				/* now build and send the reply response */
-				unsigned long replies_flag;
-				ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
-				ssize_t remaining = orig_len;
-				/* "{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 1] }\n" */
+			if (!ccode && buf && len > 0) {
+				records_reply = allocate_reply_message(msg);
+				if (records_reply) {
+					/* now build and send the reply response */
+					unsigned long replies_flag;
+					ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
+					ssize_t remaining = orig_len;
+					remaining = add_to_line(records_reply->line, r_header, orig_len);
+					if (remaining <= len + 4) {
+						free_message(records_reply);
+						records_reply = NULL;
+						ccode = -ENOMEM;
+						continue;
+					}
 
-				remaining = add_to_line(records_reply->line, r_header, orig_len);
-				if (remaining <= len + 4) { goto out_records_reply; }
+					remaining = add_to_line(records_reply->line,
+											records_reply->s->nonce,
+											orig_len);
+					if (remaining <= len + 4) {
+						free_message(records_reply);
+						records_reply = NULL;
+						ccode = -ENOMEM;
+						continue;
+					}
 
-				remaining = add_to_line(records_reply->line,
-										records_reply->s->nonce,
-										orig_len);
-				if (remaining <= len + 4) { goto out_records_reply; }
+					remaining = add_to_line(records_reply->line, ", ", orig_len);
+					if (remaining <= len + 4) {
+						free_message(records_reply);
+						records_reply = NULL;
+						ccode = -ENOMEM;
+						continue;
+					}
 
-				remaining = add_to_line(records_reply->line, ", ", orig_len);
-				if (remaining <= len + 4) { goto out_records_reply; }
+					remaining = add_to_line(records_reply->line,
+											probe_p->id,
+											orig_len);
+					if (remaining <= len + 4) {
+						free_message(records_reply);
+						records_reply = NULL;
+						ccode = -ENOMEM;
+						continue;
+					}
 
-				remaining = add_to_line(records_reply->line, probe_p->id, orig_len);
-				if (remaining <= len + 4) { goto out_records_reply; }
+					remaining = add_to_line(records_reply->line, ", ", orig_len);
+					if (remaining <= len + 4) {
+						free_message(records_reply);
+						records_reply = NULL;
+						ccode = -ENOMEM;
+						continue;
+					}
 
-				remaining = add_to_line(records_reply->line, ", ", orig_len);
-				if (remaining <= len + 4) { goto out_records_reply; }
-
-				strncat(records_reply->line, buf, len);
-				strcat(records_reply->line, "] }");
-				records_reply->line = add_nl_at_end(records_reply->line,
-													strlen(records_reply->line));
-				/**
-				 * link the discovery reply message to the session
-				 **/
-				spin_lock_irqsave(&records_reply->s->sl, replies_flag);
-				list_add_tail_rcu(&records_reply->e_messages,
-								  &records_reply->s->h_replies);
-				spin_unlock_irqrestore(&records_reply->s->sl, replies_flag);
-
-				/**
-				 * write the reply message to the socket, then free the session
-				 **/
-				ccode = k_socket_write(records_reply->socket,
-									   strlen(records_reply->line) + 1,
-									   records_reply->line,
-									   0L);
-				goto out_session;
+					strncat(records_reply->line, buf, len);
+					strcat(records_reply->line, "] }");
+					records_reply->line = add_nl_at_end(records_reply->line,
+														strlen(records_reply->line));
+					/**
+					 * link the discovery reply message to the session
+					 **/
+					spin_lock_irqsave(&records_reply->s->sl, replies_flag);
+					list_add_tail_rcu(&records_reply->e_messages,
+									  &records_reply->s->h_replies);
+					spin_unlock_irqrestore(&records_reply->s->sl, replies_flag);
+				}
 			}
-		}
+			if (buf) {
+				kfree(buf);
+				buf = NULL;
+			}
+		} while(!ccode);
+		spin_unlock(&probe_p->lock);
+	}
 
-	}
-out_records_reply:
-	if (records_reply) {
-		free_message(records_reply);
-	}
-out_session:
+	/**
+     * even if one of the records exhuasted memory or
+	 * caused an error, we may have been able to link more than one
+	 * good record to the session as a reply message.  Try to write
+	 * as many records to the socket as we can.
+	 **/
+	write_ccode = write_session_replies(msg->s);
+
+    /**
+	 * ERROR CODE returns:
+	 * There are two possible error codes, in priority:
+	 *
+	 * 1. ccode < 0 means we ran out of memory trying to stuff a record
+	 * into a json response object
+	 *
+	 * 2. write_ccode < 0 means we experienced an error writing one record
+	 * to the message socket. We may have written one or more records
+	 * before experiencing the error.
+	 *
+	 * if there is an error, return ccode firstly, write_ccode secondly
+	 *
+	 * If no error, return COMPLETE (a positive enumerated value)
+	 **/
+
+	/**
+	 * it is possible to reach here on an error
+	 * without having freed the message buffer
+	 *
+	 * TODO: re-factor so that the buffer is always going to be freed
+	 * by the caller, then we don't need to worry about all the different
+	 * exit conditions.
+	 **/
 	if (buf) {
 		kfree(buf);
 	}
 	free_session(msg->s);
+	if (ccode < 0)
+		return ccode;
+	if (write_ccode < 0)
+		return write_ccode;
 	return COMPLETE;
 }
 

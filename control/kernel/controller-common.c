@@ -292,7 +292,7 @@ exit:
  **/
 
 /**
- * @brief build a JSON array containing the id strings of each parser
+ * @brief build a JSON array containing the id strings of each probe
  * registered with the sensor.
  *
  * @param uint8_t **buf pointer-to-a-pointer that we will allocate for
@@ -417,7 +417,7 @@ err_exit:
  * @param record - double pointer that will return the
  *        allocated memory containing the kernel ps record
  *
- * @return error code or zero upon success
+ * @return error code or zero
  *
  **/
 int kernel_ps_get_record(struct kernel_ps_probe *parent,
@@ -445,7 +445,7 @@ int kernel_ps_get_record(struct kernel_ps_probe *parent,
 	spin_unlock(&parent->lock);
 
 	if (!kpsd_p) {
-		return -ENFILE;
+		return -ENOENT;
 	}
 	if (kpsd_p->clear == FLEX_ARRAY_FREE) {
 		return -ENOENT;
@@ -840,6 +840,9 @@ void  run_kps_probe(struct kthread_work *work)
  *
  **/
 
+/**
+ * copy in_buf into probe
+ **/
 int
 default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len)
 {
@@ -855,10 +858,8 @@ default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len)
 
 
 /**
- * probe is RECEIVING the message
+ *  Cause the probe to respond to msg by allocating and filling a buffer
  **/
-
-
 int
 default_rcv_msg_from(struct probe *probe,
 					 int msg,
@@ -884,6 +885,42 @@ default_rcv_msg_from(struct probe *probe,
 }
 
 
+/**
+ * @brief receive a record request message
+ *
+ * build up a list of record response messages - each response
+ * containing a ps record.
+ *
+ *
+ **/
+static int
+ps_rcv_record_request(struct probe *probe,
+					  int msg,
+					  void **out_buf,
+					  ssize_t *len)
+{
+
+	return 0;
+}
+
+static int ps_rcv_msg_from(struct probe *probe,
+						   int msg,
+						   void **out_buf,
+						   ssize_t *len)
+{
+	switch(msg) {
+	case RECORDS: {
+		return ps_rcv_record_request(probe, msg, out_buf, len);
+		}
+	default:
+		return -EINVAL;
+	}
+	return -EINVAL;
+}
+
+
+
+
 struct probe *init_probe(struct probe *probe,
 						 uint8_t *id, int id_size)
 {
@@ -894,7 +931,7 @@ struct probe *init_probe(struct probe *probe,
 	probe->init =  init_probe;
 	probe->destroy = destroy_probe;
 	probe->send_msg_to_probe = default_send_msg_to;
-	probe->rcv_msg_from_probe = default_rcv_msg_from;
+	probe->rcv_msg_from_probe = ps_rcv_msg_from;
 	if (id && id_size > 0) {
 		probe->id = kzalloc(id_size, GFP_KERNEL);
 		if (!probe->id) {
