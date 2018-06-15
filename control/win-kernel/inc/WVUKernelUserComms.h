@@ -78,7 +78,6 @@ typedef struct _WVU_CONNECTION_CONTEXT {
     WVU_CONNECTION_TYPE   Type;  // The connection type
 } WVU_CONNECTION_CONTEXT, *PWVU_CONNECTION_CONTEXT;
 
-
 typedef struct _WVU_PROCESS_NOTIFICATION_INFO {
 
 

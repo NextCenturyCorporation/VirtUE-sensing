@@ -42,6 +42,8 @@
 #define NUMBER_OF(x) ( sizeof(x) / sizeof(x[0]) )
 #endif
 
+#define ABS(N) ((N<0)?(-N):(N))
+
 /* Wait / Time macros */
 #define ABSOLUTE(wait) (wait)
 

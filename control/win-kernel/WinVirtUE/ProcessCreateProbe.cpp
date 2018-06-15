@@ -14,6 +14,7 @@
 ProcessCreateProbe::ProcessCreateProbe() 
 {
 	ProbeName = RTL_CONSTANT_STRING(L"ProcessCreate");
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
 
 /**
@@ -185,5 +186,17 @@ ErrorExit:
 	ExReleaseRundownProtection(&Globals.RunDownRef);
 
 	return VOID();
+}
+
+/**
+* @brief called by system thread if polled thread has expired
+* @return NTSTATUS of this running of the probe
+*/
+_Use_decl_annotations_
+NTSTATUS 
+ProcessCreateProbe::OnRun() 
+{
+	(VOID)AbstractVirtueProbe::OnRun();  // always call the super method
+	return STATUS_ATTRIBUTE_NOT_PRESENT;
 }
 

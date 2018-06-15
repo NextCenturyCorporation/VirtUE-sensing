@@ -15,6 +15,8 @@
 ImageLoadProbe::ImageLoadProbe()
 {
 	ProbeName = RTL_CONSTANT_STRING(L"ImageLoad");
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
+
 }
 
 /**
@@ -99,6 +101,18 @@ NTSTATUS ImageLoadProbe::Mitigate(
 	UNREFERENCED_PARAMETER(argv);
 	UNREFERENCED_PARAMETER(argc);
 	return NTSTATUS();
+}
+
+/**
+* @brief called by system thread if polled thread has expired
+* @return NTSTATUS of this running of the probe
+*/
+_Use_decl_annotations_
+NTSTATUS 
+ImageLoadProbe::OnRun()
+{
+	(VOID)AbstractVirtueProbe::OnRun();  // always call the super method
+	return STATUS_ATTRIBUTE_NOT_PRESENT;
 }
 
 /**

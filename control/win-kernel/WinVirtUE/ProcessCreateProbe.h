@@ -19,7 +19,7 @@ private:
 	VOID ProcessNotifyCallbackEx(
 			_Inout_ PEPROCESS  Process,
 			_In_ HANDLE  ProcessId,
-			_Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo);;
+			_Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo);	
 public:
 	ProcessCreateProbe();
 	~ProcessCreateProbe();
@@ -34,5 +34,7 @@ public:
 		NTSTATUS Mitigate(
 			_In_opt_count_(argc) PCHAR argv[],
 			_In_ UINT32 argc);
+	_Must_inspect_result_
+	NTSTATUS OnRun();
 };
 

@@ -11,7 +11,7 @@
 #include "ProcessCreateProbe.h"
 #include "FltrCommsMgr.h"
 
-#define COMMON_POOL_TAG WVU_OBSIDIANWAVE_POOL_TAG
+#define COMMON_POOL_TAG WVU_THREAD_POOL_TAG
 
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
