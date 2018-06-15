@@ -421,26 +421,37 @@ err_exit:
  *
  **/
 int kernel_ps_get_record(struct kernel_ps_probe *parent,
-					 uint8_t *tag,
-					 uint64_t nonce,
-					 int index,
-					 int clear,
-					 uint8_t **record)
+						 struct probe_msg *msg,
+						 uint8_t *tag)
 {
 	struct kernel_ps_data *kpsd_p;
-	int len = 0;
+	int ccode = 0;
+	struct records_request *rr = (struct records_request *)msg->input;
+	struct records_reply *rp = (struct records_reply *)msg->output;
 
-	assert(record);
+	assert(parent);
+	assert(msg);
 	assert(tag);
-	assert(index >= 0 && index < PS_ARRAY_SIZE);
+	assert(rr);
+	assert(rp);
+	assert(msg->input_len == (sizeof(struct records_request)));
+	assert(msg->output_len == (sizeof(struct records_reply)));
+	assert(rr->index >= 0 && rr->index < PS_ARRAY_SIZE);
 
 	if (! spin_trylock(&parent->lock)) {
 		return -EAGAIN;
 	}
+	if (rr->run_probe) {
+		ccode = kernel_ps_unlocked(parent, rr->nonce);
+		if (ccode < 0) {
+			spin_unlock(&parent->lock);
+			return ccode;
+		}
+	}
 
-	kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
-	if (kpsd_p && clear) {
-		flex_array_clear(parent->kps_data_flex_array, index);
+	kpsd_p = flex_array_get(parent->kps_data_flex_array, rr->index);
+	if (kpsd_p && rr->clear) {
+		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
 	spin_unlock(&parent->lock);
 
@@ -450,24 +461,20 @@ int kernel_ps_get_record(struct kernel_ps_probe *parent,
 	if (kpsd_p->clear == FLEX_ARRAY_FREE) {
 		return -ENOENT;
 	}
-	if (nonce && kpsd_p->nonce != nonce) {
+	if (rr->nonce && kpsd_p->nonce != rr->nonce) {
 		return -EINVAL;
 	}
-	*record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
-	if (! *record) {
+
+	if (!rp->records || rp->records_len <=0) {
 		return -ENOMEM;
 	}
-
-	len = snprintf(*record,
-				   CONNECTION_MAX_HEADER - 1,
+	rp->records_len = snprintf(rp->records,
+				   rp->records_len - 1,
 				   "%s %d %s [%d] [%d] [%llx]\n",
-				   tag, index, kpsd_p->comm, kpsd_p->pid_nr,
-				   kpsd_p->user_id.val, nonce);
-
-	if (len < CONNECTION_MAX_HEADER - 1) {
-		*record = krealloc(*record, len, GFP_KERNEL);
-	}
-
+				   tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
+				   kpsd_p->user_id.val, rr->nonce);
+	rp->index = rr->index;
+	rp->range = rr->range;
 	return 0;
 }
 
@@ -525,17 +532,13 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 }
 STACK_FRAME_NON_STANDARD(print_kernel_ps);
 
-int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
+int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce)
 {
+
 	struct task_struct *task;
-	struct kernel_ps_data kpsd;
-	unsigned long flags;
+	struct kernel_ps_data kpsd = {0};
 	int index = 0;
 
-	if (!spin_trylock_irqsave(&parent->lock, flags)) {
-		return -EAGAIN;
-	}
-	memset(&kpsd, 0x00, sizeof(kpsd));
 	rcu_read_lock();
 	for_each_process(task) {
 		task_lock(task);
@@ -555,6 +558,20 @@ int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 	}
 unlock_out:
 	rcu_read_unlock();
+	return index;
+}
+
+inline int
+kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
+{
+
+	int index;
+	unsigned long flags;
+
+	if (!spin_trylock_irqsave(&parent->lock, flags)) {
+		return -EAGAIN;
+	}
+	index = kernel_ps_unlocked(parent, nonce);
 	spin_unlock_irqrestore(&parent->lock, flags);
 	return index;
 }
@@ -840,50 +857,19 @@ void  run_kps_probe(struct kthread_work *work)
  *
  **/
 
-/**
- * copy in_buf into probe
- **/
-int
-default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len)
-{
-	assert(probe && in_buf);
 
-	if (msg < CONNECT || msg > RECORDS || len < 0 || len > CONNECTION_MAX_MESSAGE) {
+int
+default_probe_message(struct probe *probe, struct probe_msg *msg)
+{
+	assert(probe && msg);
+
+	if (msg->id < CONNECT || msg->id > RECORDS) {
 		DMSG();
 		return -EINVAL;
 	}
-
+	msg->ccode = 0;
 	return 0;
 }
-
-
-/**
- *  Cause the probe to respond to msg by allocating and filling a buffer
- **/
-int
-default_rcv_msg_from(struct probe *probe,
-					 int msg,
-					 void **out_buf,
-					 ssize_t *len)
-{
-
-	assert(probe && out_buf && len);
-
-	if (msg < CONNECT || msg > RECORDS ) {
-		DMSG();
-		return -EINVAL;
-	}
-
-	*out_buf = kzalloc(0x100, GFP_KERNEL);
-	if (*out_buf) {
-		*len = 0x100;
-		snprintf(*out_buf, 0x100, "default_rcv_from msg ID %d.", msg);
-		printk(KERN_DEBUG "default_rcv_from msg ID %d\n", msg);
-		return 0;
-	}
-	return -ENOMEM;
-}
-
 
 /**
  * @brief receive a record request message
@@ -895,27 +881,22 @@ default_rcv_msg_from(struct probe *probe,
  **/
 static int
 ps_rcv_record_request(struct probe *probe,
-					  int msg,
-					  void **out_buf,
-					  ssize_t *len)
+					  struct probe_msg * msg)
 {
 
 	return 0;
 }
 
-static int ps_rcv_msg_from(struct probe *probe,
-						   int msg,
-						   void **out_buf,
-						   ssize_t *len)
+static int
+ps_message(struct probe *probe, struct probe_msg *msg)
 {
-	switch(msg) {
+	switch(msg->id) {
 	case RECORDS: {
-		return ps_rcv_record_request(probe, msg, out_buf, len);
-		}
+		return ps_rcv_record_request(probe, msg);
+	}
 	default:
 		return -EINVAL;
 	}
-	return -EINVAL;
 }
 
 
@@ -930,8 +911,7 @@ struct probe *init_probe(struct probe *probe,
 	INIT_LIST_HEAD_RCU(&probe->l_node);
 	probe->init =  init_probe;
 	probe->destroy = destroy_probe;
-	probe->send_msg_to_probe = default_send_msg_to;
-	probe->rcv_msg_from_probe = ps_rcv_msg_from;
+	probe->message = default_probe_message;
 	if (id && id_size > 0) {
 		probe->id = kzalloc(id_size, GFP_KERNEL);
 		if (!probe->id) {
@@ -1009,6 +989,8 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 
 	ps_p->_init = init_kernel_ps_probe;
 	ps_p->_destroy = destroy_kernel_ps_probe;
+	ps_p->message = ps_message;
+
 	if (print) {
 		ps_p->print = print;
 	} else {

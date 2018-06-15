@@ -51,6 +51,33 @@ enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
 #define CONNECTION_MAX_MESSAGE 0x1000
 #define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
 
+struct probe_msg
+{
+	int id;
+	int ccode;
+	void *input;
+	ssize_t input_len;
+	void *output;
+	ssize_t output_len;
+};
+
+struct records_request
+{
+	bool run_probe;
+	bool clear;
+	uint64_t nonce;
+	int index;
+	int range;
+};
+
+struct records_reply
+{
+	int index;
+	int range;
+	uint8_t *records;
+	ssize_t records_len;
+};
+
 static inline void sleep(unsigned sec)
 {
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
@@ -236,8 +263,8 @@ static inline void task_cputime(struct task_struct *t,
 
    - uint8 *data is a generic pointer whose use may be to store probe data
    structures.
-
 **/
+
 
 struct probe {
 	union {
@@ -247,8 +274,7 @@ struct probe {
 	uint8_t *id;
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
-	int (*send_msg_to_probe)(struct probe *, int, void *, ssize_t);
-	int (*rcv_msg_from_probe)(struct probe *, int, void **, ssize_t *);
+	int (*message)(struct probe *, struct probe_msg *);
 	int (*start_stop)(struct probe *, uint64_t flags);
 	uint64_t flags;  /* expect that flags will contain level bits */
 	int timeout, repeat;
@@ -414,14 +440,11 @@ struct kernel_ps_probe {
 	void *(*_destroy)(struct probe *);
 };
 
-
 int kernel_ps_get_record(struct kernel_ps_probe *parent,
-						 uint8_t *tag,
-						 uint64_t nonce,
-						 int index,
-						 int clear,
-						 uint8_t **record);
+						 struct probe_msg *msg,
+						 uint8_t *tag);
 
+int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce);
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
 
 

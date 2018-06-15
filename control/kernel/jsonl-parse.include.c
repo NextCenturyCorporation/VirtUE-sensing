@@ -482,18 +482,6 @@ err_socket_write:
 }
 
 
-/**
- * TODO: optimize the memory usage by allowing rcv_msg_from_probe to use
- * a pre-allocated buffer. eg.,
- *
- * buf = kzalloc(size, GFP_KERNEL);
- * rcv_msg_from_probe(probe, RECORDS, &buf, &size);
- *
- * and rcv_msg_from_probe will NOT re-allocated the memory
- * as it is now, the same buffer will be allocated, freed, and re-allocated
- * in a loop.
- *
- **/
 static int
 process_records_request(struct jsmn_message *msg, int index)
 {
@@ -501,7 +489,27 @@ process_records_request(struct jsmn_message *msg, int index)
 	struct probe *probe_p = NULL;
 	struct jsmn_message *records_reply = NULL;
 	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
-	uint8_t *buf = NULL;
+	static uint8_t buf[CONNECTION_MAX_REPLY];
+
+	struct records_request rr = {
+		.run_probe = 1,
+		.clear = 1,
+		.nonce = 0L,
+		.index = 0,
+		.range = 1
+	};
+
+	struct records_reply rp = {.records = buf};
+
+	struct probe_msg pm = {
+		.id = RECORDS,
+		.ccode = 0,
+		.input = &rr,
+		.input_len = sizeof(struct records_request),
+		.output = &rp,
+		.output_len = sizeof(struct records_reply),
+	};
+
 	do {
 		ccode = get_probe(msg->s->probe_id, &probe_p);
 	} while (ccode == -EAGAIN);
@@ -513,12 +521,9 @@ process_records_request(struct jsmn_message *msg, int index)
 		/* each record is encapsulated in a json object and copied into */
 		/* a reply message, and linked to the session */
 		do {
-			ccode = probe_p->rcv_msg_from_probe(probe_p,
-												RECORDS,
-												(void **)&buf,
-												&len);
+			ccode = probe_p->message(probe_p, &pm);
 
-			if (!ccode && buf && len > 0) {
+			if (ccode >= 0) {
 				records_reply = allocate_reply_message(msg);
 				if (records_reply) {
 					/* now build and send the reply response */
@@ -569,7 +574,7 @@ process_records_request(struct jsmn_message *msg, int index)
 						continue;
 					}
 
-					strncat(records_reply->line, buf, len);
+					strncat(records_reply->line, rp.records, rp.records_len);
 					strcat(records_reply->line, "] }");
 					records_reply->line = add_nl_at_end(records_reply->line,
 														strlen(records_reply->line));
@@ -582,10 +587,11 @@ process_records_request(struct jsmn_message *msg, int index)
 					spin_unlock_irqrestore(&records_reply->s->sl, replies_flag);
 				}
 			}
-			if (buf) {
-				kfree(buf);
-				buf = NULL;
-			}
+			/**
+			 * re-initialize the request struct to reflect where we are in the loop
+			 **/
+			rr.run_probe = 0;
+			rr.index = rp.index + 1;
 		} while(!ccode);
 		spin_unlock(&probe_p->lock);
 	}
@@ -614,17 +620,6 @@ process_records_request(struct jsmn_message *msg, int index)
 	 * If no error, return COMPLETE (a positive enumerated value)
 	 **/
 
-	/**
-	 * it is possible to reach here on an error
-	 * without having freed the message buffer
-	 *
-	 * TODO: re-factor so that the buffer is always going to be freed
-	 * by the caller, then we don't need to worry about all the different
-	 * exit conditions.
-	 **/
-	if (buf) {
-		kfree(buf);
-	}
 	free_session(msg->s);
 	if (ccode < 0)
 		return ccode;
