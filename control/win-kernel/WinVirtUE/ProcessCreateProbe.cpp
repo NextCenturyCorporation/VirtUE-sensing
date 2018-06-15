@@ -45,6 +45,7 @@ ErrorExit:
 * @brief Enable the ImageLoadProbe by setting the notification callback
 * @returns TRUE if successfully installed the notification routine callback
 */
+_Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Enable()
 {
 	return this->RemoveNotify(FALSE);

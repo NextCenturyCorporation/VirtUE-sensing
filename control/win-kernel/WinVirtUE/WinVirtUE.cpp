@@ -49,7 +49,7 @@ WVUMainThreadStart(PVOID StartContext)
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
-	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Acquired runndown protection . . .\n");
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainThreadStart Acquired runndown protection . . .\n");
 		
 	// create the queue early enough so that callbacks are guaranteed to not be called
 	// before it is created.  
@@ -84,7 +84,6 @@ WVUMainThreadStart(PVOID StartContext)
 	}
 	// Enable the image load probe
 	NT_ASSERTMSG("Failed to enable the image load probe!", TRUE == pILP->Enable());
-	*pILP += fcq;
 
 	// Make ready the process create probe
 	pPCP = new ProcessCreateProbe();
@@ -97,7 +96,6 @@ WVUMainThreadStart(PVOID StartContext)
 	}
 	// Enable the process create probe
 	NT_ASSERTMSG("Failed to enable the process create probe!", TRUE == pPCP->Enable());
-	*pPCP += fcq;
 
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
@@ -211,7 +209,7 @@ WVUSensorThread(PVOID StartContext)
 
 	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
-	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Acquired rundown protection . . .\n");
+	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "WVUSensorThread Acquired rundown protection . . .\n");
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -245,7 +243,7 @@ WVUSensorThread(PVOID StartContext)
 		// all of these machinations below are required because the python side requires that FILTER_MESSAGE_HEADER data
 		// be the first type in the structure defintion.  We first get the address of PROBE_DATA_HEADER, add the offset
 		// equal to the size filter message header and then dereference the pointer from there.  Sheesh.	
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 		SenderBuffer = (PVOID)pPDH;
 #pragma warning(suppress: 28193)  // message id will be inspected in the user space service
 		pPDH->MessageId = pPDQ->GetMessageId();
@@ -286,5 +284,64 @@ ErrorExit:
 	ExReleaseRundownProtection(&Globals.RunDownRef);
 	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Exiting WVUSensorThread Thread w/Status=0x%08x!\n", Status);
 
+	PsTerminateSystemThread(Status);
+}
+
+
+/**
+* @brief probe polling thread.  This thread polls active probes and
+* runs them when their polling interval is expired
+* @param StartContext this threads context as passed during creation
+*/
+_Use_decl_annotations_
+VOID
+WVUPollThread(PVOID StartContext)
+{
+	UNREFERENCED_PARAMETER(StartContext);
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	LARGE_INTEGER poll_timeout = { 0LL };
+	poll_timeout.QuadPart = RELATIVE(MILLISECONDS(50));
+	;	
+
+	FLT_ASSERTMSG("WVUPollThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
+
+	// configure the event so that automatically goes to non-signaled and start at non-signaled
+	//
+	KeInitializeEvent(&Globals.poll_wait_evt, EVENT_TYPE::SynchronizationEvent, FALSE);
+
+	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "WVUPollThread Acquired rundown protection . . .\n");
+	// Take a rundown reference 
+	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
+
+	do
+	{
+		Status = KeWaitForSingleObject(&Globals.poll_wait_evt, Executive, KernelMode, FALSE, &poll_timeout);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Failed! Status=%08x\n", Status);
+#pragma warning(suppress: 26438)
+			goto ErrorExit;
+		}
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Returned from KeWaitForSingleObject(poll_wait_evt, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
+		switch (Status)
+		{
+		case STATUS_SUCCESS:
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Returned SUCCESS - Continuing!\n");
+			break;
+		case STATUS_TIMEOUT:
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Has Just Timed Out - Continuing!\n");
+			break;
+		default:
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Has Just Received Status=0x%08x - Continuing!\n", Status);
+			break;
+		}
+	
+
+	} while (FALSE == Globals.ShuttingDown);  // don't bail if we get alerted or APC'd
+
+ErrorExit:
+	// Drop a rundown reference 
+	ExReleaseRundownProtection(&Globals.RunDownRef);
+	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Exiting WVUPollThread Thread w/Status=0x%08x!\n", Status);
 	PsTerminateSystemThread(Status);
 }

@@ -169,6 +169,7 @@ typedef struct _WVUGlobals
 #endif
     RTL_OSVERSIONINFOEXW lpVersionInformation;
     KEVENT WVUThreadStartEvent;
+	KEVENT poll_wait_evt;	    // polling thread waiter
     BOOLEAN AllowFilterUnload;  // if true, then allow the filter to be unloaded else don't allow
     BOOLEAN EnableProtection;   // if true then the driver is protecting
 	PDRIVER_OBJECT DriverObject;	
@@ -220,7 +221,7 @@ typedef struct _ProbeDataHeader
 	_In_ USHORT    DataSz;
 	_In_ LARGE_INTEGER CurrentGMT;
 	_In_ LIST_ENTRY  ListEntry;
-} PROBE_DATA_HEADER, *PProbeDataHeader;
+} PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
 
 
 typedef struct _LoadedImageInfo

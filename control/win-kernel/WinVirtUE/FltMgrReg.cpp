@@ -306,7 +306,7 @@ WVUUnload(
 	}
 	else
 	{
-		Status = KeWaitForSingleObject((PVOID)pThread, KWAIT_REASON::Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
+		Status = KeWaitForSingleObject((PVOID)pThread, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
 		if (FALSE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed waiting for the Sensor Thread! Status=%08x\n", Status);

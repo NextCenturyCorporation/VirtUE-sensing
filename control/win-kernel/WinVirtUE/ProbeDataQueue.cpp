@@ -93,14 +93,10 @@ ProbeDataQueue::dtor_exc_filter(
 * @brief destroy this instance of the ProbeDataQueue
 */
 ProbeDataQueue::~ProbeDataQueue()
-{
-	PLIST_ENTRY pListEntry = this->PDQueue.Flink;
-
-	while (NULL != pListEntry && pListEntry != &this->PDQueue)
+{	
+	LIST_FOR_EACH(ptr, this->PDQueue, PROBE_DATA_HEADER)
 	{
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		pListEntry = pListEntry->Flink;
-		delete[](PUCHAR)pPDH;
+		delete[](PUCHAR)ptr;
 	}
 
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])
@@ -158,7 +154,7 @@ VOID
 ProbeDataQueue::update_counters(
 	PLIST_ENTRY pListEntry)
 {
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+	PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
@@ -174,7 +170,7 @@ ProbeDataQueue::TrimProbeDataQueue()
 	{
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
 		this->NumberOfQueueEntries = this->Count();
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
+		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
 		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
 		delete[] pPDH;
 		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
@@ -290,7 +286,7 @@ ProbeDataQueue::Dequeue()
 			pListEntry = NULL;
 			__leave;
 		}
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
 		this->NumberOfQueueEntries = this->Count();
 		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
