@@ -5,6 +5,7 @@
 * @brief VirtUE Startup
 */
 #include "WinVirtUE.h"
+#include "FltCommandQueue.h"
 #include "ProbeDataQueue.h"
 #include "ImageLoadProbe.h"
 #include "ProcessCreateProbe.h"
@@ -22,6 +23,8 @@ class ProbeDataQueue *pPDQ = nullptr;
 class ImageLoadProbe *pILP = nullptr;
 class ProcessCreateProbe *pPCP = nullptr;
 class FltrCommsMgr *pFCM = nullptr;
+
+class FltCommandQueue fcq;
 
 /**
 * @brief Main initialization thread.
@@ -47,7 +50,7 @@ WVUMainThreadStart(PVOID StartContext)
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Acquired runndown protection . . .\n");
-	
+		
 	// create the queue early enough so that callbacks are guaranteed to not be called
 	// before it is created.  
 	pPDQ = new ProbeDataQueue();
@@ -81,6 +84,7 @@ WVUMainThreadStart(PVOID StartContext)
 	}
 	// Enable the image load probe
 	NT_ASSERTMSG("Failed to enable the image load probe!", TRUE == pILP->Enable());
+	*pILP += fcq;
 
 	// Make ready the process create probe
 	pPCP = new ProcessCreateProbe();
@@ -93,6 +97,7 @@ WVUMainThreadStart(PVOID StartContext)
 	}
 	// Enable the process create probe
 	NT_ASSERTMSG("Failed to enable the process create probe!", TRUE == pPCP->Enable());
+	*pPCP += fcq;
 
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc

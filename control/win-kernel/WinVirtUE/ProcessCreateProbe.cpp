@@ -8,6 +8,21 @@
 #include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_PROCESSCTORDTORPROBE_POOL_TAG
 
+/**
+* @brief construct an instance of this probe 
+*/
+ProcessCreateProbe::ProcessCreateProbe() 
+{
+	ProbeName = RTL_CONSTANT_STRING(L"ProcessCreate");
+}
+
+/**
+* @brief destroy this probes instance *
+*/
+ProcessCreateProbe::~ProcessCreateProbe()
+{
+}
+
 _Use_decl_annotations_
 BOOLEAN 
 ProcessCreateProbe::RemoveNotify(BOOLEAN remove)
@@ -29,7 +44,6 @@ ErrorExit:
 * @brief Enable the ImageLoadProbe by setting the notification callback
 * @returns TRUE if successfully installed the notification routine callback
 */
-_Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Enable()
 {
 	return this->RemoveNotify(FALSE);

@@ -45,6 +45,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="FltCommandQueue.cpp" />
     <ClCompile Include="FltrCommsMgr.cpp" />
     <ClCompile Include="ImageLoadProbe.cpp" />
     <ClCompile Include="ProbeDataQueue.cpp" />
@@ -274,6 +275,7 @@
     <ClInclude Include="CPPRuntime\CPPRuntime.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="Driver.h" />
+    <ClInclude Include="FltCommandQueue.h" />
     <ClInclude Include="FltMgrCallbacks.h" />
     <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="FltrCommsMgr.h" />

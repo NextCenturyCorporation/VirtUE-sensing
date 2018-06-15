@@ -138,9 +138,14 @@ typedef struct _WVUGlobals
     PFLT_FILTER FilterHandle;
 
     //
-    //  Listens for incoming connections
+    //  Data streaming port
     //
-    PFLT_PORT WVUServerPort;
+    PFLT_PORT WVUDataPort;
+
+	//
+	// Command/Response Port
+	//
+	PFLT_PORT WVUCommandPort;
 
     //
     //  User process that connected to the port
@@ -171,15 +176,6 @@ typedef struct _WVUGlobals
 	HANDLE MainThreadHandle;
 } WVUGlobals, *PWVUGlobals;
 
-
-/**
-* Utilized when managing the ProbeDataEvents KEVENT array
-*/
-enum ProbeDataEvtEnum
-{
-	ProbeDataSemEmptyQueue, // The SEMAPHORE that signals when the Probe Data Queue is Empty
-	ProbeDataEvtConnect		// Th KEVENT that signals when the service connects
-};
 
 /**
 * Savior Command Enumeration 

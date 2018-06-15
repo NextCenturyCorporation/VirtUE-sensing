@@ -7,6 +7,7 @@
 #pragma once
 #include "common.h"
 #include "externs.h"
+#include "FltCommandQueue.h"
 
 
 #undef _HAS_EXCEPTIONS
@@ -17,8 +18,9 @@ class AbstractVirtueProbe
 {
 protected:
 	BOOLEAN Enabled;
+	UNICODE_STRING ProbeName;
 public:
-	AbstractVirtueProbe() : Enabled(FALSE) {}
+	AbstractVirtueProbe() : Enabled(FALSE), ProbeName(RTL_CONSTANT_STRING(L"")) {}
 	virtual ~AbstractVirtueProbe() = default;
 	/* Enable the probe - required functionality */
 	_Success_(TRUE == return)
@@ -37,9 +39,13 @@ public:
 		_In_ UINT32 argc) = 0;
 	/* construct a new instance of this probe class */
 	_Must_inspect_impl_
-		PVOID operator new(_In_ size_t size);
+	PVOID operator new(_In_ size_t size);
 	/* destroy an instance of this probe class */
 	VOID CDECL operator delete(_In_ PVOID ptr);
+	/* return this probes name */
+	UNICODE_STRING& GetProbeName() { return this->ProbeName; }
+	_Must_inspect_result_
+	virtual const AbstractVirtueProbe& operator+=(_In_ const FltCommandQueue& rhs);
+	_Must_inspect_result_
+	virtual const AbstractVirtueProbe& operator-=(_In_ const FltCommandQueue& rhs);
 };
-
-// C26439, C26433, C26432, C26403, C26401

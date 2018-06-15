@@ -72,7 +72,4 @@ CONST LONGLONG FILE_ALLOCATION_NA = 0;
 /** When File Attributes are not used */
 CONST ULONG FILE_ATTRIBUTES_NA = 0;
 
-/** The number of elements in the probe data queue */
-CONST INT PROBEDATAQUEUESZ = 0x4000;
-
 

@@ -7,16 +7,21 @@
 #include "FltrCommsMgr.h"
 #include "Driver.h"
 #define COMMON_POOL_TAG WVU_FLTCOMMSMGR_POOL_TAG
+
+CONST PWSTR FltrCommsMgr::CommandName = L"\\WVUCommand"; // Command/Response Comms Port
+CONST PWSTR FltrCommsMgr::PortName = L"\\WVUPort";		 // Real-Time streaming data as sent to the API
+
 /**
 * @brief destroys this Filter Comms Manager Instance
 * @param OnConnect If not NULL, then call this method when a user space application disconnects
 * @param OnDisconnect If not NULL, then call this method when a user space application connects
 */
 FltrCommsMgr::FltrCommsMgr()
-	: usPortName({ 0,0,nullptr }), WVUPortObjAttr({ 0,0,0,0,0,0 }), 
-	pWVUPortSecDsc(nullptr), InitStatus(STATUS_UNSUCCESSFUL)
+	: usPortName({ 0,0,nullptr }), usCommandName({ 0,0,nullptr }),  WVUPortObjAttr({ 0,0,0,0,0,0 }),
+	WVUComandObjAttr({ 0,0,0,0,0,0 }), pWVUPortSecDsc(nullptr), pWVUCommandSecDsc(nullptr),
+	InitStatus(STATUS_UNSUCCESSFUL)	
 {
-
+	
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
 
@@ -29,9 +34,10 @@ FltrCommsMgr::FltrCommsMgr()
 	}
 
 	//
-	//  Create a communication port.
+	//  Create communications ports.
 	//
-	RtlInitUnicodeString(&usPortName, WVUPortName);
+	RtlInitUnicodeString(&usPortName, FltrCommsMgr::PortName);
+	RtlInitUnicodeString(&usCommandName, FltrCommsMgr::CommandName);
 
 	//
 	//  We secure the port so only ADMINs & SYSTEM can acecss it.
@@ -43,12 +49,25 @@ FltrCommsMgr::FltrCommsMgr()
 		goto ErrorExit;
 	}
 
+	InitStatus = FltBuildDefaultSecurityDescriptor(&pWVUCommandSecDsc, FLT_PORT_ALL_ACCESS);
+	if (FALSE == NT_SUCCESS(InitStatus))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor() FAIL=%08x\n", InitStatus);
+		goto ErrorExit;
+	}
+	
 	InitializeObjectAttributes(&WVUPortObjAttr,
 		&usPortName,
 		OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
 		NULL,
 		pWVUPortSecDsc);
 
+	InitializeObjectAttributes(&WVUComandObjAttr,
+		&usPortName,
+		OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
+		NULL,
+		pWVUCommandSecDsc);
+	
 ErrorExit:
 
 	return;
@@ -81,27 +100,46 @@ FltrCommsMgr::Enable()
 	}
 
 	//
-	// create the filter communcations port
+	// create the filter data communcations port
 	//
 	Status = FltCreateCommunicationPort(Globals.FilterHandle,
-		&Globals.WVUServerPort,
+		&Globals.WVUDataPort,
 		&WVUPortObjAttr,
 		Globals.DriverObject,
 		(PFLT_CONNECT_NOTIFY)&FltrCommsMgr::WVUPortConnect,
 		(PFLT_DISCONNECT_NOTIFY)&FltrCommsMgr::WVUPortDisconnect,
-		(PFLT_MESSAGE_NOTIFY)&FltrCommsMgr::WVUMessageNotify,
+		NULL,
 		NUMBER_OF_PERMITTED_CONNECTIONS);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
+
 	//
-	//  Free the security descriptor in all cases. It is not needed once
+	// create the filter command communcations port
+	//
+	Status = FltCreateCommunicationPort(Globals.FilterHandle,
+		&Globals.WVUCommandPort,
+		&WVUComandObjAttr,
+		Globals.DriverObject,
+		(PFLT_CONNECT_NOTIFY)&FltrCommsMgr::WVUCommandConnect,
+		(PFLT_DISCONNECT_NOTIFY)&FltrCommsMgr::WVUCommandDisconnect,
+		(PFLT_MESSAGE_NOTIFY)&FltrCommsMgr::WVUCommandMessageNotify,
+		NUMBER_OF_PERMITTED_CONNECTIONS);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	//
+	//  Free security descriptors in all cases. It is not needed once
 	//  the call to FltCreateCommunicationPort() is made.
 	//
 	FltFreeSecurityDescriptor(pWVUPortSecDsc);
-
+	FltFreeSecurityDescriptor(pWVUCommandSecDsc);
+	
 	//  Start filtering i/o
 	Status = FltStartFiltering(Globals.FilterHandle);
 	if (FALSE == NT_SUCCESS(Status))
@@ -124,9 +162,10 @@ VOID
 FltrCommsMgr::Disable()
 {
 	// close the server port
-	FltCloseCommunicationPort(Globals.WVUServerPort);
-
-	Globals.WVUServerPort = NULL;
+	FltCloseCommunicationPort(Globals.WVUDataPort);
+	FltCloseCommunicationPort(Globals.WVUCommandPort);
+	Globals.WVUDataPort = NULL;
+	Globals.WVUCommandPort = NULL;
 }
 
 /**
@@ -168,47 +207,7 @@ FltrCommsMgr::WVUPortConnect(
 	}
 	return Status;
 }
-/**
-* @brief Filter Manager calls this routine whenever a user-mode application calls FilterSendMessage to send a message to the minifilter driver through the client port.
-* @param ServerPortCookie Pointer to information that uniquely identifies this client port.
-* @param InputBuffer Pointer to a caller-allocated buffer containing the message to be sent to the minifilter driver.
-* @param InputBufferLength Size, in bytes, of the buffer that InputBufferpoints
-* @param OutputBuffer Pointer to a caller-allocated buffer that receives the reply (if any) from the minifilter driver.
-* @param OutputBufferLength Size, in bytes, of the buffer that OutputBuffer points
-* @param ReturnOutputBufferLength Pointer to a caller-allocated variable that receives the number of bytes returned in the buffer that OutputBuffer points to.
-* @retval the driver entry's returned status
-*/
-_Use_decl_annotations_
-NTSTATUS FLTAPI 
-FltrCommsMgr::WVUMessageNotify(
-	PVOID ConnectionPortCookie,
-	PVOID InputBuffer,
-	ULONG InputBufferLength,
-	PVOID OutputBuffer,
-	ULONG OutputBufferLength,
-	PULONG ReturnOutputBufferLength)
-{
-	NTSTATUS Status = STATUS_SUCCESS;
-	UNREFERENCED_PARAMETER(ConnectionPortCookie);
-	*ReturnOutputBufferLength = 0;
 
-	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Message Notification!\n");
-
-	if (0 < InputBufferLength && NULL != InputBuffer)
-	{
-		Status = OnCommandMessage(InputBuffer, InputBufferLength);
-		if (sizeof(Status) + sizeof(WVU_REPLY) <= OutputBufferLength && NULL != OutputBuffer)
-		{
-			PWVU_REPLY pReply = (PWVU_REPLY)OutputBuffer;
-			pReply->Size = sizeof(WVU_RESPONSE) + sizeof(Status);
-			pReply->Response = NT_SUCCESS(Status) ? WVUSuccess : WVUFailure;
-			memcpy(&pReply->Data[0], (PVOID)&Status, sizeof(Status));
-			*ReturnOutputBufferLength = sizeof(Status) + sizeof(WVU_REPLY);
-		}
-	}
-
-	return Status;
-}
 /**
 * @brief Filter Port Disconnect Callback
 * @note callback routine to be called whenever the user-mode handle count for the client port reaches zero or when the minifilter driver is about to be unloaded
@@ -240,6 +239,118 @@ FltrCommsMgr::WVUPortDisconnect(
 	}	
 }
 
+/**
+* @brief Filter Manager calls this routine whenever a user-mode application calls FilterConnectCommunicationPort to send a connection request to the mini-filter driver
+* @param ClientPort Opaque handle for the new client port that is established between the user-mode application and the kernel-mode mini-filter driver.
+* @param ServerPortCookie Pointer to context information defined by the mini-filter driver
+* @param ConnectionContext Context information pointer that the user-mode application passed in the lpContext parameter to FilterConnectCommunicationPort.
+* @param SizeOfContext Size, in bytes, of the buffer that ConnectionContextpoints to
+* @param ConnectionPortCookie Pointer to information that uniquely identifies this client port
+* @retval the driver entry's returned status
+*/
+_Use_decl_annotations_
+NTSTATUS FLTAPI 
+FltrCommsMgr::WVUCommandConnect(
+	PFLT_PORT ClientPort, 
+	PVOID ServerPortCookie,
+	PVOID ConnectionContext, 
+	ULONG SizeOfContext, 
+	PVOID * ConnectionPortCookie)
+{
+	const NTSTATUS Status = STATUS_SUCCESS;
+	FLT_ASSERTMSG("ClientPort Must Be NULL!!", NULL == Globals.ClientPort);
+	FLT_ASSERTMSG("UserProcess Must Be NULL!!", NULL == Globals.UserProcess);
+
+	Globals.UserProcess = PsGetCurrentProcess();
+	Globals.ClientPort = ClientPort;
+	*ConnectionPortCookie = Globals.DriverObject;
+
+	UNREFERENCED_PARAMETER(ServerPortCookie);
+	UNREFERENCED_PARAMETER(ConnectionContext);
+	UNREFERENCED_PARAMETER(SizeOfContext);
+
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
+		Globals.UserProcess, Globals.ClientPort);
+
+	if (nullptr != pPDQ)
+	{
+		; // replace this with a relevant call
+	}
+	return Status;
+}
+
+/**
+* @brief Filter Command Port Disconnect Callback
+* @note callback routine to be called whenever the user-mode handle count for the client port reaches zero or when the minifilter driver is about to be unloaded
+* @param ConnectionCookie  Pointer to information that uniquely identifies this client port
+* represent this driver
+*/
+_Use_decl_annotations_
+VOID FLTAPI 
+FltrCommsMgr::WVUCommandDisconnect(
+	PVOID ConnectionCookie)
+{
+	UNREFERENCED_PARAMETER(ConnectionCookie);
+
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Command Port Disconnected - Port 0x%p!\n", Globals.ClientPort);
+	// close our handle to the connection 
+	FltCloseClientPort(Globals.FilterHandle, &Globals.ClientPort);
+
+	// Reset the user process field
+	Globals.UserProcess = NULL;
+
+	// Ensure that the ClientPort is NULL as well
+	Globals.ClientPort = NULL;
+
+	Globals.ConnectionCookie = NULL;
+
+	if (nullptr != pPDQ)
+	{
+		;  // replace this with a relevant call
+	}
+}
+
+/**
+* @brief Filter Manager calls this routine whenever a user-mode application calls FilterSendMessage to send a message to the minifilter driver through the client port.
+* @param ServerPortCookie Pointer to information that uniquely identifies this client port.
+* @param InputBuffer Pointer to a caller-allocated buffer containing the message to be sent to the minifilter driver.
+* @param InputBufferLength Size, in bytes, of the buffer that InputBufferpoints
+* @param OutputBuffer Pointer to a caller-allocated buffer that receives the reply (if any) from the minifilter driver.
+* @param OutputBufferLength Size, in bytes, of the buffer that OutputBuffer points
+* @param ReturnOutputBufferLength Pointer to a caller-allocated variable that receives the number of bytes returned in the buffer that OutputBuffer points to.
+* @retval the driver entry's returned status
+*/
+_Use_decl_annotations_
+NTSTATUS FLTAPI
+FltrCommsMgr::WVUCommandMessageNotify(
+	PVOID ConnectionPortCookie,
+	PVOID InputBuffer,
+	ULONG InputBufferLength,
+	PVOID OutputBuffer,
+	ULONG OutputBufferLength,
+	PULONG ReturnOutputBufferLength)
+{
+	NTSTATUS Status = STATUS_SUCCESS;
+	UNREFERENCED_PARAMETER(ConnectionPortCookie);
+	*ReturnOutputBufferLength = 0;
+
+	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Command Message Notification!\n");
+
+	if (0 < InputBufferLength && NULL != InputBuffer)
+	{
+		Status = OnCommandMessage(InputBuffer, InputBufferLength);
+		if (sizeof(Status) + sizeof(RESPONSE_MESSAGE) <= OutputBufferLength && NULL != OutputBuffer)
+		{
+			PRESPONSE_MESSAGE pReply = (PRESPONSE_MESSAGE)OutputBuffer;
+			pReply->Size = sizeof(RESPONSE_MESSAGE);
+			pReply->Response = NT_SUCCESS(Status) ? WVUSuccess : WVUFailure;
+			memcpy(&pReply->Data[0], (PVOID)&Status, sizeof(Status));
+			*ReturnOutputBufferLength = sizeof(Status) + sizeof(RESPONSE_MESSAGE);
+		}
+	}
+
+	return Status;
+}
 
 /**
 * @brief Changes the Protection State
@@ -268,6 +379,8 @@ FltrCommsMgr::OnProtectionStateChange(
 	default:
 	case WVU_COMMAND::WVUDisableUnload:
 	case WVU_COMMAND::WVUEnableUnload:
+	case WVU_COMMAND::EnumerateProbes:
+	case WVU_COMMAND::ConfigureProbe:
 	case WVU_COMMAND::NOCOMMAND:
 		Status = STATUS_INVALID_PARAMETER_1;
 		break;

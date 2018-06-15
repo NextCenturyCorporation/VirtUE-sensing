@@ -8,6 +8,8 @@
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
+CONST INT ProbeDataQueue::PROBEDATAQUEUESZ = 0x4000;
+
 /**
 * @brief construct an instance of the ProbeDataQueue.  The ProbeDataQueue constructs a 
 * simple producer/consumer lockable queue that moves data to a connected user space program.
@@ -92,16 +94,13 @@ ProbeDataQueue::dtor_exc_filter(
 */
 ProbeDataQueue::~ProbeDataQueue()
 {
-	if (NULL != this->PDQueue.Flink)
-	{
-		PLIST_ENTRY pListEntry = this->PDQueue.Flink;
+	PLIST_ENTRY pListEntry = this->PDQueue.Flink;
 
-		while (NULL != pListEntry && pListEntry != &this->PDQueue)
-		{
-			PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-			pListEntry = pListEntry->Flink;
-			delete[](PUCHAR)pPDH;
-		}
+	while (NULL != pListEntry && pListEntry != &this->PDQueue)
+	{
+		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		pListEntry = pListEntry->Flink;
+		delete[](PUCHAR)pPDH;
 	}
 
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])
@@ -171,7 +170,7 @@ ProbeDataQueue::update_counters(
 VOID
 ProbeDataQueue::TrimProbeDataQueue()
 {
-	while (this->Count() >= ::PROBEDATAQUEUESZ)  // remove the oldest entry if we're too big
+	while (this->Count() >= ProbeDataQueue::PROBEDATAQUEUESZ)  // remove the oldest entry if we're too big
 	{
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
 		this->NumberOfQueueEntries = this->Count();

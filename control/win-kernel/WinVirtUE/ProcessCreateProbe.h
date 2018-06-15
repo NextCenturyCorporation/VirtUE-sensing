@@ -21,8 +21,8 @@ private:
 			_In_ HANDLE  ProcessId,
 			_Inout_opt_ const PPS_CREATE_NOTIFY_INFO  CreateInfo);;
 public:
-	ProcessCreateProbe() = default;
-	~ProcessCreateProbe() = default;
+	ProcessCreateProbe();
+	~ProcessCreateProbe();
 	_Success_(TRUE == return)
 		BOOLEAN Enable();
 	_Success_(TRUE == return)

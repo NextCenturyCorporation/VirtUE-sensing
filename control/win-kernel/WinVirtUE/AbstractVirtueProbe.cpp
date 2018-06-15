@@ -36,3 +36,31 @@ AbstractVirtueProbe::operator delete(PVOID ptr)
 	}
 	ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
 }
+
+
+/**
+* @brief subscribe to the Filter Command Queue
+* @param rhs reference to the command queue
+* @return reference to the command queue that we subscribed to
+*/
+_Use_decl_annotations_
+const AbstractVirtueProbe&
+AbstractVirtueProbe::operator+=(const FltCommandQueue& rhs)
+{	
+	FLT_ASSERTMSG("Failed to subscribe to the Command Queue!", ((FltCommandQueue&)rhs).subscribe(*this));
+	return *this;
+}
+
+
+/**
+* @brief unsubscribe from the Filter Command Queue
+* @param rhs reference to the command queue
+* @return reference to the command queue that we unsubscribed from
+*/
+_Use_decl_annotations_
+const AbstractVirtueProbe&
+AbstractVirtueProbe::operator-=(const FltCommandQueue& rhs)
+{
+	FLT_ASSERTMSG("Failed to unsubscribe from the Command Queue!", ((FltCommandQueue&)rhs).unsubscribe(*this));
+	return *this;
+}

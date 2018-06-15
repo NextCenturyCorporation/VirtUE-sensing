@@ -10,6 +10,22 @@
 #define COMMON_POOL_TAG WVU_IMAGELOADPROBE_POOL_TAG
 
 /**
+* @brief construct an instance of this probe
+*/
+ImageLoadProbe::ImageLoadProbe()
+{
+	ProbeName = RTL_CONSTANT_STRING(L"ImageLoad");
+}
+
+/**
+* @brief destroy this probes instance *
+*/
+ImageLoadProbe::~ImageLoadProbe()
+{
+
+}
+
+/**
 * @brief Enable the ImageLoadProbe by setting the notification callback
 * @returns TRUE if successfully installed the notification routine callback
 */

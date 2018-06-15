@@ -18,12 +18,22 @@ public:
 	/** ProbeDataQueue State Change Method Type */
 
 private:
-	/** The filters queue port name */
+	// port name used to communicate between user and kernel
+	static CONST PWSTR PortName;
+	/** port name for the commands issued by the user space program */
+	static CONST PWSTR CommandName;
+	/** The filters data streaming queue port name */
 	UNICODE_STRING usPortName;
+	/** The filters command port name */
+	UNICODE_STRING usCommandName;
 	/** Port Object Attributes */
 	OBJECT_ATTRIBUTES WVUPortObjAttr;
+	/** Port Object Attributes */
+	OBJECT_ATTRIBUTES WVUComandObjAttr;
 	/** Port security descriptor */
 	PSECURITY_DESCRIPTOR pWVUPortSecDsc;
+	/** Command Port security descriptor */
+	PSECURITY_DESCRIPTOR pWVUCommandSecDsc;
 	/** initialization status */
 	NTSTATUS InitStatus;
 
@@ -63,9 +73,25 @@ private:
 			_In_opt_ PVOID ConnectionCookie);
 
 	_IRQL_requires_(PASSIVE_LEVEL)
+		_IRQL_requires_same_
+		static
+		NTSTATUS FLTAPI WVUCommandConnect(
+			_In_ PFLT_PORT ClientPort,
+			_In_opt_ PVOID ServerPortCookie,
+			_In_reads_bytes_opt_(SizeOfContext) PVOID ConnectionContext,
+			_In_ ULONG SizeOfContext,
+			_Outptr_result_maybenull_ PVOID *ConnectionPortCookie);
+
+	_IRQL_requires_(PASSIVE_LEVEL)
+		_IRQL_requires_same_
+		static
+		VOID FLTAPI WVUCommandDisconnect(
+			_In_opt_ PVOID ConnectionCookie);
+
+	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_		
 		static
-		NTSTATUS FLTAPI WVUMessageNotify(
+		NTSTATUS FLTAPI WVUCommandMessageNotify(
 			_In_ PVOID PortCookie,
 			_In_reads_bytes_opt_(InputBufferLength) PVOID InputBuffer,
 			_In_ ULONG InputBufferLength,

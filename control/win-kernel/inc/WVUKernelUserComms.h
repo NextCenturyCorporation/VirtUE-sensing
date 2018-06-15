@@ -12,9 +12,6 @@
 	#include <windows.h>
 #endif
 
-// port name used to communicate between user and kernel
-const PWSTR WVUPortName = L"\\WVUPort";
-
 #define MAXMESSAGELEN 1024
 
 //
@@ -22,12 +19,14 @@ const PWSTR WVUPortName = L"\\WVUPort";
 //
 typedef enum _WVU_COMMAND : ULONG
 {
-    NOCOMMAND                            = 0,
-    WVUEnableProtection                  = 1,
-    WVUDisableProtection                 = 2,
-    WVUEnableUnload                      = 3,
-    WVUDisableUnload                     = 4,
-    WVUMaxCommand                        = WVUDisableUnload
+    NOCOMMAND				= 0,
+    WVUEnableProtection		= 1,
+    WVUDisableProtection    = 2,
+    WVUEnableUnload         = 3,
+    WVUDisableUnload        = 4,
+	EnumerateProbes			= 5,
+	ConfigureProbe			= 6,
+	MAXCMDS
 } WVU_COMMAND;
 
 //
@@ -35,38 +34,33 @@ typedef enum _WVU_COMMAND : ULONG
 //
 typedef enum _WVU_RESPONSE : ULONG
 {
-    NORESPONSE                           = 0,
-    WVUSuccess                           = 1,
-    WVUFailure                           = 2,
-    WVUCommandMessageResponse            = 3,
-    WVUMaxResponse                       = WVUCommandMessageResponse
+    NORESPONSE	= 0,
+    WVUSuccess	= 1,
+    WVUFailure	= 2,
+	MAXRESP		= 3
 } WVU_RESPONSE;
 
 //
 // Defines the possible replies between the filter and user prograem
 // Reply:  User <- Kernel
 //
-typedef struct _WVU_REPLY
+typedef struct _RESPONSE_MESSAGE
 {
-    ULONG Size;             // Command Message Packet Size (not including the Size variable)
-    WVU_RESPONSE Response;   // Command Response Type
-#pragma warning( push )
-#pragma warning(disable : 4200)
-    UCHAR Data[0];           // Optional Response Packet Data
-#pragma warning( pop )
-} WVU_REPLY, *PWVU_REPLY;
+	LIST_ENTRY	ListEntry;	// The linked list entry
+    ULONG Size;             // Command Message Packet Size
+    WVU_RESPONSE Response;  // Command Response Type
+    UCHAR Data[1];			// Optional Response Packet Data
+} RESPONSE_MESSAGE, *PRESPONSE_MESSAGE;
 
 //
 //  Defines the commands between the user program and the filter
 //  Command: User -> Kernel
 //
 typedef struct _COMMAND_MESSAGE {
-    ULONG Size;             // Command Message Packet Size (not including the Size variable)
-    WVU_COMMAND Command;     // The Command
-#pragma warning( push )
-#pragma warning(disable : 4200)
-    UCHAR Data[0];           // Optional Command Message Data
-#pragma warning( pop )
+	LIST_ENTRY	ListEntry;	// The linked list entry
+    ULONG Size;             // Command Message Packet Size
+    WVU_COMMAND Command;    // The Command
+    UCHAR Data[1];          // Optional Command Message Data
 } COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
 
 

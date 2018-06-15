@@ -11,6 +11,18 @@
 
 class ProbeDataQueue
 {
+public:
+
+	/**
+	* Utilized when managing the ProbeDataEvents KEVENT array
+	*/
+	enum ProbeDataEvtEnum
+	{
+		ProbeDataSemEmptyQueue, // The SEMAPHORE that signals when the Probe Data Queue is Empty
+		ProbeDataEvtConnect,	// The KEVENT that signals when the service connects
+		MAXENTRIES				// The number of entries
+	};
+
 private:
 	LARGE_INTEGER wfso_timeout;
 	LARGE_INTEGER timeout;	
@@ -18,8 +30,10 @@ private:
 	LIST_ENTRY PDQueue;
 	ULONGLONG MessageId;
 	BOOLEAN Enabled;	
-	PVOID PDQEvents[2];
+	PVOID PDQEvents[ProbeDataEvtEnum::MAXENTRIES];
 
+	/** The number of elements in the probe data queue */
+	static CONST INT PROBEDATAQUEUESZ;
 	VOID TrimProbeDataQueue();
 	static _Must_inspect_result_ int dtor_exc_filter(_In_ UINT32 code, _In_ _EXCEPTION_POINTERS * ep);
 	VOID update_counters(_Inout_ PLIST_ENTRY pListEntry);

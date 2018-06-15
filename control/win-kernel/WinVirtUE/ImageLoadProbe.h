@@ -19,8 +19,8 @@ private:
 		_In_ PIMAGE_INFO pImageInfo);
 
 public:
-	ImageLoadProbe() = default;
-	~ImageLoadProbe() = default;
+	ImageLoadProbe();
+	~ImageLoadProbe();
 	_Success_(TRUE == return)
 	BOOLEAN Enable();
 	_Success_(TRUE == return)
