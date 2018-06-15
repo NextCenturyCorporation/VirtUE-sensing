@@ -49,7 +49,7 @@ int sysfs_repeat = 1;
 int sysfs_timeout = 1;
 int sysfs_level = 1;
 
-
+int print_to_log = 1;
 
 char *socket_name = "/var/run/kernel_sensor";
 char *lockfile_name = "/var/run/kernel_sensor.lock";
@@ -87,6 +87,10 @@ MODULE_PARM_DESC(sysfs_timeout,
 MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
 
 module_param(socket_name, charp, 0644);
+
+module_param(print_to_log, int, 0644);
+MODULE_PARM_DESC(print_to_log, "print probe output to messages");
+
 
 /**
  * Note on /sys and /proc files:
@@ -254,6 +258,35 @@ unlock_out:
 STACK_FRAME_NON_STANDARD(build_pid_index);
 
 /**
+ *  probe is LOCKED upon return
+ **/
+int
+get_probe(uint8_t *probe_id, struct probe **p)
+{
+	struct probe *probe_p = NULL;
+	int ccode = -ENFILE;
+	assert(probe_id);
+	assert(p);
+
+	*p = NULL;
+	rcu_read_lock();
+	list_for_each_entry_rcu(probe_p, &k_sensor.probes, l_node) {
+		if (! strncmp(probe_p->id, probe_id, strlen(probe_id))) {
+			if(!spin_trylock(&probe_p->lock)) {
+				ccode =  -EAGAIN;
+			} else {
+				*p = probe_p;
+				ccode = 0;
+				goto exit;
+			}
+		}
+	}
+exit:
+	rcu_read_unlock();
+	return ccode;
+}
+
+/**
  * The discovery buffer needs to be a formatted as a JSON array,
  * with each probe's ID string as an element in the array.
  **/
@@ -364,8 +397,74 @@ err_exit:
  * it should hold the lock while using pointers from the array.
  **/
 
+
 /**
- * output the kernel-ps list to the kernel log
+ * @brief copy one record of the kernel_ps list to a memory buffer
+ * to be called by the record message handler to build a single
+ * record response message
+ *
+ * @param parent - the kernel ps probe instance
+ * @param tag - expected to be the probe id string
+ * @param nonce - 0 means copy record regardless of nonce value,
+ *        otherwise copy only records with matching nonce
+ * @param index - the record number to copy
+ * @param json_record - double pointer that will return the
+ *        allocated memory containing the kernel ps record
+ *
+ * @return error code or zero upon success
+ *
+ **/
+int kernel_ps_record(struct kernel_ps_probe *parent,
+					 uint8_t *tag,
+					 uint64_t nonce,
+					 int index,
+					 uint8_t **json_record)
+{
+	struct kernel_ps_data *kpsd_p;
+	int ccode = 0, len = 0;
+
+	assert(json_record);
+	assert(tag);
+	assert(index >= 0 && index < PS_ARRAY_SIZE);
+
+
+	if (! spin_trylock(&parent->lock)) {
+		return -EAGAIN;
+	}
+
+	kpsd_p = flex_array_get(parent->kps_data_flex_array, index);
+	spin_unlock(&parent->lock);
+
+	if (!kpsd_p) {
+		return -ENFILE;
+	}
+
+	if (nonce != 0 && kpsd_p->nonce != nonce) {
+		return -EINVAL;
+	}
+
+	*json_record = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (! *json_record) {
+		return -ENOMEM;
+	}
+
+	len = snprintf(*json_record,
+				   CONNECTION_MAX_HEADER - 1,
+				   "%s %d %s [%d] [%d] [%llx]\n",
+				   tag, index, kpsd_p->comm, kpsd_p->pid_nr,
+				   kpsd_p->user_id.val, nonce);
+
+	if (len < CONNECTION_MAX_HEADER - 1) {
+		*json_record = krealloc(*json_record, len, GFP_KERNEL);
+	}
+
+	return 0;
+}
+
+
+
+/**
+ * @brief output the kernel-ps list to the kernel log
  *
  * @param uint8 *tag - tag added to each line, useful for filtering
  *        log output.
@@ -384,10 +483,13 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 						   int count)
 {
 	int index;
-	unsigned long flags;
 	struct kernel_ps_data *kpsd_p;
 
-	if (!spin_trylock_irqsave(&parent->lock, flags)) {
+	if(unlikely(!print_to_log)) {
+		return 0;
+	}
+
+	if (!spin_trylock(&parent->lock)) {
 		return -EAGAIN;
 	}
 	for (index = 0; index < PS_ARRAY_SIZE; index++)  {
@@ -399,7 +501,7 @@ static int print_kernel_ps(struct kernel_ps_probe *parent,
 			   tag, count, index, kpsd_p->comm, kpsd_p->pid_nr,
 			   kpsd_p->user_id.val, nonce);
 	}
-	spin_unlock_irqrestore(&parent->lock, flags);
+	spin_unlock(&parent->lock);
 	if (index == PS_ARRAY_SIZE) {
 		return -ENOMEM;
 	}
@@ -664,6 +766,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
  * and re-queued to run again...see /include/linux/kthread.h
  **/
 
+
 /**
  * ps probe function
  *
@@ -722,6 +825,50 @@ void  run_kps_probe(struct kthread_work *work)
  *
  **/
 
+int
+default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len)
+{
+	assert(probe && in_buf);
+
+	if (msg < CONNECT || msg > RECORDS || len < 0 || len > CONNECTION_MAX_MESSAGE) {
+		DMSG();
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+
+/**
+ * probe is RECEIVING the message
+ **/
+
+
+int
+default_rcv_msg_from(struct probe *probe,
+					 int msg,
+					 void **out_buf,
+					 ssize_t *len)
+{
+
+	assert(probe && out_buf && len);
+
+	if (msg < CONNECT || msg > RECORDS ) {
+		DMSG();
+		return -EINVAL;
+	}
+
+	*out_buf = kzalloc(0x100, GFP_KERNEL);
+	if (*out_buf) {
+		*len = 0x100;
+		snprintf(*out_buf, 0x100, "default_rcv_from msg ID %d.", msg);
+		printk(KERN_DEBUG "default_rcv_from msg ID %d\n", msg);
+		return 0;
+	}
+	return -ENOMEM;
+}
+
+
 struct probe *init_probe(struct probe *probe,
 						 uint8_t *id, int id_size)
 {
@@ -731,6 +878,8 @@ struct probe *init_probe(struct probe *probe,
 	INIT_LIST_HEAD_RCU(&probe->l_node);
 	probe->init =  init_probe;
 	probe->destroy = destroy_probe;
+	probe->send_msg_to_probe = default_send_msg_to;
+	probe->rcv_msg_from_probe = default_rcv_msg_from;
 	if (id && id_size > 0) {
 		probe->id = kzalloc(id_size, GFP_KERNEL);
 		if (!probe->id) {

@@ -14,7 +14,6 @@ extern char *lockfile_name;
 struct connection listener;
 EXPORT_SYMBOL(listener);
 
-
 struct connection *
 init_connection(struct connection *, uint64_t, void *);
 
@@ -23,10 +22,11 @@ init_connection(struct connection *, uint64_t, void *);
  * sk refers to struct sock
  * http://haifux.org/hebrew/lectures/217/netLec5.pdf
  **/
-static ssize_t k_socket_read(struct socket *sock,
-							 size_t size,
-							 void *in,
-							 unsigned int flags)
+ssize_t
+k_socket_read(struct socket *sock,
+			  size_t size,
+			  void *in,
+			  unsigned int flags)
 {
 
 	ssize_t res = 0;
@@ -36,18 +36,30 @@ static ssize_t k_socket_read(struct socket *sock,
 	printk(KERN_DEBUG "k_socket_read sock %p, num bytes to read %ld," \
 		   "inbuf %p, flags %x\n",
 		   sock, size, in, flags);
+again:
 	res = kernel_recvmsg(sock, &msg, &iov, 1, size, flags);
+	if (res == -EAGAIN)
+		goto again;
+
 	return res;
 }
 STACK_FRAME_NON_STANDARD(k_socket_read);
 
+ssize_t
+k_socket_peak(struct socket *sock)
+{
+	static uint8_t in[CONNECTION_MAX_MESSAGE];
 
-#pragma GCC diagnostic ignored "-Wunused-function"
+	return k_socket_read(sock, CONNECTION_MAX_MESSAGE,
+						 in, MSG_PEEK);
+}
 
-static ssize_t k_socket_write(struct socket *sock,
-							  size_t size,
-							  void *out,
-							  unsigned int flags)
+
+ssize_t
+k_socket_write(struct socket *sock,
+			   size_t size,
+			   void *out,
+			   unsigned int flags)
 {
 	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
@@ -57,7 +69,11 @@ static ssize_t k_socket_write(struct socket *sock,
 	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
 		   "outbuf %p, flags %x\n",
 		   sock, size, out, flags);
+again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
+	if (res == -EAGAIN)
+		goto again;
+
 	return res;
 }
 
@@ -130,30 +146,34 @@ again:
 }
 
 
+
 static void
 k_echo_server(struct kthread_work *work)
 {
 
 	int ccode = 0;
-	unsigned long flags = MSG_PEEK;
 	/**
 	 * allocate these buffers dynamically so this function can
 	 * be re-entrant. Also avoid allocation on the stack.
 	 * these buffers are 1k each. if we need more space, the
 	 * message handlers will need to realloc the buf for more space
 	 **/
-	uint8_t read_buf[9] = {0};
+	ssize_t read_size = 0;
+	uint8_t *read_buf = NULL;
 	uint8_t echo[] = { 'e', 'c', 'h', 'o', 0x00 };
 	uint8_t discover[] = { 'd', 'i', 's', 'c', 'o', 'v', 'e', 'r', 0x00 };
-
+	uint8_t session[] = "{Virtue-protocol-version: 0.1}\n";
 
 	struct socket *sock = NULL;
+	struct jsmn_message *m = NULL;
+
 	struct kthread_worker *worker = work->worker;
 	struct connection *connection =
 		container_of(work, struct connection, work);
 
 	assert(connection &&
-		   connection->flags);
+		   connection->flags &&
+		   connection->connected);
 	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
 	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
 	ccode = down_interruptible(&connection->s_lock);
@@ -161,33 +181,36 @@ k_echo_server(struct kthread_work *work)
 		goto close_out;
 
 	sock = connection->connected;
+	read_size = k_socket_peak(sock);
+	if (read_size >= 5) {
+		read_buf = kzalloc(read_size + 1, GFP_KERNEL);
+		if (!read_buf) {
 
-again:
-	ccode = k_socket_read(sock, sizeof(read_buf), read_buf, flags);
-	if (ccode <= 0){
-		if (ccode == -EAGAIN) {
-			goto again;
+			printk(KERN_DEBUG "k_socket read unable to allocate read buffer: " \
+				   "%d bytes\n", ccode);
+			__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+			goto close_out;
+
 		}
-		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+		ccode = k_socket_read(sock, read_size, read_buf, 0L);
+		printk(KERN_DEBUG "k_socket_read %d\n", ccode);
+		if (ccode <= 0) {
+
+			printk(KERN_DEBUG "k_socket_read returned error: %d\n", ccode);
+			__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+			goto close_out;
+		}
+	} else {
 		goto close_out;
 	}
 
-	if (flags == MSG_PEEK) {
-		printk(KERN_DEBUG "k_socket_read MSG_PEEK: %d\n", ccode);
-		if (ccode >= 5) {
-			flags = 0L;
-			goto again;
-		}
-	}
-	printk(KERN_DEBUG "k_socket_read 0L: %d\n", ccode);
-
-	if (! memcmp(read_buf, echo, sizeof(echo))) {
+	if (!memcmp(read_buf, echo, sizeof(echo))) {
 		uint8_t *response = VERSION_STRING;
 		printk(KERN_DEBUG "k_socket_write echo: %s\n", response);
 		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
-		printk(KERN_DEBUG "k_socket_write echo: %d\n", ccode);
+		printk(KERN_DEBUG "k_socket_write echo return code: %d\n", ccode);
 
-	} else if (! memcmp(read_buf, discover, sizeof(discover))){
+	} else if (!memcmp(read_buf, discover, sizeof(discover))){
 		uint8_t *response = NULL;
 		size_t len = 0;
 		ccode = build_discovery_buffer(&response, &len);
@@ -195,7 +218,45 @@ again:
 			printk(KERN_DEBUG "k_socket_write discover: %s\n", response);
 			ccode = k_socket_write(sock, len, response, 0L);
 			kfree(response);
-			printk(KERN_DEBUG "k_socket_write discover: %d\n", ccode);
+			printk(KERN_DEBUG "k_socket_write discover return code: %d\n", ccode);
+		}
+
+	} else if (!memcmp(read_buf, session, sizeof(session))) {
+		uint8_t *response = SESSION_RESPONSE;
+		printk(KERN_DEBUG "k_socket_write session: %s\n", response);
+		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
+		printk(KERN_DEBUG "k_socket_write session return code: %d\n", ccode);
+
+    } else {
+/**
+ * call the json parser
+ * ccode contains the bytes read - a good value for message->len
+ */
+		size_t len = ccode;
+		printk(KERN_DEBUG "socket read: %s\n", read_buf);
+		m = new_message(read_buf, len);
+		if(!m) {
+			goto close_out;
+		}
+
+		m->socket = sock;
+/**
+ * TODO: use an appropriately named variable to store
+ *       return of parse_json_message
+ **/
+		m->count = parse_json_message(m);
+		printk(KERN_DEBUG "message token count: %dn", m->count);
+/**
+ * TODO: if parse_json_message returns COMPLETE, close connection
+ *       else if it returns 0, keep connection open
+ **/
+		if (m->count < 0) {
+
+			/* for some reason, didn't read a valid json object */
+			printk(KERN_DEBUG "kernel sensor error reading a valid JSON object, " \
+				   "connection is being closed\n");
+			up(&connection->s_lock);
+			goto close_out;
 		}
 	}
 
@@ -205,12 +266,15 @@ again:
  	}
 	up(&connection->s_lock);
 	return;
+
 close_out:
 	spin_lock(&k_sensor.lock);
 	list_del_rcu(&connection->l_node);
 	spin_unlock(&k_sensor.lock);
 	synchronize_rcu();
 	kfree(connection->_destroy(connection));
+
+
 	return;
 }
 
@@ -334,6 +398,8 @@ err_out1:
 }
 STACK_FRAME_NON_STANDARD(k_read_write);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 static void k_poll(struct kthread_work *work)
 {
@@ -441,6 +507,7 @@ close_out_quit:
 	return;
 }
 
+#pragma GCC diagnostic pop
 
 static void k_accept(struct kthread_work *work)
 {
@@ -597,8 +664,8 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 {
 	int ccode = 0;
 
-	assert(c);
-	assert(p);
+	assert(c != NULL);
+	assert(p != NULL);
 	assert(__FLAG_IS_SET(flags, PROBE_LISTEN) ||
 		   __FLAG_IS_SET(flags, PROBE_CONNECT));
 	assert(! (__FLAG_IS_SET(flags, PROBE_LISTEN) &&

@@ -27,6 +27,7 @@
 #include "uname.h"
 #include "import-header.h"
 
+
 /* default lsof filter */
 
 /**
@@ -77,6 +78,10 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 	unsigned long flags;
 	struct kernel_lsof_data *klsof_p;
 
+	if(unlikely(!print_to_log)) {
+		return 0;
+	}
+
 	if (!spin_trylock_irqsave(&parent->lock, flags)) {
 		return -EAGAIN;
 	}
@@ -86,6 +91,7 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 			if (klsof_p->nonce != nonce) {
 				break;
 			}
+
 			printk(KERN_INFO "%s uid: %d pid: %d flags: %x "
 				   "mode: %x count: %lx %s \n",
 				   tag,
@@ -137,7 +143,8 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
  		return 0;
  	}
 	memset(&klsofd, 0x00, sizeof(struct kernel_lsof_data));
-	files_table = files_fdtable(files);
+	files_table = t->files->fdt;
+
 	while(files_table && files_table->fd[fd_index]) {
 		file = get_file(files_table->fd[fd_index]);
 		klsofd.dp = d_path(&file->f_path,
