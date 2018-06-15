@@ -391,18 +391,6 @@ err_exit:
  **/
 
 /**
- * locking the kernel-ps flex_array
- * to write to or read from the pre-allocated flex array parts,
- * one must hold the kps_spinlock. The kernel_ps function will
- * execute a trylock and return with -EAGAIN if it is unable
- * to lock the array.
- *
- * A reader can decide best how to poll for the array spinlock, but
- * it should hold the lock while using pointers from the array.
- **/
-
-
-/**
  * @brief copy one record of the kernel_ps list to a memory buffer
  * to be called by the record message handler to build a single
  * record response message
@@ -555,6 +543,17 @@ unlock_out:
 	rcu_read_unlock();
 	return index;
 }
+
+/**
+ * locking the kernel-ps flex_array
+ * to write to or read from the pre-allocated flex array parts,
+ * one must hold the kps_spinlock. The kernel_ps function will
+ * execute a trylock and return with -EAGAIN if it is unable
+ * to lock the array.
+ *
+ * A reader can decide best how to poll for the array spinlock, but
+ * it should hold the lock while using pointers from the array.
+ **/
 
 inline int
 kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
