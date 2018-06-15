@@ -408,17 +408,12 @@ err_exit:
  * record response message
  *
  * @param parent - the kernel ps probe instance
+ * @param msg - a struct probe_msg that contains input and
+ *        output parameters.
  * @param tag - expected to be the probe id string
- * @param nonce - 0 means copy record regardless of nonce value,
- *        otherwise copy only records with matching nonce
- * @param index - the record number to copy
- * @param clear - boolean indicating whether to clear the record
- *        in the flex array
- * @param record - double pointer that will return the
- *        allocated memory containing the kernel ps record
- *
  * @return error code or zero
  *
+ * Note: the parent probe is LOCKED by the caller
  **/
 int kernel_ps_get_record(struct kernel_ps_probe *parent,
 						 struct probe_msg *msg,
