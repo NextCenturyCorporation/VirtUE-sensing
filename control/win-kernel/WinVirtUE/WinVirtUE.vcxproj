@@ -50,6 +50,7 @@
     <ClCompile Include="ImageLoadProbe.cpp" />
     <ClCompile Include="ProbeDataQueue.cpp" />
     <ClCompile Include="ProcessCreateProbe.cpp" />
+    <ClCompile Include="ProcessListValidationProbe.cpp" />
     <ClCompile Include="RegistryModificationCB.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="Driver.cpp" />
@@ -283,6 +284,7 @@
     <ClInclude Include="ObjectCreateNotifyCB.h" />
     <ClInclude Include="ProbeDataQueue.h" />
     <ClInclude Include="ProcessCreateProbe.h" />
+    <ClInclude Include="ProcessListValidationProbe.h" />
     <ClInclude Include="RegistryModificationCB.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="trace.h" />

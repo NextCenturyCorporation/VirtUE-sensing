@@ -81,5 +81,6 @@ CONST ULONG FILE_ATTRIBUTES_NA = 0;
 		NULL != pos && pos != (T*)(&head); \
 		pos = (T*)pos->ListEntry.Flink )
 
+/** Assume that ListEntry is the list name */
 #define LIST_FOR_EACH(pos, head, T) \
 	LIST_FOR_EACH_ENTRY(pos, head, T, ListEntry)    

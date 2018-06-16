@@ -24,6 +24,7 @@
 #define WVU_PROBEDATAQUEUE_POOL_TAG         'qdrp'
 #define WVU_IMAGELOADPROBE_POOL_TAG         'bpli'
 #define WVU_PROCESSCTORDTORPROBE_POOL_TAG   'corp'
+#define WVU_PROCLISTVALIDPROBE_POOL_TAG     'lavp'
 #define WVU_ABSTRACTPROBE_POOL_TAG	        'ebrp'
 #define WVU_FLTCOMMSMGR_POOL_TAG            'mocf'
 #define WVU_FLTCOMMSQUEUE_POOL_TAG          'qmoc'
