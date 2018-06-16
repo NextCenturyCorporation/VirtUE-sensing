@@ -100,6 +100,11 @@ ProbeDataQueue::dtor_exc_filter(
 */
 ProbeDataQueue::~ProbeDataQueue()
 {	
+	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
+	{
+		delete pProbeInfo;
+	}
+
 	LIST_FOR_EACH(ptr, this->PDQueue, PROBE_DATA_HEADER)
 	{
 		UNREFERENCED_PARAMETER(ptr);

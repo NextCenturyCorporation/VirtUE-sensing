@@ -93,28 +93,14 @@ FltCommandQueue::FltCommandQueue() :
 */
 FltCommandQueue::~FltCommandQueue()
 {
-	PLIST_ENTRY pListEntry = NULL;
-
-	if (NULL != this->CmdQueue.Flink)
+	LIST_FOR_EACH(pCmdMsg, this->CmdQueue, COMMAND_MESSAGE)
 	{
-		pListEntry = this->CmdQueue.Flink;
-		while (NULL != pListEntry && pListEntry != &this->CmdQueue)
-		{
-			PCOMMAND_MESSAGE pCmdMsg = CONTAINING_RECORD(pListEntry, COMMAND_MESSAGE, ListEntry);
-			pListEntry = pListEntry->Flink;
-			delete[](PUCHAR)pCmdMsg;
-		}
+		delete[](PUCHAR)pCmdMsg;
 	}
 
-	if (NULL != this->RespQueue.Flink)
+	LIST_FOR_EACH(pRspMsg, this->RespQueue, RESPONSE_MESSAGE)
 	{
-		pListEntry = this->RespQueue.Flink;
-		while (NULL != pListEntry && pListEntry != &this->RespQueue)
-		{
-			PRESPONSE_MESSAGE pRespMsg = CONTAINING_RECORD(pListEntry, RESPONSE_MESSAGE, ListEntry);
-			pListEntry = pListEntry->Flink;
-			delete[](PUCHAR)pRespMsg;
-		}
+		delete[](PUCHAR)pRspMsg;
 	}
 
 	if (NULL != this->CmdQEvents[EvtConnect])
@@ -130,26 +116,4 @@ FltCommandQueue::~FltCommandQueue()
 	}
 
 	this->Enabled = FALSE;
-}
-
-/**
-* @brief subscribe a probe to this command queue
-*/
-_Use_decl_annotations_
-BOOLEAN 
-FltCommandQueue::subscribe(const AbstractVirtueProbe& probe)
-{
-	UNREFERENCED_PARAMETER(probe);
-	return BOOLEAN();
-}
-
-/**
-* @brief unsubscribe a probe from this command queue
-*/
-_Use_decl_annotations_
-BOOLEAN 
-FltCommandQueue::unsubscribe(const AbstractVirtueProbe& probe)
-{
-	UNREFERENCED_PARAMETER(probe);
-	return BOOLEAN();
 }

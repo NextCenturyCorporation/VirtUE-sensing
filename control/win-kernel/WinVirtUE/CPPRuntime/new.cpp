@@ -21,7 +21,7 @@ _Must_inspect_result_
 _Success_(return != NULL)
 PVOID CDECL operator new(
 	_In_ size_t lBlockSize, 
-	_Inout_bytecount_(lBlockSSize) PVOID pVoid)
+	_In_ PVOID pVoid)
 {
 	if (NULL == pVoid)
 	{
@@ -42,7 +42,7 @@ _Must_inspect_result_
 _Success_(return != NULL)
 PVOID CDECL operator new[](
 	 _In_ size_t lBlockSize, 
-	_Inout_bytecount_(lBlockSSize) PVOID pVoid)
+	 _In_ PVOID pVoid)
 {
 	if (NULL == pVoid)
 	{

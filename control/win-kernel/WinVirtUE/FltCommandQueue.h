@@ -56,11 +56,7 @@ private:
 
 public:
 	FltCommandQueue();
-	~FltCommandQueue();
-	_Must_inspect_result_
-	BOOLEAN subscribe(_In_ const class AbstractVirtueProbe& probe);
-	_Must_inspect_result_
-	BOOLEAN unsubscribe(_In_ const AbstractVirtueProbe& probe);
+	~FltCommandQueue();	
 	// Wait for the queue to have at least one entry and the port to be connected
 	_Success_(NT_SUCCESS(return) == TRUE)
 		NTSTATUS AcquireCommandQueueSempahore() {
