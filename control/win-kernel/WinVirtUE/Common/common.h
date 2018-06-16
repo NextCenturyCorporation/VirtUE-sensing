@@ -59,7 +59,7 @@
     (((signed __int64) (milli)) * MICROSECONDS(1000L))
 
 #define SECONDS( seconds ) \
-	(((signed __int64) (seconds) * 10 * MILLISECONDS(1000)))
+	(((signed __int64) (seconds) * MILLISECONDS(1000)))
 
 #define ALLOC_POOL(PoolType, Size) ExAllocatePoolWithTag(PoolType, Size, COMMON_POOL_TAG)
 #define FREE_POOL(Buffer)  ExFreePoolWithTag(Buffer, COMMON_POOL_TAG);

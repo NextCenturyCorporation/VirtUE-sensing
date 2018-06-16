@@ -74,7 +74,7 @@ _Use_decl_annotations_
 NTSTATUS 
 AbstractVirtueProbe::OnRun() 
 {
-	NTSTATUS Status = this->OnRun();
+	NTSTATUS Status = STATUS_SUCCESS;
 	KeQuerySystemTimePrecise(&this->LastProbeRunTime);  // always call superclasses probe function
 	return Status;
 }

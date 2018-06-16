@@ -205,6 +205,8 @@ _Use_decl_annotations_
 NTSTATUS 
 ProcessCreateProbe::OnRun() 
 {	
-	return STATUS_ATTRIBUTE_NOT_PRESENT;
+	NTSTATUS Status = STATUS_SUCCESS;
+	Status = AbstractVirtueProbe::OnRun();
+	return Status;
 }
 

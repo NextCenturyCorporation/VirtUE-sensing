@@ -366,10 +366,15 @@ WVUPollThread(PVOID StartContext)
 		KeAcquireInStackQueuedSpinLock(&pPDQ->GetProbeListSpinLock(), &LockHandle);
 		__try
 		{
-			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
+
+			// LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
+			PLIST_ENTRY ProbeList = &pPDQ->GetProbeList();
+			for (ProbeDataQueue::ProbeInfo* pProbeInfo = CONTAINING_RECORD(ProbeList->Flink, ProbeDataQueue::ProbeInfo, ListEntry); \
+				NULL != pProbeInfo && pProbeInfo != (ProbeDataQueue::ProbeInfo*)(ProbeList); \
+				pProbeInfo = (ProbeDataQueue::ProbeInfo*)pProbeInfo->ListEntry.Flink)
 			{				
 				AbstractVirtueProbe* avp = pProbeInfo->Probe;
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "-----=====>>>>> Polling Probe %wZ for work to be done!\n", avp->GetProbeName());
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %wZ for work to be done!\n", avp->GetProbeName());
 				// poll the probe for any required actions on our part
 				if (FALSE == avp->OnPoll())
 				{
@@ -378,15 +383,15 @@ WVUPollThread(PVOID StartContext)
 				Status = avp->OnRun();
 				if (FALSE == NT_SUCCESS(Status))
 				{
-					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "-----=====>>>>> avp->OnRun() Failed on Probe %wZ - Status=0x%08x - Continuing!\n", avp->GetProbeName(), Status);
+					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "Probe %wZ Failed running avp->OnRun() - Status=0x%08x - Continuing!\n", avp->GetProbeName(), Status);
 				}
+				
 				LARGE_INTEGER& probe_last_runtime = avp->GetLastProbeRunTime();
 				LARGE_INTEGER local_time;
 				ExSystemTimeToLocalTime(&probe_last_runtime, &local_time);
 				RtlTimeToTimeFields(&local_time, &time_fields);
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "-----=====>>>>> Probe %wZ successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n", 
-					time_fields.Month, time_fields.Day, time_fields.Year, time_fields.Hour, time_fields.Milliseconds, time_fields.Second, time_fields.Milliseconds,
-					avp->GetProbeName());
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %wZ successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n", 
+					avp->GetProbeName(), time_fields.Month, time_fields.Day, time_fields.Year, time_fields.Hour, time_fields.Minute, time_fields.Second, time_fields.Milliseconds);
 			}
 		}
 		__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
