@@ -78,8 +78,8 @@ CONST ULONG FILE_ATTRIBUTES_NA = 0;
 /** an easier way to loop through a linked list */
 #define LIST_FOR_EACH_ENTRY(pos, head, T, Field) \
     for (T* pos = CONTAINING_RECORD((head).Flink, T, Field); \
-		NULL != pos && pos->ListEntry.Flink != (&head); \
-		pos = CONTAINING_RECORD(pos->ListEntry.Flink, T, Field) )
+		NULL != pos && pos != (T*)(&head); \
+		pos = (T*)pos->ListEntry.Flink )
 
 #define LIST_FOR_EACH(pos, head, T) \
 	LIST_FOR_EACH_ENTRY(pos, head, T, ListEntry)    

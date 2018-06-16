@@ -102,6 +102,7 @@ ProbeDataQueue::~ProbeDataQueue()
 {	
 	LIST_FOR_EACH(ptr, this->PDQueue, PROBE_DATA_HEADER)
 	{
+		UNREFERENCED_PARAMETER(ptr);
 		delete[](PUCHAR)ptr;
 	}
 
@@ -383,7 +384,7 @@ ProbeDataQueue::FindProbeByName(UNICODE_STRING& probe_to_be_found)
 	ProbeInfo* pProbeInfo = nullptr;
 	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
 	{
-		UNICODE_STRING& probe_name = probe->Probe->GetProbeName();
+		CONST  UNICODE_STRING& probe_name = probe->Probe->GetProbeName();
 		if (TRUE == RtlEqualUnicodeString(&probe_name, &probe_to_be_found, TRUE))
 		{
 			pProbeInfo = probe;

@@ -93,22 +93,28 @@ FltCommandQueue::FltCommandQueue() :
 */
 FltCommandQueue::~FltCommandQueue()
 {
-	PLIST_ENTRY pListEntry = this->CmdQueue.Flink;
+	PLIST_ENTRY pListEntry = NULL;
 
-	while (NULL != pListEntry && pListEntry != &this->CmdQueue)
+	if (NULL != this->CmdQueue.Flink)
 	{
-		PCOMMAND_MESSAGE pCmdMsg = CONTAINING_RECORD(pListEntry, COMMAND_MESSAGE, ListEntry);
-		pListEntry = pListEntry->Flink;
-		delete[](PUCHAR)pCmdMsg;
+		pListEntry = this->CmdQueue.Flink;
+		while (NULL != pListEntry && pListEntry != &this->CmdQueue)
+		{
+			PCOMMAND_MESSAGE pCmdMsg = CONTAINING_RECORD(pListEntry, COMMAND_MESSAGE, ListEntry);
+			pListEntry = pListEntry->Flink;
+			delete[](PUCHAR)pCmdMsg;
+		}
 	}
 
-	pListEntry = this->RespQueue.Flink;
-
-	while (NULL != pListEntry && pListEntry != &this->RespQueue)
+	if (NULL != this->RespQueue.Flink)
 	{
-		PRESPONSE_MESSAGE pRespMsg = CONTAINING_RECORD(pListEntry, RESPONSE_MESSAGE, ListEntry);
-		pListEntry = pListEntry->Flink;
-		delete[](PUCHAR)pRespMsg;
+		pListEntry = this->RespQueue.Flink;
+		while (NULL != pListEntry && pListEntry != &this->RespQueue)
+		{
+			PRESPONSE_MESSAGE pRespMsg = CONTAINING_RECORD(pListEntry, RESPONSE_MESSAGE, ListEntry);
+			pListEntry = pListEntry->Flink;
+			delete[](PUCHAR)pRespMsg;
+		}
 	}
 
 	if (NULL != this->CmdQEvents[EvtConnect])

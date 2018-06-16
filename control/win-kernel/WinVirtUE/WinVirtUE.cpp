@@ -204,8 +204,11 @@ WVUMainThreadStart(PVOID StartContext)
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForMultipleObjects(NUMBER_OF(thd_ary), thd_ary,,...) Failed waiting for the Sensor and Poll Thread! Status=%08x\n", Status);		
 	}	
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Sensor Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pSensorThread));
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Poll Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pPollThread));
 	(VOID)ObDereferenceObject(pSensorThread);
+	(VOID)ObDereferenceObject(pPollThread);
 	ZwClose(SensorThreadHandle);
+	ZwClose(PollThreadHandle);
 	
 ErrorExit:
 	// Drop a rundown reference 
@@ -366,12 +369,7 @@ WVUPollThread(PVOID StartContext)
 		KeAcquireInStackQueuedSpinLock(&pPDQ->GetProbeListSpinLock(), &LockHandle);
 		__try
 		{
-
-			// LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
-			PLIST_ENTRY ProbeList = &pPDQ->GetProbeList();
-			for (ProbeDataQueue::ProbeInfo* pProbeInfo = CONTAINING_RECORD(ProbeList->Flink, ProbeDataQueue::ProbeInfo, ListEntry); \
-				NULL != pProbeInfo && pProbeInfo != (ProbeDataQueue::ProbeInfo*)(ProbeList); \
-				pProbeInfo = (ProbeDataQueue::ProbeInfo*)pProbeInfo->ListEntry.Flink)
+			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
 			{				
 				AbstractVirtueProbe* avp = pProbeInfo->Probe;
 				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %wZ for work to be done!\n", avp->GetProbeName());
