@@ -15,6 +15,10 @@ ProcessCreateProbe::ProcessCreateProbe()
 {
 	ProbeName = RTL_CONSTANT_STRING(L"ProcessCreate");
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
+	if (NULL != pPDQ)
+	{
+		pPDQ->Register(*this);
+	}
 }
 
 /**
@@ -22,6 +26,10 @@ ProcessCreateProbe::ProcessCreateProbe()
 */
 ProcessCreateProbe::~ProcessCreateProbe()
 {
+	if (NULL != pPDQ)
+	{
+		pPDQ->DeRegister(*this);
+	}
 }
 
 _Use_decl_annotations_
@@ -196,8 +204,7 @@ ErrorExit:
 _Use_decl_annotations_
 NTSTATUS 
 ProcessCreateProbe::OnRun() 
-{
-	(VOID)AbstractVirtueProbe::OnRun();  // always call the super method
+{	
 	return STATUS_ATTRIBUTE_NOT_PRESENT;
 }
 

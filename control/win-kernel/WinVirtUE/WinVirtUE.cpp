@@ -37,14 +37,17 @@ WVUMainThreadStart(PVOID StartContext)
 {
 	PKEVENT WVUMainThreadStartEvt = (PKEVENT)StartContext;
 	OBJECT_ATTRIBUTES SensorThdObjAttr = { 0,0,0,0,0,0 };
+	OBJECT_ATTRIBUTES PollThdObjAttr = { 0,0,0,0,0,0 };	
 	HANDLE SensorThreadHandle = (HANDLE)-1;
+	HANDLE PollThreadHandle = (HANDLE)-1;
 	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
+	CLIENT_ID PollClientId = { (HANDLE)-1,(HANDLE)-1 };
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LONG Signaled = 0;
-	PKTHREAD pThread = NULL;
+	PKTHREAD pSensorThread = NULL;
+	PKTHREAD pPollThread = NULL;	
 
 	FLT_ASSERTMSG("WVUMainThreadStart must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);	
-
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -98,15 +101,15 @@ WVUMainThreadStart(PVOID StartContext)
 	NT_ASSERTMSG("Failed to enable the process create probe!", TRUE == pPCP->Enable());
 
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
-	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, &Globals.WVUThreadStartEvent);
+	// create sensor thread
+	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
-	Status = ObReferenceObjectByHandle(SensorThreadHandle, (SYNCHRONIZE | DELETE), NULL, KernelMode, (PVOID*)&pThread, NULL);
+	Status = ObReferenceObjectByHandle(SensorThreadHandle, (SYNCHRONIZE | DELETE), NULL, KernelMode, (PVOID*)&pSensorThread, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "ObReferenceObjectByHandle() Failed! - FAIL=%08x\n", Status);
@@ -115,6 +118,26 @@ WVUMainThreadStart(PVOID StartContext)
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
+
+
+	InitializeObjectAttributes(&PollThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+	// create poll thread
+	Status = PsCreateSystemThread(&PollThreadHandle, GENERIC_ALL, &PollThdObjAttr, NULL, &PollClientId, WVUPollThread, NULL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	Status = ObReferenceObjectByHandle(PollThreadHandle, (SYNCHRONIZE | DELETE), NULL, KernelMode, (PVOID*)&pPollThread, NULL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "ObReferenceObjectByHandle() Failed! - FAIL=%08x\n", Status);
+		goto ErrorExit;
+	}
+
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Poll thread %p process %p thread id %p\n",
+		PollThreadHandle, PollClientId.UniqueProcess, PollClientId.UniqueThread);
 
 	/**
 	* To ensure that we don't cause verifier faults during unload, do not include the thread notification
@@ -173,13 +196,15 @@ WVUMainThreadStart(PVOID StartContext)
 	} while (Status == STATUS_ALERTED || Status == STATUS_USER_APC);  // don't bail if we get alerted or APC'd
 
 	pPDQ->TerminateLoop();
-	Status = KeWaitForSingleObject((PVOID)pThread, KWAIT_REASON::Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
+	PVOID thd_ary[] = { pSensorThread, pPollThread };
+	KeSetEvent(&Globals.poll_wait_evt, IO_NO_INCREMENT, FALSE);
+	Status = KeWaitForMultipleObjects(NUMBER_OF(thd_ary), thd_ary, WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed waiting for the Sensor Thread! Status=%08x\n", Status);		
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForMultipleObjects(NUMBER_OF(thd_ary), thd_ary,,...) Failed waiting for the Sensor and Poll Thread! Status=%08x\n", Status);		
 	}	
-	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Sensor Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pThread));
-	(VOID)ObDereferenceObject(pThread);
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Sensor Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pSensorThread));
+	(VOID)ObDereferenceObject(pSensorThread);
 	ZwClose(SensorThreadHandle);
 	
 ErrorExit:
@@ -301,7 +326,8 @@ WVUPollThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER poll_timeout = { 0LL };
 	poll_timeout.QuadPart = RELATIVE(MILLISECONDS(50));
-	;	
+	KLOCK_QUEUE_HANDLE LockHandle;
+	TIME_FIELDS time_fields;
 
 	FLT_ASSERTMSG("WVUPollThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
@@ -309,7 +335,7 @@ WVUPollThread(PVOID StartContext)
 	//
 	KeInitializeEvent(&Globals.poll_wait_evt, EVENT_TYPE::SynchronizationEvent, FALSE);
 
-	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "WVUPollThread Acquired rundown protection . . .\n");
+	WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "WVUPollThread Acquired rundown protection . . .\n");
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
@@ -318,30 +344,58 @@ WVUPollThread(PVOID StartContext)
 		Status = KeWaitForSingleObject(&Globals.poll_wait_evt, Executive, KernelMode, FALSE, &poll_timeout);
 		if (FALSE == NT_SUCCESS(Status))
 		{
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Failed! Status=%08x\n", Status);
+			WVU_DEBUG_PRINT(LOG_POLLTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Failed! Status=%08x\n", Status);
 #pragma warning(suppress: 26438)
 			goto ErrorExit;
 		}
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Returned from KeWaitForSingleObject(poll_wait_evt, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
+		WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Returned from KeWaitForSingleObject(poll_wait_evt, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
 		switch (Status)
 		{
 		case STATUS_SUCCESS:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Returned SUCCESS - Continuing!\n");
+			WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Returned SUCCESS - Continuing!\n");
 			break;
 		case STATUS_TIMEOUT:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Has Just Timed Out - Continuing!\n");
+			WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Has Just Timed Out - Continuing!\n");
 			break;
 		default:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Has Just Received Status=0x%08x - Continuing!\n", Status);
+			WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(poll_wait_evt,...) Thread Has Just Received Status=0x%08x - Continuing!\n", Status);
 			break;
 		}
-	
 
-	} while (FALSE == Globals.ShuttingDown);  // don't bail if we get alerted or APC'd
+		/** let's not modify the list while we are iterating */
+		KeAcquireInStackQueuedSpinLock(&pPDQ->GetProbeListSpinLock(), &LockHandle);
+		__try
+		{
+			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
+			{				
+				AbstractVirtueProbe* avp = pProbeInfo->Probe;
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "-----=====>>>>> Polling Probe %wZ for work to be done!\n", avp->GetProbeName());
+				// poll the probe for any required actions on our part
+				if (FALSE == avp->OnPoll())
+				{
+					continue;
+				}
+				Status = avp->OnRun();
+				if (FALSE == NT_SUCCESS(Status))
+				{
+					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "-----=====>>>>> avp->OnRun() Failed on Probe %wZ - Status=0x%08x - Continuing!\n", avp->GetProbeName(), Status);
+				}
+				LARGE_INTEGER& probe_last_runtime = avp->GetLastProbeRunTime();
+				LARGE_INTEGER local_time;
+				ExSystemTimeToLocalTime(&probe_last_runtime, &local_time);
+				RtlTimeToTimeFields(&local_time, &time_fields);
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "-----=====>>>>> Probe %wZ successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n", 
+					time_fields.Month, time_fields.Day, time_fields.Year, time_fields.Hour, time_fields.Milliseconds, time_fields.Second, time_fields.Milliseconds,
+					avp->GetProbeName());
+			}
+		}
+		__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+
+	} while (FALSE == Globals.ShuttingDown);
 
 ErrorExit:
 	// Drop a rundown reference 
 	ExReleaseRundownProtection(&Globals.RunDownRef);
-	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Exiting WVUPollThread Thread w/Status=0x%08x!\n", Status);
+	WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Exiting WVUPollThread Thread w/Status=0x%08x!\n", Status);
 	PsTerminateSystemThread(Status);
 }

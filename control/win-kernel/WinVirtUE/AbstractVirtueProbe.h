@@ -38,12 +38,6 @@ protected:
 	LARGE_INTEGER RunInterval;
 	/** Last Time Probe Executed */
 	LARGE_INTEGER LastProbeRunTime;
-	/** called by the polling thread to do work */
-	_Must_inspect_result_
-		virtual BOOLEAN OnPoll();
-	_Must_inspect_result_
-		_Success_(TRUE == NT_SUCCESS(return))
-	virtual NTSTATUS OnRun() = 0;
 
 public:
 	AbstractVirtueProbe() :
@@ -60,6 +54,12 @@ public:
 	/* Determine probe state where TRUE is enabled else FALSE is disabled */
 	_Must_inspect_result_
 		virtual BOOLEAN State() = 0;
+	/** called by the polling thread to do work */
+	_Must_inspect_result_
+		virtual BOOLEAN OnPoll();
+	_Must_inspect_result_
+		_Success_(TRUE == NT_SUCCESS(return))
+		virtual NTSTATUS OnRun() = 0;
 	/* Mitigate probed states - currently not utilized */
 	_Must_inspect_result_ 
 	_Success_(TRUE==NT_SUCCESS(return))
@@ -71,13 +71,15 @@ public:
 	PVOID operator new(_In_ size_t size);
 	/* destroy an instance of this probe class */
 	VOID CDECL operator delete(_In_ PVOID ptr);	
-	_Must_inspect_result_
-	virtual const AbstractVirtueProbe& operator+=(_In_ const FltCommandQueue& rhs);
-	_Must_inspect_result_
-	virtual const AbstractVirtueProbe& operator-=(_In_ const FltCommandQueue& rhs);
 	/* return this probes name */
 	_Must_inspect_result_
 	UNICODE_STRING& GetProbeName() { return this->ProbeName; }
+	/** get the last time the probe ran in GMT */
+	_Must_inspect_result_
+	LARGE_INTEGER& GetLastProbeRunTime() { return this->LastProbeRunTime; }
+	/** get this probes run interval in absolute time */
+	_Must_inspect_result_
+	LARGE_INTEGER& GetRunInterval() { return this->RunInterval; }
 	/** get probe attributes */
 	_Must_inspect_result_
 	const ProbeAttributes& GetProbeAttribtes() { return this->Attributes; }

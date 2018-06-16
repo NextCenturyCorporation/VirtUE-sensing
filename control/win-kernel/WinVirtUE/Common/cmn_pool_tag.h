@@ -27,3 +27,4 @@
 #define WVU_ABSTRACTPROBE_POOL_TAG	        'ebrp'
 #define WVU_FLTCOMMSMGR_POOL_TAG            'mocf'
 #define WVU_FLTCOMMSQUEUE_POOL_TAG          'qmoc'
+#define WVU_PROBEINFO_POOL_TAG              'borp'

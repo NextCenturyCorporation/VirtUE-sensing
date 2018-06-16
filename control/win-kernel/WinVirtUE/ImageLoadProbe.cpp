@@ -16,7 +16,10 @@ ImageLoadProbe::ImageLoadProbe()
 {
 	ProbeName = RTL_CONSTANT_STRING(L"ImageLoad");
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
-
+	if (NULL != pPDQ)
+	{
+		pPDQ->Register(*this);
+	}
 }
 
 /**
@@ -24,7 +27,10 @@ ImageLoadProbe::ImageLoadProbe()
 */
 ImageLoadProbe::~ImageLoadProbe()
 {
-
+	if (NULL != pPDQ)
+	{
+		pPDQ->DeRegister(*this);
+	}
 }
 
 /**
@@ -111,7 +117,6 @@ _Use_decl_annotations_
 NTSTATUS 
 ImageLoadProbe::OnRun()
 {
-	(VOID)AbstractVirtueProbe::OnRun();  // always call the super method
 	return STATUS_ATTRIBUTE_NOT_PRESENT;
 }
 

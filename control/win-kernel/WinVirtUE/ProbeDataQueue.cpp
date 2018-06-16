@@ -60,6 +60,12 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 	// initialize the Probe Data Queue TWLL
 	InitializeListHead(&this->PDQueue);
 
+	// initialize the spinlock that controls access to the probe list
+	KeInitializeSpinLock(&this->ProbeListSpinLock);
+
+	// initialize the probe list
+	InitializeListHead(&this->ProbeList);
+
 	// we build the queue successfully
 	this->Enabled = TRUE;
 	goto SuccessExit;
@@ -310,6 +316,81 @@ ProbeDataQueue::Dispose(PVOID pBuf)
 	this->MessageId++;
 	delete[](PUCHAR)pBuf;
 	return VOID();
+}
+
+
+/**
+* @brief registers a Virtue Probe
+* @note returns FALSE if probe already registered
+* @param probe The probe to register
+* @return TRUE if probe succesfully registered else FALSE
+*/
+_Use_decl_annotations_
+BOOLEAN 
+ProbeDataQueue::Register(AbstractVirtueProbe& probe)
+{
+	BOOLEAN success = FALSE;
+	KLOCK_QUEUE_HANDLE LockHandle;
+	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
+	__try
+	{
+		if (NULL == FindProbeByName(probe.GetProbeName()))
+		{
+			ProbeInfo* pProbeInfo = new ProbeInfo;
+			pProbeInfo->Probe = &probe;
+			InsertTailList(&this->ProbeList, &pProbeInfo->ListEntry);
+			success = TRUE;
+		}
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+	return success;
+}
+
+/**
+* @brief unregisters a Virtue Probe
+* @param probe The probe to unregister
+* @return TRUE if the registration list is empty else FALSE
+*/
+_Use_decl_annotations_
+BOOLEAN 
+ProbeDataQueue::DeRegister(AbstractVirtueProbe& probe)
+{
+	BOOLEAN is_empty = TRUE;
+	KLOCK_QUEUE_HANDLE LockHandle;
+	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
+	__try
+	{
+		ProbeInfo* pProbeInfo = FindProbeByName(probe.GetProbeName());
+		if (NULL != pProbeInfo)
+		{
+			is_empty = RemoveEntryList(&pProbeInfo->ListEntry);
+			delete pProbeInfo;
+		}
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+	return is_empty;
+}
+
+/**
+* @brief unregisters a Virtue Probe
+* @param probe The probe to unregister
+* @return TRUE if the registration list is empty else FALSE
+*/
+_Use_decl_annotations_
+ProbeDataQueue::ProbeInfo *
+ProbeDataQueue::FindProbeByName(UNICODE_STRING& probe_to_be_found)
+{
+	ProbeInfo* pProbeInfo = nullptr;
+	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+	{
+		UNICODE_STRING& probe_name = probe->Probe->GetProbeName();
+		if (TRUE == RtlEqualUnicodeString(&probe_name, &probe_to_be_found, TRUE))
+		{
+			pProbeInfo = probe;
+			break;
+		}
+	}
+	return pProbeInfo;
 }
 
 /**

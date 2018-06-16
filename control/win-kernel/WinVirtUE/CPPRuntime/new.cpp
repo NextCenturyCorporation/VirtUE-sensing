@@ -11,6 +11,48 @@
 #define COMMON_POOL_TAG NEW_POOL_TAG
 
 /////////////////////////////////////////////////////////////////////
+/// @fn operator placementnew
+/// @brief override the placement new operator
+/// @param lBlockSize size of allocated memory block
+/// @param ptr the allocated block of lBlockSize Length
+/// @returns pointer to newly allocated memory
+/////////////////////////////////////////////////////////////////////
+_Must_inspect_result_
+_Success_(return != NULL)
+PVOID CDECL operator new(
+	_In_ size_t lBlockSize, 
+	_Inout_bytecount_(lBlockSSize) PVOID pVoid)
+{
+	if (NULL == pVoid)
+	{
+		return pVoid;
+	}
+	RtlSecureZeroMemory(pVoid, lBlockSize);
+	return pVoid;
+}
+
+/////////////////////////////////////////////////////////////////////
+/// @fn operator placementnew[]
+/// @brief override the placement new operator
+/// @param lBlockSize size of allocated memory block
+/// @param ptr the allocated block of lBlockSize Length
+/// @returns pointer to newly allocated memory
+/////////////////////////////////////////////////////////////////////
+_Must_inspect_result_
+_Success_(return != NULL)
+PVOID CDECL operator new[](
+	 _In_ size_t lBlockSize, 
+	_Inout_bytecount_(lBlockSSize) PVOID pVoid)
+{
+	if (NULL == pVoid)
+	{
+		return pVoid;
+	}
+	RtlSecureZeroMemory(pVoid, lBlockSize);
+	return pVoid;
+}
+
+/////////////////////////////////////////////////////////////////////
 /// @fn operator new
 /// @brief override the new operator
 /// @param lBlockSize size of allocated memory block

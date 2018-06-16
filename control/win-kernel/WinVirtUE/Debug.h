@@ -31,7 +31,7 @@
 
 #define LOG_FILE_OP         (1 << 8)
 #define LOG_FILE_CREATE     (1 << 9)
-
+#define LOG_POLLTHREAD		(1 << 10)
 #define LOG_MAINTHREAD		(1 << 11)
 #define LOG_CONTAINER		(1 << 12)
 #define LOG_IOCTL           (1 << 13)

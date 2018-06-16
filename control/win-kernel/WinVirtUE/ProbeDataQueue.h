@@ -8,11 +8,51 @@
 #include "common.h"
 #include <new.h>
 #include <cstddef>
+#include "AbstractVirtueProbe.h"
 
 class ProbeDataQueue
 {
 public:
 
+#pragma region Probe Info Structure Definition
+#define COMMON_POOL_TAG WVU_PROBEINFO_POOL_TAG
+	
+	/** data structure describing a virtue probe */
+	class ProbeInfo
+	{
+	public:
+		LIST_ENTRY ListEntry;
+		AbstractVirtueProbe* Probe;
+	
+		ProbeInfo() : Probe(nullptr) {}
+		~ProbeInfo() = default;
+
+		/**
+		* @brief construct an instance of this object utilizing non paged pool memory
+		* @return Instance of ProbeInfo Class
+		*/		
+		PVOID operator new(size_t size)
+		{
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
+			PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
+			return pVoid;
+		}
+
+		/**
+		* @brief destroys an instance of this object and releases its memory
+		* @param ptr pointer to the object instance to be destroyed
+		*/		
+		VOID CDECL operator delete(PVOID ptr)
+		{
+			if (!ptr)
+			{
+				return;
+			}
+			ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
+		}
+	};
+#undef COMMON_POOL_TAG
+#pragma endregion
 	/**
 	* Utilized when managing the ProbeDataEvents KEVENT array
 	*/
@@ -28,6 +68,8 @@ private:
 	LARGE_INTEGER timeout;	
 	KSPIN_LOCK PDQueueSpinLock;
 	LIST_ENTRY PDQueue;
+	KSPIN_LOCK ProbeListSpinLock;
+	LIST_ENTRY ProbeList;
 	ULONGLONG MessageId;
 	BOOLEAN Enabled;	
 	PVOID PDQEvents[ProbeDataEvtEnum::MAXENTRIES];
@@ -62,6 +104,8 @@ public:
 	PLIST_ENTRY Dequeue();
 	_Must_inspect_result_
 	ULONGLONG& GetMessageId() { return this->MessageId;  }
+	KSPIN_LOCK& GetProbeListSpinLock() { return this->ProbeListSpinLock; }
+	LIST_ENTRY& GetProbeList() { return this->ProbeList; }
 	VOID Dispose(_In_ PVOID pBuf);																							 
 	// cause the outbund queue processor to start processing
 	VOID OnConnect() { KeSetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE); }
@@ -78,5 +122,11 @@ public:
 	_Must_inspect_impl_
 		_Success_(NULL != return)
 		PVOID operator new(_In_ size_t size);
-	VOID CDECL operator delete(_In_ PVOID ptr);
+	VOID CDECL operator delete(_In_ PVOID ptr);	
+	_Success_(TRUE == return)
+	BOOLEAN Register(_In_ AbstractVirtueProbe& probe);;
+	BOOLEAN DeRegister(_In_ AbstractVirtueProbe& probe);
+	_Must_inspect_result_
+	_Success_(NULL != return)
+	ProbeInfo* FindProbeByName(_In_ UNICODE_STRING& probe_to_be_found);
 };
