@@ -45,14 +45,14 @@ FltrCommsMgr::FltrCommsMgr()
 	InitStatus = FltBuildDefaultSecurityDescriptor(&pWVUPortSecDsc, FLT_PORT_ALL_ACCESS);
 	if (FALSE == NT_SUCCESS(InitStatus))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor() FAIL=%08x\n", InitStatus);
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor(pWVUPortSecDsc) FAIL=%08x\n", InitStatus);
 		goto ErrorExit;
 	}
 
 	InitStatus = FltBuildDefaultSecurityDescriptor(&pWVUCommandSecDsc, FLT_PORT_ALL_ACCESS);
 	if (FALSE == NT_SUCCESS(InitStatus))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor() FAIL=%08x\n", InitStatus);
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor(pWVUCommandSecDsc) FAIL=%08x\n", InitStatus);
 		goto ErrorExit;
 	}
 	
@@ -63,7 +63,7 @@ FltrCommsMgr::FltrCommsMgr()
 		pWVUPortSecDsc);
 
 	InitializeObjectAttributes(&WVUComandObjAttr,
-		&usPortName,
+		&usCommandName,
 		OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
 		NULL,
 		pWVUCommandSecDsc);
