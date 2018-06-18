@@ -27,7 +27,7 @@ ProcessListValidationProbe::ProcessListValidationProbe()
 ProcessListValidationProbe::~ProcessListValidationProbe()
 {
 	if (NULL != pPDQ)
-	{
+	{	
 		pPDQ->DeRegister(*this);
 	}
 }

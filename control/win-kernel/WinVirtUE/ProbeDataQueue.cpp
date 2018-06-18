@@ -340,7 +340,7 @@ ProbeDataQueue::Register(AbstractVirtueProbe& probe)
 	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
 	__try
 	{
-		if (NULL == FindProbeByName(probe.GetProbeName()))
+		if (NULL == FindProbeByName(((AbstractVirtueProbe&)probe).GetProbeName()))
 		{
 			ProbeInfo* pProbeInfo = new ProbeInfo;
 			pProbeInfo->Probe = &probe;

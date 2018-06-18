@@ -27,5 +27,3 @@ extern class ProcessCreateProbe *pPCP;
 extern class FltrCommsMgr *pFCM;
 
 
-extern class FltCommandQueue fcq;
-

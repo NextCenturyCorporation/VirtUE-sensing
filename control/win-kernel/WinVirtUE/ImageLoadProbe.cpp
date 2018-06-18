@@ -17,7 +17,7 @@ ImageLoadProbe::ImageLoadProbe()
 	ProbeName = RTL_CONSTANT_STRING(L"ImageLoad");
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 	if (NULL != pPDQ)
-	{
+	{	
 		pPDQ->Register(*this);
 	}
 }
@@ -28,7 +28,7 @@ ImageLoadProbe::ImageLoadProbe()
 ImageLoadProbe::~ImageLoadProbe()
 {
 	if (NULL != pPDQ)
-	{
+	{	
 		pPDQ->DeRegister(*this);
 	}
 }

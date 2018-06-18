@@ -35,7 +35,7 @@ ProcessCreateProbe::ProcessCreateProbe()
 ProcessCreateProbe::~ProcessCreateProbe()
 {
 	if (NULL != pPDQ)
-	{
+	{	
 		pPDQ->DeRegister(*this);
 	}
 }

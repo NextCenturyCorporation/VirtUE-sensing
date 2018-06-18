@@ -5,7 +5,6 @@
 * @brief VirtUE Startup
 */
 #include "WinVirtUE.h"
-#include "FltCommandQueue.h"
 #include "ProbeDataQueue.h"
 #include "ImageLoadProbe.h"
 #include "ProcessCreateProbe.h"
@@ -23,8 +22,6 @@ class ProbeDataQueue *pPDQ = nullptr;
 class ImageLoadProbe *pILP = nullptr;
 class ProcessCreateProbe *pPCP = nullptr;
 class FltrCommsMgr *pFCM = nullptr;
-
-class FltCommandQueue fcq;
 
 /**
 * @brief Main initialization thread.

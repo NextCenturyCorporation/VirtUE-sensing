@@ -7,8 +7,6 @@
 #pragma once
 #include "common.h"
 #include "externs.h"
-#include "FltCommandQueue.h"
-
 
 #undef _HAS_EXCEPTIONS
 #include <new.h>
@@ -73,13 +71,13 @@ public:
 	VOID CDECL operator delete(_In_ PVOID ptr);	
 	/* return this probes name */
 	_Must_inspect_result_
-	UNICODE_STRING& GetProbeName() { return this->ProbeName; }
+	UNICODE_STRING& GetProbeName() { return this->ProbeName; } 
 	/** get the last time the probe ran in GMT */
 	_Must_inspect_result_
 	LARGE_INTEGER& GetLastProbeRunTime() { return this->LastProbeRunTime; }
 	/** get this probes run interval in absolute time */
 	_Must_inspect_result_
-	LARGE_INTEGER& GetRunInterval() { return this->RunInterval; }
+	LARGE_INTEGER& GetRunInterval() { return this->RunInterval; } 
 	/** get probe attributes */
 	_Must_inspect_result_
 	const ProbeAttributes& GetProbeAttribtes() { return this->Attributes; }
