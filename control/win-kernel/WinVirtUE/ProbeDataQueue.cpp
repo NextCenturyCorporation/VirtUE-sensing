@@ -384,7 +384,7 @@ ProbeDataQueue::DeRegister(AbstractVirtueProbe& probe)
 */
 _Use_decl_annotations_
 ProbeDataQueue::ProbeInfo *
-ProbeDataQueue::FindProbeByName(UNICODE_STRING& probe_to_be_found)
+ProbeDataQueue::FindProbeByName(const UNICODE_STRING& probe_to_be_found)
 {
 	ProbeInfo* pProbeInfo = nullptr;
 	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)

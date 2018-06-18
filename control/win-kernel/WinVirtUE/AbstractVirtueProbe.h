@@ -71,14 +71,14 @@ public:
 	VOID CDECL operator delete(_In_ PVOID ptr);	
 	/* return this probes name */
 	_Must_inspect_result_
-	UNICODE_STRING& GetProbeName() { return this->ProbeName; } 
+	const UNICODE_STRING& GetProbeName() const { return this->ProbeName; }
 	/** get the last time the probe ran in GMT */
 	_Must_inspect_result_
-	LARGE_INTEGER& GetLastProbeRunTime() { return this->LastProbeRunTime; }
+	const LARGE_INTEGER& GetLastProbeRunTime() const { return this->LastProbeRunTime; }
 	/** get this probes run interval in absolute time */
 	_Must_inspect_result_
-	LARGE_INTEGER& GetRunInterval() { return this->RunInterval; } 
+	const LARGE_INTEGER& GetRunInterval() const { return this->RunInterval; } 
 	/** get probe attributes */
 	_Must_inspect_result_
-	const ProbeAttributes& GetProbeAttribtes() { return this->Attributes; }
+	const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
 };

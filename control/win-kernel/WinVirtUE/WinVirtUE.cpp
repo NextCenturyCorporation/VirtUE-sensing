@@ -381,7 +381,7 @@ WVUPollThread(PVOID StartContext)
 					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "Probe %wZ Failed running avp->OnRun() - Status=0x%08x - Continuing!\n", avp->GetProbeName(), Status);
 				}
 				
-				LARGE_INTEGER& probe_last_runtime = avp->GetLastProbeRunTime();
+				LARGE_INTEGER& probe_last_runtime = (LARGE_INTEGER&)avp->GetLastProbeRunTime();
 				LARGE_INTEGER local_time;
 				ExSystemTimeToLocalTime(&probe_last_runtime, &local_time);
 				RtlTimeToTimeFields(&local_time, &time_fields);
