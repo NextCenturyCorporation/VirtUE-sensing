@@ -63,8 +63,6 @@ enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
 
-
-
 uint8_t *add_nl_at_end(uint8_t *in, int len);
 
 static inline int index_command(uint8_t *cmd, int bytes)
@@ -470,8 +468,11 @@ process_records_request(struct jsmn_message *msg, int index)
 			/**
 			 * re-initialize the request struct to reflect where we are in the loop
 			 **/
-			rr.run_probe = 0;
-			rr.index = rp.index + 1;
+			rr.range--;
+			if (rr.range) {
+				rr.run_probe = 0;
+				rr.index++;
+			}
 		} while(!ccode);
 	}
 

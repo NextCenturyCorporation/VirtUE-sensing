@@ -169,6 +169,22 @@ struct records_reply
 	ssize_t records_len;
 };
 
+struct state_request
+{
+	struct jsmn_message *json_msg;
+	int state; /* enum message_command */
+	bool clear;
+};
+
+struct state_reply
+{
+	int state;
+	bool clear;
+};
+
+
+
+
 static inline void sleep(unsigned sec)
 {
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
