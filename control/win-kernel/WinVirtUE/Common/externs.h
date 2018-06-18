@@ -25,5 +25,8 @@ extern class ProbeDataQueue *pPDQ;
 extern class ImageLoadProbe *pILP;
 extern class ProcessCreateProbe *pPCP;
 extern class FltrCommsMgr *pFCM;
+extern class ProcessListValidationProbe *pPLVP;
+extern class WinVirtUEManager *pWVUMgr;
+
 
 

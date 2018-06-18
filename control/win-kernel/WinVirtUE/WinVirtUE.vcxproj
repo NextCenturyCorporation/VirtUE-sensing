@@ -64,6 +64,7 @@
     <ClCompile Include="FltMgrReg.cpp" />
     <ClCompile Include="CPPRuntime\CPPRuntime.cpp" />
     <ClCompile Include="CPPRuntime\new.cpp" />
+    <ClCompile Include="WinVirtUEManager.cpp" />
     <Inf Include="WinVirtUE.inf" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -289,6 +290,7 @@
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="FltMgrReg.h" />
     <ClInclude Include="WinVirtUE.h" />
+    <ClInclude Include="WinVirtUEManager.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Templates\CopyrightAndFuncDocTemplate.txt" />

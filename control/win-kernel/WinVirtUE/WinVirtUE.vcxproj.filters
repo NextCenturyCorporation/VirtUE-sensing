@@ -98,6 +98,9 @@
     <ClCompile Include="ProcessListValidationProbe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="WinVirtUEManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CPPRuntime\CPPRuntime.h">
@@ -173,6 +176,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ProcessListValidationProbe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WinVirtUEManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

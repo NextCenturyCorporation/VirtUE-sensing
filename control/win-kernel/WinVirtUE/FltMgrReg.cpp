@@ -4,10 +4,8 @@
 * @brief filter registeration module
 */
 #include "FltMgrReg.h"
-#include "ProcessCreateProbe.h"
-#include "FltrCommsMgr.h"
-#include "ImageLoadProbe.h"
-#include "ProbeDataQueue.h"
+#include "WinVirtUEManager.h"
+
 #define COMMON_POOL_TAG WVU_FLT_REG_POOL_TAG
 
 #pragma region Filter Registration
@@ -318,28 +316,9 @@ WVUUnload(
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
 
-	// destroy the queue andb basic probe classes
-	if (NULL != pPCP)
+	if (NULL != pWVUMgr)
 	{
-		NT_ASSERTMSG("Failed to disable the process create probe!", TRUE == pPCP->Disable());
-		delete pPCP;
-	}
-
-	if (NULL != pILP)
-	{
-		NT_ASSERTMSG("Failed to disable the image load probe!", TRUE == pILP->Disable());
-		delete pILP;
-	}
-
-	if (NULL != pFCM)
-	{
-		pFCM->Disable();
-		delete pFCM;
-	}
-
-	if (NULL != pPDQ)
-	{
-		delete pPDQ;
+		delete pWVUMgr;
 	}
 	// we've made, all is well
 	Status = STATUS_SUCCESS;

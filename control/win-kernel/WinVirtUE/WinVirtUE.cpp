@@ -5,23 +5,15 @@
 * @brief VirtUE Startup
 */
 #include "WinVirtUE.h"
-#include "ProbeDataQueue.h"
-#include "ImageLoadProbe.h"
-#include "ProcessCreateProbe.h"
 #include "FltrCommsMgr.h"
+#include "WinVirtUEManager.h"
 
 #define COMMON_POOL_TAG WVU_THREAD_POOL_TAG
 
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
 
-// Probe Data Queue operations
-class ProbeDataQueue *pPDQ = nullptr;
-
-// Probes
-class ImageLoadProbe *pILP = nullptr;
-class ProcessCreateProbe *pPCP = nullptr;
-class FltrCommsMgr *pFCM = nullptr;
+class WinVirtUEManager *pWVUMgr;
 
 /**
 * @brief Main initialization thread.
@@ -50,53 +42,16 @@ WVUMainThreadStart(PVOID StartContext)
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainThreadStart Acquired runndown protection . . .\n");
+
+	pWVUMgr = new WinVirtUEManager();
+	if (NULL == pWVUMgr)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
+			"WinVirtUEManager not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
 		
-	// create the queue early enough so that callbacks are guaranteed to not be called
-	// before it is created.  
-	pPDQ = new ProbeDataQueue();
-	if (NULL == pPDQ)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"ProbeDataQueue not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-
-	pFCM = new FltrCommsMgr();
-	if (NULL == pFCM)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"FltrCommsMgr not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-	// Enable the filter comms manager
-	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == pFCM->Enable());
-
-	// Make ready the image load probe
-	pILP = new ImageLoadProbe();
-	if (NULL == pILP)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"ImageLoadProbe not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-	// Enable the image load probe
-	NT_ASSERTMSG("Failed to enable the image load probe!", TRUE == pILP->Enable());
-
-	// Make ready the process create probe
-	pPCP = new ProcessCreateProbe();
-	if (NULL == pPCP)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"ProcessCreateProbe not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-	// Enable the process create probe
-	NT_ASSERTMSG("Failed to enable the process create probe!", TRUE == pPCP->Enable());
-
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create sensor thread
 	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, NULL);
