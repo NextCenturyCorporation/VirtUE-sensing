@@ -92,6 +92,7 @@ ProcessListValidationProbe::OnRun()
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	PEPROCESS Process = nullptr;
+	HANDLE ProcessId = INVALID_HANDLE_VALUE;
 	KLOCK_QUEUE_HANDLE LockHandle;
 
 	if (NULL == pPCP)
@@ -116,8 +117,8 @@ ProcessListValidationProbe::OnRun()
 				WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "Failed to find EPROCESS %08x - FAIL=%08x\n", Process, Status);
 				__leave;
 			}
-			HANDLE pid = PsGetProcessId(Process);
-			if (INVALID_HANDLE_VALUE == pid || pid != pProcessEntry->ProcessId)
+			ProcessId = PsGetProcessId(Process);
+			if (INVALID_HANDLE_VALUE == ProcessId || ProcessId != pProcessEntry->ProcessId)
 			{
 				Status = STATUS_NOT_FOUND;   // the process id was not found - something fishy is going on
 				WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "EPROCESS %08x failed to retrieve the matching PID %08x!\n", Process, pProcessEntry->ProcessId);
@@ -130,6 +131,34 @@ ProcessListValidationProbe::OnRun()
 		// the last thing we do is to update the last run time
 		Status = AbstractVirtueProbe::OnRun();
 		KeReleaseInStackQueuedSpinLock(&LockHandle);
+	}
+
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		// MFS - create the WinVirtUEManager class that is charge of init/fini of probes and receives notifictions
+		// Notify the WinVirtUEManager that the Sensor is in an Alarm State.  User Space Program MUST acknowledge.
+		// Normal, UnAcknowledged Alarm State, Alarm State, 
+		PProcessListValidationFailed pPLVF = (PProcessListValidationFailed)new BYTE[sizeof ProcessListValidationFailed];
+		if (NULL == pPLVF)
+		{
+			Status = STATUS_MEMORY_NOT_ALLOCATED;   // the process id was not found - something fishy is going on
+			WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "Unable to allocate memory for ProcessListValidationFailed object - FAILED: 0x%08x \n", Status);
+			goto ErrorExit;
+		}
+		pPLVF->EProcess = Process;			// suspect data, this process does not exist in the OS process list
+		pPLVF->ProcessId = ProcessId;		// suspect data, this pid does not exist in the OS process list
+		pPLVF->ProbeDataHeader.ProbeId = ProbeIdType::TemporalProbeReport;  // this is as temporal probe report
+		pPLVF->ReportId = ProbeReportId::ProcessListValidationFailedReportId;	// Process List Validation Has Failed
+		pPLVF->ProbeDataHeader.DataSz = sizeof(ProcessListValidationFailed);
+		KeQuerySystemTimePrecise(&pPLVF->ProbeDataHeader.CurrentGMT);
+		if (FALSE == pPDQ->Enqueue(&pPLVF->ProbeDataHeader.ListEntry))
+		{
+#pragma warning(suppress: 26407)
+			delete[] pPLVF;
+			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+				"***** Temporal Probe Report Failed to Notify that EPROCESS=%p, ProcessId=%p do NOT exist in OS Process List!\n",
+				Process, ProcessId);
+		}
 	}
 
 ErrorExit:

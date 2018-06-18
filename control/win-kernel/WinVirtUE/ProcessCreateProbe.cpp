@@ -239,7 +239,7 @@ ProcessCreateProbe::FindProcessByEProcess(PEPROCESS pEProcess)
 			if (pProcessEntry->pEProcess == pEProcess)
 			{
 				retVal = pProcessEntry;
-				break;
+				__leave;
 			}
 		}
 	}
@@ -267,7 +267,7 @@ ProcessCreateProbe::FindProcessByProcessId(HANDLE ProcessId)
 			if (pProcessEntry->ProcessId == ProcessId)
 			{
 				retVal = pProcessEntry;
-				break;
+				__leave;
 			}
 		}
 	}
@@ -334,7 +334,7 @@ ProcessCreateProbe::RemoveProcessEntry(ProcessCreateProbe::PProcessEntry pProces
 				RemoveEntryList(&pProcEntry->ListEntry);
 				delete[] (PBYTE)pProcEntry;
 				success = TRUE;
-				break;
+				__leave;
 			}
 		}		
 	}

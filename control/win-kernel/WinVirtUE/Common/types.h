@@ -199,7 +199,7 @@ typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
 
 typedef enum _ProbeIdType : USHORT
 {
-	None = 0x0000,
+	NoProbeIdType = 0x0000,
 	/** Loaded Image (.exe,.dll, etc) notificaton type */
 	LoadedImage    = 0x0001,
 	/** Process Creation notificaton type */
@@ -209,8 +209,17 @@ typedef enum _ProbeIdType : USHORT
 	/** Thread Creation notificaton type */
 	ThreadCreate   = 0x0004,
 	/** Thread Destruction notificaton type */
-	ThreadDestroy  = 0x0005
+	ThreadDestroy  = 0x0005,
+	/** A temporal probe is issueing a report */
+	TemporalProbeReport = 0x0006
 } ProbeIdType;
+
+typedef enum _ProbeReportId : USHORT
+{
+	NoProbeReportId = 0x0000,
+	/** Process List Validation Failed */
+	ProcessListValidationFailedReportId = 0x0001
+} ProbeReportId, *PProbeReportId;
 
 _Struct_size_bytes_(DataSz)
 typedef struct _ProbeDataHeader 
@@ -218,11 +227,19 @@ typedef struct _ProbeDataHeader
 	_In_ ULONG ReplyLength;
 	_In_ ULONGLONG MessageId;
 	_In_ ProbeIdType  ProbeId;
-	_In_ USHORT    DataSz;
+	_In_ USHORT DataSz;
 	_In_ LARGE_INTEGER CurrentGMT;
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
 
+
+typedef struct _ProcessListValidationFailed
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ ProbeReportId ReportId;  // the probe report id - ProcessListValidationFailed
+	_In_ HANDLE ProcessId;	      // the process id that was NOT found in the process list
+	_In_ PEPROCESS  EProcess;     // the eprocess that was NOT found in the process list
+} ProcessListValidationFailed, *PProcessListValidationFailed;
 
 typedef struct _LoadedImageInfo
 {	
