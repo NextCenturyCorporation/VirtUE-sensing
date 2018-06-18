@@ -14,7 +14,7 @@
 ProcessListValidationProbe::ProcessListValidationProbe()
 {
 	ProbeName = RTL_CONSTANT_STRING(L"ProcessListValidation");
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);
 	if (NULL != pPDQ)
 	{
 		pPDQ->Register(*this);
@@ -91,7 +91,49 @@ NTSTATUS
 ProcessListValidationProbe::OnRun()
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-	Status = AbstractVirtueProbe::OnRun();
+	PEPROCESS Process = nullptr;
+	KLOCK_QUEUE_HANDLE LockHandle;
+
+	if (NULL == pPCP)
+	{
+		FLT_ASSERTMSG("The ProcessCreateProbe Does Not Exists!", NULL != pPCP);
+		Status = STATUS_NOT_CAPABLE;  // For some reason the ProcessCreateProbe is gone!
+		goto ErrorExit;
+	}
+
+	KSPIN_LOCK& ProcessListSpinLock = pPCP->GetProcessListSpinLock();
+
+	/** lock up the list */
+	KeAcquireInStackQueuedSpinLock(&ProcessListSpinLock, &LockHandle);
+	__try
+	{
+		/** for each list entry, Lookup the process by pid, and use that process to retrieve the matching pid */
+		LIST_FOR_EACH(pProcessEntry, pPCP->GetProcessList(), ProcessCreateProbe::ProcessEntry)
+		{		
+			Status = PsLookupProcessByProcessId(pProcessEntry->ProcessId, &Process);
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "Failed to find EPROCESS %08x - FAIL=%08x\n", Process, Status);
+				__leave;
+			}
+			HANDLE pid = PsGetProcessId(Process);
+			if (INVALID_HANDLE_VALUE == pid || pid != pProcessEntry->ProcessId)
+			{
+				Status = STATUS_NOT_FOUND;   // the process id was not found - something fishy is going on
+				WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "EPROCESS %08x failed to retrieve the matching PID %08x!\n", Process, pProcessEntry->ProcessId);
+				__leave;
+			}
+		}
+	}
+	__finally
+	{
+		// the last thing we do is to update the last run time
+		Status = AbstractVirtueProbe::OnRun();
+		KeReleaseInStackQueuedSpinLock(&LockHandle);
+	}
+
+ErrorExit:
+
 	return Status;
 }
 

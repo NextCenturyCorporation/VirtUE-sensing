@@ -19,6 +19,14 @@ ProcessCreateProbe::ProcessCreateProbe()
 	{
 		pPDQ->Register(*this);
 	}
+	// initialize the spinlock that controls access to the Response queue
+	KeInitializeSpinLock(&this->ProcessListSpinLock);
+
+	// initialize the Response Queue TWLL
+	InitializeListHead(&this->ProcessList);
+
+	// we build the queue successfully
+	this->Enabled = TRUE;
 }
 
 /**
@@ -208,5 +216,130 @@ ProcessCreateProbe::OnRun()
 	NTSTATUS Status = STATUS_SUCCESS;
 	Status = AbstractVirtueProbe::OnRun();
 	return Status;
+}
+
+
+/**
+* @brief finds a process by eprocess
+* @param eprocess  The eprocess to find
+* @return PEPROCESS if found else NULL
+*/
+_Use_decl_annotations_
+ProcessCreateProbe::PProcessEntry
+ProcessCreateProbe::FindProcessByEProcess(PEPROCESS pEProcess)
+{
+	ProcessCreateProbe::PProcessEntry retVal = nullptr;
+	KLOCK_QUEUE_HANDLE LockHandle;
+
+	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
+	__try
+	{
+		LIST_FOR_EACH(pProcessEntry, this->ProcessList, ProcessEntry)
+		{
+			if (pProcessEntry->pEProcess == pEProcess)
+			{
+				retVal = pProcessEntry;
+				break;
+			}
+		}
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+	return retVal;
+}
+
+/**
+* @brief finds a process by process id
+* @param ProcessId  The Process Id to find
+* @return PEPROCESS if found else NULL
+*/
+_Use_decl_annotations_
+ProcessCreateProbe::PProcessEntry
+ProcessCreateProbe::FindProcessByProcessId(HANDLE ProcessId)
+{
+	ProcessCreateProbe::PProcessEntry retVal = nullptr;
+	KLOCK_QUEUE_HANDLE LockHandle;
+	
+	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
+	__try
+	{
+		LIST_FOR_EACH(pProcessEntry, this->ProcessList, ProcessEntry)
+		{
+			if (pProcessEntry->ProcessId == ProcessId)
+			{
+				retVal = pProcessEntry;
+				break;
+			}
+		}
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+	return retVal;
+}
+
+/**
+* @brief finds a process by process id
+* @param ProcessId  The Process Id to find
+* @return PEPROCESS if found else NULL
+*/
+_Use_decl_annotations_
+BOOLEAN
+ProcessCreateProbe::InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId)
+{
+	BOOLEAN success = FALSE;
+	KLOCK_QUEUE_HANDLE LockHandle;
+	ProcessCreateProbe::PProcessEntry pProcEntry = 
+		(ProcessCreateProbe::PProcessEntry)new BYTE[sizeof ProcessCreateProbe::ProcessEntry];
+	if (NULL == pProcEntry)
+	{
+		success = FALSE;
+		goto ErrorExit;
+	}
+
+	pProcEntry->pEProcess = pEProcess;
+	pProcEntry->ProcessId = ProcessId;
+
+	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
+	__try
+	{
+		InsertTailList(&this->ProcessList, &pProcEntry->ListEntry);
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+
+	success = TRUE;
+
+ErrorExit:
+
+	return success;
+}
+
+/**
+* @brief finds a process by process id
+* @param ProcessId  The Process Id to find
+* @return PEPROCESS if found else NULL
+*/
+_Use_decl_annotations_
+BOOLEAN
+ProcessCreateProbe::RemoveProcessEntry(ProcessCreateProbe::PProcessEntry pProcessEntry)
+{
+	BOOLEAN success = FALSE;
+	KLOCK_QUEUE_HANDLE LockHandle;
+	ProcessCreateProbe::PProcessEntry pProcEntry = nullptr;
+
+	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
+	__try
+	{
+		LIST_FOR_EACH(pLstProcEntry, this->ProcessList, ProcessEntry)
+		{
+			if (pLstProcEntry->ProcessId == pProcessEntry->ProcessId)
+			{
+				RemoveEntryList(&pProcEntry->ListEntry);
+				delete[] (PBYTE)pProcEntry;
+				success = TRUE;
+				break;
+			}
+		}		
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }	
+
+	return success;
 }
 

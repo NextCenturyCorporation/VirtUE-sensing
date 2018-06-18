@@ -8,6 +8,7 @@
 #include "common.h"
 #include "externs.h"
 #include "AbstractVirtueProbe.h"
+#include "ProcessCreateProbe.h"
 class ProcessListValidationProbe :
 	public AbstractVirtueProbe
 {
