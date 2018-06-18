@@ -461,7 +461,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	if (!rp->records || rp->records_len <=0) {
 		return -ENOMEM;
 	}
-/* NOTE: need an unlikely(cur_len >= orig_len - 1) */
+
 	if (unlikely(strlcat(rp->records,
 						 r_header,
 						 orig_len) >= orig_len)) {
