@@ -38,10 +38,7 @@ protected:
 	LARGE_INTEGER LastProbeRunTime;
 
 public:
-	AbstractVirtueProbe() :
-		Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE),
-		ProbeName(RTL_CONSTANT_STRING(L"")), LastProbeRunTime({ 0LL }) 
-	{ RunInterval.QuadPart = RELATIVE(SECONDS(30));}
+	AbstractVirtueProbe();
 	virtual ~AbstractVirtueProbe() = default;
 	/* Enable the probe - required functionality */
 	_Success_(TRUE == return)

@@ -10,6 +10,16 @@
 #pragma warning(suppress: 26439)
 
 /**
+* @brief base class constructing an instance of a probe 
+*/
+AbstractVirtueProbe::AbstractVirtueProbe() :
+	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE),
+	ProbeName(RTL_CONSTANT_STRING(L"")), LastProbeRunTime({ 0LL })
+{
+	RunInterval.QuadPart = RELATIVE(SECONDS(30));
+}
+
+/**
 * @brief construct an instance of this object utilizing non paged pool memory
 * @return pListEntry an item that was on the probe data queue for further processing
 */
