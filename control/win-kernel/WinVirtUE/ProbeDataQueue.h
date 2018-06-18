@@ -124,7 +124,7 @@ public:
 		PVOID operator new(_In_ size_t size);
 	VOID CDECL operator delete(_In_ PVOID ptr);	
 	_Success_(TRUE == return)
-	BOOLEAN Register(_In_ AbstractVirtueProbe& probe);;
+	BOOLEAN Register(_In_ AbstractVirtueProbe& probe);
 	BOOLEAN DeRegister(_In_ AbstractVirtueProbe& probe);
 	_Must_inspect_result_
 	_Success_(NULL != return)

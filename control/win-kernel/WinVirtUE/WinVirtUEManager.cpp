@@ -4,11 +4,7 @@
 * @copyright (2018) Two Six Labs
 * @brief Windows Virtue Runtime Manager
 */
-#include "ProbeDataQueue.h"
-#include "ImageLoadProbe.h"
-#include "ProcessListValidationProbe.h"
-#include "ProcessCreateProbe.h"
-#include "FltrCommsMgr.h"
+
 #include "WinVirtUEManager.h"
 
 #define COMMON_POOL_TAG WVU_WVUMGR_POOL_TAG
@@ -154,3 +150,5 @@ WinVirtUEManager::operator delete(PVOID ptr)
 	}
 	ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
 }
+
+

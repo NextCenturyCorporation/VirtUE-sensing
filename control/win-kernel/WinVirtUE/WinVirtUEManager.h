@@ -8,6 +8,13 @@
 #pragma once
 #include "common.h"
 #include "externs.h"
+#include "ProbeDataQueue.h"
+#include "FltrCommsMgr.h"
+#include "AbstractVirtueProbe.h"
+#include "ImageLoadProbe.h"
+#include "ProcessListValidationProbe.h"
+#include "ProcessCreateProbe.h"
+
 
 class WinVirtUEManager
 {
@@ -20,6 +27,6 @@ public:
 	_Must_inspect_impl_
 		PVOID operator new(_In_ size_t size);
 	/* destroy an instance of this class */
-	VOID CDECL operator delete(_In_ PVOID ptr);
+	VOID CDECL operator delete(_In_ PVOID ptr);	
 };
 

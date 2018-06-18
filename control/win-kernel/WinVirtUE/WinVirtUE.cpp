@@ -280,7 +280,7 @@ WVUPollThread(PVOID StartContext)
 	UNREFERENCED_PARAMETER(StartContext);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER poll_timeout = { 0LL };
-	poll_timeout.QuadPart = RELATIVE(MILLISECONDS(50));
+	poll_timeout.QuadPart = RELATIVE(MILLISECONDS(100));
 	KLOCK_QUEUE_HANDLE LockHandle;
 	TIME_FIELDS time_fields;
 
