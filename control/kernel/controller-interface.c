@@ -5,7 +5,7 @@
 #include "uname.h"
 #include "controller.h"
 #include "jsmn/jsmn.h"
-#include "jsonl-parse.include.c"
+//#include "jsonl-parse.include.c"
 
 /* hold socket JSON probe interface */
 extern struct kernel_sensor k_sensor;

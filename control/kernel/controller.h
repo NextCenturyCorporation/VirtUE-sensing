@@ -23,6 +23,7 @@
 #ifndef _CONTROLLER_H
 #define _CONTROLLER_H
 #include "controller-linux.h"
+#include "jsmn/jsmn.h"
 #include "uname.h"
 #include "import-header.h"
 #include "controller-flags.h"
@@ -51,6 +52,95 @@ enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
 #define CONNECTION_MAX_MESSAGE 0x1000
 #define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
 
+
+#define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
+/**
+ * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
+ * allow shorter nonces, allowing the client to choose,
+ * up to MAX_NONCE_SIZE
+ **/
+#define MAX_NONCE_SIZE 32
+#define MAX_CMD_SIZE 128
+#define MAX_ID_SIZE MAX_CMD_SIZE
+#define MAX_TOKENS 64
+struct jsmn_message;
+struct jsmn_session;
+void dump_session(struct jsmn_session *s);
+int dump(const char *js, jsmntok_t *t, size_t count, int indent);
+
+/**
+ * a jsmn_message is a single jsonl object, read and created by a connection
+ * the jsonl control protocol expects messages to be a request and matching
+ * replies (one or more).
+ *
+ * Each new request message automatically creates a new jsmn_session (below).
+ * a successful session is one request message and at least one reply
+ * message.
+ *
+ * A jsmn_session provides glue that binds a request to matching responses.
+ *
+ * The struct connection (defined in controller.h) initializes each jsmn_message
+ * with the struct socket that produced the data (read or written).
+ *
+ * You may always relate a struct connection to a jsmn_message by their having
+ * the same struct socket.
+ *
+ **/
+
+struct jsmn_message
+{
+#ifdef USERSPACE
+	STAILQ_ENTRY(jsmn_message) e_messages;
+#else
+	struct list_head e_messages;
+#endif
+	spinlock_t sl;
+	jsmn_parser parser;
+	jsmntok_t tokens[MAX_TOKENS];
+	uint8_t *line;
+	size_t len;
+	int type;
+	int count; /* token count */
+	struct jsmn_session *s;
+#ifdef USERSPACE
+	FILE *file;
+#else
+	struct socket *socket;
+#endif
+};
+
+/**
+ * a session may have one request and multiple replies
+ **/
+struct jsmn_session
+{
+#ifdef USERSPACE
+	SLIST_ENTRY(jsmn_session) sessions;
+#else
+	struct list_head session_entry;
+#endif
+	spinlock_t sl;
+	uint8_t nonce[MAX_NONCE_SIZE];
+	struct jsmn_message *req;
+#ifdef USERSPACE
+	STAILQ_HEAD(replies, jsmn_message) h_replies;
+#else
+	struct list_head h_replies;
+#endif
+	uint8_t cmd[MAX_CMD_SIZE];
+	uint8_t probe_id[MAX_ID_SIZE];
+
+};
+
+
+void free_message(struct jsmn_message *m);
+struct jsmn_message * new_message(uint8_t *line, size_t len);
+void free_session(struct jsmn_session *s);
+int parse_json_message(struct jsmn_message *m);
+void init_jsonl_parser(void);
+
+
+
 struct probe_msg
 {
 	int id;
@@ -63,6 +153,7 @@ struct probe_msg
 
 struct records_request
 {
+	struct jsmn_message *json_msg;
 	bool run_probe;
 	bool clear;
 	uint64_t nonce;

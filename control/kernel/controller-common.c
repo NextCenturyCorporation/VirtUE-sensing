@@ -385,6 +385,9 @@ err_exit:
 	return -ENOMEM;
 }
 
+struct jsmn_message;
+struct jsmn_session;
+
 
 /**
  * TODO: seperate the kernel-ps probe into its own source file
@@ -403,14 +406,18 @@ err_exit:
  *
  * Note: the parent probe is LOCKED by the caller
  **/
-int kernel_ps_get_record(struct kernel_ps_probe *parent,
-						 struct probe_msg *msg,
-						 uint8_t *tag)
+int
+kernel_ps_get_record(struct kernel_ps_probe *parent,
+					 struct probe_msg *msg,
+					 uint8_t *tag)
 {
 	struct kernel_ps_data *kpsd_p;
 	int ccode = 0;
+	ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
+	ssize_t remaining = orig_len, cur_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;
 	struct records_reply *rp = (struct records_reply *)msg->output;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [", *cursor;
 
 	assert(parent);
 	assert(msg);
@@ -425,6 +432,9 @@ int kernel_ps_get_record(struct kernel_ps_probe *parent,
 		return -EAGAIN;
 	}
 	if (rr->run_probe) {
+		/**
+		 * refresh all the ps records in the flex array
+		 **/
 		ccode = kernel_ps_unlocked(parent, rr->nonce);
 		if (ccode < 0) {
 			spin_unlock(&parent->lock);
@@ -436,7 +446,7 @@ int kernel_ps_get_record(struct kernel_ps_probe *parent,
 	if (kpsd_p && rr->clear) {
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
-	spin_unlock(&parent->lock);
+
 
 	if (!kpsd_p) {
 		return -ENOENT;
@@ -451,14 +461,67 @@ int kernel_ps_get_record(struct kernel_ps_probe *parent,
 	if (!rp->records || rp->records_len <=0) {
 		return -ENOMEM;
 	}
-	rp->records_len = snprintf(rp->records,
-				   rp->records_len - 1,
-				   "%s %d %s [%d] [%d] [%llx]\n",
-				   tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
-				   kpsd_p->user_id.val, rr->nonce);
+/* NOTE: need an unlikely(cur_len >= orig_len - 1) */
+	if (unlikely(strlcat(rp->records,
+						 r_header,
+						 orig_len) >= orig_len)) {
+		goto err_exit;
+	}
+
+	if (unlikely(strlcat(rp->records,
+						 rr->json_msg->s->nonce,
+						 orig_len) >= orig_len)) {
+		goto err_exit;
+	}
+
+	if (unlikely(strlcat(rp->records,
+						 ", ",
+						 orig_len) >= orig_len)) {
+		goto err_exit;
+	}
+
+	if (unlikely(strlcat(rp->records,
+						 parent->id,
+						 orig_len) >= orig_len)) {
+		goto err_exit;
+	}
+
+	if (unlikely(strlcat(rp->records,
+						 ", ",
+						 orig_len) >= orig_len)) {
+		goto err_exit;
+	}
+
+	/**
+	 * get a pointer to the terminating null, calculate the
+	 * remaining length, and then snprintf to that pointer.
+	 **/
+
+	cursor = rp->records + cur_len;
+	remaining = orig_len - cur_len;
+
+
+	/**
+	 * build the record json object(s)
+	 **/
+	cur_len += snprintf(rp->records,
+						remaining,
+						"%s %d %s %d %d %llx ] }\n",
+						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
+						kpsd_p->user_id.val, rr->nonce);
+
+	if (cur_len >= orig_len) {
+		cur_len = orig_len;
+	}
+	 
+	rp->records_len = cur_len;
+	rp->records[cur_len] = 0x00;
+	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
 	rp->index = rr->index;
 	rp->range = rr->range;
 	return 0;
+err_exit:
+	return -ENOMEM;
 }
 
 
@@ -865,28 +928,18 @@ default_probe_message(struct probe *probe, struct probe_msg *msg)
 	return 0;
 }
 
+
 /**
- * @brief receive a record request message
- *
- * build up a list of record response messages - each response
- * containing a ps record.
- *
- *
+ * probe is LOCKED upon entry
  **/
-static int
-ps_rcv_record_request(struct probe *probe,
-					  struct probe_msg * msg)
-{
-
-	return 0;
-}
-
 static int
 ps_message(struct probe *probe, struct probe_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return ps_rcv_record_request(probe, msg);
+		return kernel_ps_get_record((struct kernel_ps_probe *)probe,
+									msg,
+									"kernel-ps");
 	}
 	default:
 		return -EINVAL;
