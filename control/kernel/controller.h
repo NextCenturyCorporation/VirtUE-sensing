@@ -365,8 +365,7 @@ struct probe {
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
 	int (*message)(struct probe *, struct probe_msg *);
-	int (*start_stop)(struct probe *, uint64_t flags);
-	uint64_t flags;  /* expect that flags will contain level bits */
+	uint64_t flags, state;  /* see controller-flags.h */
 	int timeout, repeat;
 	struct kthread_worker worker;
 	struct kthread_work work;
