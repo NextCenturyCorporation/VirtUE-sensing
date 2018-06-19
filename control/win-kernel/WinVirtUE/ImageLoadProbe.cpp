@@ -27,6 +27,15 @@ BOOLEAN ImageLoadProbe::Enable()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
+	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
+	{
+		Status = STATUS_NOT_SUPPORTED;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z not enabled at start - probe is registered but not active\n", 
+			&this->ProbeName);			
+		goto ErrorExit;
+	}
+
 	Status = PsSetLoadImageNotifyRoutine(ImageLoadProbe::ImageLoadNotificationRoutine);
 	if (FALSE == NT_SUCCESS(Status))
 	{

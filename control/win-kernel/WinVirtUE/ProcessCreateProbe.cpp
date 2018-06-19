@@ -41,7 +41,7 @@ ProcessCreateProbe::~ProcessCreateProbe()
 }
 
 _Use_decl_annotations_
-BOOLEAN 
+NTSTATUS
 ProcessCreateProbe::RemoveNotify(BOOLEAN remove)
 {
 	const NTSTATUS Status = PsSetCreateProcessNotifyRoutineEx(ProcessCreateProbe::ProcessNotifyCallbackEx, remove);
@@ -54,7 +54,7 @@ ProcessCreateProbe::RemoveNotify(BOOLEAN remove)
 
 ErrorExit:
 
-	return NT_SUCCESS(Status);
+	return Status;
 }
 
 /**
@@ -64,7 +64,19 @@ ErrorExit:
 _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Enable()
 {
-	return this->RemoveNotify(FALSE);
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
+	{
+		Status = STATUS_NOT_SUPPORTED;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z not enabled at start - probe is registered but not active\n",
+			&this->ProbeName);
+		goto ErrorExit;
+	}
+	Status = this->RemoveNotify(FALSE);
+ErrorExit:
+	this->Enabled = NT_SUCCESS(Status) ? TRUE : FALSE;
+	return NT_SUCCESS(Status) ? TRUE : FALSE;
 }
 
 /**
@@ -73,8 +85,14 @@ BOOLEAN ProcessCreateProbe::Enable()
 */
 _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Disable()
-{
-	return this->RemoveNotify(TRUE);
+{	
+	if (FALSE == this->Enabled)
+	{
+		goto ErrorExit;
+	}
+	this->Enabled = this->RemoveNotify(TRUE) ? TRUE : FALSE;
+ErrorExit:
+	return this->Enabled;
 }
 
 /**

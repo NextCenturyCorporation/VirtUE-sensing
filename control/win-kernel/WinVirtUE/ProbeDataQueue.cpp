@@ -362,7 +362,7 @@ ProbeDataQueue::Register(AbstractVirtueProbe& probe)
 */
 _Use_decl_annotations_
 BOOLEAN 
-ProbeDataQueue::DeRegister(AbstractVirtueProbe& probe)
+ProbeDataQueue::Unregister(AbstractVirtueProbe& probe)
 {
 	BOOLEAN is_empty = TRUE;
 	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };

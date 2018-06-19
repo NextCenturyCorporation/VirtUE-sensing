@@ -31,7 +31,7 @@ AbstractVirtueProbe::~AbstractVirtueProbe()
 {
 	if (NULL != pPDQ)
 	{
-		pPDQ->DeRegister(*this);
+		pPDQ->Unregister(*this);
 	}
 }
 

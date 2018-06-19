@@ -20,9 +20,7 @@ FltrCommsMgr::FltrCommsMgr()
 	: usPortName({ 0,0,nullptr }), usCommandName({ 0,0,nullptr }),  WVUPortObjAttr({ 0,0,0,0,0,0 }),
 	WVUComandObjAttr({ 0,0,0,0,0,0 }), pWVUPortSecDsc(nullptr), pWVUCommandSecDsc(nullptr),
 	InitStatus(STATUS_UNSUCCESSFUL)	
-{
-	
-
+{	
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
 
 	//  Register with FltMgr to tell it our callback routines
@@ -385,7 +383,7 @@ FltrCommsMgr::OnUnloadStateChange(
 
 /**
 * @brief returns to user space an enumeration of all active probes
-* @retval Returnes a list active services
+* @retval Return a list active probes
 */
 _Use_decl_annotations_
 NTSTATUS
@@ -418,6 +416,15 @@ FltrCommsMgr::OnConfigureProbe(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	return Status;
 }
+
+/**
+* @brief Decodes Command Message Buffer and calls associated handlers
+* @param Status The status as returned by the command
+* @param OutputBuffer Pointer to a caller - allocated buffer that receives the reply(if any) from the minifilter driver.
+* @param OutputBufferLength Size, in bytes, of the buffer that OutputBuffer points
+* @param ReturnOutputBufferLength Pointer to a caller - allocated variable that receives the number of bytes returned in the buffer that OutputBuffer points to.
+* @retval Returned Status
+*/
 _Use_decl_annotations_
 VOID 
 FltrCommsMgr::CreateStandardResponse(
@@ -428,6 +435,7 @@ FltrCommsMgr::CreateStandardResponse(
 {
 	if (OutputBufferLength < sizeof(RESPONSE_MESSAGE) || NULL == OutputBuffer)
 	{
+		*ReturnOutputBufferLength = 0;
 		goto ErrorExit;
 	}
 
@@ -446,6 +454,9 @@ ErrorExit:
 * @brief Decodes Command Message Buffer and calls associated handlers
 * @param InputBuffer Pointer to a caller-allocated buffer containing the message to be sent to the minifilter driver.
 * @param InputBufferLength Size, in bytes, of the buffer that InputBufferpoints
+* @param OutputBuffer Pointer to a caller-allocated buffer that receives the reply (if any) from the minifilter driver.
+* @param OutputBufferLength Size, in bytes, of the buffer that OutputBuffer points
+* @param ReturnOutputBufferLength Pointer to a caller-allocated variable that receives the number of bytes returned in the buffer that OutputBuffer points to.
 * @retval Returned Status
 */
 _Use_decl_annotations_

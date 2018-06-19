@@ -130,7 +130,7 @@ public:
 	_Success_(TRUE == return)
 	BOOLEAN Register(_In_ AbstractVirtueProbe& probe);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
-	BOOLEAN DeRegister(_In_ AbstractVirtueProbe& probe);
+	BOOLEAN Unregister(_In_ AbstractVirtueProbe& probe);
 	_Must_inspect_result_
 	_Success_(NULL != return)
 		_IRQL_requires_max_(DISPATCH_LEVEL)

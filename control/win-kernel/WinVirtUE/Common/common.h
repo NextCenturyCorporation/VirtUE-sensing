@@ -19,6 +19,7 @@
 #include <ntifs.h>
 #include <ntddkbd.h>
 #include <sal.h>
+#include <concurrencysal.h>
 #include <bcrypt.h>
 
 #pragma warning( pop )

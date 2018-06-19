@@ -23,7 +23,8 @@ public:
 		PEPROCESS pEProcess;
 		HANDLE ProcessId;
 
-		ProcessEntry() : ProcessId(INVALID_HANDLE_VALUE), pEProcess(nullptr) {}
+		ProcessEntry() : ListEntry({ nullptr,nullptr }), 
+			ProcessId(INVALID_HANDLE_VALUE), pEProcess(nullptr) {}
 		~ProcessEntry() = default;
 
 		/**
@@ -58,7 +59,8 @@ private:
 	/** ProcessList Spin Lock */
 	KSPIN_LOCK ProcessListSpinLock;
 	_Must_inspect_result_
-	BOOLEAN RemoveNotify(_In_ BOOLEAN remove);
+		_Success_(TRUE == NT_SUCCESS(return))
+	NTSTATUS RemoveNotify(_In_ BOOLEAN remove);
 	static
 	VOID ProcessNotifyCallbackEx(
 			_Inout_ PEPROCESS Process,

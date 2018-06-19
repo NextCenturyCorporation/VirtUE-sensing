@@ -7,8 +7,6 @@
 #pragma once
 #include "common.h"
 #include "ProbeDataQueue.h"
-#include <new.h>
-#include <cstddef>
 
 class FltrCommsMgr
 {
@@ -66,8 +64,8 @@ private:
 
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_
-	static VOID
-		FltrCommsMgr::CreateStandardResponse(
+		static 
+		VOID CreateStandardResponse(
 			_In_ NTSTATUS Status,
 			_Out_writes_bytes_(OutputBufferLength) PVOID OutputBuffer,
 			_In_ ULONG OutputBufferLength,

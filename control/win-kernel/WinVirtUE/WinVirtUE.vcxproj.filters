@@ -40,6 +40,18 @@
     <Filter Include="inc">
       <UniqueIdentifier>{1e8e0e72-7f46-4474-a998-942337fc5298}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Probes">
+      <UniqueIdentifier>{4fed139c-74ea-450c-a701-ec96370e8143}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Probes">
+      <UniqueIdentifier>{061ee822-e069-4274-8b7f-ffd9f2b795ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Filter">
+      <UniqueIdentifier>{7a637f1b-9a33-46d0-b0f6-7689c9d590fd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Filter">
+      <UniqueIdentifier>{b3e37071-973c-4dce-a82e-0f97f4b4ff0d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="WinVirtUE.inf">
@@ -65,41 +77,41 @@
     <ClCompile Include="WinVirtUE.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FltMgrCtxReg.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="FltMgrReg.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="FltMgrCallbacks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ObjectCreateNotifyCB.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RegistryModificationCB.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="AbstractVirtueProbe.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ProbeDataQueue.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ImageLoadProbe.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ProcessCreateProbe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FltrCommsMgr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ProcessListValidationProbe.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="WinVirtUEManager.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessListValidationProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessCreateProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageLoadProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractVirtueProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="FltMgrReg.cpp">
+      <Filter>Source Files\Filter</Filter>
+    </ClCompile>
+    <ClCompile Include="FltMgrCallbacks.cpp">
+      <Filter>Source Files\Filter</Filter>
+    </ClCompile>
+    <ClCompile Include="FltMgrCtxReg.cpp">
+      <Filter>Source Files\Filter</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -139,22 +151,10 @@
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FltMgrCtxReg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FltMgrReg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FltMgrCallbacks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="WinVirtUE.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RegistryModificationCB.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractVirtueProbe.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="trace.h">
@@ -163,23 +163,35 @@
     <ClInclude Include="ProbeDataQueue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ImageLoadProbe.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ObjectCreateNotifyCB.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ProcessCreateProbe.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FltrCommsMgr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ProcessListValidationProbe.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="WinVirtUEManager.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractVirtueProbe.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessCreateProbe.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="ImageLoadProbe.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessListValidationProbe.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="FltMgrReg.h">
+      <Filter>Header Files\Filter</Filter>
+    </ClInclude>
+    <ClInclude Include="FltMgrCallbacks.h">
+      <Filter>Header Files\Filter</Filter>
+    </ClInclude>
+    <ClInclude Include="FltMgrCtxReg.h">
+      <Filter>Header Files\Filter</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
