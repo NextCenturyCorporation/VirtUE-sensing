@@ -45,6 +45,8 @@ enum json_array_chars {
 enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
 					  LOW, DEFAULT, HIGH, ADVERSARIAL, RESET,
 					  RECORDS};
+typedef enum message_command command;
+
 
 /* max message header size */
 #define CONNECTION_MAX_HEADER 0x400
@@ -89,11 +91,7 @@ int dump(const char *js, jsmntok_t *t, size_t count, int indent);
 
 struct jsmn_message
 {
-#ifdef USERSPACE
-	STAILQ_ENTRY(jsmn_message) e_messages;
-#else
 	struct list_head e_messages;
-#endif
 	spinlock_t sl;
 	jsmn_parser parser;
 	jsmntok_t tokens[MAX_TOKENS];
@@ -102,11 +100,7 @@ struct jsmn_message
 	int type;
 	int count; /* token count */
 	struct jsmn_session *s;
-#ifdef USERSPACE
-	FILE *file;
-#else
 	struct socket *socket;
-#endif
 };
 
 /**
@@ -114,19 +108,11 @@ struct jsmn_message
  **/
 struct jsmn_session
 {
-#ifdef USERSPACE
-	SLIST_ENTRY(jsmn_session) sessions;
-#else
 	struct list_head session_entry;
-#endif
 	spinlock_t sl;
 	uint8_t nonce[MAX_NONCE_SIZE];
 	struct jsmn_message *req;
-#ifdef USERSPACE
-	STAILQ_HEAD(replies, jsmn_message) h_replies;
-#else
 	struct list_head h_replies;
-#endif
 	uint8_t cmd[MAX_CMD_SIZE];
 	uint8_t probe_id[MAX_ID_SIZE];
 
@@ -172,18 +158,15 @@ struct records_reply
 struct state_request
 {
 	struct jsmn_message *json_msg;
-	int state; /* enum message_command */
+	command  state; /* enum message_command */
 	bool clear;
 };
 
 struct state_reply
 {
-	int state;
+	command state; /* enum message_command */
 	bool clear;
 };
-
-
-
 
 static inline void sleep(unsigned sec)
 {
