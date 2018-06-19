@@ -96,10 +96,13 @@ public:
 	~ProbeDataQueue();
 	VOID SemaphoreRelease();
 	VOID TerminateLoop();
-	_Success_(TRUE == return)
+	_Has_lock_kind_(_Lock_kind_semaphore_)
+	_Success_(TRUE == return)		
 	BOOLEAN Enqueue(_Inout_ PLIST_ENTRY pListEntry);
+	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)
 	BOOLEAN PutBack(_Inout_ PLIST_ENTRY pListEntry);
+	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Must_inspect_result_
 	PLIST_ENTRY Dequeue();
 	_Must_inspect_result_
@@ -123,10 +126,13 @@ public:
 		_Success_(NULL != return)
 		PVOID operator new(_In_ size_t size);
 	VOID CDECL operator delete(_In_ PVOID ptr);	
+	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)
 	BOOLEAN Register(_In_ AbstractVirtueProbe& probe);
+	_Has_lock_kind_(_Lock_kind_semaphore_)
 	BOOLEAN DeRegister(_In_ AbstractVirtueProbe& probe);
 	_Must_inspect_result_
 	_Success_(NULL != return)
+		_IRQL_requires_max_(DISPATCH_LEVEL)
 	ProbeInfo* FindProbeByName(_In_ const ANSI_STRING& probe_to_be_found);
 };

@@ -389,13 +389,21 @@ ProbeDataQueue::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 	ProbeInfo* pProbeInfo = nullptr;
 	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
 	{
-		CONST ANSI_STRING& probe_name = probe->Probe->GetProbeName();		
-		if (TRUE == RtlEqualString(&probe_name, &probe_to_be_found, TRUE))
+		CONST ANSI_STRING& probe_name = probe->Probe->GetProbeName();
+		if (probe_name.Length != probe_to_be_found.Length)
+		{
+			goto Exit;
+		}
+		if(probe_name.Length 
+			== RtlCompareMemory(probe_name.Buffer, probe_to_be_found.Buffer, probe_name.Length))
 		{
 			pProbeInfo = probe;
 			break;
 		}
 	}
+
+Exit:
+
 	return pProbeInfo;
 }
 

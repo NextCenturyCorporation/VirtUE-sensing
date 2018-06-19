@@ -107,13 +107,7 @@ ProcessListValidationProbe::OnRun()
 		/** for each list entry, Lookup the process by pid, and use that process to retrieve the matching pid */
 		LIST_FOR_EACH(pProcessEntry, pPCP->GetProcessList(), ProcessCreateProbe::ProcessEntry)
 		{		
-			Status = PsLookupProcessByProcessId(pProcessEntry->ProcessId, &Process);
-			if (FALSE == NT_SUCCESS(Status))
-			{
-				WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "Failed to find EPROCESS %08x - FAIL=%08x\n", Process, Status);
-				__leave;
-			}
-			ProcessId = PsGetProcessId(Process);
+			ProcessId = PsGetProcessId(pProcessEntry->pEProcess);
 			if (INVALID_HANDLE_VALUE == ProcessId || ProcessId != pProcessEntry->ProcessId)
 			{
 				Status = STATUS_NOT_FOUND;   // the process id was not found - something fishy is going on

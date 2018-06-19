@@ -50,19 +50,23 @@ public:
 			_In_ UINT32 argc);
 	_Must_inspect_result_
 	NTSTATUS OnRun();
+	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Must_inspect_result_
-		_Success_(NULL != return)
-		PProcessEntry FindProcessByEProcess(_In_ PEPROCESS pEPROCESS);
+	_Success_(NULL != return)
+	PProcessEntry FindProcessByEProcess(_In_ PEPROCESS pEPROCESS);
+	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Must_inspect_result_
-		_Success_(NULL != return)
-		PProcessEntry FindProcessByProcessId(_In_ HANDLE ProcessId);
-	_Use_decl_annotations_
-		BOOLEAN InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId);
-	_Use_decl_annotations_
-		BOOLEAN RemoveProcessEntry(PProcessEntry pProcessEntry);
+	_Success_(NULL != return)
+	PProcessEntry FindProcessByProcessId(_In_ HANDLE ProcessId);
+	_Has_lock_kind_(_Lock_kind_semaphore_)
+	_Success_(TRUE == return)	
+	BOOLEAN InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId);
+	_Has_lock_kind_(_Lock_kind_semaphore_)
+	_Success_(TRUE == return)
+	BOOLEAN RemoveProcessEntry(PProcessEntry pProcessEntry);
 	_Must_inspect_result_
-		KSPIN_LOCK& GetProcessListSpinLock() { return this->ProcessListSpinLock; }
+	KSPIN_LOCK& GetProcessListSpinLock() { return this->ProcessListSpinLock; }
 	_Must_inspect_result_
-		LIST_ENTRY& GetProcessList() { return this->ProcessList; }
+	LIST_ENTRY& GetProcessList() { return this->ProcessList; }
 };
 

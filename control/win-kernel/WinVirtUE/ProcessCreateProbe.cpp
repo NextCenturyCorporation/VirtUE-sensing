@@ -324,7 +324,6 @@ ProcessCreateProbe::RemoveProcessEntry(ProcessCreateProbe::PProcessEntry pProces
 {
 	BOOLEAN success = FALSE;
 	KLOCK_QUEUE_HANDLE LockHandle;
-	ProcessCreateProbe::PProcessEntry pProcEntry = nullptr;
 
 	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
 	__try
@@ -333,8 +332,8 @@ ProcessCreateProbe::RemoveProcessEntry(ProcessCreateProbe::PProcessEntry pProces
 		{
 			if (pLstProcEntry->ProcessId == pProcessEntry->ProcessId)
 			{
-				RemoveEntryList(&pProcEntry->ListEntry);
-				delete[] (PBYTE)pProcEntry;
+				RemoveEntryList(&pLstProcEntry->ListEntry);
+				delete[] (PBYTE)pLstProcEntry;
 				success = TRUE;
 				__leave;
 			}

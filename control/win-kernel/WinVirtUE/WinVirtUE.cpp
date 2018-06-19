@@ -37,10 +37,13 @@ WVUMainThreadStart(PVOID StartContext)
 	PKTHREAD pPollThread = NULL;	
 
 	FLT_ASSERTMSG("WVUMainThreadStart must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);	
+	
+	/** configure the event so that automatically goes to non-signaled and start at non-signaled */
+	KeInitializeEvent(&Globals.poll_wait_evt, EVENT_TYPE::SynchronizationEvent, FALSE);
 
 	// Take a rundown reference 
-	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
-
+	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);	
+	
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainThreadStart Acquired runndown protection . . .\n");
 
 	pWVUMgr = new WinVirtUEManager();
@@ -286,10 +289,6 @@ WVUPollThread(PVOID StartContext)
 
 	FLT_ASSERTMSG("WVUPollThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
-	// configure the event so that automatically goes to non-signaled and start at non-signaled
-	//
-	KeInitializeEvent(&Globals.poll_wait_evt, EVENT_TYPE::SynchronizationEvent, FALSE);
-
 	WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "WVUPollThread Acquired rundown protection . . .\n");
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -325,7 +324,7 @@ WVUPollThread(PVOID StartContext)
 			{				
 				AbstractVirtueProbe* avp = pProbeInfo->Probe;
 		
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %wZ for work to be done!\n", avp->GetProbeName());
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %Z for work to be done!\n", &avp->GetProbeName());
 				// poll the probe for any required actions on our part
 				if (FALSE == avp->OnPoll())
 				{
@@ -334,14 +333,14 @@ WVUPollThread(PVOID StartContext)
 				Status = avp->OnRun();
 				if (FALSE == NT_SUCCESS(Status))
 				{
-					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "Probe %wZ Failed running avp->OnRun() - Status=0x%08x - Continuing!\n", avp->GetProbeName(), Status);
+					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "Probe %wZ Failed running avp->OnRun() - Status=0x%08x - Continuing!\n", &avp->GetProbeName(), Status);
 				}
 				
 				LARGE_INTEGER& probe_last_runtime = (LARGE_INTEGER&)avp->GetLastProbeRunTime();
 				LARGE_INTEGER local_time;
 				ExSystemTimeToLocalTime(&probe_last_runtime, &local_time);
 				RtlTimeToTimeFields(&local_time, &time_fields);
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %wZ successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n", 
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %Z successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n", 
 					avp->GetProbeName(), time_fields.Month, time_fields.Day, time_fields.Year, time_fields.Hour, time_fields.Minute, time_fields.Second, time_fields.Milliseconds);
 			}
 		}

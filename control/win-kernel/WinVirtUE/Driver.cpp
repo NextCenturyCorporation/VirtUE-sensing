@@ -179,14 +179,18 @@ DriverEntry(
 ErrorExit:
 
 	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);  // exits the intialization thread
+	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called KeSetEvent(&Globals.WVUThreadStartEvent...)!\n");
 
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
+	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called ExWaitForRundownProtectionRelease(&Globals.RunDownRef)!\n");
 
 	// destroy global object instances
 	CallGlobalDestructors();
+	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called CallGlobalDestructors()!\n");
 
 Exit:
 
+	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting on Error Status 0x%08x!\n");
 	return Status;
 }
