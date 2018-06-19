@@ -155,17 +155,25 @@ struct records_reply
 	ssize_t records_len;
 };
 
+/**
+ * state request and reply will handle all messages except for
+ * Discovery and Records
+ **/
 struct state_request
 {
 	struct jsmn_message *json_msg;
-	command  state; /* enum message_command */
-	bool clear;
+	command  cmd; /* enum message_command */
+	uint64_t flags, state;
+	int timeout, repeat;
+	bool clear;     /* clear records? */
 };
 
 struct state_reply
 {
-	command state; /* enum message_command */
-	bool clear;
+	command cmd; /* enum message_command */
+	uint64_t flags, state;
+	int timeout, repeat;
+	bool clear;    /* clear records? */
 };
 
 static inline void sleep(unsigned sec)
