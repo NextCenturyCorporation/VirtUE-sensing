@@ -87,9 +87,11 @@ NTSTATUS
 ProcessListValidationProbe::OnRun()
 {
 	NTSTATUS Status = STATUS_SUCCESS;
+	NTSTATUS ReportStatus = STATUS_SUCCESS;
 	PEPROCESS Process = nullptr;
 	HANDLE ProcessId = INVALID_HANDLE_VALUE;
 	KLOCK_QUEUE_HANDLE LockHandle;
+
 
 	if (NULL == pPCP)
 	{
@@ -106,11 +108,12 @@ ProcessListValidationProbe::OnRun()
 	{
 		/** for each list entry, Lookup the process by pid, and use that process to retrieve the matching pid */
 		LIST_FOR_EACH(pProcessEntry, pPCP->GetProcessList(), ProcessCreateProbe::ProcessEntry)
-		{		
+		{
+			Process = pProcessEntry->pEProcess;  // in case we need to generate a report 
 			ProcessId = PsGetProcessId(pProcessEntry->pEProcess);
 			if (INVALID_HANDLE_VALUE == ProcessId || ProcessId != pProcessEntry->ProcessId)
 			{
-				Status = STATUS_NOT_FOUND;   // the process id was not found - something fishy is going on
+				ReportStatus = STATUS_NOT_FOUND;   // the process id was not found - something fishy is going on
 				WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "EPROCESS %08x failed to retrieve the matching PID %08x!\n", Process, pProcessEntry->ProcessId);
 				__leave;
 			}
@@ -123,7 +126,7 @@ ProcessListValidationProbe::OnRun()
 		KeReleaseInStackQueuedSpinLock(&LockHandle);
 	}
 
-	if (FALSE == NT_SUCCESS(Status))
+	if (FALSE == NT_SUCCESS(ReportStatus))
 	{
 		// MFS - create the WinVirtUEManager class that is charge of init/fini of probes and receives notifictions
 		// Notify the WinVirtUEManager that the Sensor is in an Alarm State.  User Space Program MUST acknowledge.
@@ -135,6 +138,7 @@ ProcessListValidationProbe::OnRun()
 			WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "Unable to allocate memory for ProcessListValidationFailed object - FAILED: 0x%08x \n", Status);
 			goto ErrorExit;
 		}
+		pPLVF->Status = ReportStatus;	    // tell the user space program what happened
 		pPLVF->EProcess = Process;			// suspect data, this process does not exist in the OS process list
 		pPLVF->ProcessId = ProcessId;		// suspect data, this pid does not exist in the OS process list
 		pPLVF->ProbeDataHeader.ProbeId = ProbeIdType::TemporalProbeReport;  // this is as temporal probe report

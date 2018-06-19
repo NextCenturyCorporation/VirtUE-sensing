@@ -237,6 +237,7 @@ typedef struct _ProcessListValidationFailed
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;
 	_In_ ProbeReportId ReportId;  // the probe report id - ProcessListValidationFailed
+	_In_ NTSTATUS Status;	      // the operations status
 	_In_ HANDLE ProcessId;	      // the process id that was NOT found in the process list
 	_In_ PEPROCESS  EProcess;     // the eprocess that was NOT found in the process list
 } ProcessListValidationFailed, *PProcessListValidationFailed;

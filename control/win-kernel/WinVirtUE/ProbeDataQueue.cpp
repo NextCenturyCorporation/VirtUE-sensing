@@ -100,9 +100,13 @@ ProbeDataQueue::dtor_exc_filter(
 */
 ProbeDataQueue::~ProbeDataQueue()
 {	
-	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
+	if (FALSE == IsListEmpty(&this->ProbeList))
 	{
-		delete pProbeInfo;
+		// In the unlikely event probe registration didn't fully work?
+		LIST_FOR_EACH(pProbeInfo, this->ProbeList, ProbeDataQueue::ProbeInfo)
+		{
+			delete pProbeInfo;
+		}
 	}
 
 	LIST_FOR_EACH(ptr, this->PDQueue, PROBE_DATA_HEADER)
@@ -136,8 +140,8 @@ ProbeDataQueue::TerminateLoop()
 {
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 	// the next two instructions will cause the consumer loop to terminate
-	this->SemaphoreRelease();
-	this->OnConnect();
+	this->SemaphoreRelease();  // artificially release the semaphore to move things along
+	this->OnConnect();  // artificially simulate a connect to get things moving
 }
 
 /**

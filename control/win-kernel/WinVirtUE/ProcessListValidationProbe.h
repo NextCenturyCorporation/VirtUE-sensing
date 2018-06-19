@@ -27,6 +27,7 @@ public:
 		NTSTATUS Mitigate(
 			_In_opt_count_(argc) PCHAR argv[],
 			_In_ UINT32 argc);
+	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Must_inspect_result_
 		NTSTATUS OnRun();
 };

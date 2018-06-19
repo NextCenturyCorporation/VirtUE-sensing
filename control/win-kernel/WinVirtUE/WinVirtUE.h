@@ -12,4 +12,5 @@
 
 KSTART_ROUTINE WVUMainThreadStart;
 KSTART_ROUTINE WVUSensorThread;
+_Has_lock_kind_(_Lock_kind_semaphore_)
 KSTART_ROUTINE WVUPollThread;
