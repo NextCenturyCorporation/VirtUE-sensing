@@ -102,6 +102,7 @@ ProcessListValidationProbe::OnRun()
 			ProcessId = PsGetProcessId(pProcessEntry->pEProcess);
 			if (INVALID_HANDLE_VALUE == ProcessId || ProcessId != pProcessEntry->ProcessId)
 			{
+				RemoveEntryList(&pProcessEntry->ListEntry);    // we know its invalid, remove it and notify!
 				ReportStatus = STATUS_NOT_FOUND;   // the process id was not found - something fishy is going on
 				WVU_DEBUG_PRINT(LOG_PROCESS, ERROR_LEVEL_ID, "EPROCESS %08x failed to retrieve the matching PID %08x!\n", Process, pProcessEntry->ProcessId);
 				__leave;
