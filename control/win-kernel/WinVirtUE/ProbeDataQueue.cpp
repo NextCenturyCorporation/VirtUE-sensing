@@ -100,19 +100,18 @@ ProbeDataQueue::dtor_exc_filter(
 */
 ProbeDataQueue::~ProbeDataQueue()
 {	
-	if (FALSE == IsListEmpty(&this->ProbeList))
-	{
-		// In the unlikely event probe registration didn't fully work?
-		LIST_FOR_EACH(pProbeInfo, this->ProbeList, ProbeDataQueue::ProbeInfo)
-		{
-			delete pProbeInfo;
-		}
+	while (FALSE == IsListEmpty(&this->ProbeList))
+	{		
+		PLIST_ENTRY pListEntry = RemoveHeadList(&this->ProbeList);
+		ProbeInfo* pProbeInfo = CONTAINING_RECORD(pListEntry, ProbeInfo, ListEntry);
+		delete pProbeInfo;
 	}
 
-	LIST_FOR_EACH(ptr, this->PDQueue, PROBE_DATA_HEADER)
+	while (FALSE == IsListEmpty(&this->PDQueue))
 	{
-		UNREFERENCED_PARAMETER(ptr);
-		delete[](PUCHAR)ptr;
+		PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
+		PPROBE_DATA_HEADER pProbeInfo = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		delete[](PBYTE)pProbeInfo;
 	}
 
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])
@@ -396,7 +395,7 @@ ProbeDataQueue::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 		CONST ANSI_STRING& probe_name = probe->Probe->GetProbeName();
 		if (probe_name.Length != probe_to_be_found.Length)
 		{
-			goto Exit;
+			continue; // keep looking for the next one
 		}
 		if(probe_name.Length 
 			== RtlCompareMemory(probe_name.Buffer, probe_to_be_found.Buffer, probe_name.Length))
@@ -405,8 +404,6 @@ ProbeDataQueue::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 			break;
 		}
 	}
-
-Exit:
 
 	return pProbeInfo;
 }

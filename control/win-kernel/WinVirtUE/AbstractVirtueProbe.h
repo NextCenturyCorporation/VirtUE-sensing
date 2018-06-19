@@ -41,7 +41,7 @@ protected:
 
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
-	virtual ~AbstractVirtueProbe() = default;
+	virtual ~AbstractVirtueProbe();
 	/* Enable the probe - required functionality */
 	_Success_(TRUE == return)
 		virtual BOOLEAN Enable() = 0;

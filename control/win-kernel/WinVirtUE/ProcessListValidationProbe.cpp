@@ -18,17 +18,6 @@ ProcessListValidationProbe::ProcessListValidationProbe() :
 }
 
 /**
-* @brief destroy this probes instance *
-*/
-ProcessListValidationProbe::~ProcessListValidationProbe()
-{
-	if (NULL != pPDQ)
-	{	
-		pPDQ->DeRegister(*this);
-	}
-}
-
-/**
 * @brief Enable the ImageLoadProbe by setting the notification callback
 * @returns TRUE if successfully installed the notification routine callback
 */

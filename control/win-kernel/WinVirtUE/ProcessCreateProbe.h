@@ -14,14 +14,44 @@ class ProcessCreateProbe :
 {
 
 public:
-
-	typedef struct _ProcessEntry 
+#pragma region Process Entry Structure Definition
+#define COMMON_POOL_TAG WVU_PROCESSENTRY_POOL_TAG
+	class ProcessEntry
 	{
+	public:
 		LIST_ENTRY ListEntry;
 		PEPROCESS pEProcess;
 		HANDLE ProcessId;
-	} ProcessEntry, *PProcessEntry;
 
+		ProcessEntry() : ProcessId(INVALID_HANDLE_VALUE), pEProcess(nullptr) {}
+		~ProcessEntry() = default;
+
+		/**
+		* @brief construct an instance of this object utilizing non paged pool memory
+		* @return Instance of ProbeInfo Class
+		*/
+		PVOID operator new(size_t size)
+		{
+#pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
+			PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
+			return pVoid;
+		}
+
+		/**
+		* @brief destroys an instance of this object and releases its memory
+		* @param ptr pointer to the object instance to be destroyed
+		*/
+		VOID CDECL operator delete(PVOID ptr)
+		{
+			if (!ptr)
+			{
+				return;
+			}
+			ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
+		}
+	};
+#undef COMMON_POOL_TAG
+#pragma endregion
 private:
 	/** The process list */
 	LIST_ENTRY ProcessList;
@@ -53,17 +83,17 @@ public:
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Must_inspect_result_
 	_Success_(NULL != return)
-	PProcessEntry FindProcessByEProcess(_In_ PEPROCESS pEPROCESS);
+	ProcessEntry* FindProcessByEProcess(_In_ PEPROCESS pEPROCESS);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Must_inspect_result_
 	_Success_(NULL != return)
-	PProcessEntry FindProcessByProcessId(_In_ HANDLE ProcessId);
+	ProcessEntry* FindProcessByProcessId(_In_ HANDLE ProcessId);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)	
 	BOOLEAN InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)
-	BOOLEAN RemoveProcessEntry(PProcessEntry pProcessEntry);
+	BOOLEAN RemoveProcessEntry(ProcessEntry* pProcessEntry);
 	_Must_inspect_result_
 	KSPIN_LOCK& GetProcessListSpinLock() { return this->ProcessListSpinLock; }
 	_Must_inspect_result_

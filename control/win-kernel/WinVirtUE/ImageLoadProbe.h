@@ -20,7 +20,7 @@ private:
 
 public:
 	ImageLoadProbe();
-	~ImageLoadProbe();
+	~ImageLoadProbe() = default;
 	_Success_(TRUE == return)
 	BOOLEAN Enable();
 	_Success_(TRUE == return)

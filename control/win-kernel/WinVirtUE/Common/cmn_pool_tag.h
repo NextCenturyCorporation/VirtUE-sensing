@@ -30,3 +30,4 @@
 #define WVU_FLTCOMMSQUEUE_POOL_TAG          'qmoc'
 #define WVU_PROBEINFO_POOL_TAG              'borp'
 #define WVU_WVUMGR_POOL_TAG					'muvw'
+#define WVU_PROCESSENTRY_POOL_TAG			'tnep'

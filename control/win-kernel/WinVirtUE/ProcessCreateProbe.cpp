@@ -26,14 +26,17 @@ ProcessCreateProbe::ProcessCreateProbe() :
 	this->Enabled = TRUE;
 }
 
+
 /**
-* @brief destroy this probes instance *
+* @brief destroy an instance of this probe
 */
 ProcessCreateProbe::~ProcessCreateProbe()
-{
-	if (NULL != pPDQ)
-	{	
-		pPDQ->DeRegister(*this);
+{	
+	while (FALSE == IsListEmpty(&this->ProcessList))
+	{
+		PLIST_ENTRY pListEntry = RemoveHeadList(&this->ProcessList);
+		ProcessEntry* pProcessEntry = CONTAINING_RECORD(pListEntry, ProcessEntry, ListEntry);
+		delete pProcessEntry;
 	}
 }
 
@@ -167,7 +170,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
 			"***** Process Destroyed: EPROCESS %p, ProcessId %p, \n",
 			Process, ProcessId);
-		PProcessEntry pProcEntry = pPCP->FindProcessByEProcess(Process);
+		ProcessEntry* pProcEntry = pPCP->FindProcessByEProcess(Process);
 		if (NULL != pProcEntry)
 		{
 			pPCP->RemoveProcessEntry(pProcEntry);
@@ -227,10 +230,10 @@ ProcessCreateProbe::OnRun()
 * @return PEPROCESS if found else NULL
 */
 _Use_decl_annotations_
-ProcessCreateProbe::PProcessEntry
+ProcessCreateProbe::ProcessEntry*
 ProcessCreateProbe::FindProcessByEProcess(PEPROCESS pEProcess)
 {
-	ProcessCreateProbe::PProcessEntry retVal = nullptr;
+	ProcessCreateProbe::ProcessEntry* retVal = nullptr;
 	KLOCK_QUEUE_HANDLE LockHandle;
 
 	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
@@ -255,10 +258,10 @@ ProcessCreateProbe::FindProcessByEProcess(PEPROCESS pEProcess)
 * @return PEPROCESS if found else NULL
 */
 _Use_decl_annotations_
-ProcessCreateProbe::PProcessEntry
+ProcessCreateProbe::ProcessEntry*
 ProcessCreateProbe::FindProcessByProcessId(HANDLE ProcessId)
 {
-	ProcessCreateProbe::PProcessEntry retVal = nullptr;
+	ProcessCreateProbe::ProcessEntry* retVal = nullptr;
 	KLOCK_QUEUE_HANDLE LockHandle;
 	
 	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
@@ -288,8 +291,8 @@ ProcessCreateProbe::InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId)
 {
 	BOOLEAN success = FALSE;
 	KLOCK_QUEUE_HANDLE LockHandle;
-	ProcessCreateProbe::PProcessEntry pProcEntry = 
-		(ProcessCreateProbe::PProcessEntry)new BYTE[sizeof ProcessCreateProbe::ProcessEntry];
+	ProcessCreateProbe::ProcessEntry* pProcEntry =
+		(ProcessCreateProbe::ProcessEntry*)new BYTE[sizeof ProcessCreateProbe::ProcessEntry];
 	if (NULL == pProcEntry)
 	{
 		success = FALSE;
@@ -320,7 +323,7 @@ ErrorExit:
 */
 _Use_decl_annotations_
 BOOLEAN
-ProcessCreateProbe::RemoveProcessEntry(ProcessCreateProbe::PProcessEntry pProcessEntry)
+ProcessCreateProbe::RemoveProcessEntry(ProcessCreateProbe::ProcessEntry* pProcessEntry)
 {
 	BOOLEAN success = FALSE;
 	KLOCK_QUEUE_HANDLE LockHandle;

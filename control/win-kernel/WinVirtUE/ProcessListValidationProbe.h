@@ -14,7 +14,7 @@ class ProcessListValidationProbe :
 {
 public:
 	ProcessListValidationProbe();
-	~ProcessListValidationProbe();
+	~ProcessListValidationProbe() = default;
 
 	_Success_(TRUE == return)
 		BOOLEAN Enable();
