@@ -205,7 +205,7 @@ BOOLEAN
 ProbeDataQueue::Enqueue(
 	PLIST_ENTRY pListEntry)
 {
-	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	BOOLEAN success = FALSE;
 
 	if (FALSE == Enabled)
@@ -245,7 +245,7 @@ BOOLEAN
 ProbeDataQueue::PutBack(
 	PLIST_ENTRY pListEntry)
 {
-	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	BOOLEAN success = FALSE;
 
 	if (FALSE == Enabled)
@@ -282,7 +282,7 @@ _Use_decl_annotations_
 PLIST_ENTRY 
 ProbeDataQueue::Dequeue()
 {
-	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	PLIST_ENTRY pListEntry = NULL;
 
 	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
@@ -339,7 +339,7 @@ BOOLEAN
 ProbeDataQueue::Register(AbstractVirtueProbe& probe)
 {
 	BOOLEAN success = FALSE;
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
 	__try
 	{
@@ -365,7 +365,7 @@ BOOLEAN
 ProbeDataQueue::DeRegister(AbstractVirtueProbe& probe)
 {
 	BOOLEAN is_empty = TRUE;
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
 	__try
 	{

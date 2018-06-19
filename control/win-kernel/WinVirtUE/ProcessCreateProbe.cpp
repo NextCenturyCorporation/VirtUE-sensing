@@ -234,7 +234,7 @@ ProcessCreateProbe::ProcessEntry*
 ProcessCreateProbe::FindProcessByEProcess(PEPROCESS pEProcess)
 {
 	ProcessCreateProbe::ProcessEntry* retVal = nullptr;
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 
 	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
 	__try
@@ -262,7 +262,7 @@ ProcessCreateProbe::ProcessEntry*
 ProcessCreateProbe::FindProcessByProcessId(HANDLE ProcessId)
 {
 	ProcessCreateProbe::ProcessEntry* retVal = nullptr;
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	
 	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
 	__try
@@ -290,7 +290,7 @@ BOOLEAN
 ProcessCreateProbe::InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId)
 {
 	BOOLEAN success = FALSE;
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	ProcessCreateProbe::ProcessEntry* pProcEntry =
 		(ProcessCreateProbe::ProcessEntry*)new BYTE[sizeof ProcessCreateProbe::ProcessEntry];
 	if (NULL == pProcEntry)
@@ -326,7 +326,7 @@ BOOLEAN
 ProcessCreateProbe::RemoveProcessEntry(ProcessCreateProbe::ProcessEntry* pProcessEntry)
 {
 	BOOLEAN success = FALSE;
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 
 	KeAcquireInStackQueuedSpinLock(&this->ProcessListSpinLock, &LockHandle);
 	__try

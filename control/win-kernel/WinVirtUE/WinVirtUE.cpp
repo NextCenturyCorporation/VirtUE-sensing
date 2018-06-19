@@ -284,7 +284,7 @@ WVUPollThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER poll_timeout = { 0LL };
 	poll_timeout.QuadPart = RELATIVE(MILLISECONDS(100));
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	TIME_FIELDS time_fields;
 
 	FLT_ASSERTMSG("WVUPollThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);

@@ -79,7 +79,7 @@ ProcessListValidationProbe::OnRun()
 	NTSTATUS ReportStatus = STATUS_SUCCESS;
 	PEPROCESS Process = nullptr;
 	HANDLE ProcessId = INVALID_HANDLE_VALUE;
-	KLOCK_QUEUE_HANDLE LockHandle;
+	KLOCK_QUEUE_HANDLE LockHandle = { {NULL,NULL},0 };
 
 
 	if (NULL == pPCP)
