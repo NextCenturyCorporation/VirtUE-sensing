@@ -12,7 +12,7 @@
 * @brief construct an instance of this probe 
 */
 ProcessCreateProbe::ProcessCreateProbe() : 
-	AbstractVirtueProbe(RTL_CONSTANT_STRING(L"ProcessCreate"))
+	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessCreate"))
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 

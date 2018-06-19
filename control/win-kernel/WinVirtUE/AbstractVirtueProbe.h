@@ -33,14 +33,14 @@ protected:
 	/** True then probe is enabled */
 	BOOLEAN Enabled;
 	/** Probes Name */
-	UNICODE_STRING ProbeName;
+	ANSI_STRING ProbeName;
 	/** How often (in ms) does this probe run? */
 	LARGE_INTEGER RunInterval;
 	/** Last Time Probe Executed */
 	LARGE_INTEGER LastProbeRunTime;
 
 public:
-	AbstractVirtueProbe(const UNICODE_STRING& ProbeName);
+	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
 	virtual ~AbstractVirtueProbe() = default;
 	/* Enable the probe - required functionality */
 	_Success_(TRUE == return)
@@ -70,7 +70,7 @@ public:
 	VOID CDECL operator delete(_In_ PVOID ptr);	
 	/* return this probes name */
 	_Must_inspect_result_
-	const UNICODE_STRING& GetProbeName() const { return this->ProbeName; }
+	const ANSI_STRING& GetProbeName() const { return this->ProbeName; }
 	/** get the last time the probe ran in GMT */
 	_Must_inspect_result_
 	const LARGE_INTEGER& GetLastProbeRunTime() const { return this->LastProbeRunTime; }

@@ -10,10 +10,23 @@
 
 #pragma warning(suppress: 26439)
 
+/*
+ANSI_STRING probe_name;
+Status = RtlUnicodeStringToAnsiString(&probe_name, &avp->GetProbeName(), TRUE);
+if (FALSE == NT_SUCCESS(Status))
+{
+Status = STATUS_MEMORY_NOT_ALLOCATED;
+WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Unable to allocate memory for ansi string conversion!\n");
+__leave;
+
+}		
+*/
+
+
 /**
 * @brief base class constructing an instance of a probe 
 */
-AbstractVirtueProbe::AbstractVirtueProbe(const UNICODE_STRING& ProbeName) :
+AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), LastProbeRunTime({ 0LL })
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));

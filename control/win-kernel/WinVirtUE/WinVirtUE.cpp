@@ -324,6 +324,7 @@ WVUPollThread(PVOID StartContext)
 			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
 			{				
 				AbstractVirtueProbe* avp = pProbeInfo->Probe;
+		
 				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %wZ for work to be done!\n", avp->GetProbeName());
 				// poll the probe for any required actions on our part
 				if (FALSE == avp->OnPoll())

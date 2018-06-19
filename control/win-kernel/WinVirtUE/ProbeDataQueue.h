@@ -128,5 +128,5 @@ public:
 	BOOLEAN DeRegister(_In_ AbstractVirtueProbe& probe);
 	_Must_inspect_result_
 	_Success_(NULL != return)
-	ProbeInfo* FindProbeByName(_In_ const UNICODE_STRING& probe_to_be_found);
+	ProbeInfo* FindProbeByName(_In_ const ANSI_STRING& probe_to_be_found);
 };

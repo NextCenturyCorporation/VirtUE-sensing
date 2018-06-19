@@ -384,13 +384,13 @@ ProbeDataQueue::DeRegister(AbstractVirtueProbe& probe)
 */
 _Use_decl_annotations_
 ProbeDataQueue::ProbeInfo *
-ProbeDataQueue::FindProbeByName(const UNICODE_STRING& probe_to_be_found)
+ProbeDataQueue::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 {
 	ProbeInfo* pProbeInfo = nullptr;
 	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
 	{
-		CONST  UNICODE_STRING& probe_name = probe->Probe->GetProbeName();
-		if (TRUE == RtlEqualUnicodeString(&probe_name, &probe_to_be_found, TRUE))
+		CONST ANSI_STRING& probe_name = probe->Probe->GetProbeName();		
+		if (TRUE == RtlEqualString(&probe_name, &probe_to_be_found, TRUE))
 		{
 			pProbeInfo = probe;
 			break;
