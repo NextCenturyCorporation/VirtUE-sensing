@@ -385,10 +385,6 @@ err_exit:
 	return -ENOMEM;
 }
 
-struct jsmn_message;
-struct jsmn_session;
-
-
 /**
  * TODO: seperate the kernel-ps probe into its own source file
  **/
