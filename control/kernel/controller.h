@@ -457,6 +457,11 @@ struct kernel_sensor {
  * ps probe
  *
  ******************************************************************************/
+
+extern int ps_repeat;
+extern int ps_timeout;
+extern int ps_level;
+
 struct kernel_ps_data {
 	uint8_t clear;
 	uint8_t pad[7];
@@ -536,7 +541,17 @@ int kernel_ps_get_record(struct kernel_ps_probe *parent,
 
 int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce);
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
+struct kernel_ps_probe *
+init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+					 uint8_t *id, int id_len,
+					 int (*print)(struct kernel_ps_probe *,
+								  uint8_t *, uint64_t, int));
 
+int
+print_kernel_ps(struct kernel_ps_probe *parent,
+				uint8_t *tag,
+				uint64_t nonce,
+				int count);
 
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
