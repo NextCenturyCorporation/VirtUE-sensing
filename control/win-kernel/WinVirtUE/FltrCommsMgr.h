@@ -50,11 +50,38 @@ private:
 			_In_ WVU_COMMAND command);
 
 	_IRQL_requires_(PASSIVE_LEVEL)
+	_IRQL_requires_same_
+	static
+	NTSTATUS OnEnumerateProbes(
+		_In_ PCOMMAND_MESSAGE pCmdMsg,
+		_Out_writes_bytes_(OutputBufferLength) PVOID OutputBuffer,
+		_In_ ULONG OutputBufferLength,
+		_Out_ _Notnull_ PULONG ReturnOutputBufferLength);
+
+	_IRQL_requires_(PASSIVE_LEVEL)
+	_IRQL_requires_same_
+	static
+	NTSTATUS OnConfigureProbe(
+		_In_ PCOMMAND_MESSAGE pCmdMsg);
+
+	_IRQL_requires_(PASSIVE_LEVEL)
+		_IRQL_requires_same_
+	static VOID
+		FltrCommsMgr::CreateStandardResponse(
+			_In_ NTSTATUS Status,
+			_Out_writes_bytes_(OutputBufferLength) PVOID OutputBuffer,
+			_In_ ULONG OutputBufferLength,
+			_Out_ _Notnull_ PULONG ReturnOutputBufferLength);
+
+	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_
 		static
 		NTSTATUS OnCommandMessage(
 			_In_reads_bytes_(InputBufferLength) PVOID InputBuffer,
-			_In_ ULONG InputBufferLength);
+			_In_ ULONG InputBufferLength,			
+			_Out_writes_bytes_(OutputBufferLength) PVOID OutputBuffer,
+			_In_ ULONG OutputBufferLength,
+			_Out_ _Notnull_ PULONG ReturnOutputBufferLength);
 
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_

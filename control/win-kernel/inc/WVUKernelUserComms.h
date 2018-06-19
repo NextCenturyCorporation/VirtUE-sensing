@@ -49,6 +49,7 @@ typedef struct _RESPONSE_MESSAGE
 	LIST_ENTRY	ListEntry;	// The linked list entry
     ULONG Size;             // Command Message Packet Size
     WVU_RESPONSE Response;  // Command Response Type
+	NTSTATUS Status;        // returned status from command
     UCHAR Data[1];			// Optional Response Packet Data
 } RESPONSE_MESSAGE, *PRESPONSE_MESSAGE;
 
