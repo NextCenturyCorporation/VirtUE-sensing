@@ -13,11 +13,11 @@
 /**
 * @brief base class constructing an instance of a probe 
 */
-AbstractVirtueProbe::AbstractVirtueProbe() :
-	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE),
-	ProbeName(RTL_CONSTANT_STRING(L"")), LastProbeRunTime({ 0LL })
+AbstractVirtueProbe::AbstractVirtueProbe(const UNICODE_STRING& ProbeName) :
+	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), LastProbeRunTime({ 0LL })
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
+	this->ProbeName = ProbeName;
 	if (NULL != pPDQ)
 	{
 		pPDQ->Register(*this);

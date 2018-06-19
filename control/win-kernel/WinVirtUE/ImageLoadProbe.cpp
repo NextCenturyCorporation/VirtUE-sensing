@@ -12,9 +12,9 @@
 /**
 * @brief construct an instance of this probe
 */
-ImageLoadProbe::ImageLoadProbe()
+ImageLoadProbe::ImageLoadProbe() :
+	AbstractVirtueProbe(RTL_CONSTANT_STRING(L"ImageLoad"))
 {
-	ProbeName = RTL_CONSTANT_STRING(L"ImageLoad");
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
 

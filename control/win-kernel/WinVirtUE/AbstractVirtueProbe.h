@@ -14,6 +14,8 @@
 
 class AbstractVirtueProbe
 {
+private:
+	AbstractVirtueProbe() = default;
 public:
 	_Enum_is_bitflag_
 		typedef enum _ProbeAttributes : USHORT
@@ -38,7 +40,7 @@ protected:
 	LARGE_INTEGER LastProbeRunTime;
 
 public:
-	AbstractVirtueProbe();
+	AbstractVirtueProbe(const UNICODE_STRING& ProbeName);
 	virtual ~AbstractVirtueProbe() = default;
 	/* Enable the probe - required functionality */
 	_Success_(TRUE == return)

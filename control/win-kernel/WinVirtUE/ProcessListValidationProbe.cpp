@@ -11,10 +11,10 @@
 /**
 * @brief construct an instance of this probe
 */
-ProcessListValidationProbe::ProcessListValidationProbe()
+ProcessListValidationProbe::ProcessListValidationProbe() :
+	AbstractVirtueProbe(RTL_CONSTANT_STRING(L"ProcessListValidation"))
 {
-	ProbeName = RTL_CONSTANT_STRING(L"ProcessListValidation");
-	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);	
 }
 
 /**

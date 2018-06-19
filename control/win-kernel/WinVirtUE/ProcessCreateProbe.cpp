@@ -11,9 +11,9 @@
 /**
 * @brief construct an instance of this probe 
 */
-ProcessCreateProbe::ProcessCreateProbe() 
+ProcessCreateProbe::ProcessCreateProbe() : 
+	AbstractVirtueProbe(RTL_CONSTANT_STRING(L"ProcessCreate"))
 {
-	ProbeName = RTL_CONSTANT_STRING(L"ProcessCreate");
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 
 	// initialize the spinlock that controls access to the Response queue
