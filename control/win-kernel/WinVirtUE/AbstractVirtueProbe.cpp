@@ -5,6 +5,7 @@
 * @brief Abstract Base Class for Windows VirtUE Probes Definition
 */
 #include "AbstractVirtueProbe.h"
+#include "ProbeDataQueue.h"
 #define COMMON_POOL_TAG WVU_ABSTRACTPROBE_POOL_TAG
 
 #pragma warning(suppress: 26439)
@@ -17,6 +18,10 @@ AbstractVirtueProbe::AbstractVirtueProbe() :
 	ProbeName(RTL_CONSTANT_STRING(L"")), LastProbeRunTime({ 0LL })
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
+	if (NULL != pPDQ)
+	{
+		pPDQ->Register(*this);
+	}
 }
 
 /**

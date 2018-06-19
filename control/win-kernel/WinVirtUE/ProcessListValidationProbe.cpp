@@ -15,10 +15,6 @@ ProcessListValidationProbe::ProcessListValidationProbe()
 {
 	ProbeName = RTL_CONSTANT_STRING(L"ProcessListValidation");
 	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);
-	if (NULL != pPDQ)
-	{
-		pPDQ->Register(*this);
-	}
 }
 
 /**

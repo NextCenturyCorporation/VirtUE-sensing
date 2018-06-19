@@ -15,10 +15,7 @@ ProcessCreateProbe::ProcessCreateProbe()
 {
 	ProbeName = RTL_CONSTANT_STRING(L"ProcessCreate");
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
-	if (NULL != pPDQ)
-	{
-		pPDQ->Register(*this);
-	}
+
 	// initialize the spinlock that controls access to the Response queue
 	KeInitializeSpinLock(&this->ProcessListSpinLock);
 
@@ -131,7 +128,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
 			"***** Process Created: Image File Name=%wZ, EPROCESS=%p, ProcessId=%p\n",
 			CreateInfo->ImageFileName, Process, ProcessId);
-
+		pPCP->InsertProcessEntry(Process, ProcessId);
 		const USHORT bufsz = ROUND_TO_SIZE(sizeof(ProcessCreateInfo) + CreateInfo->CommandLine->Length, 0x10);
 #pragma warning(suppress: 6014)  // we allocate memory, put stuff into, enqueue it and return we do leak!
 		const auto buf = new UCHAR[bufsz];
@@ -170,6 +167,11 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
 			"***** Process Destroyed: EPROCESS %p, ProcessId %p, \n",
 			Process, ProcessId);
+		PProcessEntry pProcEntry = pPCP->FindProcessByEProcess(Process);
+		if (NULL != pProcEntry)
+		{
+			pPCP->RemoveProcessEntry(pProcEntry);
+		}
 		const USHORT bufsz = ROUND_TO_SIZE(sizeof(ProcessDestroyInfo), 0x10);
 		auto const buf = new UCHAR[bufsz];
 		if (NULL == buf)
