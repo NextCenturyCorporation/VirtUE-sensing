@@ -128,8 +128,8 @@ public:
 	FltrCommsMgr();
 	~FltrCommsMgr();
 	_Success_(TRUE == return)
-		BOOLEAN Enable();
-	VOID Disable();
+		BOOLEAN Start();
+	VOID Stop();
 	_Must_inspect_impl_
 		_Success_(NULL != return)
 		PVOID operator new(_In_ size_t size);

@@ -43,8 +43,8 @@ WinVirtUEManager::WinVirtUEManager()
 			"FltrCommsMgr not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Enable the filter comms manager
-	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == pFCM->Enable());
+	// Start the filter comms manager
+	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == pFCM->Start());
 
 	// Make ready the image load probe
 	pILP = new ImageLoadProbe();
@@ -55,8 +55,8 @@ WinVirtUEManager::WinVirtUEManager()
 			"ImageLoadProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Enable the image load probe
-	NT_ASSERTMSG("Failed to enable the image load probe!", TRUE == pILP->Enable());
+	// Start the image load probe
+	NT_ASSERTMSG("Failed to enable the image load probe!", TRUE == pILP->Start());
 
 	// Make ready the process create probe
 	pPCP = new ProcessCreateProbe();
@@ -67,8 +67,8 @@ WinVirtUEManager::WinVirtUEManager()
 			"ProcessCreateProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Enable the process create probe
-	NT_ASSERTMSG("Failed to enable the process create probe!", TRUE == pPCP->Enable());
+	// Start the process create probe
+	NT_ASSERTMSG("Failed to enable the process create probe!", TRUE == pPCP->Start());
 
 	// Make ready the process list validation probe
 	pPLVP = new ProcessListValidationProbe();
@@ -79,8 +79,8 @@ WinVirtUEManager::WinVirtUEManager()
 			"ProcessListValidationProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Enable the process create probe
-	NT_ASSERTMSG("Failed to enable the process list validation probe!", TRUE == pPLVP->Enable());
+	// Start the process create probe
+	NT_ASSERTMSG("Failed to enable the process list validation probe!", TRUE == pPLVP->Start());
 
 ErrorExit:
 	return;
@@ -94,25 +94,25 @@ WinVirtUEManager::~WinVirtUEManager()
 {
 	if (NULL != pPLVP)
 	{
-		NT_ASSERTMSG("Failed to disable the process list validation probe!", TRUE == pPLVP->Disable());
+		NT_ASSERTMSG("Failed to disable the process list validation probe!", TRUE == pPLVP->Stop());
 		delete pPLVP;
 	}
 
 	if (NULL != pPCP)
 	{
-		NT_ASSERTMSG("Failed to disable the process create probe!", TRUE == pPCP->Disable());
+		NT_ASSERTMSG("Failed to disable the process create probe!", TRUE == pPCP->Stop());
 		delete pPCP;
 	}
 
 	if (NULL != pILP)
 	{
-		NT_ASSERTMSG("Failed to disable the image load probe!", TRUE == pILP->Disable());
+		NT_ASSERTMSG("Failed to disable the image load probe!", TRUE == pILP->Stop());
 		delete pILP;
 	}
 
 	if (NULL != pFCM)
 	{
-		pFCM->Disable();
+		pFCM->Stop();
 		delete pFCM;
 	}
 

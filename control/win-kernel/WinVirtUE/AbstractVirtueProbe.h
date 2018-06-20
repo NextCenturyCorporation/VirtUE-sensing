@@ -20,10 +20,10 @@ public:
 	_Enum_is_bitflag_
 		typedef enum _ProbeAttributes : USHORT
 	{
-		NoAttributes = 0,		// No attributes
-		RealTime = 1 << 1,	// Real Time Probe that emits events as it happens
-		Temporal = 1 << 2,	// Emits events when a timer expires
-		EnabledAtStart = 1 << 3	// If enabled at start, probe will be enumerated 
+		NoAttributes	= 0,		// No attributes
+		RealTime		= 1 << 1,	// Real Time Probe that emits events as it happens
+		Temporal		= 1 << 2,	// Emits events at regular time intervals
+		EnabledAtStart	= 1 << 3	// If enabled at start, probe will be enumerated 
 	} ProbeAttributes;
 
 protected:
@@ -42,12 +42,12 @@ protected:
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
 	virtual ~AbstractVirtueProbe();
-	/* Enable the probe - required functionality */
+	/* Start the probe - required functionality */
 	_Success_(TRUE == return)
-		virtual BOOLEAN Enable() = 0;
-	/* Disable the probe - required functionality */
+		virtual BOOLEAN Start() = 0;
+	/* Stop the probe - required functionality */
 	_Success_(TRUE == return)
-		virtual BOOLEAN Disable() = 0;
+		virtual BOOLEAN Stop() = 0;
 	/* Determine probe state where TRUE is enabled else FALSE is disabled */
 	_Must_inspect_result_
 		virtual BOOLEAN State() = 0;

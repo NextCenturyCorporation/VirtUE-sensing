@@ -17,9 +17,9 @@ public:
 	~ProcessListValidationProbe() = default;
 
 	_Success_(TRUE == return)
-		BOOLEAN Enable();
+		BOOLEAN Start();
 	_Success_(TRUE == return)
-		BOOLEAN Disable();
+		BOOLEAN Stop();
 	_Must_inspect_result_
 		BOOLEAN State();
 	_Must_inspect_result_

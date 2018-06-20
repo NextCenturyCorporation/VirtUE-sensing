@@ -86,7 +86,7 @@ FltrCommsMgr::~FltrCommsMgr()
 */
 _Use_decl_annotations_
 BOOLEAN 
-FltrCommsMgr::Enable()
+FltrCommsMgr::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
@@ -157,7 +157,7 @@ ErrorExit:
 * @brief Disables the Filter Manager and Port Communications 
 */
 VOID 
-FltrCommsMgr::Disable()
+FltrCommsMgr::Stop()
 {
 	// close the server port
 	FltCloseCommunicationPort(Globals.WVUDataPort);

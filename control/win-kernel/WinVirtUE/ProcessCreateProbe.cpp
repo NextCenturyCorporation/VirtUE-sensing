@@ -58,11 +58,11 @@ ErrorExit:
 }
 
 /**
-* @brief Enable the ImageLoadProbe by setting the notification callback
+* @brief Start the ImageLoadProbe by setting the notification callback
 * @returns TRUE if successfully installed the notification routine callback
 */
 _Use_decl_annotations_
-BOOLEAN ProcessCreateProbe::Enable()
+BOOLEAN ProcessCreateProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
@@ -80,11 +80,11 @@ ErrorExit:
 }
 
 /**
-* @brief Disable the ImageLoadProbe by unsetting the notification callback
+* @brief Stop the ImageLoadProbe by unsetting the notification callback
 * @returns TRUE if successfully removed the notification routine callback
 */
 _Use_decl_annotations_
-BOOLEAN ProcessCreateProbe::Disable()
+BOOLEAN ProcessCreateProbe::Stop()
 {	
 	if (FALSE == this->Enabled)
 	{

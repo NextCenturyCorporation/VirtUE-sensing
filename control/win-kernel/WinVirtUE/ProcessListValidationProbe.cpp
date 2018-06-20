@@ -18,22 +18,22 @@ ProcessListValidationProbe::ProcessListValidationProbe() :
 }
 
 /**
-* @brief Enable the ImageLoadProbe by setting the notification callback
+* @brief Start the ImageLoadProbe by setting the notification callback
 * @returns TRUE if successfully installed the notification routine callback
 */
 _Use_decl_annotations_
-BOOLEAN ProcessListValidationProbe::Enable()
+BOOLEAN ProcessListValidationProbe::Start()
 {
 	this->Enabled = TRUE;
 	return TRUE;
 }
 
 /**
-* @brief Disable the ImageLoadProbe by unsetting the notification callback
+* @brief Stop the ImageLoadProbe by unsetting the notification callback
 * @returns TRUE if successfully removed the notification routine callback
 */
 _Use_decl_annotations_
-BOOLEAN ProcessListValidationProbe::Disable()
+BOOLEAN ProcessListValidationProbe::Stop()
 {
 	this->Enabled = FALSE;
 	return TRUE;
