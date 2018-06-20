@@ -4,7 +4,7 @@
 * @copyright (2018) Two Six Labs
 * @brief VirtUE Startup
 */
-#include "WinVirtUE.h"
+#include "WVURuntimeThreads.h"
 #include "WVUCommsManager.h"
 #include "WVUProbeManager.h"
 

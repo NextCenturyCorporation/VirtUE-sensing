@@ -55,9 +55,8 @@
     <ClCompile Include="Driver.cpp" />
     <ClCompile Include="FltMgrCallbacks.cpp" />
     <ClCompile Include="FltMgrCtxReg.cpp" />
-    <ClCompile Include="Globals.cpp" />
     <ClCompile Include="ObjectCreateNotifyCB.cpp" />
-    <ClCompile Include="WinVirtUE.cpp">
+    <ClCompile Include="WVURuntimeThreads.cpp">
       <DeploymentContent>false</DeploymentContent>
       <FileType>CppCode</FileType>
     </ClCompile>
@@ -289,7 +288,7 @@
     <ClInclude Include="trace.h" />
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="FltMgrReg.h" />
-    <ClInclude Include="WinVirtUE.h" />
+    <ClInclude Include="WVURuntimeThreads.h" />
     <ClInclude Include="WVUProbeManager.h" />
   </ItemGroup>
   <ItemGroup>

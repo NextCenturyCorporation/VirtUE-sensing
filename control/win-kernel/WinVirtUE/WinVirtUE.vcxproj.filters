@@ -52,6 +52,9 @@
     <Filter Include="Source Files\Filter">
       <UniqueIdentifier>{b3e37071-973c-4dce-a82e-0f97f4b4ff0d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Misc">
+      <UniqueIdentifier>{8dee5a04-c7ca-45b1-a072-1d8d4b597aa9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="WinVirtUE.inf">
@@ -68,13 +71,7 @@
     <ClCompile Include="Debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Globals.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Driver.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="WinVirtUE.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessListValidationProbe.cpp">
@@ -113,6 +110,9 @@
     <ClCompile Include="RegistryModificationCB.cpp">
       <Filter>Source Files\Probes</Filter>
     </ClCompile>
+    <ClCompile Include="WVURuntimeThreads.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CPPRuntime\CPPRuntime.h">
@@ -133,13 +133,7 @@
     <ClInclude Include="Common\types.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
-    <ClInclude Include="UnDoc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Debug.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Driver.h">
@@ -147,12 +141,6 @@
     </ClInclude>
     <ClInclude Include="..\inc\WVUKernelUserComms.h">
       <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WinVirtUE.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="trace.h">
       <Filter>Header Files\Common</Filter>
@@ -192,6 +180,18 @@
     </ClInclude>
     <ClInclude Include="ObjectCreateNotifyCB.h">
       <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>Header Files\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="UnDoc.h">
+      <Filter>Header Files\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="WVURuntimeThreads.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
