@@ -44,7 +44,7 @@ BOOLEAN ProcessListValidationProbe::Stop()
 * @returns TRUE if enabled else FALSE
 */
 _Use_decl_annotations_
-BOOLEAN ProcessListValidationProbe::State()
+BOOLEAN ProcessListValidationProbe::IsEnabled()
 {
 	return this->Enabled;
 }

@@ -8,10 +8,6 @@
 #include "common.h"
 #include "externs.h"
 
-#undef _HAS_EXCEPTIONS
-#include <new.h>
-#include <cstddef>
-
 class AbstractVirtueProbe
 {
 private:
@@ -50,7 +46,7 @@ public:
 		virtual BOOLEAN Stop() = 0;
 	/* Determine probe state where TRUE is enabled else FALSE is disabled */
 	_Must_inspect_result_
-		virtual BOOLEAN State() = 0;
+		virtual BOOLEAN IsEnabled() = 0;
 	/** called by the polling thread to do work */
 	_Must_inspect_result_
 		virtual BOOLEAN OnPoll();

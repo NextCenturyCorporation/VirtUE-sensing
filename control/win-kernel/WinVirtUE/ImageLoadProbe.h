@@ -26,7 +26,7 @@ public:
 	_Success_(TRUE == return)
 	BOOLEAN Stop();
 	_Must_inspect_result_
-	BOOLEAN State();
+	BOOLEAN IsEnabled();
 	_Must_inspect_result_
 	_Success_(TRUE == NT_SUCCESS(return))
 	NTSTATUS Mitigate(

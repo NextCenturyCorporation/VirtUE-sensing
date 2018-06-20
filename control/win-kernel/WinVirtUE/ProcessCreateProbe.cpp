@@ -100,7 +100,7 @@ ErrorExit:
 * @returns TRUE if enabled else FALSE
 */
 _Use_decl_annotations_
-BOOLEAN ProcessCreateProbe::State()
+BOOLEAN ProcessCreateProbe::IsEnabled()
 {
 	return this->Enabled;
 }
