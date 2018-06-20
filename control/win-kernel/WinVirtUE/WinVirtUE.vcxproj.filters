@@ -83,12 +83,6 @@
     <ClCompile Include="RegistryModificationCB.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ProbeDataQueue.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="WinVirtUEManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ProcessListValidationProbe.cpp">
       <Filter>Source Files\Probes</Filter>
     </ClCompile>
@@ -111,6 +105,12 @@
       <Filter>Source Files\Filter</Filter>
     </ClCompile>
     <ClCompile Include="WVUCommsManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUProbeManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUQueueManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -160,13 +160,7 @@
     <ClInclude Include="trace.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
-    <ClInclude Include="ProbeDataQueue.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ObjectCreateNotifyCB.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WinVirtUEManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AbstractVirtueProbe.h">
@@ -191,6 +185,12 @@
       <Filter>Header Files\Filter</Filter>
     </ClInclude>
     <ClInclude Include="WVUCommsManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUProbeManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUQueueManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

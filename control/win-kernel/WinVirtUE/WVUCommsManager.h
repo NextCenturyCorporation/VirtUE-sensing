@@ -6,7 +6,7 @@
 */
 #pragma once
 #include "common.h"
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 
 class WVUCommsManager
 {

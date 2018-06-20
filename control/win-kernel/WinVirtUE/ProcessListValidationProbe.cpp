@@ -5,7 +5,7 @@
 * @brief ProcessListValidationProbe Probe Class definition
 */
 #include "ProcessListValidationProbe.h"
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROCLISTVALIDPROBE_POOL_TAG
 
 /**

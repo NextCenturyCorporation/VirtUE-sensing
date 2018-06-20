@@ -4,7 +4,7 @@
 * @brief filter registeration module
 */
 #include "FltMgrReg.h"
-#include "WinVirtUEManager.h"
+#include "WVUProbeManager.h"
 
 #define COMMON_POOL_TAG WVU_FLT_REG_POOL_TAG
 

@@ -6,7 +6,7 @@
 * @brief ImageLoad Probe Class definition
 */
 #include "ImageLoadProbe.h"
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_IMAGELOADPROBE_POOL_TAG
 
 /**

@@ -4,7 +4,7 @@
 * @brief Object creation/destruction callback handlers
 */
 #include "ObjectCreateNotifyCB.h"
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_OBJECT_CREATE_POOL_TAG
 
 

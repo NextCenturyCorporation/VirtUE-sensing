@@ -6,7 +6,7 @@
 */
 #include "WinVirtUE.h"
 #include "WVUCommsManager.h"
-#include "WinVirtUEManager.h"
+#include "WVUProbeManager.h"
 
 #define COMMON_POOL_TAG WVU_THREAD_POOL_TAG
 

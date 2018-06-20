@@ -4,7 +4,7 @@
 * @copyright (2018) Two Six Labs
 * @brief ProbeData Queue
 */
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 #include "externs.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 

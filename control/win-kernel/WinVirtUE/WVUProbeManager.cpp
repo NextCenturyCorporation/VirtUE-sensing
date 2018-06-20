@@ -5,7 +5,7 @@
 * @brief Windows Virtue Runtime Manager
 */
 
-#include "WinVirtUEManager.h"
+#include "WVUProbeManager.h"
 
 #define COMMON_POOL_TAG WVU_WVUMGR_POOL_TAG
 

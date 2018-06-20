@@ -5,7 +5,7 @@
 * @brief ProcessCreateProbe Probe Class definition
 */
 #include "ProcessCreateProbe.h"
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROCESSCTORDTORPROBE_POOL_TAG
 
 /**

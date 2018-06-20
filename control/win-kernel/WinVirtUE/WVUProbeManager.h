@@ -8,7 +8,7 @@
 #pragma once
 #include "common.h"
 #include "externs.h"
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 #include "WVUCommsManager.h"
 #include "AbstractVirtueProbe.h"
 #include "ImageLoadProbe.h"

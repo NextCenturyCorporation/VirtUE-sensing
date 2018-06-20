@@ -5,7 +5,7 @@
 * @brief Abstract Base Class for Windows VirtUE Probes Definition
 */
 #include "AbstractVirtueProbe.h"
-#include "ProbeDataQueue.h"
+#include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_ABSTRACTPROBE_POOL_TAG
 
 #pragma warning(suppress: 26439)

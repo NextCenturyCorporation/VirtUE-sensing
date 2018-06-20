@@ -47,7 +47,7 @@
     </ClCompile>
     <ClCompile Include="WVUCommsManager.cpp" />
     <ClCompile Include="ImageLoadProbe.cpp" />
-    <ClCompile Include="ProbeDataQueue.cpp" />
+    <ClCompile Include="WVUQueueManager.cpp" />
     <ClCompile Include="ProcessCreateProbe.cpp" />
     <ClCompile Include="ProcessListValidationProbe.cpp" />
     <ClCompile Include="RegistryModificationCB.cpp" />
@@ -64,7 +64,7 @@
     <ClCompile Include="FltMgrReg.cpp" />
     <ClCompile Include="CPPRuntime\CPPRuntime.cpp" />
     <ClCompile Include="CPPRuntime\new.cpp" />
-    <ClCompile Include="WinVirtUEManager.cpp" />
+    <ClCompile Include="WVUProbeManager.cpp" />
     <Inf Include="WinVirtUE.inf" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -281,7 +281,7 @@
     <ClInclude Include="WVUCommsManager.h" />
     <ClInclude Include="ImageLoadProbe.h" />
     <ClInclude Include="ObjectCreateNotifyCB.h" />
-    <ClInclude Include="ProbeDataQueue.h" />
+    <ClInclude Include="WVUQueueManager.h" />
     <ClInclude Include="ProcessCreateProbe.h" />
     <ClInclude Include="ProcessListValidationProbe.h" />
     <ClInclude Include="RegistryModificationCB.h" />
@@ -290,7 +290,7 @@
     <ClInclude Include="UnDoc.h" />
     <ClInclude Include="FltMgrReg.h" />
     <ClInclude Include="WinVirtUE.h" />
-    <ClInclude Include="WinVirtUEManager.h" />
+    <ClInclude Include="WVUProbeManager.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Templates\CopyrightAndFuncDocTemplate.txt" />
