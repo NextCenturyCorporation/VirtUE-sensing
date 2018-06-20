@@ -55,6 +55,15 @@
     <Filter Include="Header Files\Misc">
       <UniqueIdentifier>{8dee5a04-c7ca-45b1-a072-1d8d4b597aa9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Managers">
+      <UniqueIdentifier>{6e6aafa5-0e3d-428f-baea-46b27fba0db8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Managers">
+      <UniqueIdentifier>{4bd685d3-8049-4e25-8acf-09f850042d65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Misc">
+      <UniqueIdentifier>{b858581b-3d03-4a2e-8308-2a829ad1e529}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="WinVirtUE.inf">
@@ -67,9 +76,6 @@
     </ClCompile>
     <ClCompile Include="CPPRuntime\new.cpp">
       <Filter>Source Files\CPPRuntime</Filter>
-    </ClCompile>
-    <ClCompile Include="Debug.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Driver.cpp">
       <Filter>Source Files</Filter>
@@ -95,23 +101,26 @@
     <ClCompile Include="FltMgrCtxReg.cpp">
       <Filter>Source Files\Filter</Filter>
     </ClCompile>
-    <ClCompile Include="WVUCommsManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="WVUProbeManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="WVUQueueManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ObjectCreateNotifyCB.cpp">
       <Filter>Source Files\Probes</Filter>
     </ClCompile>
     <ClCompile Include="RegistryModificationCB.cpp">
       <Filter>Source Files\Probes</Filter>
     </ClCompile>
+    <ClCompile Include="WVUProbeManager.cpp">
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUCommsManager.cpp">
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUQueueManager.cpp">
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
     <ClCompile Include="WVURuntimeThreads.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="Debug.cpp">
+      <Filter>Source Files\Misc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -132,9 +141,6 @@
     </ClInclude>
     <ClInclude Include="Common\types.h">
       <Filter>Header Files\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Debug.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Driver.h">
       <Filter>Header Files</Filter>
@@ -166,15 +172,6 @@
     <ClInclude Include="FltMgrCtxReg.h">
       <Filter>Header Files\Filter</Filter>
     </ClInclude>
-    <ClInclude Include="WVUCommsManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WVUProbeManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WVUQueueManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="RegistryModificationCB.h">
       <Filter>Header Files\Probes</Filter>
     </ClInclude>
@@ -190,8 +187,20 @@
     <ClInclude Include="resource.h">
       <Filter>Header Files\Misc</Filter>
     </ClInclude>
+    <ClInclude Include="WVUCommsManager.h">
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUProbeManager.h">
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUQueueManager.h">
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
     <ClInclude Include="WVURuntimeThreads.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="Debug.h">
+      <Filter>Header Files\Misc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
