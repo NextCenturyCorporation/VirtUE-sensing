@@ -15,10 +15,11 @@ static LARGE_INTEGER Cookie;
 
 class WinVirtUEManager *pWVUMgr;
 
-#pragma region Main Start Thread
+#pragma region Main Initialization Thread
 /**
 * @brief Main initialization thread.
-* @note this thread remains active through out the lifetime of the driver
+* @note this thread remains active through out the lifetime of the driver and is also used
+* during unload to ensure all allocate C++ objects and OS resources are released as required.
 * @param StartContext this threads context as passed during creation
 */
 _Use_decl_annotations_
@@ -173,7 +174,7 @@ ErrorExit:
 }
 #pragma endregion
 
-#pragma region Sensor Thread
+#pragma region Probe Communications Thread
 /**
 * @brief probe communcations thread.  this thread drains the sensor queue by0j
 * sending probe data to the user space service.
