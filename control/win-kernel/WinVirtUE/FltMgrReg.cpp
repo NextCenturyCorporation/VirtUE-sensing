@@ -307,7 +307,7 @@ WVUUnload(
 		Status = KeWaitForSingleObject((PVOID)pThread, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0);
 		if (FALSE == NT_SUCCESS(Status))
 		{
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed waiting for the Sensor Thread! Status=%08x\n", Status);
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Failed waiting for the Sensor Thread! Status=%08x\n", Status);
 		}
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Main Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pThread));
 		(VOID)ObDereferenceObject(pThread);

@@ -15,6 +15,7 @@ static LARGE_INTEGER Cookie;
 
 class WinVirtUEManager *pWVUMgr;
 
+#pragma region Main Start Thread
 /**
 * @brief Main initialization thread.
 * @note this thread remains active through out the lifetime of the driver
@@ -22,7 +23,7 @@ class WinVirtUEManager *pWVUMgr;
 */
 _Use_decl_annotations_
 VOID
-WVUMainThreadStart(PVOID StartContext)
+WVUMainInitThread(PVOID StartContext)
 {
 	PKEVENT WVUMainThreadStartEvt = (PKEVENT)StartContext;
 	OBJECT_ATTRIBUTES SensorThdObjAttr = { 0,0,0,0,0,0 };
@@ -36,7 +37,7 @@ WVUMainThreadStart(PVOID StartContext)
 	PKTHREAD pSensorThread = NULL;
 	PKTHREAD pPollThread = NULL;	
 
-	FLT_ASSERTMSG("WVUMainThreadStart must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);	
+	FLT_ASSERTMSG("WVUMainInitThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);	
 	
 	/** configure the event so that automatically goes to non-signaled and start at non-signaled */
 	KeInitializeEvent(&Globals.poll_wait_evt, EVENT_TYPE::SynchronizationEvent, FALSE);
@@ -44,7 +45,7 @@ WVUMainThreadStart(PVOID StartContext)
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);	
 	
-	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainThreadStart Acquired runndown protection . . .\n");
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainInitThread Acquired runndown protection . . .\n");
 
 	pWVUMgr = new WinVirtUEManager();
 	if (NULL == pWVUMgr)
@@ -57,7 +58,7 @@ WVUMainThreadStart(PVOID StartContext)
 		
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create sensor thread
-	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUSensorThread, NULL);
+	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUProbeCommsThread, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
@@ -77,7 +78,7 @@ WVUMainThreadStart(PVOID StartContext)
 
 	InitializeObjectAttributes(&PollThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create poll thread
-	Status = PsCreateSystemThread(&PollThreadHandle, GENERIC_ALL, &PollThdObjAttr, NULL, &PollClientId, WVUPollThread, NULL);
+	Status = PsCreateSystemThread(&PollThreadHandle, GENERIC_ALL, &PollThdObjAttr, NULL, &PollClientId, WVUTemporalProbeThread, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
@@ -121,31 +122,31 @@ WVUMainThreadStart(PVOID StartContext)
 	Signaled = KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE);
 	do
 	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeWaitForSingleObject(WVUMainThreadStart, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeWaitForSingleObject(WVUMainInitThread, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
 		Status = KeWaitForSingleObject(WVUMainThreadStartEvt, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0);
 		if (FALSE == NT_SUCCESS(Status))
 		{
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed! Status=%08x\n", Status);
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Failed! Status=%08x\n", Status);
 #pragma warning(suppress: 26438)
 			goto ErrorExit;
 		}
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Returned from KeWaitForSingleObject(WVUMainThreadStart, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Returned from KeWaitForSingleObject(WVUMainInitThread, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
 		switch (Status)
 		{
 		case STATUS_SUCCESS:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Returned SUCCESS - Exiting!\n");
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Returned SUCCESS - Exiting!\n");
 			break;
 		case STATUS_ALERTED:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Was Just Alerted - Waiting Again!\n");
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Was Just Alerted - Waiting Again!\n");
 			break;
 		case STATUS_USER_APC:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Had An APC Delievered - Waiting Again!\n");
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Had An APC Delievered - Waiting Again!\n");
 			break;
 		case STATUS_TIMEOUT:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Timed Out - Exiting!\n");
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Timed Out - Exiting!\n");
 			break;
 		default:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Received Status=0x%08x - Exiting!\n", Status);
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Received Status=0x%08x - Exiting!\n", Status);
 			break;
 		}
 	} while (Status == STATUS_ALERTED || Status == STATUS_USER_APC);  // don't bail if we get alerted or APC'd
@@ -170,7 +171,9 @@ ErrorExit:
 	ExReleaseRundownProtection(&Globals.RunDownRef);
 	PsTerminateSystemThread(Status);
 }
+#pragma endregion
 
+#pragma region Sensor Thread
 /**
 * @brief probe communcations thread.  this thread drains the sensor queue by0j
 * sending probe data to the user space service.
@@ -178,7 +181,7 @@ ErrorExit:
 */
 _Use_decl_annotations_
 VOID
-WVUSensorThread(PVOID StartContext)
+WVUProbeCommsThread(PVOID StartContext)
 {
 	UNREFERENCED_PARAMETER(StartContext);
 	const ULONG REPLYLEN = 128;
@@ -190,9 +193,9 @@ WVUSensorThread(PVOID StartContext)
 	PUCHAR ReplyBuffer = NULL;
 	PVOID SenderBuffer = NULL;
 
-	FLT_ASSERTMSG("WVUSensorThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
+	FLT_ASSERTMSG("WVUProbeCommsThread must run at IRQL == PASSIVE!", KeGetCurrentIrql() == PASSIVE_LEVEL);
 
-	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "WVUSensorThread Acquired rundown protection . . .\n");
+	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "WVUProbeCommsThread Acquired rundown protection . . .\n");
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -265,20 +268,22 @@ ErrorExit:
 
 	// Drop a rundown reference 
 	ExReleaseRundownProtection(&Globals.RunDownRef);
-	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Exiting WVUSensorThread Thread w/Status=0x%08x!\n", Status);
+	WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Exiting WVUProbeCommsThread Thread w/Status=0x%08x!\n", Status);
 
 	PsTerminateSystemThread(Status);
 }
+#pragma endregion
 
+#pragma region Temporal Probe Polling Thread Definition
 
 /**
-* @brief probe polling thread.  This thread polls active probes and
+* @brief Temporal Probe Polling Thread This thread polls active probes and
 * runs them when their polling interval is expired
 * @param StartContext this threads context as passed during creation
 */
 _Use_decl_annotations_
 VOID
-WVUPollThread(PVOID StartContext)
+WVUTemporalProbeThread(PVOID StartContext)
 {
 	UNREFERENCED_PARAMETER(StartContext);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
@@ -354,3 +359,4 @@ ErrorExit:
 	WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Exiting WVUPollThread Thread w/Status=0x%08x!\n", Status);
 	PsTerminateSystemThread(Status);
 }
+#pragma endregion

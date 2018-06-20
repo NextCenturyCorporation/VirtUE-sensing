@@ -142,7 +142,7 @@ DriverEntry(
 	
 	InitializeObjectAttributes(&MainThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&Globals.MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
+	Status = PsCreateSystemThread(&Globals.MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainInitThread, &Globals.WVUThreadStartEvent);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
@@ -154,21 +154,21 @@ DriverEntry(
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed! Status=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Failed! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
 	switch (Status)
 	{
 	case STATUS_SUCCESS:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Returned SUCCESS\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Returned SUCCESS\n");
 		break;
 	case STATUS_TIMEOUT:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Timed Out\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Timed Out\n");
 		Status = STATUS_TIMEOUT;
 		goto ErrorExit;
 		break;
 	default:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Received Status=0x%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Received Status=0x%08x\n", Status);
 		goto ErrorExit;
 		break;
 	}
