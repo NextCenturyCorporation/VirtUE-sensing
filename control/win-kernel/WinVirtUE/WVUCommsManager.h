@@ -1,5 +1,5 @@
 /**
-* @file FltrCommsMgr.h
+* @file WVUCommsManager.h
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
 * @brief Filter Communications Manager Class declaration
@@ -8,7 +8,7 @@
 #include "common.h"
 #include "ProbeDataQueue.h"
 
-class FltrCommsMgr
+class WVUCommsManager
 {
 public:
 	/** the number of permitted queue port connections */
@@ -125,8 +125,8 @@ private:
 			_Out_ _Notnull_ PULONG ReturnOutputBufferLength);
 	
 public:	
-	FltrCommsMgr();
-	~FltrCommsMgr();
+	WVUCommsManager();
+	~WVUCommsManager();
 	_Success_(TRUE == return)
 		BOOLEAN Start();
 	VOID Stop();

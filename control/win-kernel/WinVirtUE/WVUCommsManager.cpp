@@ -1,22 +1,22 @@
 /**
-* @file FltrCommsMgr.cpp
+* @file WVUCommsManager.cpp
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
 * @brief Filter Communications Manager Class definition
 */
-#include "FltrCommsMgr.h"
+#include "WVUCommsManager.h"
 #include "Driver.h"
 #define COMMON_POOL_TAG WVU_FLTCOMMSMGR_POOL_TAG
 
-CONST PWSTR FltrCommsMgr::CommandName = L"\\WVUCommand"; // Command/Response Comms Port
-CONST PWSTR FltrCommsMgr::PortName = L"\\WVUPort";		 // Real-Time streaming data as sent to the API
+CONST PWSTR WVUCommsManager::CommandName = L"\\WVUCommand"; // Command/Response Comms Port
+CONST PWSTR WVUCommsManager::PortName = L"\\WVUPort";		 // Real-Time streaming data as sent to the API
 
 /**
 * @brief destroys this Filter Comms Manager Instance
 * @param OnConnect If not NULL, then call this method when a user space application disconnects
 * @param OnDisconnect If not NULL, then call this method when a user space application connects
 */
-FltrCommsMgr::FltrCommsMgr()
+WVUCommsManager::WVUCommsManager()
 	: usPortName({ 0,0,nullptr }), usCommandName({ 0,0,nullptr }),  WVUPortObjAttr({ 0,0,0,0,0,0 }),
 	WVUComandObjAttr({ 0,0,0,0,0,0 }), pWVUPortSecDsc(nullptr), pWVUCommandSecDsc(nullptr),
 	InitStatus(STATUS_UNSUCCESSFUL)	
@@ -34,8 +34,8 @@ FltrCommsMgr::FltrCommsMgr()
 	//
 	//  Create communications ports.
 	//
-	RtlInitUnicodeString(&usPortName, FltrCommsMgr::PortName);
-	RtlInitUnicodeString(&usCommandName, FltrCommsMgr::CommandName);
+	RtlInitUnicodeString(&usPortName, WVUCommsManager::PortName);
+	RtlInitUnicodeString(&usCommandName, WVUCommsManager::CommandName);
 
 	//
 	//  We secure the port so only ADMINs & SYSTEM can acecss it.
@@ -74,7 +74,7 @@ ErrorExit:
 /**
 * @brief destroys this Filter Comms Manager Instance
 */
-FltrCommsMgr::~FltrCommsMgr()
+WVUCommsManager::~WVUCommsManager()
 {
 	FltUnregisterFilter(Globals.FilterHandle);
 
@@ -86,14 +86,14 @@ FltrCommsMgr::~FltrCommsMgr()
 */
 _Use_decl_annotations_
 BOOLEAN 
-FltrCommsMgr::Start()
+WVUCommsManager::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	if (FALSE == NT_SUCCESS(this->InitStatus))
 	{		
 		Status = InitStatus;
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltrCommsMgr::FltrCommsMgr() Failed! - FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "WVUCommsManager::WVUCommsManager() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -104,8 +104,8 @@ FltrCommsMgr::Start()
 		&Globals.WVUDataPort,
 		&WVUPortObjAttr,
 		Globals.DriverObject,
-		(PFLT_CONNECT_NOTIFY)&FltrCommsMgr::WVUPortConnect,
-		(PFLT_DISCONNECT_NOTIFY)&FltrCommsMgr::WVUPortDisconnect,
+		(PFLT_CONNECT_NOTIFY)&WVUCommsManager::WVUPortConnect,
+		(PFLT_DISCONNECT_NOTIFY)&WVUCommsManager::WVUPortDisconnect,
 		NULL,
 		NUMBER_OF_PERMITTED_CONNECTIONS);
 	if (FALSE == NT_SUCCESS(Status))
@@ -121,9 +121,9 @@ FltrCommsMgr::Start()
 		&Globals.WVUCommandPort,
 		&WVUComandObjAttr,
 		Globals.DriverObject,
-		(PFLT_CONNECT_NOTIFY)&FltrCommsMgr::WVUCommandConnect,
-		(PFLT_DISCONNECT_NOTIFY)&FltrCommsMgr::WVUCommandDisconnect,
-		(PFLT_MESSAGE_NOTIFY)&FltrCommsMgr::WVUCommandMessageNotify,
+		(PFLT_CONNECT_NOTIFY)&WVUCommsManager::WVUCommandConnect,
+		(PFLT_DISCONNECT_NOTIFY)&WVUCommsManager::WVUCommandDisconnect,
+		(PFLT_MESSAGE_NOTIFY)&WVUCommsManager::WVUCommandMessageNotify,
 		NUMBER_OF_PERMITTED_CONNECTIONS);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -157,7 +157,7 @@ ErrorExit:
 * @brief Disables the Filter Manager and Port Communications 
 */
 VOID 
-FltrCommsMgr::Stop()
+WVUCommsManager::Stop()
 {
 	// close the server port
 	FltCloseCommunicationPort(Globals.WVUDataPort);
@@ -177,7 +177,7 @@ FltrCommsMgr::Stop()
 */
 _Use_decl_annotations_
 NTSTATUS FLTAPI 
-FltrCommsMgr::WVUPortConnect(
+WVUCommsManager::WVUPortConnect(
 	PFLT_PORT ClientPort,
 	PVOID ServerPortCookie,
 	PVOID ConnectionContext,
@@ -214,7 +214,7 @@ FltrCommsMgr::WVUPortConnect(
 */
 _Use_decl_annotations_
 VOID FLTAPI 
-FltrCommsMgr::WVUPortDisconnect(
+WVUCommsManager::WVUPortDisconnect(
 	PVOID ConnectionPortCookie)
 {
 	UNREFERENCED_PARAMETER(ConnectionPortCookie);
@@ -248,7 +248,7 @@ FltrCommsMgr::WVUPortDisconnect(
 */
 _Use_decl_annotations_
 NTSTATUS FLTAPI 
-FltrCommsMgr::WVUCommandConnect(
+WVUCommsManager::WVUCommandConnect(
 	PFLT_PORT ClientPort, 
 	PVOID ServerPortCookie,
 	PVOID ConnectionContext, 
@@ -285,7 +285,7 @@ FltrCommsMgr::WVUCommandConnect(
 */
 _Use_decl_annotations_
 VOID FLTAPI 
-FltrCommsMgr::WVUCommandDisconnect(
+WVUCommsManager::WVUCommandDisconnect(
 	PVOID ConnectionCookie)
 {
 	UNREFERENCED_PARAMETER(ConnectionCookie);
@@ -315,7 +315,7 @@ FltrCommsMgr::WVUCommandDisconnect(
 */
 _Use_decl_annotations_
 NTSTATUS 
-FltrCommsMgr::OnProtectionStateChange(
+WVUCommsManager::OnProtectionStateChange(
 	WVU_COMMAND command)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
@@ -352,7 +352,7 @@ FltrCommsMgr::OnProtectionStateChange(
 */
 _Use_decl_annotations_
 NTSTATUS 
-FltrCommsMgr::OnUnloadStateChange(
+WVUCommsManager::OnUnloadStateChange(
 	WVU_COMMAND command)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
@@ -387,7 +387,7 @@ FltrCommsMgr::OnUnloadStateChange(
 */
 _Use_decl_annotations_
 NTSTATUS
-FltrCommsMgr::OnEnumerateProbes(
+WVUCommsManager::OnEnumerateProbes(
 	PCOMMAND_MESSAGE pCmdMsg,
 	PVOID OutputBuffer,
 	ULONG OutputBufferLength,
@@ -409,7 +409,7 @@ FltrCommsMgr::OnEnumerateProbes(
 */
 _Use_decl_annotations_
 NTSTATUS
-FltrCommsMgr::OnConfigureProbe(
+WVUCommsManager::OnConfigureProbe(
 	PCOMMAND_MESSAGE pCmdMsg)
 {
 	UNREFERENCED_PARAMETER(pCmdMsg);
@@ -427,7 +427,7 @@ FltrCommsMgr::OnConfigureProbe(
 */
 _Use_decl_annotations_
 VOID 
-FltrCommsMgr::CreateStandardResponse(
+WVUCommsManager::CreateStandardResponse(
 	NTSTATUS Status, 
 	PVOID OutputBuffer, 
 	ULONG OutputBufferLength, 
@@ -461,7 +461,7 @@ ErrorExit:
 */
 _Use_decl_annotations_
 NTSTATUS 
-FltrCommsMgr::OnCommandMessage(
+WVUCommsManager::OnCommandMessage(
 	PVOID InputBuffer,
 	ULONG InputBufferLength,
 	PVOID OutputBuffer,
@@ -519,7 +519,7 @@ FltrCommsMgr::OnCommandMessage(
 */
 _Use_decl_annotations_
 NTSTATUS FLTAPI
-FltrCommsMgr::WVUCommandMessageNotify(
+WVUCommsManager::WVUCommandMessageNotify(
 	PVOID ConnectionPortCookie,
 	PVOID InputBuffer,
 	ULONG InputBufferLength,
@@ -557,7 +557,7 @@ ErrorExit:
 */
 _Use_decl_annotations_
 PVOID
-FltrCommsMgr::operator new(size_t size)
+WVUCommsManager::operator new(size_t size)
 {
 #pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
@@ -570,7 +570,7 @@ FltrCommsMgr::operator new(size_t size)
 */
 _Use_decl_annotations_
 VOID CDECL
-FltrCommsMgr::operator delete(PVOID ptr)
+WVUCommsManager::operator delete(PVOID ptr)
 {
 	if (!ptr)
 	{

@@ -86,9 +86,6 @@
     <ClCompile Include="ProbeDataQueue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FltrCommsMgr.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="WinVirtUEManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -112,6 +109,9 @@
     </ClCompile>
     <ClCompile Include="FltMgrCtxReg.cpp">
       <Filter>Source Files\Filter</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUCommsManager.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -166,9 +166,6 @@
     <ClInclude Include="ObjectCreateNotifyCB.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FltrCommsMgr.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="WinVirtUEManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -192,6 +189,9 @@
     </ClInclude>
     <ClInclude Include="FltMgrCtxReg.h">
       <Filter>Header Files\Filter</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUCommsManager.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

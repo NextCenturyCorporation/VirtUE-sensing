@@ -9,7 +9,7 @@
 #include "common.h"
 #include "externs.h"
 #include "ProbeDataQueue.h"
-#include "FltrCommsMgr.h"
+#include "WVUCommsManager.h"
 #include "AbstractVirtueProbe.h"
 #include "ImageLoadProbe.h"
 #include "ProcessListValidationProbe.h"

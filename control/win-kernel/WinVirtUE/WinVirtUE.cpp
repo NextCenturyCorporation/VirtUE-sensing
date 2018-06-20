@@ -5,7 +5,7 @@
 * @brief VirtUE Startup
 */
 #include "WinVirtUE.h"
-#include "FltrCommsMgr.h"
+#include "WVUCommsManager.h"
 #include "WinVirtUEManager.h"
 
 #define COMMON_POOL_TAG WVU_THREAD_POOL_TAG

@@ -13,7 +13,7 @@
 class ProbeDataQueue *pPDQ = nullptr;
 
 // Probe Communications Manager
-class FltrCommsMgr *pFCM = nullptr;
+class WVUCommsManager *pFCM = nullptr;
 
 // Probes
 class ImageLoadProbe *pILP = nullptr;
@@ -35,12 +35,12 @@ WinVirtUEManager::WinVirtUEManager()
 		goto ErrorExit;
 	}
 
-	pFCM = new FltrCommsMgr();
+	pFCM = new WVUCommsManager();
 	if (NULL == pFCM)
 	{
 		Status = STATUS_MEMORY_NOT_ALLOCATED;
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"FltrCommsMgr not constructed - Status=%08x\n", Status);
+			"WVUCommsManager not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
 	// Start the filter comms manager

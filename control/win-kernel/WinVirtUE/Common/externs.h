@@ -24,7 +24,7 @@ extern CONST ULONG FILE_ATTRIBUTES_NA;
 extern class ProbeDataQueue *pPDQ;
 extern class ImageLoadProbe *pILP;
 extern class ProcessCreateProbe *pPCP;
-extern class FltrCommsMgr *pFCM;
+extern class WVUCommsManager *pFCM;
 extern class ProcessListValidationProbe *pPLVP;
 extern class WinVirtUEManager *pWVUMgr;
 
