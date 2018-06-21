@@ -47,6 +47,8 @@ public:
 	/* Determine probe state where TRUE is enabled else FALSE is disabled */
 	_Must_inspect_result_
 		virtual BOOLEAN IsEnabled() = 0;
+	_Must_inspect_result_
+		virtual BOOLEAN Configure(_In_ const ANSI_STRING& NameValuePairs) = 0;
 	/** called by the polling thread to do work */
 	_Must_inspect_result_
 		virtual BOOLEAN OnPoll();

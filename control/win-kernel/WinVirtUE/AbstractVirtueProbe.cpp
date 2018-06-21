@@ -67,8 +67,7 @@ AbstractVirtueProbe::operator delete(PVOID ptr)
 * @brief called by system polling thread to check if elapsed time has expired
 * @return TRUE if time has expired else FALSE
 */
-_Use_decl_annotations_
-BOOLEAN 
+BOOLEAN
 AbstractVirtueProbe::OnPoll()
 {
 	BOOLEAN success = FALSE;
@@ -103,4 +102,16 @@ AbstractVirtueProbe::OnRun()
 	CONST NTSTATUS Status = STATUS_SUCCESS;
 	KeQuerySystemTimePrecise(&this->LastProbeRunTime);  // always call superclasses probe function
 	return Status;
+}
+
+/**
+* @brief called to configure the probe 
+* @param NameValuePairs newline terminated with assign operator name value 
+* pair configuration information
+*/
+_Use_decl_annotations_
+BOOLEAN AbstractVirtueProbe::Configure(const ANSI_STRING & NameValuePairs)
+{
+	UNREFERENCED_PARAMETER(NameValuePairs);
+	return BOOLEAN();
 }

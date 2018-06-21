@@ -40,6 +40,19 @@ ProcessCreateProbe::~ProcessCreateProbe()
 	}
 }
 
+/**
+* @brief called to configure the probe
+* @param NameValuePairs newline terminated with assign operator name value
+* pair configuration information
+*/
+_Use_decl_annotations_
+BOOLEAN 
+ProcessCreateProbe::Configure(_In_ const ANSI_STRING& NameValuePairs)
+{
+	UNREFERENCED_PARAMETER(NameValuePairs);
+	return BOOLEAN();
+}
+
 _Use_decl_annotations_
 NTSTATUS
 ProcessCreateProbe::RemoveNotify(BOOLEAN remove)

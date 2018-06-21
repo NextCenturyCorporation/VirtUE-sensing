@@ -18,6 +18,19 @@ ProcessListValidationProbe::ProcessListValidationProbe() :
 }
 
 /**
+* @brief called to configure the probe
+* @param NameValuePairs newline terminated with assign operator name value
+* pair configuration information
+*/
+_Use_decl_annotations_
+BOOLEAN 
+ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & NameValuePairs)
+{
+	UNREFERENCED_PARAMETER(NameValuePairs);
+	return BOOLEAN();
+}
+
+/**
 * @brief Start the ImageLoadProbe by setting the notification callback
 * @returns TRUE if successfully installed the notification routine callback
 */
