@@ -16,13 +16,13 @@
 #include "ProcessCreateProbe.h"
 
 
-class WinVirtUEManager
+class WVUProbeManager
 {
 private:
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	NTSTATUS Status;
 public:
-	WinVirtUEManager();
-	~WinVirtUEManager();
+	WVUProbeManager();
+	~WVUProbeManager();
 	/* construct a new instance of this class */
 	_Must_inspect_impl_
 		PVOID operator new(_In_ size_t size);

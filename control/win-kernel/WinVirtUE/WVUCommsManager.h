@@ -13,7 +13,7 @@ class WVUCommsManager
 public:
 	/** the number of permitted queue port connections */
 	const INT NUMBER_OF_PERMITTED_CONNECTIONS = 1;
-	/** ProbeDataQueue State Change Method Type */
+	/** WVUQueueManager State Change Method Type */
 
 private:
 	// port name used to communicate between user and kernel
@@ -84,8 +84,8 @@ private:
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_
 		static
-		NTSTATUS FLTAPI WVUPortConnect(
-			_In_ PFLT_PORT ClientPort,
+		NTSTATUS FLTAPI WVUDataStreamPortConnect(
+			_In_ PFLT_PORT WVUProbeDataStreamPort,
 			_In_opt_ PVOID ServerPortCookie,
 			_In_reads_bytes_opt_(SizeOfContext) PVOID ConnectionContext,
 			_In_ ULONG SizeOfContext,
@@ -94,14 +94,14 @@ private:
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_		
 		static
-		VOID FLTAPI WVUPortDisconnect(
+		VOID FLTAPI WVUDataStreamPortDisconnect(
 			_In_opt_ PVOID ConnectionCookie);
 
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_
 		static
 		NTSTATUS FLTAPI WVUCommandConnect(
-			_In_ PFLT_PORT ClientPort,
+			_In_ PFLT_PORT WVUProbeDataStreamPort,
 			_In_opt_ PVOID ServerPortCookie,
 			_In_reads_bytes_opt_(SizeOfContext) PVOID ConnectionContext,
 			_In_ ULONG SizeOfContext,
@@ -123,7 +123,7 @@ private:
 			_Out_writes_bytes_opt_(OutputBufferLength) PVOID OutputBuffer,
 			_In_ ULONG OutputBufferLength,
 			_Out_ _Notnull_ PULONG ReturnOutputBufferLength);
-	
+
 public:	
 	WVUCommsManager();
 	~WVUCommsManager();

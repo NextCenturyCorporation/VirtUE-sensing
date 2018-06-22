@@ -19,7 +19,8 @@ public:
 		NoAttributes	= 0,		// No attributes
 		RealTime		= 1 << 1,	// Real Time Probe that emits events as it happens
 		Temporal		= 1 << 2,	// Emits events at regular time intervals
-		EnabledAtStart	= 1 << 3	// If enabled at start, probe will be enumerated 
+		EnabledAtStart	= 1 << 3,	// If enabled at start, probe will be enumerated 
+		DynamicProbe	= 1 << 4	// Set if Probe Type is Dynamic (Loaded by external operation)
 	} ProbeAttributes;
 
 protected:

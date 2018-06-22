@@ -1,5 +1,5 @@
 /**
-* @file ProbeDataQueue.h
+* @file WVUQueueManager.h
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
 * @brief create and manipulate the probe data queue
@@ -8,7 +8,7 @@
 #include "common.h"
 #include "AbstractVirtueProbe.h"
 
-class ProbeDataQueue
+class WVUQueueManager
 {
 public:
 
@@ -69,6 +69,7 @@ private:
 	KSPIN_LOCK ProbeListSpinLock;
 	LIST_ENTRY ProbeList;
 	ULONGLONG MessageId;
+	volatile LONG NumberOfRegisteredProbes;
 	BOOLEAN Enabled;	
 	PVOID PDQEvents[ProbeDataEvtEnum::MAXENTRIES];
 
@@ -89,9 +90,10 @@ private:
 
 	_Must_inspect_result_
 		BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+
 public:
-	ProbeDataQueue();
-	~ProbeDataQueue();
+	WVUQueueManager();	
+	~WVUQueueManager();
 	VOID SemaphoreRelease();
 	VOID TerminateLoop();
 	_Has_lock_kind_(_Lock_kind_semaphore_)

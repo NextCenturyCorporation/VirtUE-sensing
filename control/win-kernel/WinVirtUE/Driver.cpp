@@ -102,7 +102,12 @@ DriverEntry(
 
 
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
+	timeout.QuadPart =
+#if defined(WVU_DEBUG)
+		RELATIVE(SECONDS(600)); // -1000 * 1000 * 6000 * 10;  // ten minute timeout
+#else
+		RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
+#endif
 
 	WVUDebugBreakPoint();
 	
@@ -129,7 +134,7 @@ DriverEntry(
 	// intialization, it will signal and wait simultaneously.  It will continue
 	// to wait until the DriverUnload routine signals it.  When the thread
 	// continues the objects created will have their destructors called.
-	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);	
+	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
 	
 	ExInitializeRundownProtection(&Globals.RunDownRef);
 	Globals.ShuttingDown = FALSE;

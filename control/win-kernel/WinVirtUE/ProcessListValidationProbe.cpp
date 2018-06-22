@@ -131,8 +131,8 @@ ProcessListValidationProbe::OnRun()
 
 	if (FALSE == NT_SUCCESS(ReportStatus))
 	{
-		// MFS - create the WinVirtUEManager class that is charge of init/fini of probes and receives notifictions
-		// Notify the WinVirtUEManager that the Sensor is in an Alarm State.  User Space Program MUST acknowledge.
+		// MFS - create the WVUProbeManager class that is charge of init/fini of probes and receives notifictions
+		// Notify the WVUProbeManager that the Sensor is in an Alarm State.  User Space Program MUST acknowledge.
 		// Normal, UnAcknowledged Alarm State, Alarm State, 
 		PProcessListValidationFailed pPLVF = (PProcessListValidationFailed)new BYTE[sizeof ProcessListValidationFailed];
 		if (NULL == pPLVF)
@@ -148,6 +148,7 @@ ProcessListValidationProbe::OnRun()
 		pPLVF->ReportId = ProbeReportId::ProcessListValidationFailedReportId;	// Process List Validation Has Failed
 		pPLVF->ProbeDataHeader.DataSz = sizeof(ProcessListValidationFailed);
 		KeQuerySystemTimePrecise(&pPLVF->ProbeDataHeader.CurrentGMT);
+		
 		if (FALSE == pPDQ->Enqueue(&pPLVF->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)

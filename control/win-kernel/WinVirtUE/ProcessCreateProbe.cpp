@@ -99,13 +99,15 @@ ErrorExit:
 _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Stop()
 {	
+	BOOLEAN retval = TRUE;
 	if (FALSE == this->Enabled)
 	{
 		goto ErrorExit;
-	}
-	this->Enabled = this->RemoveNotify(TRUE) ? TRUE : FALSE;
+	}	
+	retval = NT_SUCCESS(this->RemoveNotify(TRUE));
+	this->Enabled = !retval;
 ErrorExit:
-	return this->Enabled;
+	return retval;
 }
 
 /**
@@ -187,6 +189,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPCI->CreationStatus = CreateInfo->CreationStatus;
 		pPCI->CommandLineSz = CreateInfo->CommandLine->Length;
 		RtlMoveMemory(&pPCI->CommandLine[0], CreateInfo->CommandLine->Buffer, pPCI->CommandLineSz);
+		
 		if (FALSE == pPDQ->Enqueue(&pPCI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
@@ -221,7 +224,8 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPDI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessDestroy;
 		pPDI->ProbeDataHeader.DataSz = bufsz;
 		pPDI->EProcess = Process;
-		pPDI->ProcessId = ProcessId;		
+		pPDI->ProcessId = ProcessId;	
+		
 		if (FALSE == pPDQ->Enqueue(&pPDI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)

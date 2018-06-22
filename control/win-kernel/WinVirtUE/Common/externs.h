@@ -21,12 +21,13 @@ extern CONST ULONG HEADER_BLOCK_SIZE;
 extern CONST LONGLONG FILE_ALLOCATION_NA;
 extern CONST ULONG FILE_ATTRIBUTES_NA;
 
-extern class ProbeDataQueue *pPDQ;
+extern class WVUProbeManager *pWVUMgr;
+extern class WVUQueueManager *pPDQ;
+extern class WVUCommsManager *pFCM;
 extern class ImageLoadProbe *pILP;
 extern class ProcessCreateProbe *pPCP;
-extern class WVUCommsManager *pFCM;
 extern class ProcessListValidationProbe *pPLVP;
-extern class WinVirtUEManager *pWVUMgr;
+
 
 
 

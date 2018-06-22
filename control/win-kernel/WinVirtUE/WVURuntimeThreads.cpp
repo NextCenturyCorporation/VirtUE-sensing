@@ -12,9 +12,7 @@
 
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
-
-class WinVirtUEManager *pWVUMgr;
-
+class WVUProbeManager *pWVUMgr;
 #pragma region Main Initialization Thread
 /**
 * @brief Main initialization thread.
@@ -47,16 +45,14 @@ WVUMainInitThread(PVOID StartContext)
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);	
 	
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainInitThread Acquired runndown protection . . .\n");
-
-	pWVUMgr = new WinVirtUEManager();
+	pWVUMgr = new WVUProbeManager();
 	if (NULL == pWVUMgr)
 	{
 		Status = STATUS_MEMORY_NOT_ALLOCATED;
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"WinVirtUEManager not constructed - Status=%08x\n", Status);
+			"WVUProbeManager not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-		
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create sensor thread
 	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUProbeCommsThread, NULL);
@@ -208,7 +204,7 @@ WVUProbeCommsThread(PVOID StartContext)
 		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "Unable to allocate from NonPagedPool! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
+	
 	do
 	{
 		Status = pPDQ->WaitForQueueAndPortConnect();
@@ -237,7 +233,7 @@ WVUProbeCommsThread(PVOID StartContext)
 		pPDH->ReplyLength = REPLYLEN;
 		SenderBufferLen = pPDH->DataSz;
 
-		Status = FltSendMessage(Globals.FilterHandle, &Globals.ClientPort,
+		Status = FltSendMessage(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
 
 		if (FALSE == NT_SUCCESS(Status) || STATUS_TIMEOUT == Status)
@@ -326,10 +322,14 @@ WVUTemporalProbeThread(PVOID StartContext)
 		KeAcquireInStackQueuedSpinLock(&pPDQ->GetProbeListSpinLock(), &LockHandle);
 		__try
 		{
-			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), ProbeDataQueue::ProbeInfo)
-			{				
+			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+			{
 				AbstractVirtueProbe* avp = pProbeInfo->Probe;
-		
+				if (NULL == avp)
+				{
+					continue;
+				}
+
 				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %Z for work to be done!\n", &avp->GetProbeName());
 				// poll the probe for any required actions on our part
 				if (FALSE == avp->OnPoll())
@@ -341,12 +341,12 @@ WVUTemporalProbeThread(PVOID StartContext)
 				{
 					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "Probe %wZ Failed running avp->OnRun() - Status=0x%08x - Continuing!\n", &avp->GetProbeName(), Status);
 				}
-				
+
 				LARGE_INTEGER& probe_last_runtime = (LARGE_INTEGER&)avp->GetLastProbeRunTime();
 				LARGE_INTEGER local_time;
 				ExSystemTimeToLocalTime(&probe_last_runtime, &local_time);
 				RtlTimeToTimeFields(&local_time, &time_fields);
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %Z successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n", 
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %Z successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n",
 					avp->GetProbeName(), time_fields.Month, time_fields.Day, time_fields.Year, time_fields.Hour, time_fields.Minute, time_fields.Second, time_fields.Milliseconds);
 			}
 		}

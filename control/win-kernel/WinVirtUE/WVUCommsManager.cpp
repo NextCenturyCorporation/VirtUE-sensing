@@ -21,13 +21,13 @@ WVUCommsManager::WVUCommsManager()
 	WVUComandObjAttr({ 0,0,0,0,0,0 }), pWVUPortSecDsc(nullptr), pWVUCommandSecDsc(nullptr),
 	InitStatus(STATUS_UNSUCCESSFUL)	
 {	
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
-
+	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "About to register filter manager callbacks!\n");
+	
 	//  Register with FltMgr to tell it our callback routines
 	InitStatus = FltRegisterFilter(Globals.DriverObject, &::FilterRegistration, &Globals.FilterHandle);
 	if (FALSE == NT_SUCCESS(InitStatus))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltRegisterFilter() FAIL=%08x\n", InitStatus);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltRegisterFilter() FAIL=%08x\n", InitStatus);
 		goto ErrorExit;
 	}
 
@@ -43,14 +43,14 @@ WVUCommsManager::WVUCommsManager()
 	InitStatus = FltBuildDefaultSecurityDescriptor(&pWVUPortSecDsc, FLT_PORT_ALL_ACCESS);
 	if (FALSE == NT_SUCCESS(InitStatus))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor(pWVUPortSecDsc) FAIL=%08x\n", InitStatus);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor(pWVUPortSecDsc) FAIL=%08x\n", InitStatus);
 		goto ErrorExit;
 	}
 
 	InitStatus = FltBuildDefaultSecurityDescriptor(&pWVUCommandSecDsc, FLT_PORT_ALL_ACCESS);
 	if (FALSE == NT_SUCCESS(InitStatus))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor(pWVUCommandSecDsc) FAIL=%08x\n", InitStatus);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor(pWVUCommandSecDsc) FAIL=%08x\n", InitStatus);
 		goto ErrorExit;
 	}
 	
@@ -78,7 +78,7 @@ WVUCommsManager::~WVUCommsManager()
 {
 	FltUnregisterFilter(Globals.FilterHandle);
 
-	Globals.EnableProtection = FALSE;
+	Globals.ProtectionEnabled = FALSE;
 }
 
 /**
@@ -93,7 +93,7 @@ WVUCommsManager::Start()
 	if (FALSE == NT_SUCCESS(this->InitStatus))
 	{		
 		Status = InitStatus;
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "WVUCommsManager::WVUCommsManager() Failed! - FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "WVUCommsManager::WVUCommsManager() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -101,16 +101,16 @@ WVUCommsManager::Start()
 	// create the filter data communcations port
 	//
 	Status = FltCreateCommunicationPort(Globals.FilterHandle,
-		&Globals.WVUDataPort,
+		&Globals.WVUProbeDataStreamPort,
 		&WVUPortObjAttr,
 		Globals.DriverObject,
-		(PFLT_CONNECT_NOTIFY)&WVUCommsManager::WVUPortConnect,
-		(PFLT_DISCONNECT_NOTIFY)&WVUCommsManager::WVUPortDisconnect,
+		(PFLT_CONNECT_NOTIFY)&WVUCommsManager::WVUDataStreamPortConnect,
+		(PFLT_DISCONNECT_NOTIFY)&WVUCommsManager::WVUDataStreamPortDisconnect,
 		NULL,
 		NUMBER_OF_PERMITTED_CONNECTIONS);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -127,7 +127,7 @@ WVUCommsManager::Start()
 		NUMBER_OF_PERMITTED_CONNECTIONS);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 
@@ -142,12 +142,12 @@ WVUCommsManager::Start()
 	Status = FltStartFiltering(Globals.FilterHandle);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "FltStartFiltering() Failed! - FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltStartFiltering() Failed! - FAIL=%08x\n", Status);
 		FltUnregisterFilter(Globals.FilterHandle);
 		goto ErrorExit;
 	}
 
-	Globals.EnableProtection = TRUE;
+	Globals.ProtectionEnabled = TRUE;
 
 ErrorExit:
 
@@ -160,15 +160,16 @@ VOID
 WVUCommsManager::Stop()
 {
 	// close the server port
-	FltCloseCommunicationPort(Globals.WVUDataPort);
+	FltCloseCommunicationPort(Globals.WVUProbeDataStreamPort);
 	FltCloseCommunicationPort(Globals.WVUCommandPort);
-	Globals.WVUDataPort = NULL;
+	Globals.WVUProbeDataStreamPort = NULL;
 	Globals.WVUCommandPort = NULL;
 }
 
+#pragma region Data Port Connection
 /**
 * @brief Filter Manager calls this routine whenever a user-mode application calls FilterConnectCommunicationPort to send a connection request to the mini-filter driver
-* @param ClientPort Opaque handle for the new client port that is established between the user-mode application and the kernel-mode mini-filter driver.
+* @param WVUProbeDataStreamPort Opaque handle for the new client port that is established between the user-mode application and the kernel-mode mini-filter driver.
 * @param ServerPortCookie Pointer to context information defined by the mini-filter driver
 * @param ConnectionContext Context information pointer that the user-mode application passed in the lpContext parameter to FilterConnectCommunicationPort.
 * @param SizeOfContext Size, in bytes, of the buffer that ConnectionContextpoints to
@@ -177,32 +178,33 @@ WVUCommsManager::Stop()
 */
 _Use_decl_annotations_
 NTSTATUS FLTAPI 
-WVUCommsManager::WVUPortConnect(
-	PFLT_PORT ClientPort,
+WVUCommsManager::WVUDataStreamPortConnect(
+	PFLT_PORT WVUProbeDataStreamPort,
 	PVOID ServerPortCookie,
 	PVOID ConnectionContext,
 	ULONG SizeOfContext,
 	PVOID *ConnectionPortCookie)
 {
 	const NTSTATUS Status = STATUS_SUCCESS;
-	FLT_ASSERTMSG("ClientPort Must Be NULL!!", NULL == Globals.ClientPort);
-	FLT_ASSERTMSG("UserProcess Must Be NULL!!", NULL == Globals.UserProcess);
+	FLT_ASSERTMSG("WVUProbeDataStreamPort Must Be NULL!!", NULL == Globals.WVUProbeDataStreamPort);
+	FLT_ASSERTMSG("DataStreamUserProcess Must Be NULL!!", NULL == Globals.DataStreamUserProcess);
 
-	Globals.UserProcess = PsGetCurrentProcess();
-	Globals.ClientPort = ClientPort;
+	Globals.DataStreamUserProcess = PsGetCurrentProcess();
+	Globals.WVUProbeDataStreamPort = WVUProbeDataStreamPort;
 	*ConnectionPortCookie = Globals.DriverObject;
 
 	UNREFERENCED_PARAMETER(ServerPortCookie);
 	UNREFERENCED_PARAMETER(ConnectionContext);
 	UNREFERENCED_PARAMETER(SizeOfContext);
 
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
-		Globals.UserProcess, Globals.ClientPort);
-	
-	if (nullptr != pPDQ)
+	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "DataStream Port Connected by Process 0x%p Port 0x%p!\n",
+		Globals.DataStreamUserProcess, Globals.WVUProbeDataStreamPort);
+
+	if (NULL != pPDQ)
 	{
 		pPDQ->OnConnect();
 	}
+
 	return Status;
 }
 
@@ -214,32 +216,34 @@ WVUCommsManager::WVUPortConnect(
 */
 _Use_decl_annotations_
 VOID FLTAPI 
-WVUCommsManager::WVUPortDisconnect(
+WVUCommsManager::WVUDataStreamPortDisconnect(
 	PVOID ConnectionPortCookie)
 {
 	UNREFERENCED_PARAMETER(ConnectionPortCookie);
 
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Disconnected - Port 0x%p!\n", Globals.ClientPort);
+	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Port Disconnected - Port 0x%p!\n", Globals.WVUProbeDataStreamPort);
 	// close our handle to the connection 
-	FltCloseClientPort(Globals.FilterHandle, &Globals.ClientPort);
+	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort);
 
 	// Reset the user process field
-	Globals.UserProcess = NULL;
+	Globals.DataStreamUserProcess = NULL;
 
-	// Ensure that the ClientPort is NULL as well
-	Globals.ClientPort = NULL;
+	// Ensure that the WVUProbeDataStreamPort is NULL as well
+	Globals.WVUProbeDataStreamPort = NULL;
 
 	Globals.ConnectionCookie = NULL;
 
-	if (nullptr != pPDQ)
+	if (NULL != pPDQ)
 	{
 		pPDQ->OnDisconnect();
-	}	
-}
+	}
+}	
+#pragma endregion
 
+#pragma region Command Port Operation
 /**
 * @brief Filter Manager calls this routine whenever a user-mode application calls FilterConnectCommunicationPort to send a connection request to the mini-filter driver
-* @param ClientPort Opaque handle for the new client port that is established between the user-mode application and the kernel-mode mini-filter driver.
+* @param WVUCommandPort Opaque handle for the new client port that is established between the user-mode application and the kernel-mode mini-filter driver.
 * @param ServerPortCookie Pointer to context information defined by the mini-filter driver
 * @param ConnectionContext Context information pointer that the user-mode application passed in the lpContext parameter to FilterConnectCommunicationPort.
 * @param SizeOfContext Size, in bytes, of the buffer that ConnectionContextpoints to
@@ -249,31 +253,29 @@ WVUCommsManager::WVUPortDisconnect(
 _Use_decl_annotations_
 NTSTATUS FLTAPI 
 WVUCommsManager::WVUCommandConnect(
-	PFLT_PORT ClientPort, 
+	PFLT_PORT WVUCommandPort,
 	PVOID ServerPortCookie,
 	PVOID ConnectionContext, 
 	ULONG SizeOfContext, 
 	PVOID * ConnectionPortCookie)
 {
 	const NTSTATUS Status = STATUS_SUCCESS;
-	FLT_ASSERTMSG("ClientPort Must Be NULL!!", NULL == Globals.ClientPort);
-	FLT_ASSERTMSG("UserProcess Must Be NULL!!", NULL == Globals.UserProcess);
+	FLT_ASSERTMSG("WVUCommandPort Must Be NULL!!", NULL == Globals.WVUCommandPort);
+	FLT_ASSERTMSG("CommandUserProcess Must Be NULL!!", NULL == Globals.CommandUserProcess);
 
-	Globals.UserProcess = PsGetCurrentProcess();
-	Globals.ClientPort = ClientPort;
+	Globals.CommandUserProcess = PsGetCurrentProcess();
+	Globals.WVUCommandPort = WVUCommandPort;
 	*ConnectionPortCookie = Globals.DriverObject;
 
 	UNREFERENCED_PARAMETER(ServerPortCookie);
 	UNREFERENCED_PARAMETER(ConnectionContext);
 	UNREFERENCED_PARAMETER(SizeOfContext);
 
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Port Connected by Process 0x%p Port 0x%p!\n",
-		Globals.UserProcess, Globals.ClientPort);
+	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Connected by Process 0x%p Port 0x%p!\n",
+		Globals.CommandUserProcess, Globals.WVUProbeDataStreamPort);
 
-	if (nullptr != pPDQ)
-	{
-		; // replace this with a relevant call
-	}
+	Globals.CommandConnected = FALSE;
+
 	return Status;
 }
 
@@ -290,22 +292,19 @@ WVUCommsManager::WVUCommandDisconnect(
 {
 	UNREFERENCED_PARAMETER(ConnectionCookie);
 
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Command Port Disconnected - Port 0x%p!\n", Globals.ClientPort);
+	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Disconnected - Port 0x%p!\n", Globals.WVUProbeDataStreamPort);
 	// close our handle to the connection 
-	FltCloseClientPort(Globals.FilterHandle, &Globals.ClientPort);
+	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort);
 
 	// Reset the user process field
-	Globals.UserProcess = NULL;
+	Globals.CommandUserProcess = NULL;
 
-	// Ensure that the ClientPort is NULL as well
-	Globals.ClientPort = NULL;
+	// Ensure that the WVUCommandPort is NULL as well
+	Globals.WVUCommandPort = NULL;
 
 	Globals.ConnectionCookie = NULL;
 
-	if (nullptr != pPDQ)
-	{
-		;  // replace this with a relevant call
-	}
+	Globals.CommandConnected = FALSE;
 }
 
 /**
@@ -318,29 +317,50 @@ NTSTATUS
 WVUCommsManager::OnProtectionStateChange(
 	WVU_COMMAND command)
 {
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;		
 
 	switch (command)
 	{
 	case WVU_COMMAND::WVUDisableProtection:
-		Globals.EnableProtection = FALSE;
+		
+		Globals.ProtectionEnabled = FALSE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
 		break;
 	case WVU_COMMAND::WVUEnableProtection:
-		Globals.EnableProtection = TRUE;
+		Globals.ProtectionEnabled = TRUE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
 		break;
 	default:
-	case WVU_COMMAND::WVUDisableUnload:
-	case WVU_COMMAND::WVUEnableUnload:
-	case WVU_COMMAND::EnumerateProbes:
-	case WVU_COMMAND::ConfigureProbe:
-	case WVU_COMMAND::NOCOMMAND:
 		Status = STATUS_INVALID_PARAMETER_1;
+		FLT_ASSERTMSG("Invalid Protection Change State!", FALSE);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Invalid Protection Change State %d!\n", (signed)command);
+		goto ExitError;
 		break;
 	}
+	
+	/** enable/disasble each probe */
+	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+	{
+		/** if we are disabling, and the probe is enabled; then stop the probe */
+		if (WVU_COMMAND::WVUDisableProtection == command
+			&& TRUE == pProbeInfo->Probe->IsEnabled())
+		{
+			pProbeInfo->Probe->Stop();
+		}
+		/** If we are enabling probes, the probe is disabled AND it's marked EnableAtStart, then start the probe */
+		else if (WVU_COMMAND::WVUEnableProtection == command
+			&& FALSE == pProbeInfo->Probe->IsEnabled()
+			&& (pProbeInfo->Probe->GetProbeAttribtes() 
+				& AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
+			== AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
+		{
+			pProbeInfo->Probe->Start();
+		}
+	}
+
+ExitError:
 
 	return Status;
 }
@@ -364,17 +384,20 @@ WVUCommsManager::OnUnloadStateChange(
 		Globals.DriverObject->DriverUnload = NULL;
 		Globals.AllowFilterUnload = FALSE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Disabled!\n");
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Disabled!\n");
 		break;
 	case WVU_COMMAND::WVUEnableUnload:
 #pragma warning(suppress: 28175)
 		Globals.DriverObject->DriverUnload = DriverUnload;
 		Globals.AllowFilterUnload = TRUE;
 		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Enabled!\n");
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Enabled!\n");
 		break;
 	case WVU_COMMAND::NOCOMMAND:
 	default:
+		Status = STATUS_INVALID_PARAMETER_1;
+		FLT_ASSERTMSG("Invalid OnUnload State Change State!", FALSE);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Invalid OnUnload State Change State %d!\n", (signed)command);
 		break;
 	}
 
@@ -397,6 +420,11 @@ WVUCommsManager::OnEnumerateProbes(
 	UNREFERENCED_PARAMETER(OutputBuffer);
 	UNREFERENCED_PARAMETER(OutputBufferLength);
 	UNREFERENCED_PARAMETER(ReturnOutputBufferLength);
+
+	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+	{
+		;
+	}
 
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;	
 	return Status;
@@ -578,3 +606,4 @@ WVUCommsManager::operator delete(PVOID ptr)
 	}
 	ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
 }
+#pragma endregion

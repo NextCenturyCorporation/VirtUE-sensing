@@ -137,11 +137,6 @@ typedef struct _WVUGlobals
     //
     PFLT_FILTER FilterHandle;
 
-    //
-    //  Data streaming port
-    //
-    PFLT_PORT WVUDataPort;
-
 	//
 	// Command/Response Port
 	//
@@ -150,12 +145,17 @@ typedef struct _WVUGlobals
     //
     //  User process that connected to the port
     //
-    PEPROCESS UserProcess;
+    PEPROCESS CommandUserProcess;
 
-    //
-    //  Client port for a connection to user-mode
-    //
-    PFLT_PORT ClientPort;
+	//
+	//  Data streaming port
+	//
+    PFLT_PORT WVUProbeDataStreamPort;
+
+	//
+	//  User process that connected to the port
+	//
+	PEPROCESS DataStreamUserProcess;
 
     //
     // Connecton Cookie
@@ -171,7 +171,8 @@ typedef struct _WVUGlobals
     KEVENT WVUThreadStartEvent;
 	KEVENT poll_wait_evt;	    // polling thread waiter
     BOOLEAN AllowFilterUnload;  // if true, then allow the filter to be unloaded else don't allow
-    BOOLEAN EnableProtection;   // if true then the driver is protecting
+    BOOLEAN ProtectionEnabled;   // if true then the driver is protecting
+	BOOLEAN CommandConnected;   // TRUE if the Command Port is connected else FALSE
 	PDRIVER_OBJECT DriverObject;	
 	BOOLEAN ShuttingDown;
 	HANDLE MainThreadHandle;
