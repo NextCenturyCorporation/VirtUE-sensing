@@ -343,7 +343,7 @@ WVUQueueManager::Register(AbstractVirtueProbe& probe)
 	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
 	__try
 	{
-		if (NULL == FindProbeByName(((AbstractVirtueProbe&)probe).GetProbeName()))
+		if (NULL == FindProbeByName(probe.GetProbeName()))
 		{
 			ProbeInfo* pProbeInfo = new ProbeInfo;
 			pProbeInfo->Probe = &probe;

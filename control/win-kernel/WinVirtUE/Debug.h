@@ -43,7 +43,7 @@
 #define LOG_NOTIFY_PROCESS  (1 << 19)
 #define LOG_SENSOR_THREAD   (1 << 20)
 #define LOG_PROBE_MGR       (1 << 21)
-#define LOG_QUEUE_MGR       (1 << 21)
+#define LOG_QUEUE_MGR       (1 << 22)
 /*
 * These are meant to be used when you want to see the logs
 * for the major components. Do not use these within an WVU_DEBUG_*
