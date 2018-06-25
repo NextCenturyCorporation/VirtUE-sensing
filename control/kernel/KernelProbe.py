@@ -2,6 +2,7 @@
 import socket, sys, os, subprocess, uuid
 
 class KernelProbe:
+# TODO: self.connect_string is currently unused
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
 
     def __init__(self, socket_name, target_probe):
@@ -170,3 +171,5 @@ if __name__ == "__main__":
     import argparse
     client_main(sys.argv)
     sys.exit(0)
+
+
