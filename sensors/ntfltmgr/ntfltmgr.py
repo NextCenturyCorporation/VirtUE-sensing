@@ -199,8 +199,16 @@ class DataType(CtypesEnum):
     ProcessCreate  = 0x0002
     ProcessDestroy = 0x0003
     ThreadCreate   = 0x0004
-    ThreadDestroy  = 0x0005    
+    ThreadDestroy  = 0x0005        
+    TemporalProbeReport = 0x0006
 
+class ProbeReportId(CtypesEnum):
+    '''
+    Probe Report Id
+    '''
+    NoProbeReportId                        = 0x0000
+    ProcessListValidationFailedReportId    = 0x0001
+    
 class LIST_ENTRY(SaviorStruct):
     '''
     Two Way Linked List - forward declare an incomplete type
@@ -211,6 +219,7 @@ LIST_ENTRY._fields_ = [
     ("Flink", POINTER(LIST_ENTRY)),
     ("Blink", POINTER(LIST_ENTRY))
 ]
+
 
 GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ProbeId', 'DataSz', 'CurrentGMT', 'Remainder'])
     
@@ -226,6 +235,41 @@ class ProbeDataHeader(SaviorStruct):
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
     ]
+
+
+GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',   
+                                            ['ReplyLength', 'MessageId',  'ProbeId', 'DataSz', 'CurrentGMT', 
+                                             'ReportId', 'Status', 'ProcessId', 'EProcess'])                                            
+class ProcessListValidationFailed(SaviorStruct):
+    '''
+    Probe Data Header
+    '''
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ReportId", ProbeReportId),
+        ("Status", NTSTATUS),
+        ("ProcessId", HANDLE),
+        ("EProcess", PVOID)
+    ]
+    
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        info = cast(msg_pkt.Remainder, POINTER(cls))
+        process_list_validation_failed = GetProcessListValidationFailed(
+            info.contents.Header.ReplyLength,
+            info.contents.Header.MessageId,
+            DataType(info.contents.Header.ProbeId),
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
+            info.contents.ReportId,           
+            info.contents.Status,
+            info.contents.ProcessId,
+            info.contents.EProcess)
+        return process_list_validation_failed
 
     
 GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  ['ReplyLength', 'MessageId', 
@@ -364,7 +408,7 @@ logger.addHandler(logging.NullHandler())
 logger.setLevel(logging.ERROR)
 
 _FilterReplyMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
-_FilterReplyMessageParamFlags = (0, "hPort"), (0,  "lpReplyBuffer"), (0, "dwReplyBufferSize")
+_FilterReplyMessageParamFlags = (1, "hPort"), (1,  "lpReplyBuffer"), (1, "dwReplyBufferSize")
 _FilterReplyMessage = _FilterReplyMessageProto(("FilterReplyMessage", windll.fltlib), _FilterReplyMessageParamFlags)
 def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
     '''    
@@ -403,7 +447,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
     return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
-_FilterGetMessageParamFlags = (0, "hPort"), (0,  "lpMessageBuffer"), (0, "dwMessageBufferSize"), (0,  "lpOverlapped", 0)
+_FilterGetMessageParamFlags = (1, "hPort"), (1,  "lpMessageBuffer"), (1, "dwMessageBufferSize"), (4,  "lpOverlapped")
 _FilterGetMessage = _FilterGetMessageProto(("FilterGetMessage", windll.fltlib), _FilterGetMessageParamFlags)
 def FilterGetMessage(hPort, msg_len):
     '''    
@@ -436,8 +480,50 @@ def FilterGetMessage(hPort, msg_len):
     msg_pkt = FilterMessageHeader(ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
     return res, msg_pkt
 
+
+
+_FilterSendMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
+_FilterSendMessageParamFlags = (1, "hPort"), (1,  "lpInBuffer"), (1, "dwInBufferSize")
+_FilterSendMessage = _FilterSendMessageProto(("FilterSendMessage", windll.fltlib), _FilterSendMessageParamFlags)
+def FilterSendMessage(hPort, status, msg_id, msg, msg_len):
+    '''    
+    replies to a message from a kernel-mode minifilter 
+    @note close the handle returned using CloseHandle
+    @param hPort port handle returned by a previous call to 
+    FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
+    @param reply_buffer caller-allocated buffer containing the reply to be sent 
+    to the minifilter. The reply must contain a FILTER_REPLY_HEADER structure, 
+    but otherwise, its format is caller-defined. This parameter is required and 
+    cannot be NULL
+    @returns S_OK if successful. Otherwise, it returns an error value
+    '''    
+    res = HRESULT()
+        
+    if (msg is None or not hasattr(msg, "__len__") or len(msg) <= 0
+        or msg_len < len(msg) or msg_len <= sizeof(FILTER_REPLY_HEADER)):
+        raise ValueError("Parameter msg or msg_len is invalid!")
+    
+    if isinstance(msg, str):
+        txt = msg
+        msg = bytearray()
+        msg.extend(map(ord, txt))                     
+    reply_buffer = create_string_buffer(bytes(msg), msg_len)
+    info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
+    info.contents.Status = status
+    info.contents.MessageId = msg_id           
+
+    try:
+        res = _FilterSendMessage(hPort, byref(info.contents), msg_len)
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("FilterSendMessage Failed on Message Reply - Error %d", lasterror)
+        res = lasterror
+
+    return res
+
+
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
-_FilterConnectCommunicationPortParamFlags = (0, "lpPortName"), (0,  "dwOptions", 0), (0, "lpContext", 0), (0,  "dwSizeOfContext", 0), (0, "lpSecurityAttributes", 0), (1, "hPort")
+_FilterConnectCommunicationPortParamFlags = (1, "lpPortName"), (4,  "dwOptions"), (4, "lpContext"), (4,  "dwSizeOfContext"), (4, "lpSecurityAttributes"), (2, "hPort")
 _FilterConnectCommunicationPort = _FilterConnectCommunicationPortProto(("FilterConnectCommunicationPort", windll.fltlib), 
                                                          _FilterConnectCommunicationPortParamFlags)
 def FilterConnectCommunicationPort(PortName):
@@ -458,6 +544,8 @@ def FilterConnectCommunicationPort(PortName):
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror)
         raise
     return res, hPort
+
+
 def _build_filter_instance_info(buf):
     '''
     Create the FilterInstanceInformation instance
@@ -494,7 +582,7 @@ def _build_filter_instance_info(buf):
     return fii
 
 _FilterInstanceFindFirstProto = WINFUNCTYPE(HRESULT, LPCWSTR, INSTANCE_INFORMATION_CLASS, c_void_p, DWORD, LPDWORD, LPHANDLE)
-_FilterInstanceFindFirstParamFlags = (0, "lpFilterName"), (0,  "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned"), (1, "lpFilterInstanceFind")
+_FilterInstanceFindFirstParamFlags = (1, "lpFilterName"), (1,  "dwInformationClass"), (2, "lpBuffer"), (1,  "dwBufferSize"), (2, "lpBytesReturned"), (2, "lpFilterInstanceFind")
 _FilterInstanceFindFirst = _FilterInstanceFindFirstProto(("FilterInstanceFindFirst", windll.fltlib), 
         _FilterInstanceFindFirstParamFlags)
 def FilterInstanceFindFirst(filter_name):
@@ -534,7 +622,7 @@ def FilterInstanceFindFirst(filter_name):
     return hFilterInstanceFind, fii
 
 _FilterInstanceFindNextProto = WINFUNCTYPE(HRESULT, HANDLE, FILTER_INFORMATION_CLASS, c_void_p, DWORD, LPDWORD)
-_FilterInstanceFindNextParamFlags = (0,  "hFilterInstanceFind"), (0, "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned")
+_FilterInstanceFindNextParamFlags = (1,  "hFilterInstanceFind"), (1, "dwInformationClass"), (2, "lpBuffer"), (1,  "dwBufferSize"), (2, "lpBytesReturned")
 _FilterInstanceFindNext = _FilterInstanceFindNextProto(("FilterInstanceFindNext", windll.fltlib), _FilterInstanceFindNextParamFlags)
 
 def FilterInstanceFindNext(hFilterInstanceFind):
@@ -570,7 +658,7 @@ def FilterInstanceFindNext(hFilterInstanceFind):
     return S_OK, fii
 
 _FilterInstanceFindCloseProto = WINFUNCTYPE(HRESULT, HANDLE, DWORD)
-_FilterInstanceFindCloseParamFlags = (0,  "hFilterInstanceFind"), (0, "biff", 0)
+_FilterInstanceFindCloseParamFlags = (1,  "hFilterInstanceFind"), (0, "biff", 0)
 _FilterInstanceFindClose = _FilterInstanceFindCloseProto(("FilterInstanceFindClose", windll.fltlib), _FilterInstanceFindCloseParamFlags)
 
 def FilterInstanceFindClose(hFilterInstanceFind):
@@ -587,7 +675,7 @@ def FilterInstanceFindClose(hFilterInstanceFind):
 
 _FilterFindFirstProto = WINFUNCTYPE(HRESULT, FILTER_INFORMATION_CLASS, c_void_p, DWORD, 
                                     LPDWORD, LPHANDLE)
-_FilterFindFirstParamFlags = (0,  "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned"), (1, "lpFilterFind")
+_FilterFindFirstParamFlags = (1,  "dwInformationClass"), (2, "lpBuffer"), (1,  "dwBufferSize"), (2, "lpBytesReturned"), (2, "lpFilterFind")
 _FilterFindFirst = _FilterFindFirstProto(("FilterFindFirst", windll.fltlib), 
                                           _FilterFindFirstParamFlags)
 
@@ -635,7 +723,7 @@ def FilterFindFirst(infocls=FILTER_INFORMATION_CLASS.FilterFullInformation):
     return hFilterFind, fltfullinfo
 
 _FilterFindNextProto = WINFUNCTYPE(HRESULT, HANDLE, FILTER_INFORMATION_CLASS, c_void_p, DWORD, LPDWORD)
-_FilterFindNextParamFlags = (0,  "hFilterFind"), (0, "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned")
+_FilterFindNextParamFlags = (1,  "hFilterFind"), (1, "dwInformationClass"), (2, "lpBuffer"), (1,  "dwBufferSize"), (2, "lpBytesReturned")
 _FilterFindNext = _FilterFindNextProto(("FilterFindNext", windll.fltlib), _FilterFindNextParamFlags)
 
 def FilterFindNext(hFilterFind, infocls=FILTER_INFORMATION_CLASS.FilterFullInformation):
@@ -678,7 +766,7 @@ def FilterFindNext(hFilterFind, infocls=FILTER_INFORMATION_CLASS.FilterFullInfor
     return res, fltfullinfo
 
 _FilterFindCloseProto = WINFUNCTYPE(HRESULT, HANDLE, DWORD)
-_FilterFindCloseParamFlags = (0,  "hFilterFind"), (0, "biff", 0)
+_FilterFindCloseParamFlags = (1,  "hFilterFind"), (0, "biff", 0)
 _FilterFindClose = _FilterFindCloseProto(("FilterFindClose", windll.fltlib), _FilterFindCloseParamFlags)
 
 def FilterFindClose(hFilterFind):
@@ -692,7 +780,7 @@ def FilterFindClose(hFilterFind):
     return res
 
 _FilterCreateProto = WINFUNCTYPE(HRESULT, LPCWSTR, LPHANDLE)
-_FilterCreateParamFlags = (0,  "lpFilterName"), (0, "hFilter", 1)
+_FilterCreateParamFlags = (1,  "lpFilterName"), (0, "hFilter", 1)
 _FilterCreate = _FilterCreateProto(("FilterCreate", windll.fltlib), _FilterCreateParamFlags)
 
 def FilterCreate(filter_name):
@@ -709,7 +797,7 @@ def FilterCreate(filter_name):
 
 
 _FilterCloseProto = WINFUNCTYPE(HRESULT, LPHANDLE, DWORD)
-_FilterCloseParamFlags = (0,  "hFilter"), (0, "biff", 0)
+_FilterCloseParamFlags = (1,  "hFilter"), (0, "biff", 0)
 _FilterClose= _FilterCloseProto(("FilterClose", windll.fltlib), _FilterCloseParamFlags)
 
 def FilterClose(hFilter):
@@ -726,7 +814,7 @@ def FilterClose(hFilter):
     return res
 
 _CloseHandleProto = WINFUNCTYPE(BOOL, HANDLE, DWORD)
-_CloseHandleParamFlags = (0,  "hFilter"), (0, "biff", 0)
+_CloseHandleParamFlags = (1,  "hFilter"), (0, "biff", 0)
 _CloseHandle= _FilterCloseProto(("CloseHandle", windll.kernel32), _CloseHandleParamFlags)
 
 def CloseHandle(handle):
@@ -790,7 +878,6 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
@@ -810,7 +897,7 @@ def test_packet_decode():
 
     CloseHandle(hFltComms)
     
-    
+    #\\WVUCommand
 def main():
     '''
     let's test some stuff
