@@ -115,7 +115,7 @@ class KernelProbe:
             max_amount = 0x400
             data = self.sock.recv(max_amount)
             amount_received = len(data)
-            print >>sys.stderr, 'discovery test received "%s"' % data
+            print >>sys.stderr, 'records response received "%s"' % data
 
         except:
             print >>sys.stderr, 'send_records_message: closing socket'
