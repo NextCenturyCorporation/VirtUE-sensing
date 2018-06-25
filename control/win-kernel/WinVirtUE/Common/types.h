@@ -211,7 +211,7 @@ typedef enum _ProbeIdType : USHORT
 	ThreadCreate   = 0x0004,
 	/** Thread Destruction notificaton type */
 	ThreadDestroy  = 0x0005,
-	/** A temporal probe is issueing a report */
+	/** A temporal probe is issuing a report */
 	TemporalProbeReport = 0x0006
 } ProbeIdType;
 
