@@ -245,7 +245,7 @@ k_echo_server(struct kthread_work *work)
  *       return of parse_json_message
  **/
 		m->count = parse_json_message(m);
-		printk(KERN_DEBUG "message token count: %dn", m->count);
+		printk(KERN_DEBUG "message token count: %d", m->count);
 /**
  * TODO: if parse_json_message returns COMPLETE, close connection
  *       else if it returns 0, keep connection open

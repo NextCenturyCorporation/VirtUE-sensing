@@ -216,27 +216,22 @@ free_session(struct jsmn_session *s)
 #else
 	{
 		struct jsmn_message *m;
-		spin_lock_irqsave(&sessions_lock, sessions_flag);
-		rcu_read_lock();
+		spin_lock(&sessions_lock);
 		list_del_rcu(&s->session_entry);
+		spin_unlock(&sessions_lock);
+		synchronize_rcu();
+
 		while (NULL != (m = list_first_or_null_rcu(&s->h_replies,
 												   struct jsmn_message,
 												   e_messages))) {
 			printk(KERN_DEBUG "free reply message: %p\n", m);
-			list_del_rcu(&m->e_messages);
-			synchronize_rcu();
+			list_del(&m->e_messages);
 			free_message(m);
-
 		}
-		rcu_read_unlock();
-		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
 		if (s->req) {
-
 			free_message(s->req);
-
 		}
 		kfree(s);
-
 	}
 #endif
 }
@@ -661,7 +656,7 @@ process_jsmn_cmd(struct jsmn_message *m, int index)
  * after the first reply comes in on session->request->socket.socket
  *
  **/
-static inline void
+void
 garbage_collect_session(struct jsmn_message *m)
 {
 	struct jsmn_session *s;
@@ -698,7 +693,8 @@ garbage_collect_session(struct jsmn_message *m)
 }
 
 
-static inline struct jsmn_session *get_session(struct jsmn_message *m)
+struct jsmn_session *
+get_session(struct jsmn_message *m)
 {
 	uint8_t *n;
 	size_t bytes;
@@ -723,11 +719,10 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 		SLIST_INSERT_HEAD(&h_sessions, ns, sessions);
 #else
 		INIT_LIST_HEAD_RCU(&ns->h_replies);
-		spin_lock_irqsave(&sessions_lock, sessions_flag);
-		rcu_read_lock();
+		spin_lock(&sessions_lock);
 		list_add_rcu(&ns->session_entry, &h_sessions);
-		rcu_read_unlock();
-		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
+		spin_unlock(&sessions_lock);
+		synchronize_rcu();
 #endif
 		return ns;
 	} else {
@@ -740,12 +735,12 @@ static inline struct jsmn_session *get_session(struct jsmn_message *m)
 		}
 #else
 		rcu_read_lock();
-		list_for_each_entry_rcu(ns, &h_sessions, session_entry) {
+		list_for_each_entry_rcu(ns, &h_sessions, session_entry){
 			if (! memcmp(ns->nonce, n, bytes)) {
-				unsigned long replies_flag;
-				spin_lock_irqsave(&ns->sl, replies_flag);
+				spin_lock(&ns->sl);
 				list_add_tail_rcu(&m->e_messages, &ns->h_replies);
-				spin_unlock_irqrestore(&ns->sl, replies_flag);
+				spin_unlock(&ns->sl);
+				synchronize_rcu();
 			}
 			rcu_read_unlock();
 		}
