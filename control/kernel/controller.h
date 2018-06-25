@@ -30,11 +30,26 @@
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
 
+#define PROTOCOL_VERSION "Virtue-protocol-version: 0.1"
+#define SESSION_RESPONSE "{Virtue-protocol-version: 0.1}\n\0"
+
+extern int print_to_log;
 extern atomic64_t SHOULD_SHUTDOWN;
 
 enum json_array_chars {
 	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d
 };
+
+#define NUM_COMMANDS 12
+enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
+					  LOW, DEFAULT, HIGH, ADVERSARIAL, RESET,
+					  RECORDS};
+
+/* max message header size */
+#define CONNECTION_MAX_HEADER 0x400
+#define CONNECTION_MAX_REQUEST CONNECTION_MAX_HEADER
+#define CONNECTION_MAX_MESSAGE 0x1000
+#define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
 
 static inline void sleep(unsigned sec)
 {
@@ -56,6 +71,17 @@ kfs_read(struct file *file, void *buf, size_t count, loff_t *pos);
 
 ssize_t
 kfs_write(struct file *file, void *buf, size_t count, loff_t *pos);
+
+ssize_t k_socket_read(struct socket *sock,
+					  size_t size,
+					  void *in,
+					  unsigned int flags);
+
+
+ssize_t k_socket_write(struct socket *sock,
+					   size_t size,
+					   void *out,
+					   unsigned int flags);
 
 /* the kernel itself has dynamic trace points, they
  *  need to be part of the probe capability.
@@ -212,6 +238,7 @@ static inline void task_cputime(struct task_struct *t,
    structures.
 
 **/
+
 struct probe {
 	union {
 		spinlock_t lock;
@@ -220,8 +247,8 @@ struct probe {
 	uint8_t *id;
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
-	int (*send_msg)(struct probe *, int, void *);
-	int (*rcv_msg)(struct probe *, int, void **);
+	int (*send_msg_to_probe)(struct probe *, int, void *, ssize_t);
+	int (*rcv_msg_from_probe)(struct probe *, int, void **, ssize_t *);
 	int (*start_stop)(struct probe *, uint64_t flags);
 	uint64_t flags;  /* expect that flags will contain level bits */
 	int timeout, repeat;
@@ -230,6 +257,19 @@ struct probe {
 	struct list_head l_node;
 };
 
+
+int
+default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len);
+
+int
+default_rcv_msg_from(struct probe *probe,
+					 int msg,
+					 void **out_buf,
+					 ssize_t *len);
+
+
+int
+get_probe(uint8_t *probe_id, struct probe **p);
 
 /**
  * @brief The kernel sensor is the parent of one or more probes
@@ -267,9 +307,7 @@ struct probe {
  * struct socket: include/linux/net.h: 110
  **/
 
-/* max message header size */
-#define CONNECTION_MAX_HEADER 0x400
-#define CONNECTION_MAX_MESSAGE 0x1000
+
 /* connection struct is used for both listening and connected sockets */
 /* function pointers for listen, accept, close */
 struct connection {
@@ -374,6 +412,15 @@ struct kernel_ps_probe {
 												  uint8_t *, uint64_t, int));
 	void *(*_destroy)(struct probe *);
 };
+
+
+int kernel_ps_record(struct kernel_ps_probe *parent,
+					 uint8_t *tag,
+					 uint64_t nonce,
+					 int index,
+					 uint8_t **json_record);
+
+int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
 
 
 /* probes are run by kernel worker threads (struct kthread_worker)

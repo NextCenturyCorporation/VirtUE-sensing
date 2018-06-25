@@ -31,17 +31,20 @@ typedef int spinlock_t;
 
 #endif /* USERSPACE */
 
-enum parse_index {OBJECT, VER_TAG, VERSION, MSG = 3, NONCE = 5, CMD = 6,
-                  PROBE = 7, RECORD = 9};
+enum parse_index {OBJECT_START, VER_TAG, VERSION, MSG, JSONL_BRACKET, NONCE, CMD,
+                  PROBE, JSONR_BRACKET, OBJECT_END};
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
-enum message_command {DISCOVERY = 0, OFF = 1, ON = 2, INCREASE = 3, DECREASE = 4,
-					  LOW = 5, DEFAULT = 6, HIGH = 7, ADVERSARIAL = 8, RESET = 9, RECORDS = 10};
 
-#define MAX_LINE_LEN 4096
-#define MAX_NONCE_SIZE 128
-#define MAX_CMD_SIZE 64
+#define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
+/**
+ * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
+ * allow shorter nonces, allowing the client to choose,
+ * up to MAX_NONCE_SIZE
+ **/
+#define MAX_NONCE_SIZE 32
+#define MAX_CMD_SIZE 128
 #define MAX_ID_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
 struct jsmn_message;
@@ -106,7 +109,7 @@ struct jsmn_message
 	uint8_t *line;
 	size_t len;
 	int type;
-	size_t count; /* token count */
+	int count; /* token count */
 	struct jsmn_session *s;
 #ifdef USERSPACE
 	FILE *file;
@@ -138,10 +141,12 @@ struct jsmn_session
 
 };
 
+uint8_t *add_nl_at_end(uint8_t *in, int len);
 
 static inline int index_command(uint8_t *cmd, int bytes)
 {
 	static uint8_t *table[] = {
+		"connect",
 		"discovery",
 		"off",
 		"on",
@@ -154,25 +159,54 @@ static inline int index_command(uint8_t *cmd, int bytes)
 		"reset",
 		"records"
 	};
-	static int length[] = {2, 2, 2, 2, 3, 2, 3, 2, 2, 3, 3};
+	static int length[] = {1, 2, 2, 2, 1, 3, 1, 3, 1, 1, 3, 3};
 	int i = 0;
 
-	for(i = 0; i < 11; i++) {
+	for(i = 0; i < NUM_COMMANDS; i++) {
 		if (! memcmp(cmd, table[i], (length[i] < bytes) ? length[i] : bytes))
 			return i;
 	}
 	return -JSMN_ERROR_INVAL;
 }
 
+/**
+ * @brief requirements for cmd_table message parsing functions
+ *
+ * int (cmd_table[])(struct jsmn_message *m, int index);
+ *
+ * @return zero or COMPLETE upon success, < 0 if an error
+ *        - if message is attached to a session, must call free_session
+ *        - otherwise, call free_message
+ *
+ *        - if returns < 0, the caller will end up destroying the connection
+ *        - if returns 0, connection will stay open.
+ *
+ *       the connection struct is not visible to this level of the parser,
+ *       it correlates messages to an accepted socket, and can be re-used for
+ *       multiple request-reply messages pairs.
+ *
+ *       either way (<0  or 0), the session and message(s) need to be freed.
+ *
+ *       free_session will un-allocate the session and free both messages
+ *       attached to it (request and reply)
+ *
+ *       request messages not yet attached to a session can be freed by calling
+ *       free_message.
+ **/
+
 
 static inline int
-process_records_cmd(struct jsmn_message *m, int index);
+process_records_request(struct jsmn_message *m, int index);
+
+static int
+process_discovery_request(struct jsmn_message *m, int index);
 
 static inline int
 process_jsmn_cmd(struct jsmn_message *m, int index);
 int (*cmd_table[])(struct jsmn_message *m, int index) =
 {
-	process_jsmn_cmd, /* DISCOVERY */
+	process_jsmn_cmd, /* connect */
+	process_discovery_request, /* DISCOVERY */
 	process_jsmn_cmd, /* OFF */
 	process_jsmn_cmd, /* ON */
 	process_jsmn_cmd, /* INCREASE */
@@ -182,13 +216,16 @@ int (*cmd_table[])(struct jsmn_message *m, int index) =
 	process_jsmn_cmd, /* HIGH */
 	process_jsmn_cmd, /* ADVERSARIAL */
 	process_jsmn_cmd, /* RESET */
-	process_records_cmd /* RECORDS */
+	process_records_request /* RECORDS */
 };
 
 int verbose_flag = 0;
 static inline void
 free_session(struct jsmn_session *s);
 
+/**
+ * TODO: replace this for each type of response
+ **/
 static inline int
 process_single_response(struct jsmn_session *s)
 {
@@ -210,9 +247,16 @@ const uint8_t escape [] = {0x5c, 0x00};
 static inline void
 free_message(struct jsmn_message *m)
 {
+
+	printk(KERN_DEBUG "m: %p, m->line: %p\n", m, m->line);
+
 	if(m->line)
 		kfree(m->line);
+
+
  	kfree(m);
+
+
 	return;
 }
 
@@ -252,64 +296,27 @@ free_session(struct jsmn_session *s)
 		spin_lock_irqsave(&sessions_lock, sessions_flag);
 		rcu_read_lock();
 		list_del_rcu(&s->session_entry);
-		while ((m = list_first_or_null_rcu(&s->h_replies,
-										   struct jsmn_message,
-										   e_messages))) {
+		while (NULL != (m = list_first_or_null_rcu(&s->h_replies,
+												   struct jsmn_message,
+												   e_messages))) {
+			printk(KERN_DEBUG "free reply message: %p\n", m);
 			list_del_rcu(&m->e_messages);
 			synchronize_rcu();
 			free_message(m);
+
 		}
 		rcu_read_unlock();
 		spin_unlock_irqrestore(&sessions_lock, sessions_flag);
 		if (s->req) {
+
 			free_message(s->req);
+
 		}
 		kfree(s);
+
 	}
 #endif
 }
-
-
-
-/**
- * assumes: we have already attached the message to
- * a session
- **/
-static inline int
-process_records_cmd(struct jsmn_message *m, int index)
-{
-	/**
-	 * every record command must be targeted to a probe id
-	 * the id may be a wildcard, we assume the command
-	 * and id are both stored in the message struct
-	 **/
-
-	if (m->type == REQUEST) {
-		/* here is where to call in to the probe */
-		printk(KERN_INFO "Dispatching a record request to %s, %s\n",
-			   m->s->probe_id, m->s->nonce);
-		return 0;
-	} else if (m->type == REPLY) {
-		int bytes;
-		uint8_t *r;
-		if (m->parser.toknext <= RECORD || m->parser.toknext >= MAX_TOKENS) {
-			printk(KERN_INFO "parser did not find a response record %s, %s\n",
-				   m->s->probe_id, m->s->nonce);
-			return process_single_response(m->s);
-		}
-
-		r = m->line + m->tokens[RECORD].start;
-		bytes = m->tokens[RECORD].end - m->tokens[RECORD].start;
-		printk(KERN_INFO "Received a record from %s, %s, %.*s\n",
-			   m->s->probe_id, m->s->nonce, bytes, r);
-
-	}
-
-	return 0;
-
-}
-STACK_FRAME_NON_STANDARD(process_records_cmd);
-
 
 
 /**
@@ -320,7 +327,7 @@ STACK_FRAME_NON_STANDARD(process_records_cmd);
  **/
 
 static inline int
-pre_process_jsmn_cmd(struct jsmn_message *m)
+pre_process_jsmn_request_cmd(struct jsmn_message *m)
 {
 	uint8_t *c, *id = NULL;
 	size_t c_bytes, id_bytes = 0;
@@ -328,24 +335,34 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 
 	assert(m && m->s);
 
+	if (m->type == REPLY) {
+		printk(KERN_DEBUG "pre-process request cmd received a reply message"
+			   " %s:%d\n", __FILE__, __LINE__);
+		return JSMN_ERROR_INVAL;
+	}
 	/* m->type is either REQUEST or REPLY */
     /* set up to copy or compare the session command */
 	c = m->line + m->tokens[CMD].start;
 	c_bytes = m->tokens[CMD].end - m->tokens[CMD].start;
 	if (c_bytes <=0 || c_bytes >= MAX_CMD_SIZE)
 		return JSMN_ERROR_INVAL;
-	if (m->parser.toknext <= PROBE) {
+	if (m->parser.toknext < PROBE) {
 		/**
-		 * there is no probe element, only valid
-		 * for a discovery request message.
+		 * there is no probe element, not valid
 		 **/
+		printk(KERN_DEBUG "received a jsonl request message with no probe id."
+			   " %s:%d\n", __FILE__, __LINE__);
+		goto err_out;
 	} else {
 		id = m->line + m->tokens[PROBE].start;
 		id_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
-		if (id_bytes <=0 || id_bytes >= MAX_CMD_SIZE)
+		if (id_bytes ==0 || id_bytes > MAX_CMD_SIZE) {
+			printk(KERN_DEBUG "pre_process_jsmn_command: json command token is either"
+				   "too small or too large for any valid commands: %ld bytes\n",
+				   id_bytes);
 			return JSMN_ERROR_INVAL;
+		}
 	}
-
 
 	if (m->type == REQUEST) {
         /* copy the command into the session command array */
@@ -354,26 +371,287 @@ pre_process_jsmn_cmd(struct jsmn_message *m)
 		if (m->parser.toknext > PROBE) {
 			memcpy(m->s->probe_id, id, id_bytes);
 			m->s->probe_id[id_bytes] = 0x00;
-		}
+			printk(KERN_DEBUG "request probe id: %s\n", m->s->probe_id);
 
-	} else if (m->type == REPLY) {
-		/* m is linked into the session tail q */
-		/* nonce and command match */
-		/* replies must have an id */
-        /* a discovery reply may have multiple probe id strings */
-		/* if a reply, nonce, session, and cmd must be identical */
-		if (m->parser.toknext <= PROBE) {
-			return JSMN_ERROR_INVAL;
 		}
+		ccode = index_command(c, c_bytes);
+		if (ccode >= 0 && ccode <= RECORDS )
+			return cmd_table[ccode](m, ccode);
 	}
 
-	ccode = index_command(c, c_bytes);
-	if (ccode >= 0 && ccode <= RECORDS )
-		return cmd_table[ccode](m, ccode);
-	return ccode;
+err_out:
+	printk(KERN_DEBUG "invalid message type %s:%d\n", __FILE__, __LINE__);
+	return JSMN_ERROR_INVAL;
 }
 
 
+/**
+ * Process Request Messages
+ * message is guaranteed to be connected to a session,
+ * is typed as either a request or reply
+ * nonce is msg->s->nonce
+ * cmd is msg->s->cmd
+ * probe is msg->s->probe_id
+ *
+ * - allocate a reply message struct, copy the struct, link to session
+ * - session is allocated and attached to message but not locked.
+ * - build the json reply message in the 'line' field
+ * - link the reply to the session reply list
+ * - write the reply to line to the socket
+ * - free the session
+ *
+ * For Records replies:
+ *   - link each reply to the session reply list (at least one,
+ *     likely more than one)
+ *   - call send_session_replies to write the replies to the socket
+ *   - free the session
+ **/
+
+/**
+ * Note:
+ * Individual elements in the array can be cleared with::
+ *  int flex_array_clear(struct flex_array *array, unsigned int element_nr);
+ **/
+
+
+static inline struct jsmn_message *
+allocate_reply_message(struct jsmn_message *request)
+{
+	struct jsmn_message *rply = NULL;
+
+	rply = kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
+	if (!rply) {
+		return NULL;
+	}
+	rply->line = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (!rply->line) {
+		goto err_out_rply;
+	}
+	/**
+	 * copy some fields from the request msg to the rply msg
+	 **/
+	/* session */
+	rply->s = request->s;
+	/* socket */
+	rply->socket = request->socket;
+	return rply;
+
+err_out_rply:
+	kfree(rply);
+	return NULL;
+}
+
+/**
+ * Records request:
+ * find the struct probe, run it, read the flex array, clear each
+ * array element after its read.
+ **/
+
+static inline ssize_t
+add_to_line(uint8_t *line, uint8_t *concat, ssize_t max)
+{
+	ssize_t  add, existing;
+
+	existing = strnlen(line, max);
+	add = strnlen(concat, max - existing);
+	strncat(line, concat, add);
+	return max - (existing + add);
+}
+
+
+
+static int
+process_records_request(struct jsmn_message *msg, int index)
+{
+	int ccode = 0;
+	struct probe *probe_p = NULL;
+	struct jsmn_message *records_reply = NULL;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+	uint8_t *buf = NULL;
+	do {
+		ccode = get_probe(msg->s->probe_id, &probe_p);
+	} while (ccode == -EAGAIN);
+
+	if (!ccode && probe_p != NULL) {
+		ssize_t len = 0;
+		/**
+		 * TODO:
+		 * call the probe in a loop until we have all the record replies
+		 **/
+        /* send this probe a records request */
+		ccode = probe_p->rcv_msg_from_probe(probe_p, RECORDS, (void **)&buf, &len);           /* now unlock the probe */
+		spin_unlock(&probe_p->lock);
+
+		if (!ccode && buf && len > 0) {
+			records_reply = allocate_reply_message(msg);
+			if (records_reply) {
+				/* now build and send the reply response */
+				unsigned long replies_flag;
+				ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
+				ssize_t remaining = orig_len;
+				/* "{Virtue-protocol-verion: 0.1, reply: [nonce, id, record 1] }\n" */
+
+				remaining = add_to_line(records_reply->line, r_header, orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
+
+				remaining = add_to_line(records_reply->line,
+										records_reply->s->nonce,
+										orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
+
+				remaining = add_to_line(records_reply->line, ", ", orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
+
+				remaining = add_to_line(records_reply->line, probe_p->id, orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
+
+				remaining = add_to_line(records_reply->line, ", ", orig_len);
+				if (remaining <= len + 4) { goto out_records_reply; }
+
+				strncat(records_reply->line, buf, len);
+				strcat(records_reply->line, "] }");
+				records_reply->line = add_nl_at_end(records_reply->line,
+													strlen(records_reply->line));
+				/**
+				 * link the discovery reply message to the session
+				 **/
+				spin_lock_irqsave(&records_reply->s->sl, replies_flag);
+				list_add_tail_rcu(&records_reply->e_messages,
+								  &records_reply->s->h_replies);
+				spin_unlock_irqrestore(&records_reply->s->sl, replies_flag);
+
+				/**
+				 * write the reply message to the socket, then free the session
+				 **/
+				ccode = k_socket_write(records_reply->socket,
+									   strlen(records_reply->line) + 1,
+									   records_reply->line,
+									   0L);
+				goto out_session;
+			}
+		}
+
+	}
+out_records_reply:
+	if (records_reply) {
+		free_message(records_reply);
+	}
+out_session:
+	if (buf) {
+		kfree(buf);
+	}
+	free_session(msg->s);
+	return COMPLETE;
+}
+
+static int
+process_discovery_request(struct jsmn_message *m, int index)
+{
+
+/**
+ * TODO: optimize away redundant usage of string library functions
+ **/
+	struct jsmn_message *reply_msg = NULL;
+	uint8_t *probe_ids = NULL;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+	size_t probe_ids_len = 0;
+	int ccode = 0;
+
+	assert(m);
+	printk(KERN_DEBUG "allocating a reply message size %ld\n",
+		   sizeof(struct jsmn_message));
+
+	reply_msg = kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
+	printk(KERN_DEBUG "reply_msg, kzalloc returned: %p\n", reply_msg);
+
+
+	if (!reply_msg) {
+		ccode = -ENOMEM;
+
+		goto out_session;
+	}
+	reply_msg->type = REPLY;
+
+	/**
+	 * copy some fields from the request msg to the rply msg
+	 **/
+	/* session */
+	reply_msg->s = m->s;
+	/* socket */
+	reply_msg->socket = m->socket;
+
+	/**
+	 * build the discovery buffer
+	 * '[probe ids]'
+	 **/
+	if (build_discovery_buffer(&probe_ids, &probe_ids_len) < 0) {
+		kfree(reply_msg);
+		ccode = -ENFILE;
+		goto out_session;
+	}
+
+	/**
+	 * allocate the message buffer (line), MAX_HEADER, to be realloc'd
+	 * when we know the actual size.
+	 * TODO: start with a smaller buffer and realloc bigger
+	 **/
+	reply_msg->line = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	if (!reply_msg->line) {
+
+		ccode = -ENOMEM;
+		goto out_reply_msg;
+	} else {
+		/**
+	     * build the JSONL buffer
+	     * '{Virtue-protocol-verion: 0.1, reply: [nonce, discovery, [probe ids]] }\n'
+	     **/
+		unsigned long replies_flag;
+		ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
+		ssize_t remaining = add_to_line(reply_msg->line, r_header, orig_len);
+		if (remaining <= probe_ids_len + 4) {
+			goto out_reply_msg;
+		}
+
+		remaining = add_to_line(reply_msg->line, reply_msg->s->nonce, orig_len);
+		if (remaining <= probe_ids_len + 4) {
+			goto out_reply_msg;
+		}
+
+		remaining = add_to_line(reply_msg->line, ", discovery, ", orig_len);
+		if (remaining <= probe_ids_len + 4) {
+			goto out_reply_msg;
+		}
+
+		remaining = add_to_line(reply_msg->line, probe_ids, orig_len);
+		if (remaining <= 4) {
+			goto out_reply_msg;
+		}
+
+		strcat(reply_msg->line, "] }");
+		reply_msg->line = add_nl_at_end(reply_msg->line, strlen(reply_msg->line));
+		/**
+		 * link the discovery reply message to the session
+		 **/
+		spin_lock_irqsave(&reply_msg->s->sl, replies_flag);
+		list_add_tail_rcu(&reply_msg->e_messages, &reply_msg->s->h_replies);
+		spin_unlock_irqrestore(&reply_msg->s->sl, replies_flag);
+
+		/**
+		 * write the reply message to the socket, then free the session
+		 **/
+		ccode = k_socket_write(reply_msg->socket,
+							   strlen(reply_msg->line) + 1,
+							   reply_msg->line,
+							   0L);
+		goto out_session;
+	}
+
+out_reply_msg:
+	free_message(reply_msg);
+out_session:
+	free_session(m->s);
+	return COMPLETE;
+}
 
 /**
  * message is guaranteed to be connected to a session,
@@ -551,20 +829,30 @@ check_protocol_version(struct jsmn_message *m)
 
 	start = m->line  + tag.start;
 	bytes = tag.end - tag.start;
-	if (bytes != strlen(prot_tag))
+	if (bytes != strlen(prot_tag)) {
+		printk(KERN_DEBUG "bytes: %ld; tag len: %ld\n", bytes, strlen(prot_tag));
+
+
 		return JSMN_ERROR_INVAL;
+	}
+
 	ccode = memcmp(prot_tag, start, bytes);
 	if (ccode) {
+
 		printk(KERN_INFO "message tag value is unexpected\n");
 		return JSMN_ERROR_INVAL;
 	}
 
 	start = m->line + version.start;
 	bytes = version.end - version.start;
-	if (bytes != strlen(ver_tag))
+	if (bytes != strlen(ver_tag)) {
+
 		return JSMN_ERROR_INVAL;
+	}
+
 	ccode = memcmp(ver_tag, start, bytes);
 	if (ccode) {
+
 		printk(KERN_INFO "Protocol version value is unexpected\n");
 		return JSMN_ERROR_INVAL;
 	}
@@ -580,18 +868,22 @@ validate_message_tokens(struct jsmn_message *m)
 	if (!m->line ||
 		m->len >= MAX_LINE_LEN ||
 		m->line[m->len] != 0x00) {
+
+
 		return -EINVAL;
 	}
 
 	if (m->count < 1 ||
 		m->count > MAX_TOKENS ||
 		m->tokens[0].type != JSMN_OBJECT) {
+
 		return -JSMN_ERROR_INVAL;
 	}
 	for (i = 0, len = m->len; i < m->count; i++) {
 		if (m->tokens[i].start > len ||
 			m->tokens[i].end > len ||
 			m->tokens[i].end - m->tokens[i].start < 0) {
+
 			return -JSMN_ERROR_INVAL;
 		}
 	}
@@ -608,7 +900,6 @@ parse_json_message(struct jsmn_message *m)
 
 	assert(m);
 	if (!m->count) {
-
 		jsmn_init(&m->parser);
 		m->count = jsmn_parse(&m->parser,
 							  m->line,
@@ -617,11 +908,14 @@ parse_json_message(struct jsmn_message *m)
 							  MAX_TOKENS);
 	}
 
+	printk(KERN_DEBUG "token count for msg: %d\n", m->count);
+
 	if (m->count < 0 ) {
 		printk(KERN_INFO "failed to parse JSON: %d\n", (int)m->count);
 		return m->count;
 	}
 	assert(m->line && m->line[m->len] == 0x00);
+
 	if (validate_message_tokens(m)) {
 		printk(KERN_INFO "each message must be a well-formed JSON object" \
 			   " %d\n", (int)m->count);
@@ -637,9 +931,16 @@ parse_json_message(struct jsmn_message *m)
 		 **/
 
 		switch (i) {
+		case OBJECT_START:
+		case OBJECT_END:
+		{
+			break;
+		}
+
 		case VER_TAG:
 		{
 			if (check_protocol_version(m)) {
+
 				return JSMN_ERROR_INVAL;
 			}
 			i  = VERSION; /* we validated the tag and value, so increment the index */
@@ -653,39 +954,47 @@ parse_json_message(struct jsmn_message *m)
 			 */
 			m->type = check_protocol_message(m);
 			if (m->type == JSMN_ERROR_INVAL) {
+
 				return m->type;
 			}
-			break;
-		}
-		case 4:
-		{
-			/* opening left bracket of message content object */
 
 			break;
 		}
+		case JSONL_BRACKET:
+		case JSONR_BRACKET:
+		{
+			break;
+		}
+
 		case NONCE:
 		{
 			if (!(m->s = get_session(m))) {
+
 				printk(KERN_INFO "unable to find session corresponding to message:");
 				dump(m->line, m->tokens, m->parser.toknext, 0);
 				free_message(m);
 				return JSMN_ERROR_INVAL;
 			}
-
 			break;
 		}
 		case CMD:
 		{
-			ccode = pre_process_jsmn_cmd(m);
+			/**
+			 * pre_process_jsmn_cmd(m):
+			 *
+			 **/
+
+			ccode = pre_process_jsmn_request_cmd(m);
 
 			if (!ccode || ccode == COMPLETE)
 				return 0;
-			else
+			else {
 				return JSMN_ERROR_INVAL;
+			}
 		}
-
 		default:
 			return JSMN_ERROR_INVAL;
+
 		}
 	}
 

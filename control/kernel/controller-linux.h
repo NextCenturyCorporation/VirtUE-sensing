@@ -35,5 +35,10 @@
 #include <linux/syscalls.h>
 #include <uapi/linux/stat.h>
 #include <asm/atomic64_64.h>
-#define assert(s) if (!(s)) {DMSG(); printk(KERN_DEBUG "panic\n");}
+//#include <asm-generic/bug.h>
+#define assert(s) do { \
+		if (unlikely(!(s))) printk(KERN_DEBUG "assertion failed: " #s " at %s:%d\n", \
+						  __FILE__, __LINE__);							\
+  } while(0)
+
 #endif // CONTROLLER_LINUX_H

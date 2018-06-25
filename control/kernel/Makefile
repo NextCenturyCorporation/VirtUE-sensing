@@ -19,7 +19,7 @@ import-header:
 all: clean lint test-module
 
 .PHONY: rebuild
-rebuild: clean test-module
+rebuild: clean test-module disassemble
 
 test-module : ccflags-y +=  -g -DDEBUG -fno-inline
 test-module : OJECT_FILES_NON_STANDARD := y
@@ -31,6 +31,7 @@ clean:
 		$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
 		rm uname.h &>/dev/null  ||:
 		rm import-header.h &>/dev/null  ||:
+		rm *.o.asm &> /dev/null ||:
 
 module : ccflags-y +=  -02 -f-inline
 module : uname
@@ -66,6 +67,10 @@ pretty:
 
 .PHONY: trim
 trim:
-	find ./ -name "*.c" | xargs ttws.sh
-	find ./ -name "*.h" | xargs ttws.sh
-	find ./ -name "Makefile" | xargs ttws.sh
+	find ./ -name "*.c" | xargs ./ttws.sh
+	find ./ -name "*.h" | xargs ./ttws.sh
+	find ./ -name "Makefile" | xargs ./ttws.sh
+
+.PHONY: disassemble
+disassemble:
+	find ./ -name "*.o" | xargs ./dis.sh
