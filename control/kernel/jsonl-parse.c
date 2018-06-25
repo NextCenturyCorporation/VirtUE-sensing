@@ -170,16 +170,9 @@ const uint8_t escape [] = {0x5c, 0x00};
 void
 free_message(struct jsmn_message *m)
 {
-
-	printk(KERN_DEBUG "m: %p, m->line: %p\n", m, m->line);
-
 	if(m->line)
 		kfree(m->line);
-
-
  	kfree(m);
-
-
 	return;
 }
 
@@ -219,12 +212,10 @@ free_session(struct jsmn_session *s)
 		spin_lock(&sessions_lock);
 		list_del_rcu(&s->session_entry);
 		spin_unlock(&sessions_lock);
-		synchronize_rcu();
 
 		while (NULL != (m = list_first_or_null_rcu(&s->h_replies,
 												   struct jsmn_message,
 												   e_messages))) {
-			printk(KERN_DEBUG "free reply message: %p\n", m);
 			list_del(&m->e_messages);
 			free_message(m);
 		}
@@ -293,8 +284,9 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 
 		}
 		ccode = index_command(c, c_bytes);
-		if (ccode >= 0 && ccode <= RECORDS )
+		if (ccode >= 0 && ccode <= RECORDS ) {
 			return cmd_table[ccode](m, ccode);
+		}
 	}
 
 err_out:
@@ -413,10 +405,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		.range = 1
 	};
 
-	struct records_reply rp = {
-		.records = kzalloc(CONNECTION_MAX_REPLY, GFP_KERNEL),
-		.records_len = CONNECTION_MAX_REPLY
-	};
+	struct records_reply rp = {0};
 
 	struct probe_msg pm = {
 		.id = RECORDS,
@@ -426,6 +415,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		.output = &rp,
 		.output_len = sizeof(struct records_reply),
 	};
+
 	do {
 		ccode = get_probe(msg->s->probe_id, &probe_p);
 	} while (ccode == -EAGAIN);
@@ -436,14 +426,18 @@ process_records_request(struct jsmn_message *msg, int index)
 		/* each record is encapsulated in a json object and copied into */
 		/* a reply message, and linked to the session */
 		do {
+			rp.records = kzalloc(CONNECTION_MAX_REPLY, GFP_KERNEL);
+			rp.records_len = CONNECTION_MAX_REPLY;
+			if (! rp.records) {
+				ccode = -ENOMEM;
+				break;
+			}
+
 			ccode = probe_p->message(probe_p, &pm);
 			/**
 			 * rp.records contains the json record object(s)
 			 * rp.records_len contains the length of the object(s)
 			 **/
-			spin_unlock(&probe_p->lock);
-			probe_p = NULL;
-
 			if (ccode >= 0) {
 				records_reply = allocate_reply_message(msg, 0);
 				if (records_reply) {
@@ -464,11 +458,13 @@ process_records_request(struct jsmn_message *msg, int index)
 			 * re-initialize the request struct to reflect where we are in the loop
 			 **/
 			rr.range--;
-			if (rr.range) {
+			if (rr.range > 0) {
 				rr.run_probe = 0;
 				rr.index++;
 			}
-		} while(!ccode);
+		} while(!ccode && rr.range > 0);
+		spin_unlock(&probe_p->lock);
+		probe_p = NULL;
 	}
 
 	/**
@@ -497,7 +493,6 @@ process_records_request(struct jsmn_message *msg, int index)
 	 *
 	 * If no error, return COMPLETE (a positive enumerated value)
 	 **/
-	kfree(rp.records);
 
 	free_session(msg->s);
 	if (ccode < 0)
@@ -521,16 +516,9 @@ process_discovery_request(struct jsmn_message *m, int index)
 	int ccode = 0;
 
 	assert(m);
-	printk(KERN_DEBUG "allocating a reply message size %ld\n",
-		   sizeof(struct jsmn_message));
-
 	reply_msg = kzalloc(sizeof(struct jsmn_message), GFP_KERNEL);
-	printk(KERN_DEBUG "reply_msg, kzalloc returned: %p\n", reply_msg);
-
-
 	if (!reply_msg) {
 		ccode = -ENOMEM;
-
 		goto out_session;
 	}
 	reply_msg->type = REPLY;
@@ -801,9 +789,6 @@ check_protocol_version(struct jsmn_message *m)
 	start = m->line  + tag.start;
 	bytes = tag.end - tag.start;
 	if (bytes != strlen(prot_tag)) {
-		printk(KERN_DEBUG "bytes: %ld; tag len: %ld\n", bytes, strlen(prot_tag));
-
-
 		return JSMN_ERROR_INVAL;
 	}
 
@@ -878,8 +863,6 @@ parse_json_message(struct jsmn_message *m)
 							  m->tokens,
 							  MAX_TOKENS);
 	}
-
-	printk(KERN_DEBUG "token count for msg: %d\n", m->count);
 
 	if (m->count < 0 ) {
 		printk(KERN_INFO "failed to parse JSON: %d\n", (int)m->count);

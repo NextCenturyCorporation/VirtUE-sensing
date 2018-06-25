@@ -60,9 +60,6 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	assert(msg->output_len == (sizeof(struct records_reply)));
 	assert(rr->index >= 0 && rr->index < PS_ARRAY_SIZE);
 
-	if (! spin_trylock(&parent->lock)) {
-		return -EAGAIN;
-	}
 	if (rr->run_probe) {
 		/**
 		 * refresh all the ps records in the flex array
@@ -75,17 +72,14 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	}
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, rr->index);
-	if (kpsd_p && rr->clear) {
-		flex_array_clear(parent->kps_data_flex_array, rr->index);
+	if (kpsd_p && kpsd_p->clear == FLEX_ARRAY_FREE) {
+		return -ENOENT;
 	}
-
 
 	if (!kpsd_p) {
 		return -ENOENT;
 	}
-	if (kpsd_p->clear == FLEX_ARRAY_FREE) {
-		return -ENOENT;
-	}
+
 	if (rr->nonce && kpsd_p->nonce != rr->nonce) {
 		return -EINVAL;
 	}
@@ -144,6 +138,10 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 
 	if (cur_len >= orig_len) {
 		cur_len = orig_len;
+	}
+
+	if (kpsd_p && rr->clear) {
+		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
 
 	rp->records_len = cur_len;
@@ -256,13 +254,12 @@ kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 {
 
 	int index;
-	unsigned long flags;
 
-	if (!spin_trylock_irqsave(&parent->lock, flags)) {
+	if (!spin_trylock(&parent->lock)) {
 		return -EAGAIN;
 	}
 	index = kernel_ps_unlocked(parent, nonce);
-	spin_unlock_irqrestore(&parent->lock, flags);
+	spin_unlock(&parent->lock);
 	return index;
 }
 

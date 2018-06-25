@@ -365,7 +365,6 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 		}
 	}
 	rcu_read_unlock();
-	printk(KERN_DEBUG "closing discovery message, remaining %d\n", remaining);
 	if (remaining > 2) {
 		*cursor++ = R_BRACKET; remaining--;
 		*cursor++ = 0x00; remaining--;
@@ -374,7 +373,6 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 		*buf = krealloc(*buf, (*len - (remaining - 2)), GFP_KERNEL);
 		*len -= (remaining - 2);
 	}
-	printk(KERN_DEBUG "discovery buffer: %s\n", *buf);
 
 	return 0;
 
@@ -630,7 +628,6 @@ default_probe_message(struct probe *probe, struct probe_msg *msg)
 	assert(probe && msg);
 
 	if (msg->id < CONNECT || msg->id > RECORDS) {
-		DMSG();
 		return -EINVAL;
 	}
 	msg->ccode = 0;

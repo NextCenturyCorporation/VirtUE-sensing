@@ -67,13 +67,11 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 	 * default size for /proc and /sys is 0x100, one block.
 	 * they don't return a size in kstat
 	 **/
-	DMSG();
 	memset(&ksysfsd, 0x00, sizeof(struct kernel_sysfs_data));
 	f = filp_open(path, O_RDONLY, 0);
 	if (f) {
 		size_t size = 0, max_size = 0x100000;
 		loff_t pos = 0;
-		DMSG();
 		ccode = file_getattr(f, &ksysfsd.stat);
 		if (ccode) {
 			printk(KERN_INFO "error getting file attributes %zx\n", ccode);
@@ -83,21 +81,18 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 		 * get the size, or default size if /proc or /sys
 		 * set an arbitrary limit of 1 MB for read buffer
 		 **/
-		DMSG();
 		size = min(calc_file_size(&ksysfsd.stat), max_size);
 		ksysfsd.data = kzalloc(size, GFP_KERNEL);
 		if (ksysfsd.data == NULL) {
 			ccode = -ENOMEM;
 			goto err_exit;
 		}
-		DMSG();
 		ksysfsd.data_len = size;
 		ccode = ksysfsd.ccode = read_file_struct(f, ksysfsd.data, size, &pos);
 		if (ccode < 0) {
 			goto err_exit;
 		}
 		if (*start <  LSOF_ARRAY_SIZE) {
-			DMSG();
 			flex_array_put(p->ksysfs_flex_array,
 						   *start,
 						   &ksysfsd,
@@ -132,12 +127,11 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
-	unsigned long flags;
 	pid_el *pid_el_p;
 	static char sysfs_path[MAX_DENTRY_LEN + 1];
 	static char *format = "/proc/%d/mounts";
 
-	if (!spin_trylock_irqsave(&p->lock, flags)) {
+	if (!spin_trylock(&p->lock)) {
 		return -EAGAIN;
 	}
 	for (index = 0; index < PID_EL_ARRAY_SIZE; index++)  {
@@ -149,8 +143,6 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 			} else {
 				goto unlock_out;
 			}
-
-
 			snprintf(sysfs_path, MAX_DENTRY_LEN, format, pid_el_p->pid);
 			file_index = index;
 			task = get_task_by_pid_number(pid_el_p->pid);
@@ -162,12 +154,13 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 			put_task_struct(task);
 		} else {
 			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
-			spin_unlock_irqrestore(&p->lock, flags);
+			spin_unlock(&p->lock);
 			return -ENOMEM;
 		}
 	}
 unlock_out:
-	spin_unlock_irqrestore(&p->lock, flags);
+
+	spin_unlock(&p->lock);
 	return file_index;
 }
 STACK_FRAME_NON_STANDARD(sysfs_for_each_pid);
@@ -213,8 +206,6 @@ run_sysfs_probe(struct kthread_work *work)
 	int count = 0;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
-	DMSG();
-
 	probe_struct->ksysfs(probe_struct, count, nonce);
 
 /**
@@ -339,7 +330,6 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 					&sysfs_p->work);
 	kthread_run(kthread_worker_fn, &sysfs_p->worker,
 				"kernel-sysfs");
-	DMSG();
 	return sysfs_p;
 
 err_free_pid_flex_array:
@@ -347,7 +337,6 @@ err_free_pid_flex_array:
 err_free_flex_array:
 	flex_array_free(sysfs_p->ksysfs_flex_array);
 err_exit:
-	DMSG();
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
