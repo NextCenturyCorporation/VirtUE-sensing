@@ -20,7 +20,7 @@ There are two basic ways to create probes using bcc tools:
 1. Invoke the particular bcc tool as a command-line utility, capture the output on stdio, enhance the output so it is consumable by the savior logging infrastructure.
 2. Enhance the particular bcc tool so that it is a more functional Python class that accepts input and produces json-ized output that is directly consumable by the savior logging infrastructure. And, as python class it is composable into other python programs.
 
-### Current Approach: Enhance each tool to be an interactive Pythonn class
+### Current Approach: Enhance each tool to be an interactive Python class
 I am working with the second approach from above. So far it is easier to enhance each tool directly using python than it is to capture and upgrade its stdio output.
 
 ## Repository Logistics
