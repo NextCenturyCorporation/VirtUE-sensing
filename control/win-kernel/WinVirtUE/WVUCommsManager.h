@@ -16,6 +16,8 @@ public:
 	/** WVUQueueManager State Change Method Type */
 
 private:
+	WVUCommsManager();
+
 	// port name used to communicate between user and kernel
 	static CONST PWSTR PortName;
 	/** port name for the commands issued by the user space program */
@@ -125,7 +127,17 @@ private:
 			_Out_ _Notnull_ PULONG ReturnOutputBufferLength);
 
 public:	
-	WVUCommsManager();
+
+	/**
+	* @brief returns the one and only comms manager instance 
+	* @returns WVUCommsManager instance singleton
+	*/
+	static WVUCommsManager& GetInstance()
+	{
+		static WVUCommsManager instance;
+		return instance;
+	}
+
 	~WVUCommsManager();
 	_Success_(TRUE == return)
 		BOOLEAN Start();
@@ -134,5 +146,14 @@ public:
 		_Success_(NULL != return)
 		PVOID operator new(_In_ size_t size);
 	VOID CDECL operator delete(_In_ PVOID ptr);
+	/**
+	* @brief copy constructor 
+	*/
+	WVUCommsManager(const WVUCommsManager &t) = delete;
+	
+	/**
+	* @brief assignment operator
+	*/
+	WVUCommsManager& operator=(const WVUCommsManager &rhs) = delete;	
 };
 
