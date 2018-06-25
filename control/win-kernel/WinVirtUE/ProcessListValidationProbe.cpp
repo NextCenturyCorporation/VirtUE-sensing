@@ -19,6 +19,7 @@ ProcessListValidationProbe::ProcessListValidationProbe() :
 
 /**
 * @brief called to configure the probe
+* @note currently not implmented, placeholder code
 * @param NameValuePairs newline terminated with assign operator name value
 * pair configuration information
 */
