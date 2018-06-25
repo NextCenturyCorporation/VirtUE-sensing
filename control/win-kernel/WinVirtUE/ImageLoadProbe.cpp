@@ -15,7 +15,7 @@
 ImageLoadProbe::ImageLoadProbe() :
 	AbstractVirtueProbe(RTL_CONSTANT_STRING("ImageLoad"))
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime);// | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
 /**
 * @brief called to configure the probe

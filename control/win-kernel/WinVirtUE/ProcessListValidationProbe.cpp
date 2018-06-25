@@ -14,7 +14,7 @@
 ProcessListValidationProbe::ProcessListValidationProbe() :
 	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessListValidation"))
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal);// | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);
 }
 
 /**
