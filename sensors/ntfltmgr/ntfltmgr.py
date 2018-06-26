@@ -53,9 +53,8 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         offset = 0
-        length = sizeof(ProbeDataHeader)               
-        info = cast(msg_pkt[offset:length], 
-                POINTER(ProbeDataHeader))        
+        length = sizeof(FILTER_MESSAGE_HEADER)               
+        info = cast(msg_pkt[offset:length], POINTER(ProbeDataHeader))        
         pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
@@ -221,8 +220,6 @@ class ProbeDataHeader(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
-        ('ReplyLength', ULONG),
-        ('MessageId', ULONGLONG),
         ('ProbeId', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
@@ -457,8 +454,6 @@ def FilterGetMessage(hPort, msg_len):
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
     try:
         res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
-        pkt = create_string_buffer(sb.raw[sizeof(FILTER_MESSAGE_HEADER):])
-        info = cast(pkt, POINTER(FILTER_MESSAGE_HEADER))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror)
@@ -879,6 +874,7 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
