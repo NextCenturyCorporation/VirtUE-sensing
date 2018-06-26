@@ -515,8 +515,7 @@ def FilterSendMessage(hPort, status, msg_id, msg, msg_len):
 
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
-_FilterConnectCommunicationPortParamFlags = (1, "lpPortName"), (1,  "dwOptions", 0), (1, "lpContext", 0), 
-(1,  "dwSizeOfContext", 0), (1, "lpSecurityAttributes", 0), (2, "hPort")
+_FilterConnectCommunicationPortParamFlags = (1, "lpPortName"), (1,  "dwOptions", 0), (1, "lpContext",0), (1, "dwSizeOfContext", 0), (1, "lpSecurityAttributes", 0), (2, "hPort")
 _FilterConnectCommunicationPort = _FilterConnectCommunicationPortProto(("FilterConnectCommunicationPort", windll.fltlib), 
                                                          _FilterConnectCommunicationPortParamFlags)
 def FilterConnectCommunicationPort(PortName):
