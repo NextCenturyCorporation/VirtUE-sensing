@@ -10,5 +10,7 @@
 #include "RegistryModificationCB.h"
 #include "externs.h"
 
-KSTART_ROUTINE WVUMainThreadStart;
-KSTART_ROUTINE WVUSensorThread;
+KSTART_ROUTINE WVUMainInitThread;
+KSTART_ROUTINE WVUProbeCommsThread;
+_Has_lock_kind_(_Lock_kind_semaphore_)
+KSTART_ROUTINE WVUTemporalProbeThread;

@@ -1,20 +1,22 @@
 /**
-* @file ProbeDataQueue.cpp
+* @file WVUQueueManager.cpp
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
 * @brief ProbeData Queue
 */
-#include "ProbeDataQueue.h"
-#include "externs.h"
+#include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
+CONST INT WVUQueueManager::PROBEDATAQUEUESZ = 0x4000;
+
 /**
-* @brief construct an instance of the ProbeDataQueue.  The ProbeDataQueue constructs a 
+* @brief construct an instance of the WVUQueueManager.  The WVUQueueManager constructs a 
 * simple producer/consumer lockable queue that moves data to a connected user space program.
 */
 #pragma warning(suppress: 26439)
 #pragma warning(suppress: 26495)
-ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), NumberOfQueueEntries(0LL)
+WVUQueueManager::WVUQueueManager() : MessageId(1), Enabled(FALSE), SizeOfDataInQueue(0LL), 
+NumberOfQueueEntries(0LL), NumberOfRegisteredProbes(0L)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	wfso_timeout.QuadPart = 0LL;
@@ -32,7 +34,7 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 	if (NULL == pSemaphore)
 	{
 		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 	KeInitializeSemaphore(pSemaphore, 0, PROBEDATAQUEUESZ);
@@ -46,7 +48,7 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 	if (NULL == pKEvent)
 	{
 		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Failed to allocate nonpaged pool memory for the semaphore FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
 	KeInitializeEvent(pKEvent, EVENT_TYPE::NotificationEvent, FALSE);
@@ -57,6 +59,12 @@ ProbeDataQueue::ProbeDataQueue() : MessageId(1), Enabled(FALSE), SizeOfDataInQue
 
 	// initialize the Probe Data Queue TWLL
 	InitializeListHead(&this->PDQueue);
+
+	// initialize the spinlock that controls access to the probe list
+	KeInitializeSpinLock(&this->ProbeListSpinLock);
+
+	// initialize the probe list
+	InitializeListHead(&this->ProbeList);
 
 	// we build the queue successfully
 	this->Enabled = TRUE;
@@ -72,7 +80,7 @@ SuccessExit:
 */
 _Use_decl_annotations_
 int 
-ProbeDataQueue::dtor_exc_filter(
+WVUQueueManager::dtor_exc_filter(
 	UINT32 code, 
 	struct _EXCEPTION_POINTERS *ep)
 {
@@ -88,18 +96,22 @@ ProbeDataQueue::dtor_exc_filter(
 }
 
 /**
-* @brief destroy this instance of the ProbeDataQueue
+* @brief destroy this instance of the WVUQueueManager
 */
-ProbeDataQueue::~ProbeDataQueue()
-{
+WVUQueueManager::~WVUQueueManager()
+{	
+	while (FALSE == IsListEmpty(&this->ProbeList))
+	{		
+		PLIST_ENTRY pListEntry = RemoveHeadList(&this->ProbeList);
+		ProbeInfo* pProbeInfo = CONTAINING_RECORD(pListEntry, ProbeInfo, ListEntry);
+		delete pProbeInfo;
+	}
 
-	PLIST_ENTRY pListEntry = this->PDQueue.Flink;
-
-	while(NULL != pListEntry && pListEntry != &this->PDQueue)
+	while (FALSE == IsListEmpty(&this->PDQueue))
 	{
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		pListEntry = pListEntry->Flink;
-		delete[](PUCHAR)pPDH;		
+		PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
+		PPROBE_DATA_HEADER pProbeInfo = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		delete[](PBYTE)pProbeInfo;
 	}
 
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])
@@ -123,19 +135,19 @@ ProbeDataQueue::~ProbeDataQueue()
 * and move on.
 */
 VOID
-ProbeDataQueue::TerminateLoop()
+WVUQueueManager::TerminateLoop()
 {
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 	// the next two instructions will cause the consumer loop to terminate
-	this->SemaphoreRelease();
-	this->OnConnect();
+	this->SemaphoreRelease();  // artificially release the semaphore to move things along
+	this->OnConnect();  // artificially simulate a connect to get things moving
 }
 
 /**
 * @brief cause the sempahore count to be incremented. Ignore exceptions
 */
 VOID
-ProbeDataQueue::SemaphoreRelease()
+WVUQueueManager::SemaphoreRelease()
 {
 	__try
 	{
@@ -145,7 +157,7 @@ ProbeDataQueue::SemaphoreRelease()
 	}
 	__except (dtor_exc_filter(GetExceptionCode(), GetExceptionInformation()))
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Error augmenting semaphore value - ignored!\n")
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Error augmenting semaphore value - ignored!\n")
 	}
 }
 
@@ -154,12 +166,12 @@ ProbeDataQueue::SemaphoreRelease()
 */
 _Use_decl_annotations_
 VOID
-ProbeDataQueue::update_counters(
+WVUQueueManager::update_counters(
 	PLIST_ENTRY pListEntry)
 {
-	PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+	PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+	WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
 }
 
@@ -167,18 +179,18 @@ ProbeDataQueue::update_counters(
 * @brief cause the queue to be trimmed a level that is at or below the max queue size
 */
 VOID
-ProbeDataQueue::TrimProbeDataQueue()
+WVUQueueManager::TrimProbeDataQueue()
 {
-	while (this->Count() >= ::PROBEDATAQUEUESZ)  // remove the oldest entry if we're too big
+	while (this->Count() >= WVUQueueManager::PROBEDATAQUEUESZ)  // remove the oldest entry if we're too big
 	{
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
 		this->NumberOfQueueEntries = this->Count();
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
+		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
 		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
 		delete[] pPDH;
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Trimmed ProbeDataQueue\n");
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Trimmed WVUQueueManager\n");
 		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
 	}
 }
@@ -190,26 +202,26 @@ ProbeDataQueue::TrimProbeDataQueue()
 */
 _Use_decl_annotations_
 BOOLEAN
-ProbeDataQueue::Enqueue(
+WVUQueueManager::Enqueue(
 	PLIST_ENTRY pListEntry)
 {
-	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	BOOLEAN success = FALSE;
 
 	if (FALSE == Enabled)
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
 		goto Error;
 	}
 
 	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
 	__try
 	{
-		TrimProbeDataQueue();
+		TrimProbeDataQueue();		
 		InsertTailList(&this->PDQueue, pListEntry);
 		update_counters(pListEntry);
 		SemaphoreRelease();
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
 	}
 	__finally
@@ -230,15 +242,15 @@ Error:
 */
 _Use_decl_annotations_
 BOOLEAN 
-ProbeDataQueue::PutBack(
+WVUQueueManager::PutBack(
 	PLIST_ENTRY pListEntry)
 {
-	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	BOOLEAN success = FALSE;
 
 	if (FALSE == Enabled)
 	{
-		WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Attempting to use an invalid queue!\n");
 		goto Error;
 	}
 
@@ -249,7 +261,7 @@ ProbeDataQueue::PutBack(
 		InsertHeadList(&this->PDQueue, pListEntry);
 		update_counters(pListEntry);
 		SemaphoreRelease();
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
 	}
 	__finally
@@ -268,9 +280,9 @@ Error:
 */
 _Use_decl_annotations_
 PLIST_ENTRY 
-ProbeDataQueue::Dequeue()
+WVUQueueManager::Dequeue()
 {
-	KLOCK_QUEUE_HANDLE LockHandle = { NULL, 0 };
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
 	PLIST_ENTRY pListEntry = NULL;
 
 	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
@@ -278,21 +290,21 @@ ProbeDataQueue::Dequeue()
 	{
 		if (FALSE == Enabled || TRUE == IsListEmpty(&this->PDQueue))
 		{
-			WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Attempting to use an invalid or empty queue!\n");
+			WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Attempting to use an invalid or empty queue!\n");
 			pListEntry = NULL;
 			__leave;
 		}
 		pListEntry = RemoveHeadList(&this->PDQueue);
 		if (NULL == pListEntry)
 		{
-			WVU_DEBUG_PRINT(LOG_MAIN, WARNING_LEVEL_ID, "Unable to remove a queue entry!\n");
+			WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Unable to remove a queue entry!\n");
 			pListEntry = NULL;
 			__leave;
 		}
-		PProbeDataHeader pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
 		this->NumberOfQueueEntries = this->Count();
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
 	}
 	__finally
@@ -308,11 +320,94 @@ ProbeDataQueue::Dequeue()
 */
 _Use_decl_annotations_
 VOID 
-ProbeDataQueue::Dispose(PVOID pBuf)
+WVUQueueManager::Dispose(PVOID pBuf)
 {
 	this->MessageId++;
 	delete[](PUCHAR)pBuf;
 	return VOID();
+}
+
+
+/**
+* @brief registers a Virtue Probe
+* @note returns FALSE if probe already registered
+* @param probe The probe to register
+* @return TRUE if probe succesfully registered else FALSE
+*/
+_Use_decl_annotations_
+BOOLEAN 
+WVUQueueManager::Register(AbstractVirtueProbe& probe)
+{
+	BOOLEAN success = FALSE;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
+	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
+	__try
+	{
+		if (NULL == FindProbeByName(((AbstractVirtueProbe&)probe).GetProbeName()))
+		{
+			ProbeInfo* pProbeInfo = new ProbeInfo;
+			pProbeInfo->Probe = &probe;
+			InsertTailList(&this->ProbeList, &pProbeInfo->ListEntry);
+			InterlockedIncrement(&this->NumberOfRegisteredProbes);
+			success = TRUE;
+		}
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+	return success;
+}
+
+/**
+* @brief unregisters a Virtue Probe
+* @param probe The probe to unregister
+* @return TRUE if the registration list is empty else FALSE
+*/
+_Use_decl_annotations_
+BOOLEAN 
+WVUQueueManager::Unregister(AbstractVirtueProbe& probe)
+{
+	BOOLEAN is_empty = TRUE;
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
+	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
+	__try
+	{
+		ProbeInfo* pProbeInfo = FindProbeByName(probe.GetProbeName());
+		if (NULL != pProbeInfo)
+		{
+			is_empty = RemoveEntryList(&pProbeInfo->ListEntry);
+			delete pProbeInfo;
+			InterlockedDecrement(&this->NumberOfRegisteredProbes);
+		}
+	}
+	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
+	return is_empty;
+}
+
+/**
+* @brief unregisters a Virtue Probe
+* @param probe The probe to unregister
+* @return TRUE if the registration list is empty else FALSE
+*/
+_Use_decl_annotations_
+WVUQueueManager::ProbeInfo *
+WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
+{
+	ProbeInfo* pProbeInfo = nullptr;
+	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+	{
+		CONST ANSI_STRING& probe_name = probe->Probe->GetProbeName();
+		if (probe_name.Length != probe_to_be_found.Length)
+		{
+			continue; // keep looking for the next one
+		}
+		if(probe_name.Length 
+			== RtlCompareMemory(probe_name.Buffer, probe_to_be_found.Buffer, probe_name.Length))
+		{
+			pProbeInfo = probe;
+			break;
+		}
+	}
+
+	return pProbeInfo;
 }
 
 /**
@@ -321,7 +416,7 @@ ProbeDataQueue::Dispose(PVOID pBuf)
 */
 _Use_decl_annotations_
 PVOID 
-ProbeDataQueue::operator new(size_t size)
+WVUQueueManager::operator new(size_t size)
 {
 #pragma warning(suppress: 28160)  // cannot possibly allocate a must succeed - invalid
 	PVOID pVoid = ExAllocatePoolWithTag(NonPagedPool, size, COMMON_POOL_TAG);
@@ -334,7 +429,7 @@ ProbeDataQueue::operator new(size_t size)
 */
 _Use_decl_annotations_
 VOID CDECL 
-ProbeDataQueue::operator delete(PVOID ptr)
+WVUQueueManager::operator delete(PVOID ptr)
 {	
 	if (!ptr)
 	{

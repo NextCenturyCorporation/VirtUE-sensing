@@ -102,7 +102,12 @@ DriverEntry(
 
 
 	LARGE_INTEGER timeout = { 0LL };
-	timeout.QuadPart = RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
+	timeout.QuadPart =
+#if defined(WVU_DEBUG)
+		RELATIVE(SECONDS(600)); // -1000 * 1000 * 6000 * 10;  // ten minute timeout
+#else
+		RELATIVE(SECONDS(10)); // -1000 * 1000 * 10 * 10;  // ten second timeout
+#endif
 
 	WVUDebugBreakPoint();
 	
@@ -129,7 +134,7 @@ DriverEntry(
 	// intialization, it will signal and wait simultaneously.  It will continue
 	// to wait until the DriverUnload routine signals it.  When the thread
 	// continues the objects created will have their destructors called.
-	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);	
+	KeInitializeEvent(&Globals.WVUThreadStartEvent, EVENT_TYPE::SynchronizationEvent, FALSE);
 	
 	ExInitializeRundownProtection(&Globals.RunDownRef);
 	Globals.ShuttingDown = FALSE;
@@ -142,7 +147,7 @@ DriverEntry(
 	
 	InitializeObjectAttributes(&MainThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create thread, register stuff and etc
-	Status = PsCreateSystemThread(&Globals.MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainThreadStart, &Globals.WVUThreadStartEvent);
+	Status = PsCreateSystemThread(&Globals.MainThreadHandle, GENERIC_ALL, &MainThdObjAttr, NULL, &MainClientId, WVUMainInitThread, &Globals.WVUThreadStartEvent);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
@@ -154,21 +159,21 @@ DriverEntry(
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Failed! Status=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Failed! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
 	switch (Status)
 	{
 	case STATUS_SUCCESS:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Returned SUCCESS\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Returned SUCCESS\n");
 		break;
 	case STATUS_TIMEOUT:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Timed Out\n");
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Timed Out\n");
 		Status = STATUS_TIMEOUT;
 		goto ErrorExit;
 		break;
 	default:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStart,...) Thread Has Just Received Status=0x%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Received Status=0x%08x\n", Status);
 		goto ErrorExit;
 		break;
 	}
@@ -179,14 +184,18 @@ DriverEntry(
 ErrorExit:
 
 	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);  // exits the intialization thread
+	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called KeSetEvent(&Globals.WVUThreadStartEvent...)!\n");
 
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
+	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called ExWaitForRundownProtectionRelease(&Globals.RunDownRef)!\n");
 
 	// destroy global object instances
 	CallGlobalDestructors();
+	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called CallGlobalDestructors()!\n");
 
 Exit:
 
+	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting on Error Status 0x%08x!\n");
 	return Status;
 }

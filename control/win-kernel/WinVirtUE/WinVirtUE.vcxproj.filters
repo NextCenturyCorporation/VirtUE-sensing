@@ -40,6 +40,30 @@
     <Filter Include="inc">
       <UniqueIdentifier>{1e8e0e72-7f46-4474-a998-942337fc5298}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Probes">
+      <UniqueIdentifier>{4fed139c-74ea-450c-a701-ec96370e8143}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Probes">
+      <UniqueIdentifier>{061ee822-e069-4274-8b7f-ffd9f2b795ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Misc">
+      <UniqueIdentifier>{8dee5a04-c7ca-45b1-a072-1d8d4b597aa9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Managers">
+      <UniqueIdentifier>{6e6aafa5-0e3d-428f-baea-46b27fba0db8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Managers">
+      <UniqueIdentifier>{4bd685d3-8049-4e25-8acf-09f850042d65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Misc">
+      <UniqueIdentifier>{b858581b-3d03-4a2e-8308-2a829ad1e529}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\MiniPortFilter">
+      <UniqueIdentifier>{b3e37071-973c-4dce-a82e-0f97f4b4ff0d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\MiniPortFilter">
+      <UniqueIdentifier>{7a637f1b-9a33-46d0-b0f6-7689c9d590fd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="WinVirtUE.inf">
@@ -53,47 +77,50 @@
     <ClCompile Include="CPPRuntime\new.cpp">
       <Filter>Source Files\CPPRuntime</Filter>
     </ClCompile>
-    <ClCompile Include="Debug.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Globals.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Driver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WinVirtUE.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="FltMgrCtxReg.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="FltMgrReg.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="FltMgrCallbacks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ObjectCreateNotifyCB.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="RegistryModificationCB.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="AbstractVirtueProbe.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ProbeDataQueue.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ImageLoadProbe.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ProcessListValidationProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
     </ClCompile>
     <ClCompile Include="ProcessCreateProbe.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Probes</Filter>
     </ClCompile>
-    <ClCompile Include="FltrCommsMgr.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ImageLoadProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractVirtueProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="FltMgrReg.cpp">
+      <Filter>Source Files\MiniPortFilter</Filter>
+    </ClCompile>
+    <ClCompile Include="FltMgrCallbacks.cpp">
+      <Filter>Source Files\MiniPortFilter</Filter>
+    </ClCompile>
+    <ClCompile Include="FltMgrCtxReg.cpp">
+      <Filter>Source Files\MiniPortFilter</Filter>
+    </ClCompile>
+    <ClCompile Include="ObjectCreateNotifyCB.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="RegistryModificationCB.cpp">
+      <Filter>Source Files\Probes</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUProbeManager.cpp">
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUCommsManager.cpp">
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="WVUQueueManager.cpp">
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="WVURuntimeThreads.cpp">
+      <Filter>Source Files\Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="Debug.cpp">
+      <Filter>Source Files\Misc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -115,59 +142,65 @@
     <ClInclude Include="Common\types.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
-    <ClInclude Include="UnDoc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Debug.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="config.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Driver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\inc\WVUKernelUserComms.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FltMgrCtxReg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FltMgrReg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FltMgrCallbacks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WinVirtUE.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="RegistryModificationCB.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractVirtueProbe.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="trace.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
-    <ClInclude Include="ProbeDataQueue.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ImageLoadProbe.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ObjectCreateNotifyCB.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="AbstractVirtueProbe.h">
+      <Filter>Header Files\Probes</Filter>
     </ClInclude>
     <ClInclude Include="ProcessCreateProbe.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Probes</Filter>
     </ClInclude>
-    <ClInclude Include="FltrCommsMgr.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ImageLoadProbe.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessListValidationProbe.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="FltMgrReg.h">
+      <Filter>Header Files\MiniPortFilter</Filter>
+    </ClInclude>
+    <ClInclude Include="FltMgrCallbacks.h">
+      <Filter>Header Files\MiniPortFilter</Filter>
+    </ClInclude>
+    <ClInclude Include="FltMgrCtxReg.h">
+      <Filter>Header Files\MiniPortFilter</Filter>
+    </ClInclude>
+    <ClInclude Include="RegistryModificationCB.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectCreateNotifyCB.h">
+      <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>Header Files\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="UnDoc.h">
+      <Filter>Header Files\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUCommsManager.h">
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUProbeManager.h">
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="WVUQueueManager.h">
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="WVURuntimeThreads.h">
+      <Filter>Header Files\Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="Debug.h">
+      <Filter>Header Files\Misc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

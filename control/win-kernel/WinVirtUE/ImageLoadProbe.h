@@ -19,18 +19,22 @@ private:
 		_In_ PIMAGE_INFO pImageInfo);
 
 public:
-	ImageLoadProbe() = default;
+	ImageLoadProbe();
 	~ImageLoadProbe() = default;
-	_Success_(TRUE == return)
-	BOOLEAN Enable();
-	_Success_(TRUE == return)
-	BOOLEAN Disable();
 	_Must_inspect_result_
-	BOOLEAN State();
+		BOOLEAN Configure(_In_ const ANSI_STRING& NameValuePairs);
+	_Success_(TRUE == return)
+	BOOLEAN Start();
+	_Success_(TRUE == return)
+	BOOLEAN Stop();
+	_Must_inspect_result_
+	BOOLEAN IsEnabled();
 	_Must_inspect_result_
 	_Success_(TRUE == NT_SUCCESS(return))
 	NTSTATUS Mitigate(
 		_In_opt_count_(argc) PCHAR argv[],
 		_In_ UINT32 argc);
+	_Must_inspect_result_
+		NTSTATUS OnRun();
 };
 
