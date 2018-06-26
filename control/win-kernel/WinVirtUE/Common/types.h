@@ -211,16 +211,9 @@ typedef enum _ProbeIdType : USHORT
 	ThreadCreate   = 0x0004,
 	/** Thread Destruction notificaton type */
 	ThreadDestroy  = 0x0005,
-	/** A temporal probe is issuing a report */
-	TemporalProbeReport = 0x0006
+	/** process list validation */
+	ProcessListValidation = 0x0006
 } ProbeIdType;
-
-typedef enum _ProbeReportId : USHORT
-{
-	NoProbeReportId = 0x0000,
-	/** Process List Validation Failed */
-	ProcessListValidationFailedReportId = 0x0001
-} ProbeReportId, *PProbeReportId;
 
 _Struct_size_bytes_(DataSz)
 typedef struct _ProbeDataHeader 
@@ -237,7 +230,6 @@ typedef struct _ProbeDataHeader
 typedef struct _ProcessListValidationFailed
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;
-	_In_ ProbeReportId ReportId;  // the probe report id - ProcessListValidationFailed
 	_In_ NTSTATUS Status;	      // the operations status
 	_In_ HANDLE ProcessId;	      // the process id that was NOT found in the process list
 	_In_ PEPROCESS  EProcess;     // the eprocess that was NOT found in the process list

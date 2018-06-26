@@ -145,8 +145,7 @@ ProcessListValidationProbe::OnRun()
 		pPLVF->Status = ReportStatus;	    // tell the user space program what happened
 		pPLVF->EProcess = Process;			// suspect data, this process does not exist in the OS process list
 		pPLVF->ProcessId = ProcessId;		// suspect data, this pid does not exist in the OS process list
-		pPLVF->ProbeDataHeader.ProbeId = ProbeIdType::TemporalProbeReport;  // this is as temporal probe report
-		pPLVF->ReportId = ProbeReportId::ProcessListValidationFailedReportId;	// Process List Validation Has Failed
+		pPLVF->ProbeDataHeader.ProbeId = ProbeIdType::ProcessListValidation;  // this is as temporal probe report		
 		pPLVF->ProbeDataHeader.DataSz = sizeof(ProcessListValidationFailed);
 		KeQuerySystemTimePrecise(&pPLVF->ProbeDataHeader.CurrentGMT);
 		

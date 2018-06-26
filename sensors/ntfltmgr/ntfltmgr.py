@@ -200,14 +200,7 @@ class DataType(CtypesEnum):
     ProcessDestroy = 0x0003
     ThreadCreate   = 0x0004
     ThreadDestroy  = 0x0005        
-    TemporalProbeReport = 0x0006
-
-class ProbeReportId(CtypesEnum):
-    '''
-    Probe Report Id
-    '''
-    NoProbeReportId                        = 0x0000
-    ProcessListValidationFailedReportId    = 0x0001
+    ProcessListValidation = 0x0006
     
 class LIST_ENTRY(SaviorStruct):
     '''
@@ -230,23 +223,22 @@ class ProbeDataHeader(SaviorStruct):
     _fields_ = [
         ('ReplyLength', ULONG),
         ('MessageId', ULONGLONG),
-        ('ProbeId', USHORT), 
-        ('DataSz', USHORT), 
+        ('ProbeId', USHORT),
+        ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
     ]
 
 
-GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',   
-                                            ['ReplyLength', 'MessageId',  'ProbeId', 'DataSz', 'CurrentGMT', 
-                                             'ReportId', 'Status', 'ProcessId', 'EProcess'])                                            
+GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
+                                            ['ReplyLength', 'MessageId',  'ProbeId', 'DataSz', 'CurrentGMT',
+                                             'Status', 'ProcessId', 'EProcess'])
 class ProcessListValidationFailed(SaviorStruct):
     '''
     Probe Data Header
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ReportId", ProbeReportId),
         ("Status", NTSTATUS),
         ("ProcessId", HANDLE),
         ("EProcess", PVOID)
@@ -544,7 +536,6 @@ def FilterConnectCommunicationPort(PortName):
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror)
         raise
     return res, hPort
-
 
 def _build_filter_instance_info(buf):
     '''
@@ -871,6 +862,16 @@ def test_filter_instance():
     _res = FilterFindClose(handle)
     print(stats)
     
+def test_command_response():
+    '''
+    Test WinVirtUE command response
+    '''
+    
+    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+    while True:
+        pass
+
+    CloseHandle(hFltComms)    
     
 def test_packet_decode():
     '''
@@ -889,6 +890,9 @@ def test_packet_decode():
             msg_data = ProcessCreateInfo.build(msg_pkt)
         elif pdh.ProbeId == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(msg_pkt)
+        elif pdh.ProbeId == DataType.TemporalProbeReport:
+            
+            msg_data = ProcessDestroyInfo.build(msg_pkt)            
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
             continue
@@ -897,13 +901,14 @@ def test_packet_decode():
 
     CloseHandle(hFltComms)
     
-    #\\WVUCommand
 def main():
     '''
     let's test some stuff
     '''
     
     test_packet_decode()
+
+    #test_command_response()
     
     #test_filter_instance()     
     
