@@ -710,7 +710,6 @@ get_session(struct jsmn_message *m)
 		spin_lock(&sessions_lock);
 		list_add_rcu(&ns->session_entry, &h_sessions);
 		spin_unlock(&sessions_lock);
-		synchronize_rcu();
 #endif
 		return ns;
 	} else {
@@ -728,7 +727,6 @@ get_session(struct jsmn_message *m)
 				spin_lock(&ns->sl);
 				list_add_tail_rcu(&m->e_messages, &ns->h_replies);
 				spin_unlock(&ns->sl);
-				synchronize_rcu();
 			}
 			rcu_read_unlock();
 		}
