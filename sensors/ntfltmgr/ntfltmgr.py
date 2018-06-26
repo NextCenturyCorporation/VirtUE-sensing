@@ -200,7 +200,7 @@ class DataType(CtypesEnum):
     ProcessDestroy = 0x0003
     ThreadCreate   = 0x0004
     ThreadDestroy  = 0x0005        
-    ProcessListValidation = 0x0006
+    ProcessListValidationFailed = 0x0006
     
 class LIST_ENTRY(SaviorStruct):
     '''
@@ -890,9 +890,8 @@ def test_packet_decode():
             msg_data = ProcessCreateInfo.build(msg_pkt)
         elif pdh.ProbeId == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(msg_pkt)
-        elif pdh.ProbeId == DataType.TemporalProbeReport:
-            
-            msg_data = ProcessDestroyInfo.build(msg_pkt)            
+        elif pdh.ProbeId == DataType.ProcessListValidation:            
+            msg_data = ProcessListValidationFailed.build(msg_pkt)            
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
             continue
