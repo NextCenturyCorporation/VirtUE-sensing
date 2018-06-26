@@ -191,7 +191,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPCI->CommandLineSz = CreateInfo->CommandLine->Length;
 		RtlMoveMemory(&pPCI->CommandLine[0], CreateInfo->CommandLine->Buffer, pPCI->CommandLineSz);
 		
-		if (FALSE == pPDQ->Enqueue(&pPCI->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPCI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] buf;
@@ -227,7 +227,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPDI->EProcess = Process;
 		pPDI->ProcessId = ProcessId;	
 		
-		if (FALSE == pPDQ->Enqueue(&pPDI->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPDI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] buf;

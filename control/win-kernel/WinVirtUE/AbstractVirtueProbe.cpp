@@ -18,10 +18,7 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
 	this->ProbeName = ProbeName;
-	if (NULL != pPDQ)
-	{
-		pPDQ->Register(*this);
-	}
+	WVUQueueManager::GetInstance().Register(*this);
 }
 
 /**
@@ -29,10 +26,7 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 */
 AbstractVirtueProbe::~AbstractVirtueProbe()
 {
-	if (NULL != pPDQ)
-	{
-		pPDQ->Unregister(*this);
-	}
+	WVUQueueManager::GetInstance().Unregister(*this);
 }
 
 /**

@@ -185,7 +185,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	pLoadedImageInfo->FullImageNameSz = FullImageName->Length;
 	RtlMoveMemory(&pLoadedImageInfo->FullImageName[0], FullImageName->Buffer, pLoadedImageInfo->FullImageNameSz);
 
-	if (FALSE == pPDQ->Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
 	{
 #pragma warning(suppress: 26407)
 		delete[] buf;

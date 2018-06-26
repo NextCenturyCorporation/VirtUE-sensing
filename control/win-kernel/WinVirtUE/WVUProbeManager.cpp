@@ -24,15 +24,6 @@ class ProcessListValidationProbe *pPLVP = nullptr;
 WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 { 
 
-	pPDQ = new WVUQueueManager();
-	if (NULL == pPDQ)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"ProbeDataQueue not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-
 	WVUCommsManager& commsmgr = WVUCommsManager::GetInstance();
 	// Start the filter comms manager
 	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == commsmgr.Start());

@@ -150,7 +150,7 @@ ProcessListValidationProbe::OnRun()
 		pPLVF->ProbeDataHeader.DataSz = sizeof(ProcessListValidationFailed);
 		KeQuerySystemTimePrecise(&pPLVF->ProbeDataHeader.CurrentGMT);
 		
-		if (FALSE == pPDQ->Enqueue(&pPLVF->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPLVF->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] pPLVF;

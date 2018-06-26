@@ -200,10 +200,7 @@ WVUCommsManager::WVUDataStreamPortConnect(
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "DataStream Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.DataStreamUserProcess, Globals.WVUProbeDataStreamPort);
 
-	if (NULL != pPDQ)
-	{
-		pPDQ->OnConnect();
-	}
+	WVUQueueManager::GetInstance().OnConnect();
 
 	return Status;
 }
@@ -233,10 +230,7 @@ WVUCommsManager::WVUDataStreamPortDisconnect(
 
 	Globals.ConnectionCookie = NULL;
 
-	if (NULL != pPDQ)
-	{
-		pPDQ->OnDisconnect();
-	}
+	WVUQueueManager::GetInstance().OnDisconnect();
 }	
 #pragma endregion
 
@@ -341,7 +335,7 @@ WVUCommsManager::OnProtectionStateChange(
 	}
 	
 	/** enable/disasble each probe */
-	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+	LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
 	{
 		/** if we are disabling, and the probe is enabled; then stop the probe */
 		if (WVU_COMMAND::WVUDisableProtection == command
@@ -421,7 +415,7 @@ WVUCommsManager::OnEnumerateProbes(
 	UNREFERENCED_PARAMETER(OutputBufferLength);
 	UNREFERENCED_PARAMETER(ReturnOutputBufferLength);
 
-	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+	LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
 	{
 		;
 	}
