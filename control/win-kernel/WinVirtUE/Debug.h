@@ -28,10 +28,10 @@
 #define LOG_CRYPTO          (1 << 4)
 #define LOG_REGISTRY        (1 << 5)
 #define LOG_FLT_MGR         (1 << 6)
-
+#define LOG_COMMS_MGR       (1 << 7)
 #define LOG_FILE_OP         (1 << 8)
 #define LOG_FILE_CREATE     (1 << 9)
-
+#define LOG_POLLTHREAD		(1 << 10)
 #define LOG_MAINTHREAD		(1 << 11)
 #define LOG_CONTAINER		(1 << 12)
 #define LOG_IOCTL           (1 << 13)
@@ -42,6 +42,8 @@
 #define LOG_NOTIFY_REGISTRY (1 << 18)
 #define LOG_NOTIFY_PROCESS  (1 << 19)
 #define LOG_SENSOR_THREAD   (1 << 20)
+#define LOG_PROBE_MGR       (1 << 21)
+#define LOG_QUEUE_MGR       (1 << 21)
 /*
 * These are meant to be used when you want to see the logs
 * for the major components. Do not use these within an WVU_DEBUG_*

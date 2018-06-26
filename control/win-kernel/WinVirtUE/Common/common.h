@@ -19,6 +19,7 @@
 #include <ntifs.h>
 #include <ntddkbd.h>
 #include <sal.h>
+#include <concurrencysal.h>
 #include <bcrypt.h>
 
 #pragma warning( pop )
@@ -42,6 +43,8 @@
 #define NUMBER_OF(x) ( sizeof(x) / sizeof(x[0]) )
 #endif
 
+#define ABS(N) ((N<0)?(-N):(N))
+
 /* Wait / Time macros */
 #define ABSOLUTE(wait) (wait)
 
@@ -57,7 +60,7 @@
     (((signed __int64) (milli)) * MICROSECONDS(1000L))
 
 #define SECONDS( seconds ) \
-	(((signed __int64) (seconds) * 10 * MILLISECONDS(1000)))
+	(((signed __int64) (seconds) * MILLISECONDS(1000)))
 
 #define ALLOC_POOL(PoolType, Size) ExAllocatePoolWithTag(PoolType, Size, COMMON_POOL_TAG)
 #define FREE_POOL(Buffer)  ExFreePoolWithTag(Buffer, COMMON_POOL_TAG);
@@ -72,7 +75,13 @@ CONST LONGLONG FILE_ALLOCATION_NA = 0;
 /** When File Attributes are not used */
 CONST ULONG FILE_ATTRIBUTES_NA = 0;
 
-/** The number of elements in the probe data queue */
-CONST INT PROBEDATAQUEUESZ = 0x4000;
 
+/** an easier way to loop through a linked list */
+#define LIST_FOR_EACH_ENTRY(pos, head, T, Field) \
+    for (T* pos = CONTAINING_RECORD((head).Flink, T, Field); \
+		!IsListEmpty(&head) && NULL != pos && pos != (T*)(&head); \
+		pos = (T*)pos->ListEntry.Flink )
 
+/** Assume that ListEntry is the list name */
+#define LIST_FOR_EACH(pos, head, T) \
+	LIST_FOR_EACH_ENTRY(pos, head, T, ListEntry)    

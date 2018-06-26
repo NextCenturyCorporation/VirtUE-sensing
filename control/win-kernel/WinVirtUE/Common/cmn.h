@@ -12,9 +12,9 @@
 #define CDECL  __cdecl
 #define INLINE __inline
 
+
 #define INVALID_HANDLE_VALUE (HANDLE)-1
 #define MAX_PATH 260
-#define LENGTH_OF(ary)  (sizeof(ary) / sizeof(ary[0]))
 
 #define LEAVE_IF_NOTTRUE_WITH_ACTION(cond,theAction) {\
 	if (!(cond))\
