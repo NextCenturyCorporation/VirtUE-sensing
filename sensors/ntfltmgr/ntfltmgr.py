@@ -886,13 +886,13 @@ def test_packet_decode():
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
         if pdh.ProbeId == DataType.LoadedImage:            
-            msg_data = LoadedImageInfo.build(msg_pkt)
+            msg_data = LoadedImageInfo.build(pdh.Remainder)
         elif pdh.ProbeId == DataType.ProcessCreate:
-            msg_data = ProcessCreateInfo.build(msg_pkt)
+            msg_data = ProcessCreateInfo.build(pdh.Remainder)
         elif pdh.ProbeId == DataType.ProcessDestroy:
-            msg_data = ProcessDestroyInfo.build(msg_pkt)
+            msg_data = ProcessDestroyInfo.build(pdh.Remainder)
         elif pdh.ProbeId == DataType.ProcessListValidation:            
-            msg_data = ProcessListValidationFailed.build(msg_pkt)            
+            msg_data = ProcessListValidationFailed.build(pdh.Remainder)
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
             continue
