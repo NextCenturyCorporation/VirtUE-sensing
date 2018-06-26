@@ -439,7 +439,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
     return res
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
-_FilterGetMessageParamFlags = (1, "hPort"), (1,  "lpMessageBuffer"), (1, "dwMessageBufferSize"), (4,  "lpOverlapped")
+_FilterGetMessageParamFlags = (1, "hPort"), (1,  "lpMessageBuffer"), (1, "dwMessageBufferSize"), (1,  "lpOverlapped", 0)
 _FilterGetMessage = _FilterGetMessageProto(("FilterGetMessage", windll.fltlib), _FilterGetMessageParamFlags)
 def FilterGetMessage(hPort, msg_len):
     '''    
@@ -515,7 +515,7 @@ def FilterSendMessage(hPort, status, msg_id, msg, msg_len):
 
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
-_FilterConnectCommunicationPortParamFlags = (1, "lpPortName"), (4,  "dwOptions"), (4, "lpContext"), (4,  "dwSizeOfContext"), (4, "lpSecurityAttributes"), (2, "hPort")
+_FilterConnectCommunicationPortParamFlags = (1, "lpPortName"), (1,  "dwOptions", 0), (1, "lpContext",0), (1, "dwSizeOfContext", 0), (1, "lpSecurityAttributes", 0), (2, "hPort")
 _FilterConnectCommunicationPort = _FilterConnectCommunicationPortProto(("FilterConnectCommunicationPort", windll.fltlib), 
                                                          _FilterConnectCommunicationPortParamFlags)
 def FilterConnectCommunicationPort(PortName):
