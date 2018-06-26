@@ -52,13 +52,13 @@ class SaviorStruct(Structure):
         accepts raw packet data from the driver and returns
         the ProbeDataHeader in the form of a named tuple
         '''     
-        offset = 0
-        length = sizeof(FILTER_MESSAGE_HEADER)               
-        info = cast(msg_pkt[offset:length], POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
+        info = cast(msg_pkt, POINTER(ProbeDataHeader))        
+        pdh = GetProbeDataHeader(info.contents.ReplyLength,
+                                 info.contents.MessageId,
+                                 DataType(info.contents.ProbeId), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
-                                 msg_pkt[length:])
+                                 msg_pkt[sizeof(ProbeDataHeader):])
         return pdh
 
 class CtypesEnum(IntEnum):
@@ -213,13 +213,15 @@ LIST_ENTRY._fields_ = [
 ]
 
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ProbeId', 'DataSz', 'CurrentGMT', 'Remainder'])
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ReplyLength', 'MessageId', 'ProbeId', 'DataSz', 'CurrentGMT', 'Remainder'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
     Probe Data Header
     '''
     _fields_ = [
+        ('ReplyLength', ULONG),
+        ('MessageId', ULONGLONG),
         ('ProbeId', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
@@ -453,18 +455,21 @@ def FilterGetMessage(hPort, msg_len):
     sb = create_string_buffer(msg_len)        
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
     try:
-        res = _FilterGetMessage(hPort, byref(info.contents), msg_len, cast(None, POINTER(OVERLAPPED)))
+        res = _FilterGetMessage(hPort, byref(info.contents), msg_len, 
+                cast(None, POINTER(OVERLAPPED)))
+        info = cast(sb[sizeof(FILTER_MESSAGE_HEADER):], POINTER(FILTER_MESSAGE_HEADER))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror)
         raise
     except Exception as exc:
-        print("Exception: FilterGetMessage failed to Get Message - Error %s", exc)
+        print("Exception: FilterGetMessage failed to Get Message - Error %s" % (exc,))
         raise
 
     ReplyLen = info.contents.ReplyLength
     MessageId = info.contents.MessageId
-    msg_pkt = FilterMessageHeader(ReplyLen, MessageId, sb[sizeof(FILTER_MESSAGE_HEADER):])
+    msg_pkt = FilterMessageHeader(ReplyLen, MessageId,
+            sb[sizeof(FILTER_MESSAGE_HEADER):])
     return res, msg_pkt
 
 
