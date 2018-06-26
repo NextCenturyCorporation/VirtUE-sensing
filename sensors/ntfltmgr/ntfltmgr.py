@@ -282,7 +282,7 @@ class LoadedImageInfo(SaviorStruct):
         classes instance data
         '''
         import pdb;pdb.set_trace()
-        info = cast(msg_pkt.Packet, POINTER(cls))
+        info = cast(msg_pkt.Packet[0:msg_pkt.DataSz], POINTER(cls))
         length = info.contents.FullImageNameSz
         offset = type(info.contents).FullImageName.offset
         sb = create_string_buffer(msg_pkt.Packet)
