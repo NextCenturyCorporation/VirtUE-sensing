@@ -924,14 +924,14 @@ def FilterSendMessage(hPort, cmd_buf):
     @returns response buffer - can be empty / zero length
     '''    
     res = HRESULT()
-    bytes_returned = LPDWORD(0)
+    bytes_returned = 0
     rsp_buf = create_string_buffer(MAXRSPSZ)
         
     if cmd_buf is None or not hasattr(cmd_buf, "__len__") or len(cmd_buf) <= 0:
         raise ValueError("Parameter cmd_buf is invalid!")
 
     try:
-        res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(), byref(bytes_returned))
+        res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(rsp_buf), byref(bytes_returned))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("FilterSendMessage Failed on Message Reply - Error %d", lasterror)
@@ -945,7 +945,7 @@ def test_command_response():
     '''
     Test WinVirtUE command response
     '''
-    
+    import pdb;pdb.set_trace() 
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
     cmd_buf = create_string_buffer(MAXCMDSZ)
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
@@ -967,7 +967,7 @@ def main():
     '''
     test_command_response()
     
-    #test_packet_decode()  
+    test_packet_decode()  
     
     #test_filter_instance()     
     
