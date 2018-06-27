@@ -599,8 +599,8 @@ def FilterInstanceFindClose(hFilterInstanceFind):
     return res
 
 
-_FilterFindFirstProto = WINFUNCTYPE(HRESULT, FILTER_INFORMATION_CLASS, c_void_p, DWORD, 
-                                    LPDWORD, LPHANDLE)
+_FilterFindFirstProto = WINFUNCTYPE(HRESULT, FILTER_INFORMATION_CLASS, 
+        c_void_p, DWORD, LPDWORD, LPHANDLE)
 _FilterFindFirstParamFlags = (0,  "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned"), (1, "lpFilterFind")
 _FilterFindFirst = _FilterFindFirstProto(("FilterFindFirst", windll.fltlib), 
                                           _FilterFindFirstParamFlags)
@@ -621,8 +621,8 @@ def FilterFindFirst(infocls=FILTER_INFORMATION_CLASS.FilterFullInformation):
     res = HRESULT()
 
     try:
-        res = _FilterFindFirst(infocls, byref(ffi), sizeof(ffi), byref(BytesReturned), 
-                byref(hFilterFind))
+        res = _FilterFindFirst(infocls, byref(ffi), sizeof(ffi), 
+                byref(BytesReturned), byref(hFilterFind))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         if lasterror == ERROR_NO_MORE_ITEMS:
@@ -749,12 +749,13 @@ def test_filter_instance():
     '''
     test user space filter instance manipulation
     '''
+    import pdb;pdb.set_trace()
     stats = {}
     (handle, info,) = FilterFindFirst()
-    (hFltInstFindFirst, info,) = FilterInstanceFindFirst(info.FilterName)
     if hFltInstFindFirst is not None:
         print(info)
     stats[info.FilterName] = 1
+    (hFltInstFindFirst, info,) = FilterInstanceFindFirst(info.FilterName)
     while True:
         print("==================================================")
         print("Finding instances for filter {0}".format(info,))
@@ -959,9 +960,9 @@ def main():
     '''
     test_command_response()
     
-    #test_packet_decode()  
-    
-    #test_filter_instance()     
+    test_filter_instance()     
+
+    test_packet_decode()  
     
     sys.exit(0)
     
