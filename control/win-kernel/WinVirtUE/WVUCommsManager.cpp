@@ -186,8 +186,6 @@ WVUCommsManager::WVUDataStreamPortConnect(
 	PVOID *ConnectionPortCookie)
 {
 	const NTSTATUS Status = STATUS_SUCCESS;
-	FLT_ASSERTMSG("WVUProbeDataStreamPort Must Be NULL!!", NULL == Globals.WVUProbeDataStreamPort);
-	FLT_ASSERTMSG("DataStreamUserProcess Must Be NULL!!", NULL == Globals.DataStreamUserProcess);
 
 	Globals.DataStreamUserProcess = PsGetCurrentProcess();
 	Globals.WVUProbeDataStreamPort = WVUProbeDataStreamPort;
@@ -254,8 +252,6 @@ WVUCommsManager::WVUCommandConnect(
 	PVOID * ConnectionPortCookie)
 {
 	const NTSTATUS Status = STATUS_SUCCESS;
-	FLT_ASSERTMSG("WVUCommandPort Must Be NULL!!", NULL == Globals.WVUCommandPort);
-	FLT_ASSERTMSG("CommandUserProcess Must Be NULL!!", NULL == Globals.CommandUserProcess);
 
 	Globals.CommandUserProcess = PsGetCurrentProcess();
 	Globals.WVUCommandPort = WVUCommandPort;

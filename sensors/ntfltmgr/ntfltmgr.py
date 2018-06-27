@@ -206,7 +206,6 @@ class LIST_ENTRY(SaviorStruct):
     Two Way Linked List - forward declare an incomplete type
     '''
     pass
-
 LIST_ENTRY._fields_ = [
     ("Flink", POINTER(LIST_ENTRY)),
     ("Blink", POINTER(LIST_ENTRY))
@@ -220,8 +219,6 @@ class ProbeDataHeader(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
-        ('ReplyLength', ULONG),
-        ('MessageId', ULONGLONG),
         ('ProbeId', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
@@ -264,7 +261,7 @@ GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  ['ReplyLength', 'MessageI
 class LoadedImageInfo(SaviorStruct):
     '''
     Probe Data Header
-    '''
+    '''    
     _fields_ = [
         ("Header", ProbeDataHeader),
         ("ProcessId", HANDLE),
@@ -280,8 +277,7 @@ class LoadedImageInfo(SaviorStruct):
         '''
         build named tuple instance representing this
         classes instance data
-        '''
-        import pdb;pdb.set_trace()
+        '''        
         info = cast(msg_pkt.Packet[0:msg_pkt.DataSz], POINTER(cls))
         length = info.contents.FullImageNameSz
         offset = type(info.contents).FullImageName.offset
@@ -875,6 +871,7 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))

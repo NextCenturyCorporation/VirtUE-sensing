@@ -218,8 +218,6 @@ typedef enum _ProbeIdType : USHORT
 _Struct_size_bytes_(DataSz)
 typedef struct _ProbeDataHeader 
 {
-	_In_ ULONG ReplyLength;
-	_In_ ULONGLONG MessageId;
 	_In_ ProbeIdType  ProbeId;
 	_In_ USHORT DataSz;
 	_In_ LARGE_INTEGER CurrentGMT;
@@ -245,6 +243,12 @@ typedef struct _LoadedImageInfo
 	_In_ USHORT FullImageNameSz;
 	_In_ UCHAR FullImageName[1];
 } LoadedImageInfo, *PLoadedImageInfo;
+
+
+typedef struct _LoadImageNotify
+{
+
+} LoadImageNotify, *PLoadImageNotify;
 
 
 /**

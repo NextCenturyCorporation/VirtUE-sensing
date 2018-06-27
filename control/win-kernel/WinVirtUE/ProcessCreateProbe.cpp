@@ -14,7 +14,7 @@
 ProcessCreateProbe::ProcessCreateProbe() : 
 	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessCreate"))
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime); // | ProbeAttributes::EnabledAtStart);
 
 	// initialize the spinlock that controls access to the Response queue
 	KeInitializeSpinLock(&this->ProcessListSpinLock);
@@ -81,7 +81,7 @@ BOOLEAN ProcessCreateProbe::Start()
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
-		Status = STATUS_NOT_SUPPORTED;
+		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
 			"Probe %Z not enabled at start - probe is registered but not active\n",
 			&this->ProbeName);
@@ -176,8 +176,6 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessCreateInfo pPCI = (PProcessCreateInfo)buf;
-		pPCI->ProbeDataHeader.MessageId = 0LL;
-		pPCI->ProbeDataHeader.ReplyLength = 0L;
 		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.CurrentGMT);
 		pPCI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessCreate;
 		pPCI->ProbeDataHeader.DataSz = bufsz;
@@ -220,8 +218,6 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessDestroyInfo pPDI= (PProcessDestroyInfo)buf;
 		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.CurrentGMT);
-		pPDI->ProbeDataHeader.MessageId = 0LL;
-		pPDI->ProbeDataHeader.ReplyLength = 0L;
 		pPDI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessDestroy;
 		pPDI->ProbeDataHeader.DataSz = bufsz;
 		pPDI->EProcess = Process;

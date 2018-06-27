@@ -42,7 +42,7 @@ BOOLEAN ImageLoadProbe::Start()
 
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
-		Status = STATUS_NOT_SUPPORTED;
+		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
 			"Probe %Z not enabled at start - probe is registered but not active\n", 
 			&this->ProbeName);			
@@ -173,8 +173,6 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	RtlSecureZeroMemory(buf, bufsz);
-	pLoadedImageInfo->ProbeDataHeader.MessageId = 0LL;
-	pLoadedImageInfo->ProbeDataHeader.ReplyLength = 0L;
 	pLoadedImageInfo->ProbeDataHeader.ProbeId = ProbeIdType::LoadedImage;
 	pLoadedImageInfo->ProbeDataHeader.DataSz = bufsz;
 	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.CurrentGMT);
