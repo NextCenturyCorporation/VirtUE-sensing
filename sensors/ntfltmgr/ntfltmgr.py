@@ -1009,6 +1009,12 @@ def test_command_response():
     import pdb;pdb.set_trace()
 
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+
+    (res, rsp_msg,) = DisableProtection(hFltComms)
+    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
+
     (res, rsp_msg,) = EnableProtection(hFltComms)
     print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
           .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
