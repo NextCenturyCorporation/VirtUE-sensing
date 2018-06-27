@@ -53,9 +53,7 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(info.contents.ReplyLength,
-                                 info.contents.MessageId,
-                                 DataType(info.contents.ProbeId), 
+        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
                                  msg_pkt)
@@ -205,14 +203,13 @@ class LIST_ENTRY(SaviorStruct):
     '''
     Two Way Linked List - forward declare an incomplete type
     '''
-    pass
 LIST_ENTRY._fields_ = [
-    ("Flink", POINTER(LIST_ENTRY)),
-    ("Blink", POINTER(LIST_ENTRY))
+    ("space", BYTE * 16)
 ]
 
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ReplyLength', 'MessageId', 'ProbeId', 'DataSz', 'CurrentGMT', 'Packet'])
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  
+        ['ProbeId', 'DataSz', 'CurrentGMT', 'Packet'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
@@ -227,8 +224,7 @@ class ProbeDataHeader(SaviorStruct):
 
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
-                                            ['ReplyLength', 'MessageId',  'ProbeId', 'DataSz', 'CurrentGMT',
-                                             'Status', 'ProcessId', 'EProcess'])
+        ['ProbeId', 'DataSz', 'CurrentGMT', 'Status', 'ProcessId', 'EProcess'])
 class ProcessListValidationFailed(SaviorStruct):
     '''
     Probe Data Header
@@ -255,18 +251,18 @@ class ProcessListValidationFailed(SaviorStruct):
         return process_list_validation_failed
 
     
-GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  ['ReplyLength', 'MessageId', 
-    'ProbeId', 'DataSz', 'CurrentGMT', 
-    'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
+GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  
+        ['ProbeId', 'DataSz', 'CurrentGMT', 
+        'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 class LoadedImageInfo(SaviorStruct):
     '''
     Probe Data Header
     '''    
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID),
-        ("ImageBase", PVOID),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
+        ("ImageBase", LONGLONG),
         ("ImageSize", ULONGLONG),
         ("FullImageNameSz", USHORT),
         ("FullImageName", BYTE * 1)
@@ -278,7 +274,7 @@ class LoadedImageInfo(SaviorStruct):
         build named tuple instance representing this
         classes instance data
         '''        
-        info = cast(msg_pkt.Packet[0:msg_pkt.DataSz], POINTER(cls))
+        info = cast(msg_pkt.Packet, POINTER(cls))
         length = info.contents.FullImageNameSz
         offset = type(info.contents).FullImageName.offset
         sb = create_string_buffer(msg_pkt.Packet)
@@ -286,9 +282,7 @@ class LoadedImageInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         img_nfo = GetLoadedImageInfo(
-            info.contents.Header.ReplyLength,
-            info.contents.Header.MessageId,
-            DataType(info.contents.Header.ProbeId),
+            DataType(info.contents.Header.ProbeId).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -299,10 +293,11 @@ class LoadedImageInfo(SaviorStruct):
         return img_nfo
 
 
-GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  ['ReplyLength', 'MessageId', 
-    'ProbeId', 'DataSz', 'CurrentGMT', 
-    'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 'UniqueThread', 
-    'FileObject', 'CreationStatus', 'CommandLineSz', 'CommandLine'])
+GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  
+        ['ProbeId', 'DataSz', 'CurrentGMT', 
+        'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 
+        'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz', 
+        'CommandLine'])
     
 class ProcessCreateInfo(SaviorStruct ):
     '''
@@ -334,9 +329,7 @@ class ProcessCreateInfo(SaviorStruct ):
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
         create_info = GetProcessCreateInfo(
-            info.contents.Header.ReplyLength,
-            info.contents.Header.MessageId,
-            DataType(info.contents.Header.ProbeId),
+            DataType(info.contents.Header.ProbeId).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
@@ -351,8 +344,7 @@ class ProcessCreateInfo(SaviorStruct ):
         return create_info
 
 GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
-        ['ReplyLength', 'MessageId', 
-         'ProbeId', 'DataSz', 'CurrentGMT', 
+        ['ProbeId', 'DataSz', 'CurrentGMT', 
          'ProcessId', 'EProcess'])
     
 class ProcessDestroyInfo(SaviorStruct):
@@ -373,9 +365,7 @@ class ProcessDestroyInfo(SaviorStruct):
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         create_info = GetProcessDestroyInfo(
-            info.contents.Header.ReplyLength,
-            info.contents.Header.MessageId,
-            DataType(info.contents.Header.ProbeId),
+            DataType(info.contents.Header.ProbeId).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -449,7 +439,6 @@ def FilterGetMessage(hPort, msg_len):
     try:
         res = _FilterGetMessage(hPort, byref(info.contents), msg_len, 
                 cast(None, POINTER(OVERLAPPED)))
-        info = cast(sb[sizeof(FILTER_MESSAGE_HEADER):], POINTER(FILTER_MESSAGE_HEADER))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror)
@@ -871,10 +860,10 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
+        print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
         if pdh.ProbeId == DataType.LoadedImage:            
@@ -883,7 +872,7 @@ def test_packet_decode():
             msg_data = ProcessCreateInfo.build(pdh)
         elif pdh.ProbeId == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(pdh)
-        elif pdh.ProbeId == DataType.ProcessListValidation:            
+        elif pdh.ProbeId == DataType.ProcessListValidationFailed:
             msg_data = ProcessListValidationFailed.build(pdh)
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
