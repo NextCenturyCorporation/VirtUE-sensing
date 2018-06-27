@@ -56,7 +56,7 @@ class SaviorStruct(Structure):
         pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
-                                 msg_pkt[sizeof(ProbeDataHeader):])
+                                 msg_pkt)
         return pdh
 
 class CtypesEnum(IntEnum):
@@ -285,8 +285,6 @@ class LoadedImageInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         img_nfo = GetLoadedImageInfo(
-            info.contents.Header.ReplyLength,
-            info.contents.Header.MessageId,
             DataType(info.contents.Header.ProbeId),
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
