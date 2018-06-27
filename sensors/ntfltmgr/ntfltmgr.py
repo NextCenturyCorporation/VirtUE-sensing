@@ -621,8 +621,8 @@ def FilterFindFirst(infocls=FILTER_INFORMATION_CLASS.FilterFullInformation):
     res = HRESULT()
 
     try:
-        res = _FilterFindFirst(infocls, byref(ffi), sizeof(ffi), 
-                byref(BytesReturned), byref(hFilterFind))
+        res = _FilterFindFirst(infocls, byref(ffi), sizeof(ffi), byref(BytesReturned), 
+                byref(hFilterFind))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         if lasterror == ERROR_NO_MORE_ITEMS:
@@ -744,48 +744,6 @@ def CloseHandle(handle):
     success = _CloseHandle(handle)
     return success
 
-
-def test_filter_instance():
-    '''
-    test user space filter instance manipulation
-    '''
-    import pdb;pdb.set_trace()
-    stats = {}
-    (handle, info,) = FilterFindFirst()
-    if hFltInstFindFirst is not None:
-        print(info)
-    stats[info.FilterName] = 1
-    (hFltInstFindFirst, info,) = FilterInstanceFindFirst(info.FilterName)
-    while True:
-        print("==================================================")
-        print("Finding instances for filter {0}".format(info,))
-        (hFltInstFindFirst, inst_info,) = FilterInstanceFindFirst(info.FilterName)
-        if not hFltInstFindFirst:
-            print("No Instances Defined for Filter {0}".format(info,))
-            stats[info.FilterName] = 0
-            (hr, info) = FilterFindNext(handle)
-            if hr != S_OK:
-                break
-            stats[info.FilterName] = 1
-            continue
-        print(info)
-        hFilter = FilterCreate(info.FilterName)
-        print("FilterCreate({0}) returned {1}\n".format(info, hFilter,))
-        res = CloseHandle(hFilter)
-        print("CloseHandle({0}) returned {1}\n".format(hFilter, res,))        
-        while True:
-            (hr, inst_info,) = FilterInstanceFindNext(hFltInstFindFirst)
-            if hr != S_OK:
-                break
-            stats[inst_info.FilterName] += 1
-            print(inst_info)
-        (hr, info) = FilterFindNext(handle)
-        if hr != S_OK:
-            break
-        stats[info.FilterName] = 1
-    _res = FilterInstanceFindClose(hFltInstFindFirst)
-    _res = FilterFindClose(handle)
-    print(stats)
 
 def test_packet_decode():
     '''
@@ -952,16 +910,65 @@ def test_command_response():
           .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
               rsp_msg.contents.Status))
 
+    cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
+    cmd_msg.contents.DataSz = 0
+    
+    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+    
+    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
+
+    
+    cmd_msg.contents.Command = WVU_COMMAND.EnableUnload
+    cmd_msg.contents.DataSz = 0
+
+    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+    
+    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
+
+    cmd_msg.contents.Command = WVU_COMMAND.DisableUnload
+    cmd_msg.contents.DataSz = 0
+
+    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+    
+    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
+
+    cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
+    cmd_msg.contents.DataSz = 0
+
+    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+    
+    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
+
+    cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
+    cmd_msg.contents.DataSz = 0
+
+    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+    
+    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
+
     CloseHandle(hFltComms)    
       
 def main():
     '''
     let's test some stuff
     '''
-    test_command_response()
+    #test_command_response()
     
-    test_filter_instance()     
-
     test_packet_decode()  
     
     sys.exit(0)
