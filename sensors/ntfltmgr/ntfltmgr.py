@@ -938,11 +938,10 @@ def FilterSendMessage(hPort, cmd_buf):
         logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr))
         res = lasterror    
     
-    import pdb;pdb.set_trace() 
     bufsz = (bytes_returned.value 
             if bytes_returned.value < MAXRSPSZ 
             else MAXRSPSZ)
-    response = create_string_buffer(rsp_buf.raw[0:bufsz])
+    response = create_string_buffer(rsp_buf.raw[0:bufsz], bufsz)
     return res, response
     
 def test_command_response():
@@ -970,7 +969,7 @@ def main():
     '''
     test_command_response()
     
-    #test_packet_decode()  
+    test_packet_decode()  
     
     #test_filter_instance()     
     
