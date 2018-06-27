@@ -583,13 +583,13 @@ def FilterInstanceFindNext(hFilterInstanceFind):
 
     return S_OK, fii
 
-_FilterInstanceFindCloseProto = WINFUNCTYPE(HRESULT, HANDLE, DWORD)
-_FilterInstanceFindCloseParamFlags = (0,  "hFilterInstanceFind"), (0, "biff", 0)
-_FilterInstanceFindClose = _FilterInstanceFindCloseProto(("FilterInstanceFindClose", windll.fltlib), _FilterInstanceFindCloseParamFlags)
 
+_FilterInstanceFindClose = windll.fltlib.FilterInstanceFindClose
+_FilterInstanceFindClose.argtypes = [HANDLE]
+_FilterInstanceFindClose.rettype = HRESULT
 def FilterInstanceFindClose(hFilterInstanceFind):
     '''
-    closes the specified minifilter instance search handle
+    @brief closes the specified minifilter instance search handle
     @param hFilterInstanceFind the filter search handle as returend by a 
     previous call to FilterInstanceFindFirst
     @returns HRESULT
@@ -691,13 +691,12 @@ def FilterFindNext(hFilterFind, infocls=FILTER_INFORMATION_CLASS.FilterFullInfor
     
     return res, fltfullinfo
 
-_FilterFindCloseProto = WINFUNCTYPE(HRESULT, HANDLE, DWORD)
-_FilterFindCloseParamFlags = (0,  "hFilterFind"), (0, "biff", 0)
-_FilterFindClose = _FilterFindCloseProto(("FilterFindClose", windll.fltlib), _FilterFindCloseParamFlags)
-
+_FilterFindClose = windll.fltlib.FilterFindClose
+_FilterFindClose.argtypes = [HANDLE]
+_FilterFindClose.rettype = HRESULT
 def FilterFindClose(hFilterFind):
     '''
-    closes the specified minifilter search handle
+    @brief closes the specified minifilter search handle
     @param hFilterFind the filter search handle as returend by a previous call to FilterFindFirst
     @returns HRESULT
     '''
@@ -722,17 +721,11 @@ def FilterCreate(filter_name):
     return hFilter
 
 
-_FilterCloseProto = WINFUNCTYPE(HRESULT, LPHANDLE, DWORD)
-_FilterCloseParamFlags = (0,  "hFilter"), (0, "biff", 0)
-_FilterClose= _FilterCloseProto(("FilterClose", windll.fltlib), _FilterCloseParamFlags)
-
+_FilterClose = windll.fltlib.FilterClose
+_FilterClose.argtypes = [LPHANDLE]
+_FilterClose.rettype = HRESULT
 def FilterClose(hFilter):
     '''
-    @note Do not use this function. As you might of noticed above, the close
-    handle prototype is defined with two parameter.  This is an apparent bug with
-    the ctypes runtime as single parameter functions are flagged as an
-    error.  If you add a 'fake' parameter ('biff' in this case), then all seems to be well. 
-    closes an open minifilter handle
     @param hFilter handle as returned by a previoius call to FilterCreate
     @returns HRESULT
     '''
@@ -740,14 +733,11 @@ def FilterClose(hFilter):
     return res
 
 _CloseHandle = windll.kernel32.CloseHandle
-_CloseHandle.argtypes = [c_void_p]
-_CloseHandle.rettype = c_int
+_CloseHandle.argtypes = [HANDLE]
+_CloseHandle.rettype = BOOL
 def CloseHandle(handle):
     '''    
     closes an operating system handle
-    @note  As you might of noticed above, the close handle prototype is defined with two parameter.
-    This is an apparent bug with the ctypes runtime as single parameter functions are flagged as an
-    error.  If you add a 'fake' parameter ('biff' in this case), then all seems to be well.
     @param handle handle as returned by a previoius call supported create functions
     @returns True if suceeded else false
     '''
@@ -969,7 +959,7 @@ def main():
     '''
     test_command_response()
     
-    test_packet_decode()  
+    #test_packet_decode()  
     
     #test_filter_instance()     
     
