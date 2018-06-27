@@ -53,7 +53,7 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId).name, 
+        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
                                  msg_pkt)
@@ -281,7 +281,6 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        import pdb;pdb.set_trace()
         img_nfo = GetLoadedImageInfo(
             DataType(info.contents.Header.ProbeId).name,
             info.contents.Header.DataSz,
@@ -873,7 +872,7 @@ def test_packet_decode():
             msg_data = ProcessCreateInfo.build(pdh)
         elif pdh.ProbeId == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(pdh)
-        elif pdh.ProbeId == DataType.ProcessListValidationFailed:            
+        elif pdh.ProbeId == DataType.ProcessListValidationFailed:
             msg_data = ProcessListValidationFailed.build(pdh)
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
