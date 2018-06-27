@@ -706,7 +706,7 @@ def FilterFindClose(hFilterFind):
     return res
 
 _FilterCreateProto = WINFUNCTYPE(HRESULT, LPCWSTR, LPHANDLE)
-_FilterCreateParamFlags = (0,  "lpFilterName"), (0, "hFilter", 1)
+_FilterCreateParamFlags = (0,  "lpFilterName"), (0, "hFilter", 0)
 _FilterCreate = _FilterCreateProto(("FilterCreate", windll.fltlib), _FilterCreateParamFlags)
 
 def FilterCreate(filter_name):
@@ -924,7 +924,7 @@ def FilterSendMessage(hPort, cmd_buf):
     @returns response buffer - can be empty / zero length
     '''    
     res = HRESULT()
-    bytes_returned = 0
+    bytes_returned = DWORD()
     rsp_buf = create_string_buffer(MAXRSPSZ)
         
     if cmd_buf is None or not hasattr(cmd_buf, "__len__") or len(cmd_buf) <= 0:
@@ -934,10 +934,13 @@ def FilterSendMessage(hPort, cmd_buf):
         res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(rsp_buf), byref(bytes_returned))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("FilterSendMessage Failed on Message Reply - Error %d", lasterror)
+        print(osr)
+        logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr))
         res = lasterror    
     
-    bufsz = bytes_returned if bytes_returned < MAXRSPSZ else MAXRSPSZ
+    bufsz = (bytes_returned.value 
+            if bytes_returned.value < MAXRSPSZ 
+            else MAXRSPSZ)
     response = create_string_buffer(rsp_buf, bufsz)
     return res, response
     
@@ -965,7 +968,7 @@ def main():
     '''
     let's test some stuff
     '''
-    test_command_response()
+    #test_command_response()
     
     test_packet_decode()  
     
