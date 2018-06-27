@@ -53,12 +53,10 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(info.contents.ReplyLength,
-                                 info.contents.MessageId,
-                                 DataType(info.contents.ProbeId), 
+        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
-                                 msg_pkt)
+                                 msg_pkt[sizeof(ProbeDataHeader):])
         return pdh
 
 class CtypesEnum(IntEnum):
@@ -212,7 +210,8 @@ LIST_ENTRY._fields_ = [
 ]
 
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  ['ReplyLength', 'MessageId', 'ProbeId', 'DataSz', 'CurrentGMT', 'Packet'])
+GetProbeDataHeader = namedtuple('GetProbeDataHeader',  
+        ['ProbeId', 'DataSz', 'CurrentGMT', 'Packet'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
@@ -227,8 +226,8 @@ class ProbeDataHeader(SaviorStruct):
 
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
-                                            ['ReplyLength', 'MessageId',  'ProbeId', 'DataSz', 'CurrentGMT',
-                                             'Status', 'ProcessId', 'EProcess'])
+        ['ReplyLength', 'MessageId',  'ProbeId', 'DataSz', 'CurrentGMT',
+        'Status', 'ProcessId', 'EProcess'])
 class ProcessListValidationFailed(SaviorStruct):
     '''
     Probe Data Header
