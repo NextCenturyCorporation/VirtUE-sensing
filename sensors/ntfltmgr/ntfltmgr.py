@@ -873,7 +873,7 @@ def test_packet_decode():
             msg_data = ProcessCreateInfo.build(pdh)
         elif pdh.ProbeId == DataType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(pdh)
-        elif pdh.ProbeId == DataType.ProcessListValidation:            
+        elif pdh.ProbeId == DataType.ProcessListValidationFailed:            
             msg_data = ProcessListValidationFailed.build(pdh)
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
