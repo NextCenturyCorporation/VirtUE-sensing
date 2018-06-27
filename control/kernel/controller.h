@@ -23,6 +23,7 @@
 #ifndef _CONTROLLER_H
 #define _CONTROLLER_H
 #include "controller-linux.h"
+#include "jsmn/jsmn.h"
 #include "uname.h"
 #include "import-header.h"
 #include "controller-flags.h"
@@ -44,12 +45,136 @@ enum json_array_chars {
 enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
 					  LOW, DEFAULT, HIGH, ADVERSARIAL, RESET,
 					  RECORDS};
+typedef enum message_command command;
+
 
 /* max message header size */
 #define CONNECTION_MAX_HEADER 0x400
 #define CONNECTION_MAX_REQUEST CONNECTION_MAX_HEADER
 #define CONNECTION_MAX_MESSAGE 0x1000
 #define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
+
+
+#define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
+/**
+ * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
+ * allow shorter nonces, allowing the client to choose,
+ * up to MAX_NONCE_SIZE
+ **/
+#define MAX_NONCE_SIZE 32
+#define MAX_CMD_SIZE 128
+#define MAX_ID_SIZE MAX_CMD_SIZE
+#define MAX_TOKENS 64
+struct jsmn_message;
+struct jsmn_session;
+void dump_session(struct jsmn_session *s);
+int dump(const char *js, jsmntok_t *t, size_t count, int indent);
+
+/**
+ * a jsmn_message is a single jsonl object, read and created by a connection
+ * the jsonl control protocol expects messages to be a request and matching
+ * replies (one or more).
+ *
+ * Each new request message automatically creates a new jsmn_session (below).
+ * a successful session is one request message and at least one reply
+ * message.
+ *
+ * A jsmn_session provides glue that binds a request to matching responses.
+ *
+ * The struct connection (defined in controller.h) initializes each jsmn_message
+ * with the struct socket that produced the data (read or written).
+ *
+ * You may always relate a struct connection to a jsmn_message by their having
+ * the same struct socket.
+ *
+ **/
+
+struct jsmn_message
+{
+	struct list_head e_messages;
+	spinlock_t sl;
+	jsmn_parser parser;
+	jsmntok_t tokens[MAX_TOKENS];
+	uint8_t *line;
+	size_t len;
+	int type;
+	int count; /* token count */
+	struct jsmn_session *s;
+	struct socket *socket;
+};
+
+/**
+ * a session may have one request and multiple replies
+ **/
+struct jsmn_session
+{
+	struct list_head session_entry;
+	spinlock_t sl;
+	uint8_t nonce[MAX_NONCE_SIZE];
+	struct jsmn_message *req;
+	struct list_head h_replies;
+	uint8_t cmd[MAX_CMD_SIZE];
+	uint8_t probe_id[MAX_ID_SIZE];
+
+};
+
+
+void free_message(struct jsmn_message *m);
+struct jsmn_message * new_message(uint8_t *line, size_t len);
+void free_session(struct jsmn_session *s);
+int parse_json_message(struct jsmn_message *m);
+void init_jsonl_parser(void);
+
+
+
+struct probe_msg
+{
+	int id;
+	int ccode;
+	void *input;
+	ssize_t input_len;
+	void *output;
+	ssize_t output_len;
+};
+
+struct records_request
+{
+	struct jsmn_message *json_msg;
+	bool run_probe;
+	bool clear;
+	uint64_t nonce;
+	int index;
+	int range;
+};
+
+struct records_reply
+{
+	int index;
+	int range;
+	uint8_t *records;
+	ssize_t records_len;
+};
+
+/**
+ * state request and reply will handle all messages except for
+ * Discovery and Records
+ **/
+struct state_request
+{
+	struct jsmn_message *json_msg;
+	command  cmd; /* enum message_command */
+	uint64_t flags, state;
+	int timeout, repeat;
+	bool clear;     /* clear records? */
+};
+
+struct state_reply
+{
+	command cmd; /* enum message_command */
+	uint64_t flags, state;
+	int timeout, repeat;
+	bool clear;    /* clear records? */
+};
 
 static inline void sleep(unsigned sec)
 {
@@ -236,8 +361,8 @@ static inline void task_cputime(struct task_struct *t,
 
    - uint8 *data is a generic pointer whose use may be to store probe data
    structures.
-
 **/
+
 
 struct probe {
 	union {
@@ -247,10 +372,8 @@ struct probe {
 	uint8_t *id;
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
-	int (*send_msg_to_probe)(struct probe *, int, void *, ssize_t);
-	int (*rcv_msg_from_probe)(struct probe *, int, void **, ssize_t *);
-	int (*start_stop)(struct probe *, uint64_t flags);
-	uint64_t flags;  /* expect that flags will contain level bits */
+	int (*message)(struct probe *, struct probe_msg *);
+	uint64_t flags, state;  /* see controller-flags.h */
 	int timeout, repeat;
 	struct kthread_worker worker;
 	struct kthread_work work;
@@ -341,8 +464,14 @@ struct kernel_sensor {
  * ps probe
  *
  ******************************************************************************/
+
+extern int ps_repeat;
+extern int ps_timeout;
+extern int ps_level;
+
 struct kernel_ps_data {
-	int index; /* used for access to using flex_array.h */
+	uint8_t clear;
+	uint8_t pad[7];
 	uint64_t nonce;
 	kuid_t user_id;
 	int pid_nr;  /* see struct pid.upid.nrin linux/pid.h  */
@@ -413,15 +542,23 @@ struct kernel_ps_probe {
 	void *(*_destroy)(struct probe *);
 };
 
+int kernel_ps_get_record(struct kernel_ps_probe *parent,
+						 struct probe_msg *msg,
+						 uint8_t *tag);
 
-int kernel_ps_record(struct kernel_ps_probe *parent,
-					 uint8_t *tag,
-					 uint64_t nonce,
-					 int index,
-					 uint8_t **json_record);
-
+int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce);
 int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
+struct kernel_ps_probe *
+init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+					 uint8_t *id, int id_len,
+					 int (*print)(struct kernel_ps_probe *,
+								  uint8_t *, uint64_t, int));
 
+int
+print_kernel_ps(struct kernel_ps_probe *parent,
+				uint8_t *tag,
+				uint64_t nonce,
+				int count);
 
 /* probes are run by kernel worker threads (struct kthread_worker)
  * and they are structured as kthread "works" (struct kthread_work)
