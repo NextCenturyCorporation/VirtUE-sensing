@@ -216,18 +216,17 @@ get_task_by_pid_number(pid_t pid)
 	return ts;
 }
 
-
+/**
+ * Assumes: caller holds p->lock
+ **/
 int
-build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
+build_pid_index_unlocked(struct probe *p,
+						 struct flex_array *a,
+						 uint64_t nonce)
 {
 	int index = 0;
 	struct task_struct *task;
-	unsigned long flags;
 	static pid_el pel;
-
-	if (!spin_trylock_irqsave(&p->lock, flags)) {
-		return -EAGAIN;
-	}
 
 	rcu_read_lock();
 	for_each_process(task) {
@@ -242,18 +241,25 @@ build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
 						   GFP_ATOMIC);
 			index++;
 		} else {
-			printk(KERN_INFO "kernel pid index array over-run\n");
-			index = -ENOMEM;
-			goto unlock_out;
+			printk(KERN_DEBUG "kernel pid index array over-run\n");
+			return -ENOMEM;
 		}
 	}
-	rcu_read_unlock();
-
-unlock_out:
-	spin_unlock_irqrestore(&p->lock, flags);
-
 	return index;
+}
 
+
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
+{
+	int index = 0;
+
+	if (!spin_trylock(&p->lock)) {
+		return -EAGAIN;
+	}
+	index = build_pid_index_unlocked(p, a, nonce);
+	spin_unlock(&p->lock);
+	return index;
 }
 STACK_FRAME_NON_STANDARD(build_pid_index);
 

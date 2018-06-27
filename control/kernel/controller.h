@@ -645,6 +645,10 @@ struct task_struct *
 get_task_by_pid_number(pid_t pid);
 
 int
+build_pid_index_unlocked(struct probe *p,
+						 struct flex_array *a,
+						 uint64_t nonce);
+int
 build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonc);
 
 
