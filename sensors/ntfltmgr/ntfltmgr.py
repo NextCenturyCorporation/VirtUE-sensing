@@ -938,17 +938,17 @@ def FilterSendMessage(hPort, cmd_buf):
         logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr))
         res = lasterror    
     
+    import pdb;pdb.set_trace() 
     bufsz = (bytes_returned.value 
             if bytes_returned.value < MAXRSPSZ 
             else MAXRSPSZ)
-    response = create_string_buffer(rsp_buf, bufsz)
+    response = create_string_buffer(rsp_buf.raw[0:bufsz])
     return res, response
     
 def test_command_response():
     '''
     Test WinVirtUE command response
     '''
-    import pdb;pdb.set_trace() 
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
     cmd_buf = create_string_buffer(MAXCMDSZ)
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
@@ -968,9 +968,9 @@ def main():
     '''
     let's test some stuff
     '''
-    #test_command_response()
+    test_command_response()
     
-    test_packet_decode()  
+    #test_packet_decode()  
     
     #test_filter_instance()     
     
