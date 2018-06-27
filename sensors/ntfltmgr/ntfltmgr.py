@@ -891,72 +891,125 @@ def FilterSendMessage(hPort, cmd_buf):
             else MAXRSPSZ)
     response = create_string_buffer(rsp_buf.raw[0:bufsz], bufsz)
     return res, response
-    
-def test_command_response():
+
+def Echo(hFltComms):
     '''
-    Test WinVirtUE command response
+    Send and receive an echo probe
     '''
-    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-    cmd_buf = create_string_buffer(MAXCMDSZ)
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.Echo
     cmd_msg.contents.DataSz = 0
     
-    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
-    
-    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
-              rsp_msg.contents.Status))
 
+    return res, rsp_msg
+
+def EnableProtection(hFltComms):
+    '''
+    Enable Full Protection
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+    
+def DisableProtection(hFltComms):
+    '''
+    Disable Full Protection
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
     cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
     cmd_msg.contents.DataSz = 0
     
-    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
-    
-    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
-              rsp_msg.contents.Status))
 
+    return res, rsp_msg
+    
+def EnableUnload(hFltComms):
+    '''
+    @note this functionality might not function on release targets
+    Enable Driver Unload 
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableUnload
     cmd_msg.contents.DataSz = 0
-
-    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
     
-    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
-              rsp_msg.contents.Status))
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
+    return res, rsp_msg
+    
+def DisbleUnload(hFltComms):
+    '''
+    @note this functionality might not function on release targets
+    Disable Driver Unload 
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
     cmd_msg.contents.Command = WVU_COMMAND.DisableUnload
     cmd_msg.contents.DataSz = 0
-
-    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
     
-    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
-              rsp_msg.contents.Status))
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
+    return res, rsp_msg
+    
+def EnumerateProbes(hFltComms, Filter=None):
+    '''
+    Enumerate Probes
+    @note by default, all probes are enumerated and returned
+    '''
+
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
     cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
     cmd_msg.contents.DataSz = 0
-
-    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
     
-    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
-              rsp_msg.contents.Status))
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
+    return res, rsp_msg
+
+def ConfigureProbe(hFltComms, ProbeName, ConfigurationData):
+    '''
+    Configure a specific probe with the provided 
+    configuration data
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
     cmd_msg.contents.DataSz = 0
-
-    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
     
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+
+def test_command_response():
+    '''
+    Test WinVirtUE command response
+    '''
+    import pdb;pdb.set_trace()
+
+    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+    (res, rsp_msg,) = EnableProtection(hFltComms)
     print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
           .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
               rsp_msg.contents.Status))
@@ -967,7 +1020,7 @@ def main():
     '''
     let's test some stuff
     '''
-    #test_command_response()
+    test_command_response()
     
     test_packet_decode()  
     
