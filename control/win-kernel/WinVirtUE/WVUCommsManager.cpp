@@ -226,8 +226,6 @@ WVUCommsManager::WVUDataStreamPortDisconnect(
 	// Ensure that the WVUProbeDataStreamPort is NULL as well
 	Globals.WVUProbeDataStreamPort = NULL;
 
-	Globals.ConnectionCookie = NULL;
-
 	WVUQueueManager::GetInstance().OnDisconnect();
 }	
 #pragma endregion
@@ -264,7 +262,7 @@ WVUCommsManager::WVUCommandConnect(
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.CommandUserProcess, Globals.WVUProbeDataStreamPort);
 
-	Globals.CommandConnected = FALSE;
+	Globals.CommandConnected = TRUE;
 
 	return Status;
 }
@@ -284,15 +282,13 @@ WVUCommsManager::WVUCommandDisconnect(
 
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Disconnected - Port 0x%p!\n", Globals.WVUProbeDataStreamPort);
 	// close our handle to the connection 
-	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort);
+	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUCommandPort);
 
 	// Reset the user process field
 	Globals.CommandUserProcess = NULL;
 
 	// Ensure that the WVUCommandPort is NULL as well
 	Globals.WVUCommandPort = NULL;
-
-	Globals.ConnectionCookie = NULL;
 
 	Globals.CommandConnected = FALSE;
 }
