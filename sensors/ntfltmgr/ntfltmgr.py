@@ -6,7 +6,7 @@ import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_int, c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
@@ -739,10 +739,9 @@ def FilterClose(hFilter):
     res = _FilterClose(hFilter)
     return res
 
-_CloseHandleProto = WINFUNCTYPE(BOOL, HANDLE, DWORD)
-_CloseHandleParamFlags = (0,  "hFilter"), (0, "biff", 0)
-_CloseHandle= _FilterCloseProto(("CloseHandle", windll.kernel32), _CloseHandleParamFlags)
-
+_CloseHandle = windll.kernel32.CloseHandle
+_CloseHandle.argtypes = [c_void_p]
+_CloseHandle.rettype = c_int
 def CloseHandle(handle):
     '''    
     closes an operating system handle
@@ -959,7 +958,8 @@ def test_command_response():
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
     
     print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, rsp_msg.contents.Status))
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
 
     CloseHandle(hFltComms)    
       
