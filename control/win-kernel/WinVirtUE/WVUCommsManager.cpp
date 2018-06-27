@@ -511,6 +511,7 @@ WVUCommsManager::OnCommandMessage(
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
 	case WVU_COMMAND::Echo:
+		Status = STATUS_SUCCESS;
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
 	default:
