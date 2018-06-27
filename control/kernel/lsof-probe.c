@@ -177,16 +177,19 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 STACK_FRAME_NON_STANDARD(lsof_get_files_struct);
 
 
+/**
+ * Assumes: caller holds p->lock
+ **/
+
 int
-lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
+lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
+						   int count,
+						   uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
 	struct lsof_pid_el *pid_el_p;
 
-	if (!spin_trylock(&p->lock)) {
-		return -EAGAIN;
-	}
 	for (index = 0; index < PID_EL_ARRAY_SIZE; index++)  {
 		pid_el_p = flex_array_get(p->klsof_pid_flex_array, index);
 		if (pid_el_p) {
@@ -203,21 +206,40 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 			}
 		} else {
 			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
-			spin_unlock(&p->lock);
 			return -ENOMEM;
 		}
 	}
+	return file_index;
+}
+
+
+int
+lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
+{
+
+	int file_index;
+
+	if (!spin_trylock(&p->lock)) {
+		return -EAGAIN;
+	}
+	file_index = lsof_for_each_pid_unlocked(p, count, nonce);
 	spin_unlock(&p->lock);
 	return file_index;
 }
 STACK_FRAME_NON_STANDARD(lsof_for_each_pid);
 
 
-
 int
-lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
+kernel_lsof_unlocked(struct kernel_lsof_probe *p,
+					 int c,
+					 uint64_t nonce)
 {
-	return build_pid_index((struct probe *)p, p->klsof_pid_flex_array, nonce);
+	int count;
+	count = build_pid_index_unlocked((struct probe *)p,
+									 p->klsof_pid_flex_array,
+									 nonce);
+	count = lsof_for_each_pid_unlocked(p, c, nonce);
+	return count;
 }
 
 
@@ -225,8 +247,15 @@ int
 kernel_lsof(struct kernel_lsof_probe *p, int c, uint64_t nonce)
 {
 	int count;
-	count = lsof_build_pid_index(p, nonce);
-	count = lsof_for_each_pid(p, count, nonce);
+
+	if (!spin_trylock(&p->lock)) {
+		return -EAGAIN;
+	}
+	count = build_pid_index_unlocked((struct probe *)p,
+									 p->klsof_pid_flex_array,
+									 nonce);
+	count = lsof_for_each_pid_unlocked(p, count, nonce);
+	spin_unlock(&p->lock);
 	return count;
 }
 

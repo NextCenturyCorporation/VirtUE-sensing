@@ -634,23 +634,14 @@ struct lsof_pid_el
 };
 
 typedef struct lsof_pid_el pid_el;
-
 /**
- * following two were generalized and hoised out of lsof-probe.c
+ * following two were generalized and hoisted out of lsof-probe.c
  * controller-common.c
  *
  **/
 
 struct task_struct *
 get_task_by_pid_number(pid_t pid);
-
-int
-build_pid_index_unlocked(struct probe *p,
-						 struct flex_array *a,
-						 uint64_t nonce);
-int
-build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonc);
-
 
 /**
  * see include/linux/flex_array.h for the definitions of
@@ -717,6 +708,23 @@ extern struct kernel_lsof_probe klsof_probe;
 extern int lsof_repeat;
 extern int lsof_timeout;
 extern int lsof_level;
+
+int
+build_pid_index_unlocked(struct probe *p,
+						 struct flex_array *a,
+						 uint64_t nonce);
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce);
+
+
+
+int
+lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
+						   int count,
+						   uint64_t nonce);
+
+int
+lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce);
 
 int lsof_pid_filter(struct kernel_lsof_probe *p,
 					struct kernel_lsof_data *d,
