@@ -111,10 +111,12 @@ BOOLEAN ProcessCreateProbe::Stop()
 	BOOLEAN retval = TRUE;
 	if (FALSE == this->Enabled)
 	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already disabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}	
+	this->Enabled = FALSE;
 	retval = NT_SUCCESS(this->RemoveNotify(TRUE));
-	this->Enabled = !retval;
 ErrorExit:
 	return retval;
 }

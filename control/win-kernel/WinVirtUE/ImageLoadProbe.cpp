@@ -82,6 +82,14 @@ BOOLEAN ImageLoadProbe::Stop()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
+	if (FALSE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already disabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
+
 	Status = PsRemoveLoadImageNotifyRoutine(ImageLoadProbe::ImageLoadNotificationRoutine);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -91,7 +99,7 @@ BOOLEAN ImageLoadProbe::Stop()
 	}
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "PsRemoveLoadImageNotifyRoutine(): Successfully Disabled Image Load Sensor\n");
-
+	this->Enabled = FALSE;
 ErrorExit:
 
 	return NT_SUCCESS(Status);

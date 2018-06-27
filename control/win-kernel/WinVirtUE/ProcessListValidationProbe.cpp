@@ -95,6 +95,13 @@ ProcessListValidationProbe::OnRun()
 	HANDLE ProcessId = INVALID_HANDLE_VALUE;
 	KLOCK_QUEUE_HANDLE LockHandle = { {NULL,NULL},0 };
 
+	if (FALSE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already disabled - not running polled operation!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
 
 	if (NULL == pPCP)
 	{
