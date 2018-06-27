@@ -53,7 +53,7 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
+        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId).name, 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
                                  msg_pkt)
@@ -281,8 +281,9 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
+        import pdb;pdb.set_trace()
         img_nfo = GetLoadedImageInfo(
-            DataType(info.contents.Header.ProbeId),
+            DataType(info.contents.Header.ProbeId).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -329,7 +330,7 @@ class ProcessCreateInfo(SaviorStruct ):
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
         create_info = GetProcessCreateInfo(
-            DataType(info.contents.Header.ProbeId),
+            DataType(info.contents.Header.ProbeId).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
@@ -365,7 +366,7 @@ class ProcessDestroyInfo(SaviorStruct):
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         create_info = GetProcessDestroyInfo(
-            DataType(info.contents.Header.ProbeId),
+            DataType(info.contents.Header.ProbeId).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -860,7 +861,6 @@ def test_packet_decode():
     '''
     MAXPKTSZ = 0x400  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-    import pdb;pdb.set_trace()
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
@@ -899,18 +899,4 @@ def main():
     
 
 if __name__ == '__main__':
-    print(ProbeDataHeader.ProbeId)
-    print(ProbeDataHeader.DataSz)
-    print(ProbeDataHeader.CurrentGMT)
-    print(ProbeDataHeader.ListEntry)
-    print(hex(sizeof(ProbeDataHeader)))
-
-    print(LoadedImageInfo.Header)
-    print(LoadedImageInfo.ProcessId)
-    print(LoadedImageInfo.EProcess)
-    print(LoadedImageInfo.ImageBase)
-    print(LoadedImageInfo.ImageSize)
-    print(LoadedImageInfo.FullImageNameSz)
-    print(LoadedImageInfo.FullImageName)
-    print(hex(sizeof(LoadedImageInfo)))
     main()
