@@ -1008,13 +1008,8 @@ def test_command_response():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
 
-    (res, rsp_msg,) = DisableProtection(hFltComms)
+    (res, rsp_msg,) = EnumerateProbes(hFltComms)
     print("res={0}, Response={1}, Status={2}\n"
-          .format(res, rsp_msg.contents.Response, 
-              rsp_msg.contents.Status))
-
-    (res, rsp_msg,) = EnableProtection(hFltComms)
-    print("res={0}, bytes returned={1}, Response={2}, Status={3}\n"
           .format(res, rsp_msg.contents.Response, 
               rsp_msg.contents.Status))
 
