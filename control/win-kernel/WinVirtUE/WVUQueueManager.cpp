@@ -20,12 +20,7 @@ NumberOfQueueEntries(0LL), NumberOfRegisteredProbes(0L)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	wfso_timeout.QuadPart = 0LL;
-	timeout.QuadPart =
-#if defined(WVU_DEBUG)
-		RELATIVE(SECONDS(300));
-#else
-		RELATRIVE(SECONDS(1));
-#endif
+	timeout.QuadPart = RELATIVE(SECONDS(220752000));  // yup, wait a year . . .
 
 	// initialize the queue entry count semaphore such that processing halts when there are no
 	// more entries in the queue

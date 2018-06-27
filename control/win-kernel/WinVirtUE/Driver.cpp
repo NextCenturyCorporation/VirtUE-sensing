@@ -99,8 +99,6 @@ DriverEntry(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };		
 	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
-
-
 	LARGE_INTEGER timeout = { 0LL };
 	timeout.QuadPart =
 #if defined(WVU_DEBUG)
@@ -112,7 +110,8 @@ DriverEntry(
 	WVUDebugBreakPoint();
 	
 	ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
-
+	Globals.IsDataStreamConnected = FALSE;
+	Globals.IsCommandConnected = FALSE;
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
 
 	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default

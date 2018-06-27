@@ -122,9 +122,9 @@ public:
 	LIST_ENTRY& GetProbeList() { return this->ProbeList; }
 	VOID Dispose(_In_ PVOID pBuf);																							 
 	// cause the outbund queue processor to start processing
-	VOID OnConnect() { KeSetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE); }
+	VOID OnConnect() { KeSetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE); Globals.IsDataStreamConnected = TRUE;	}
 	// cause the outbound queue processor to stop on disconnect
-	VOID OnDisconnect() { (VOID)KeResetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+	VOID OnDisconnect() { (VOID)KeResetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); Globals.IsDataStreamConnected = FALSE; }
 	/** The count function utilizes the semaphore state to show the number of queued entries */
 	_Must_inspect_result_
 	LONG Count() { return KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]); }

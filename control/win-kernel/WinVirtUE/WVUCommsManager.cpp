@@ -262,7 +262,7 @@ WVUCommsManager::WVUCommandConnect(
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.CommandUserProcess, Globals.WVUProbeDataStreamPort);
 
-	Globals.CommandConnected = TRUE;
+	Globals.IsCommandConnected = TRUE;
 
 	return Status;
 }
@@ -290,7 +290,7 @@ WVUCommsManager::WVUCommandDisconnect(
 	// Ensure that the WVUCommandPort is NULL as well
 	Globals.WVUCommandPort = NULL;
 
-	Globals.CommandConnected = FALSE;
+	Globals.IsCommandConnected = FALSE;
 }
 
 /**
