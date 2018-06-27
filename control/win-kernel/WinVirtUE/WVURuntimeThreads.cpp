@@ -185,7 +185,7 @@ WVUProbeCommsThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER send_timeout = { 0LL };
 	send_timeout.QuadPart = RELATIVE(SECONDS(20));
-	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
+	ULONG SenderBufferLen = 0L;
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
 	PVOID SenderBuffer = NULL;

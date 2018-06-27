@@ -79,7 +79,73 @@ typedef struct _WVU_CONNECTION_CONTEXT {
 	WVU_CONNECTION_TYPE   Type;  // The connection type
 } WVU_CONNECTION_CONTEXT, *PWVU_CONNECTION_CONTEXT;
 
-typedef struct _WVU_PROCESS_NOTIFICATION_INFO {
+typedef enum _ProbeIdType : USHORT
+{
+	NoProbeIdType = 0x0000,
+	/** Loaded Image (.exe,.dll, etc) notificaton type */
+	LoadedImage = 0x0001,
+	/** Process Creation notificaton type */
+	ProcessCreate = 0x0002,
+	/** Process Destruction notificaton type */
+	ProcessDestroy = 0x0003,
+	/** Thread Creation notificaton type */
+	ThreadCreate = 0x0004,
+	/** Thread Destruction notificaton type */
+	ThreadDestroy = 0x0005,
+	/** process list validation */
+	ProcessListValidation = 0x0006
+} ProbeIdType;
+
+_Struct_size_bytes_(DataSz)
+typedef struct _ProbeDataHeader
+{
+	_In_ ProbeIdType  ProbeId;
+	_In_ USHORT DataSz;
+	_In_ LARGE_INTEGER CurrentGMT;
+	_In_ LIST_ENTRY  ListEntry;
+} PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
 
 
-} WVU_PROCESS_NOTIFICATION_INFO, *PWVU_PROCESS_NOTIFICATION_INFO;
+typedef struct _ProcessListValidationFailed
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ NTSTATUS Status;	      // the operations status
+	_In_ HANDLE ProcessId;	      // the process id that was NOT found in the process list
+	_In_ PEPROCESS  EProcess;     // the eprocess that was NOT found in the process list
+} ProcessListValidationFailed, *PProcessListValidationFailed;
+
+typedef struct _LoadedImageInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS  EProcess;
+	_In_ PVOID ImageBase;
+	_In_ SIZE_T ImageSize;
+	_In_ USHORT FullImageNameSz;
+	_In_ UCHAR FullImageName[1];
+} LoadedImageInfo, *PLoadedImageInfo;
+
+/**
+* @note Is it important to also include the imagefilename or is it
+* duplicate information from module load?
+*/
+typedef struct _ProcessCreateInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ParentProcessId;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS EProcess;
+	_In_ CLIENT_ID CreatingThreadId;
+	_Inout_ struct _FILE_OBJECT *FileObject;
+	_Inout_ NTSTATUS CreationStatus;
+	_In_ USHORT CommandLineSz;
+	_In_ UCHAR CommandLine[1];
+} ProcessCreateInfo, *PProcessCreateInfo;
+
+
+typedef struct _ProcessDestroyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS EProcess;
+} ProcessDestroyInfo, *PProcessDestroyInfo;
