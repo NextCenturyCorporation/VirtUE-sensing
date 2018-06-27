@@ -6,7 +6,7 @@ import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_int, c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
@@ -583,13 +583,13 @@ def FilterInstanceFindNext(hFilterInstanceFind):
 
     return S_OK, fii
 
-_FilterInstanceFindCloseProto = WINFUNCTYPE(HRESULT, HANDLE, DWORD)
-_FilterInstanceFindCloseParamFlags = (0,  "hFilterInstanceFind"), (0, "biff", 0)
-_FilterInstanceFindClose = _FilterInstanceFindCloseProto(("FilterInstanceFindClose", windll.fltlib), _FilterInstanceFindCloseParamFlags)
 
+_FilterInstanceFindClose = windll.fltlib.FilterInstanceFindClose
+_FilterInstanceFindClose.argtypes = [HANDLE]
+_FilterInstanceFindClose.rettype = HRESULT
 def FilterInstanceFindClose(hFilterInstanceFind):
     '''
-    closes the specified minifilter instance search handle
+    @brief closes the specified minifilter instance search handle
     @param hFilterInstanceFind the filter search handle as returend by a 
     previous call to FilterInstanceFindFirst
     @returns HRESULT
@@ -599,8 +599,8 @@ def FilterInstanceFindClose(hFilterInstanceFind):
     return res
 
 
-_FilterFindFirstProto = WINFUNCTYPE(HRESULT, FILTER_INFORMATION_CLASS, c_void_p, DWORD, 
-                                    LPDWORD, LPHANDLE)
+_FilterFindFirstProto = WINFUNCTYPE(HRESULT, FILTER_INFORMATION_CLASS, 
+        c_void_p, DWORD, LPDWORD, LPHANDLE)
 _FilterFindFirstParamFlags = (0,  "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned"), (1, "lpFilterFind")
 _FilterFindFirst = _FilterFindFirstProto(("FilterFindFirst", windll.fltlib), 
                                           _FilterFindFirstParamFlags)
@@ -691,13 +691,12 @@ def FilterFindNext(hFilterFind, infocls=FILTER_INFORMATION_CLASS.FilterFullInfor
     
     return res, fltfullinfo
 
-_FilterFindCloseProto = WINFUNCTYPE(HRESULT, HANDLE, DWORD)
-_FilterFindCloseParamFlags = (0,  "hFilterFind"), (0, "biff", 0)
-_FilterFindClose = _FilterFindCloseProto(("FilterFindClose", windll.fltlib), _FilterFindCloseParamFlags)
-
+_FilterFindClose = windll.fltlib.FilterFindClose
+_FilterFindClose.argtypes = [HANDLE]
+_FilterFindClose.rettype = HRESULT
 def FilterFindClose(hFilterFind):
     '''
-    closes the specified minifilter search handle
+    @brief closes the specified minifilter search handle
     @param hFilterFind the filter search handle as returend by a previous call to FilterFindFirst
     @returns HRESULT
     '''
@@ -706,7 +705,7 @@ def FilterFindClose(hFilterFind):
     return res
 
 _FilterCreateProto = WINFUNCTYPE(HRESULT, LPCWSTR, LPHANDLE)
-_FilterCreateParamFlags = (0,  "lpFilterName"), (0, "hFilter", 1)
+_FilterCreateParamFlags = (0,  "lpFilterName"), (0, "hFilter", 0)
 _FilterCreate = _FilterCreateProto(("FilterCreate", windll.fltlib), _FilterCreateParamFlags)
 
 def FilterCreate(filter_name):
@@ -722,80 +721,29 @@ def FilterCreate(filter_name):
     return hFilter
 
 
-_FilterCloseProto = WINFUNCTYPE(HRESULT, LPHANDLE, DWORD)
-_FilterCloseParamFlags = (0,  "hFilter"), (0, "biff", 0)
-_FilterClose= _FilterCloseProto(("FilterClose", windll.fltlib), _FilterCloseParamFlags)
-
+_FilterClose = windll.fltlib.FilterClose
+_FilterClose.argtypes = [LPHANDLE]
+_FilterClose.rettype = HRESULT
 def FilterClose(hFilter):
     '''
-    @note Do not use this function. As you might of noticed above, the close
-    handle prototype is defined with two parameter.  This is an apparent bug with
-    the ctypes runtime as single parameter functions are flagged as an
-    error.  If you add a 'fake' parameter ('biff' in this case), then all seems to be well. 
-    closes an open minifilter handle
     @param hFilter handle as returned by a previoius call to FilterCreate
     @returns HRESULT
     '''
     res = _FilterClose(hFilter)
     return res
 
-_CloseHandleProto = WINFUNCTYPE(BOOL, HANDLE, DWORD)
-_CloseHandleParamFlags = (0,  "hFilter"), (0, "biff", 0)
-_CloseHandle= _FilterCloseProto(("CloseHandle", windll.kernel32), _CloseHandleParamFlags)
-
+_CloseHandle = windll.kernel32.CloseHandle
+_CloseHandle.argtypes = [HANDLE]
+_CloseHandle.rettype = BOOL
 def CloseHandle(handle):
     '''    
     closes an operating system handle
-    @note  As you might of noticed above, the close handle prototype is defined with two parameter.
-    This is an apparent bug with the ctypes runtime as single parameter functions are flagged as an
-    error.  If you add a 'fake' parameter ('biff' in this case), then all seems to be well.
     @param handle handle as returned by a previoius call supported create functions
     @returns True if suceeded else false
     '''
     success = _CloseHandle(handle)
     return success
 
-
-def test_filter_instance():
-    '''
-    test user space filter instance manipulation
-    '''
-    stats = {}
-    (handle, info,) = FilterFindFirst()
-    (hFltInstFindFirst, info,) = FilterInstanceFindFirst(info.FilterName)
-    if hFltInstFindFirst is not None:
-        print(info)
-    stats[info.FilterName] = 1
-    while True:
-        print("==================================================")
-        print("Finding instances for filter {0}".format(info,))
-        (hFltInstFindFirst, inst_info,) = FilterInstanceFindFirst(info.FilterName)
-        if not hFltInstFindFirst:
-            print("No Instances Defined for Filter {0}".format(info,))
-            stats[info.FilterName] = 0
-            (hr, info) = FilterFindNext(handle)
-            if hr != S_OK:
-                break
-            stats[info.FilterName] = 1
-            continue
-        print(info)
-        hFilter = FilterCreate(info.FilterName)
-        print("FilterCreate({0}) returned {1}\n".format(info, hFilter,))
-        res = CloseHandle(hFilter)
-        print("CloseHandle({0}) returned {1}\n".format(hFilter, res,))        
-        while True:
-            (hr, inst_info,) = FilterInstanceFindNext(hFltInstFindFirst)
-            if hr != S_OK:
-                break
-            stats[inst_info.FilterName] += 1
-            print(inst_info)
-        (hr, info) = FilterFindNext(handle)
-        if hr != S_OK:
-            break
-        stats[info.FilterName] = 1
-    _res = FilterInstanceFindClose(hFltInstFindFirst)
-    _res = FilterFindClose(handle)
-    print(stats)
 
 def test_packet_decode():
     '''
@@ -924,40 +872,147 @@ def FilterSendMessage(hPort, cmd_buf):
     @returns response buffer - can be empty / zero length
     '''    
     res = HRESULT()
-    bytes_returned = LPDWORD(0)
+    bytes_returned = DWORD()
     rsp_buf = create_string_buffer(MAXRSPSZ)
         
     if cmd_buf is None or not hasattr(cmd_buf, "__len__") or len(cmd_buf) <= 0:
         raise ValueError("Parameter cmd_buf is invalid!")
 
     try:
-        res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(), byref(bytes_returned))
+        res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(rsp_buf), byref(bytes_returned))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("FilterSendMessage Failed on Message Reply - Error %d", lasterror)
+        print(osr)
+        logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr))
         res = lasterror    
     
-    bufsz = bytes_returned if bytes_returned < MAXRSPSZ else MAXRSPSZ
-    response = create_string_buffer(rsp_buf, bufsz)
+    bufsz = (bytes_returned.value 
+            if bytes_returned.value < MAXRSPSZ 
+            else MAXRSPSZ)
+    response = create_string_buffer(rsp_buf.raw[0:bufsz], bufsz)
     return res, response
-    
-def test_command_response():
+
+def Echo(hFltComms):
     '''
-    Test WinVirtUE command response
+    Send and receive an echo probe
     '''
-    
-    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-    cmd_buf = create_string_buffer(MAXCMDSZ)
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.Echo
     cmd_msg.contents.DataSz = 0
     
-    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+
+def EnableProtection(hFltComms):
+    '''
+    Enable Full Protection
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
+    cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+    
+def DisableProtection(hFltComms):
+    '''
+    Disable Full Protection
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+    
+def EnableUnload(hFltComms):
+    '''
+    @note this functionality might not function on release targets
+    Enable Driver Unload 
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.EnableUnload
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+    
+def DisbleUnload(hFltComms):
+    '''
+    @note this functionality might not function on release targets
+    Disable Driver Unload 
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.DisableUnload
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+    
+def EnumerateProbes(hFltComms, Filter=None):
+    '''
+    Enumerate Probes
+    @note by default, all probes are enumerated and returned
+    '''
+
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+
+def ConfigureProbe(hFltComms, ProbeName, ConfigurationData):
+    '''
+    Configure a specific probe with the provided 
+    configuration data
+    '''
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
+
+def test_command_response():
+    '''
+    Test WinVirtUE command response
+    '''
+    import pdb;pdb.set_trace()
+
+    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+    (res, rsp_msg,) = EnableProtection(hFltComms)
     print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, rsp_msg.contents.Status))
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+              rsp_msg.contents.Status))
 
     CloseHandle(hFltComms)    
       
@@ -967,9 +1022,7 @@ def main():
     '''
     test_command_response()
     
-    #test_packet_decode()  
-    
-    #test_filter_instance()     
+    test_packet_decode()  
     
     sys.exit(0)
     
