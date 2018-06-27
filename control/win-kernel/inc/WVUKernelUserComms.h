@@ -19,7 +19,7 @@
 //
 typedef enum _WVU_COMMAND : ULONG
 {
-	NOCOMMAND = 0,
+	Echo = 0,
 	WVUEnableProtection = 1,
 	WVUDisableProtection = 2,
 	WVUEnableUnload = 3,
@@ -46,10 +46,9 @@ typedef enum _WVU_RESPONSE : ULONG
 //
 typedef struct _RESPONSE_MESSAGE
 {
-	LIST_ENTRY	ListEntry;	// The linked list entry
-	ULONG Size;             // Command Message Packet Size
-	WVU_RESPONSE Response;  // Command Response Type
-	NTSTATUS Status;        // returned status from command
+	WVU_RESPONSE Response;	// Command Response Type
+	NTSTATUS Status;		// returned status from command
+	SIZE_T DataSz;			// The Optional Response Packets Data Size
 	UCHAR Data[1];			// Optional Response Packet Data
 } RESPONSE_MESSAGE, *PRESPONSE_MESSAGE;
 
@@ -57,13 +56,11 @@ typedef struct _RESPONSE_MESSAGE
 //  Defines the commands between the user program and the filter
 //  Command: User -> Kernel
 //
-typedef struct _COMMAND_MESSAGE {
-	LIST_ENTRY	ListEntry;	// The linked list entry
-	ULONG Size;             // Command Message Packet Size
+typedef struct _COMMAND_MESSAGE {	
 	WVU_COMMAND Command;    // The Command
+	SIZE_T DataSz;			// The Optional Command Message Data Size
 	UCHAR Data[1];          // Optional Command Message Data
 } COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
-
 
 //
 //  Connection type enumeration. It will be primarily used in connection context.

@@ -15,6 +15,7 @@ from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, 
 S_OK = 0
 
 ULONG_PTR = WPARAM
+SIZE_T = WPARAM
 NTSTATUS = DWORD
 PVOID = c_void_p
 ULONGLONG = c_ulonglong
@@ -23,6 +24,10 @@ LONGLONG = c_longlong
 logger = logging.getLogger("ntfltmgr")
 logger.addHandler(logging.NullHandler())
 logger.setLevel(logging.ERROR)
+
+ERROR_INSUFFICIENT_BUFFER = 0x7a
+ERROR_INVALID_PARAMETER = 0x57
+ERROR_NO_MORE_ITEMS = 0x103
 
 class SaviorStruct(Structure):
     '''
@@ -78,7 +83,6 @@ class PARAM_FLAG(CtypesEnum):
     FOUT  = (1 << 1)
     FLCID = (1 << 2)
     COMBINED = FIN | FOUT | FLCID
-
 
 class CLIENT_ID(SaviorStruct):
     '''
@@ -372,13 +376,6 @@ class ProcessDestroyInfo(SaviorStruct):
             info.contents.EProcess)
         return create_info
     
-ERROR_INSUFFICIENT_BUFFER = 0x7a
-ERROR_INVALID_PARAMETER = 0x57
-ERROR_NO_MORE_ITEMS = 0x103
-
-logger = logging.getLogger("ntfltmgr")
-logger.addHandler(logging.NullHandler())
-logger.setLevel(logging.ERROR)
 
 _FilterReplyMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
 _FilterReplyMessageParamFlags = (0, "hPort"), (0,  "lpReplyBuffer"), (0, "dwReplyBufferSize")
@@ -452,48 +449,6 @@ def FilterGetMessage(hPort, msg_len):
     msg_pkt = FilterMessageHeader(ReplyLen, MessageId,
             sb[sizeof(FILTER_MESSAGE_HEADER):])
     return res, msg_pkt
-
-
-
-_FilterSendMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
-_FilterSendMessageParamFlags = (0, "hPort"), (1,  "lpInBuffer"), (0, "dwInBufferSize")
-_FilterSendMessage = _FilterSendMessageProto(("FilterSendMessage", windll.fltlib), _FilterSendMessageParamFlags)
-def FilterSendMessage(hPort, status, msg_id, msg, msg_len):
-    '''    
-    replies to a message from a kernel-mode minifilter 
-    @note close the handle returned using CloseHandle
-    @param hPort port handle returned by a previous call to 
-    FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
-    @param reply_buffer caller-allocated buffer containing the reply to be sent 
-    to the minifilter. The reply must contain a FILTER_REPLY_HEADER structure, 
-    but otherwise, its format is caller-defined. This parameter is required and 
-    cannot be NULL
-    @returns S_OK if successful. Otherwise, it returns an error value
-    '''    
-    res = HRESULT()
-        
-    if (msg is None or not hasattr(msg, "__len__") or len(msg) <= 0
-        or msg_len < len(msg) or msg_len <= sizeof(FILTER_REPLY_HEADER)):
-        raise ValueError("Parameter msg or msg_len is invalid!")
-    
-    if isinstance(msg, str):
-        txt = msg
-        msg = bytearray()
-        msg.extend(map(ord, txt))                     
-    reply_buffer = create_string_buffer(bytes(msg), msg_len)
-    info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
-    info.contents.Status = status
-    info.contents.MessageId = msg_id           
-
-    try:
-        res = _FilterSendMessage(hPort, byref(info.contents), msg_len)
-    except OSError as osr:
-        lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("FilterSendMessage Failed on Message Reply - Error %d", lasterror)
-        res = lasterror
-
-    return res
-
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
 _FilterConnectCommunicationPortParamFlags = (0, "lpPortName"), (0,  "dwOptions", 0), (0, "lpContext", 0), (0,  "dwSizeOfContext", 0), (0, "lpSecurityAttributes", 0), (1, "hPort")
@@ -842,18 +797,7 @@ def test_filter_instance():
     _res = FilterInstanceFindClose(hFltInstFindFirst)
     _res = FilterFindClose(handle)
     print(stats)
-    
-def test_command_response():
-    '''
-    Test WinVirtUE command response
-    '''
-    
-    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-    while True:
-        pass
 
-    CloseHandle(hFltComms)    
-    
 def test_packet_decode():
     '''
     Test WinVirtUE packet decode
@@ -877,19 +821,154 @@ def test_packet_decode():
         else:
             print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
             continue
-        print("Decoded a %s data message\n" % (pdh.ProbeId.name,))
         print(json.dumps(msg_data._asdict(), indent=4))
 
     CloseHandle(hFltComms)
+  
+class WVU_COMMAND(CtypesEnum):
+    '''
+    Winvirtue Commands
+    '''
+    Echo = 0x0
+    WVUEnableProtection  = 0x1
+    WVUDisableProtection = 0x2
+    WVUEnableUnload = 0x3
+    WVUEnableUnload = 0x4
+    WVUEnableUnload = 0x5
+    WVUEnableUnload = 0x6
     
+class WVU_RESPONSE(CtypesEnum):
+    '''
+    Winvirtue Command Responses
+    '''
+    NORESPONSE = 0x0
+    WVUSuccess = 0x1
+    WVUFailure = 0x2
+
+GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'DataSz', 'Data'])
+    
+class COMMAND_MESSAGE(SaviorStruct):
+    '''
+    Command Message as sent to the driver
+    '''
+    _fields_ = [        
+        ("Command", WVU_COMMAND),
+        ("DataSz", SIZE_T),
+        ("Data", BYTE * 1) 
+    ]
+
+    @classmethod
+    def build(cls, cmd, data):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        sb = create_string_buffer(sizeof(cls) + len(data) - 1)
+        info = cast(sb, POINTER(cls))
+        info.contents.Command = cmd
+        info.contents.DataSz = len(data)        
+        if info.contents.DataSz > 0:
+            length = info.contents.DataSz
+            offset = type(info.contents).Data.offset
+            sb[offset:length] = data
+            
+        command_packet = GetCommandMessage(
+            info.contents.Command,
+            info.contents.DataSz,
+            sb)
+        return command_packet  
+
+GetResponseMessage = namedtuple('GetResponseMessage',  ['Resonse', 'Status', 'DataSz', 'Data'])
+
+class RESPONSE_MESSAGE(SaviorStruct):
+    '''
+    Response Message as receieved from driver
+    '''
+    _fields_ = [        
+        ("Resonse", WVU_RESPONSE),
+        ("Status", NTSTATUS),
+        ("DataSz", SIZE_T),
+        ("Data", BYTE * 1) 
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        sb = ''
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        if info.contents.DataSz > 0:
+            length = info.contents.DataSz
+            offset = type(info.contents).Data.offset
+            sb = create_string_buffer(msg_pkt.Packet[offset:length])        
+        command_packet = GetCommandMessage(
+            info.contents.Size,
+            info.contents.Command,
+            sb)
+        return command_packet     
+
+MAXRSPSZ = 0x1000
+MAXCMDSZ = 0x1000
+    
+_FilterSendMessageProto = WINFUNCTYPE(HRESULT, HANDLE, LPVOID, DWORD, LPVOID, DWORD, LPDWORD)
+_FilterSendMessageParamFlags = (0, "hPort"), (0,  "lpInBuffer"), (0, "dwInBufferSize"), (1, "lpOutBuffer"), (0, "dwOutBufferSize"), (1, "lpBytesReturned")
+_FilterSendMessage = _FilterSendMessageProto(("FilterSendMessage", windll.fltlib), _FilterSendMessageParamFlags)
+def FilterSendMessage(hPort, cmd_buf):
+    '''    
+    @brief The FilterSendMessage function sends a message to a kernel-mode minifilter. 
+    @param hPort port handle returned by a previous call to 
+    FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
+    @param cmd_buf command buffer
+    @returns S_OK if successful. Otherwise, it returns an error value
+    @returns response buffer - can be empty / zero length
+    '''    
+    res = HRESULT()
+    bytes_returned = LPDWORD(0)
+    rsp_buf = create_string_buffer(MAXRSPSZ)
+        
+    if cmd_buf is None or not hasattr(cmd_buf, "__len__") or len(cmd_buf) <= 0:
+        raise ValueError("Parameter cmd_buf is invalid!")
+
+    try:
+        res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(), byref(bytes_returned))
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        logger.exception("FilterSendMessage Failed on Message Reply - Error %d", lasterror)
+        res = lasterror    
+    
+    bufsz = bytes_returned if bytes_returned < MAXRSPSZ else MAXRSPSZ
+    response = create_string_buffer(rsp_buf, bufsz)
+    return res, response
+    
+def test_command_response():
+    '''
+    Test WinVirtUE command response
+    '''
+    
+    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+    cmd_buf = create_string_buffer(MAXCMDSZ)
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.Echo
+    cmd_msg.contents.DataSz = 0
+    
+    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+    
+    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
+          .format(_res, len(rsp_buf), rsp_msg.contents.Response, rsp_msg.contents.Status))
+
+    CloseHandle(hFltComms)    
+      
 def main():
     '''
     let's test some stuff
     '''
+    test_command_response()
     
-    test_packet_decode()
-
-    #test_command_response()
+    #test_packet_decode()  
     
     #test_filter_instance()     
     
@@ -897,5 +976,5 @@ def main():
     
     
 
-if __name__ == '__main__':
+if __name__ == '__main__':        
     main()
