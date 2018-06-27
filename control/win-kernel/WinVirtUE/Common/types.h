@@ -244,13 +244,6 @@ typedef struct _LoadedImageInfo
 	_In_ UCHAR FullImageName[1];
 } LoadedImageInfo, *PLoadedImageInfo;
 
-
-typedef struct _LoadImageNotify
-{
-
-} LoadImageNotify, *PLoadImageNotify;
-
-
 /**
 * @note Is it important to also include the imagefilename or is it 
 * duplicate information from module load?

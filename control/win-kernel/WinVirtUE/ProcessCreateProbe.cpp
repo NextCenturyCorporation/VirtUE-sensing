@@ -14,7 +14,7 @@
 ProcessCreateProbe::ProcessCreateProbe() : 
 	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessCreate"))
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime); // | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 
 	// initialize the spinlock that controls access to the Response queue
 	KeInitializeSpinLock(&this->ProcessListSpinLock);
