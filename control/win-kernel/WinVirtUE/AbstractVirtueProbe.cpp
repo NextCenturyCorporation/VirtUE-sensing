@@ -67,7 +67,9 @@ AbstractVirtueProbe::OnPoll()
 	BOOLEAN success = FALSE;
 	LARGE_INTEGER CurrentGMT = { 0LL };
 
-	if ((Attributes & ProbeAttributes::Temporal) != ProbeAttributes::Temporal)
+	/** leave if we are not enabled and were not temporal */
+	if (FALSE == this->Enabled
+		|| (Attributes & ProbeAttributes::Temporal) != ProbeAttributes::Temporal)
 	{
 		success = FALSE;
 		goto Exit;

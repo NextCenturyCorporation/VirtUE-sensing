@@ -171,7 +171,7 @@ typedef struct _WVUGlobals
     KEVENT WVUThreadStartEvent;
 	KEVENT poll_wait_evt;	    // polling thread waiter
     BOOLEAN AllowFilterUnload;  // if true, then allow the filter to be unloaded else don't allow
-    BOOLEAN ProtectionEnabled;   // if true then the driver is protecting
+    BOOLEAN IsProtectionEnabled;   // if true then the driver is protecting
 	BOOLEAN IsCommandConnected;   // TRUE if the Command Port is connected else FALSE
 	BOOLEAN IsDataStreamConnected;  // TRUE if the data stream port is connected else FALSE
 	PDRIVER_OBJECT DriverObject;	

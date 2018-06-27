@@ -78,7 +78,7 @@ WVUCommsManager::~WVUCommsManager()
 {
 	FltUnregisterFilter(Globals.FilterHandle);
 
-	Globals.ProtectionEnabled = FALSE;
+	Globals.IsProtectionEnabled = FALSE;
 }
 
 /**
@@ -147,7 +147,7 @@ WVUCommsManager::Start()
 		goto ErrorExit;
 	}
 
-	Globals.ProtectionEnabled = TRUE;
+	Globals.IsProtectionEnabled = TRUE;
 
 ErrorExit:
 
@@ -307,16 +307,15 @@ WVUCommsManager::OnProtectionStateChange(
 
 	switch (command)
 	{
-	case WVU_COMMAND::DisableProtection:
-		
-		Globals.ProtectionEnabled = FALSE;
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
-		break;
-	case WVU_COMMAND::EnableProtection:
-		Globals.ProtectionEnabled = TRUE;
+	case WVU_COMMAND::DisableProtection:		
+		Globals.IsProtectionEnabled = FALSE; 
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
+		break;
+	case WVU_COMMAND::EnableProtection:
+		Globals.IsProtectionEnabled = TRUE;
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
 		break;
 	default:
 		Status = STATUS_INVALID_PARAMETER_1;

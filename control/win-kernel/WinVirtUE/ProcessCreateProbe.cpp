@@ -79,6 +79,13 @@ _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	if (TRUE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already enabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
 		Status = STATUS_SUCCESS;
@@ -88,9 +95,10 @@ BOOLEAN ProcessCreateProbe::Start()
 		goto ErrorExit;
 	}
 	Status = this->RemoveNotify(FALSE);
+
 ErrorExit:
 	this->Enabled = NT_SUCCESS(Status) ? TRUE : FALSE;
-	return NT_SUCCESS(Status) ? TRUE : FALSE;
+	return this->Enabled;
 }
 
 /**
