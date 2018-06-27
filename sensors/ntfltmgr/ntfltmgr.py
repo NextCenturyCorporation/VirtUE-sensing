@@ -449,7 +449,6 @@ def FilterGetMessage(hPort, msg_len):
     try:
         res = _FilterGetMessage(hPort, byref(info.contents), msg_len, 
                 cast(None, POINTER(OVERLAPPED)))
-        info = cast(sb[sizeof(FILTER_MESSAGE_HEADER):], POINTER(FILTER_MESSAGE_HEADER))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror)
