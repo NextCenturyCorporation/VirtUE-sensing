@@ -311,13 +311,13 @@ WVUCommsManager::OnProtectionStateChange(
 
 	switch (command)
 	{
-	case WVU_COMMAND::WVUDisableProtection:
+	case WVU_COMMAND::DisableProtection:
 		
 		Globals.ProtectionEnabled = FALSE;
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
 		break;
-	case WVU_COMMAND::WVUEnableProtection:
+	case WVU_COMMAND::EnableProtection:
 		Globals.ProtectionEnabled = TRUE;
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
@@ -334,13 +334,13 @@ WVUCommsManager::OnProtectionStateChange(
 	LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
 	{
 		/** if we are disabling, and the probe is enabled; then stop the probe */
-		if (WVU_COMMAND::WVUDisableProtection == command
+		if (WVU_COMMAND::DisableProtection == command
 			&& TRUE == pProbeInfo->Probe->IsEnabled())
 		{
 			pProbeInfo->Probe->Stop();
 		}
 		/** If we are enabling probes, the probe is disabled AND it's marked EnableAtStart, then start the probe */
-		else if (WVU_COMMAND::WVUEnableProtection == command
+		else if (WVU_COMMAND::EnableProtection == command
 			&& FALSE == pProbeInfo->Probe->IsEnabled()
 			&& (pProbeInfo->Probe->GetProbeAttribtes() 
 				& AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
@@ -369,21 +369,20 @@ WVUCommsManager::OnUnloadStateChange(
 
 	switch (command)
 	{
-	case WVU_COMMAND::WVUDisableUnload:
+	case WVU_COMMAND::DisableUnload:
 #pragma warning(suppress: 28175)
 		Globals.DriverObject->DriverUnload = NULL;
 		Globals.AllowFilterUnload = FALSE;
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Disabled!\n");
 		break;
-	case WVU_COMMAND::WVUEnableUnload:
+	case WVU_COMMAND::EnableUnload:
 #pragma warning(suppress: 28175)
 		Globals.DriverObject->DriverUnload = DriverUnload;
 		Globals.AllowFilterUnload = TRUE;
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Enabled!\n");
 		break;
-	case WVU_COMMAND::NOCOMMAND:
 	default:
 		Status = STATUS_INVALID_PARAMETER_1;
 		FLT_ASSERTMSG("Invalid OnUnload State Change State!", FALSE);
@@ -458,8 +457,8 @@ WVUCommsManager::CreateStandardResponse(
 	}
 
 	PRESPONSE_MESSAGE pReply = (PRESPONSE_MESSAGE)OutputBuffer;
-	pReply->Size = sizeof(RESPONSE_MESSAGE);
-	pReply->Response = NT_SUCCESS(Status) ? WVUSuccess : WVUFailure;
+	pReply->DataSz = 0;
+	pReply->Response = NT_SUCCESS(Status) ? Success : Failure;
 	pReply->Status = Status;
 	*ReturnOutputBufferLength = sizeof(RESPONSE_MESSAGE);
 
@@ -498,14 +497,13 @@ WVUCommsManager::OnCommandMessage(
 	pCmdMsg = (PCOMMAND_MESSAGE)InputBuffer;
 	switch (pCmdMsg->Command)
 	{
-	case WVU_COMMAND::WVUEnableUnload:
-	case WVU_COMMAND::WVUDisableUnload:
-		FLT_ASSERTMSG("Unload State Changes must be 4 bytes!", sizeof(ULONG) == pCmdMsg->Size);
+	case WVU_COMMAND::EnableUnload:
+	case WVU_COMMAND::DisableUnload:
 		Status = OnUnloadStateChange(pCmdMsg->Command);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
-	case WVU_COMMAND::WVUEnableProtection:
-	case WVU_COMMAND::WVUDisableProtection:
+	case WVU_COMMAND::EnableProtection:
+	case WVU_COMMAND::DisableProtection:
 		Status = OnProtectionStateChange(pCmdMsg->Command);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
@@ -516,8 +514,10 @@ WVUCommsManager::OnCommandMessage(
 		Status = OnConfigureProbe(pCmdMsg);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
+	case WVU_COMMAND::Echo:
+		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
+		break;
 	default:
-	case WVU_COMMAND::NOCOMMAND:
 		Status = STATUS_INVALID_MESSAGE;
 		break;
 	}

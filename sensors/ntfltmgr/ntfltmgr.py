@@ -14,7 +14,6 @@ from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, 
 
 S_OK = 0
 
-ULONG_PTR = WPARAM
 SIZE_T = WPARAM
 NTSTATUS = DWORD
 PVOID = c_void_p
@@ -147,8 +146,8 @@ class OVERLAPPED(SaviorStruct):
     Contains information used in asynchronous (or overlapped) input and output (I/O).
     '''    
     _fields_ = [
-        ("Internal", ULONG_PTR),
-        ("InternalHigh", ULONG_PTR),
+        ("Internal", c_ulonglong),
+        ("InternalHigh", c_ulonglong),
         ("Pointer", PVOID),
         ("hEvent", HANDLE)
     ]
@@ -830,12 +829,12 @@ class WVU_COMMAND(CtypesEnum):
     Winvirtue Commands
     '''
     Echo = 0x0
-    WVUEnableProtection  = 0x1
-    WVUDisableProtection = 0x2
-    WVUEnableUnload = 0x3
-    WVUEnableUnload = 0x4
-    WVUEnableUnload = 0x5
-    WVUEnableUnload = 0x6
+    EnableProtection  = 0x1
+    DisableProtection = 0x2        
+    EnableUnload = 0x3
+    DisableUnload = 0x4
+    EnumerateProbes = 0x5
+    ConfigureProbe = 0x6
     
 class WVU_RESPONSE(CtypesEnum):
     '''
@@ -852,7 +851,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     Command Message as sent to the driver
     '''
     _fields_ = [        
-        ("Command", WVU_COMMAND),
+        ("Command", ULONG),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
@@ -878,14 +877,14 @@ class COMMAND_MESSAGE(SaviorStruct):
             sb)
         return command_packet  
 
-GetResponseMessage = namedtuple('GetResponseMessage',  ['Resonse', 'Status', 'DataSz', 'Data'])
+GetResponseMessage = namedtuple('GetResponseMessage',  ['Response', 'Status', 'DataSz', 'Data'])
 
 class RESPONSE_MESSAGE(SaviorStruct):
     '''
     Response Message as receieved from driver
     '''
     _fields_ = [        
-        ("Resonse", WVU_RESPONSE),
+        ("Response", ULONG),
         ("Status", NTSTATUS),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 

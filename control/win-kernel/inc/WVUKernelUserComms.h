@@ -20,10 +20,10 @@
 typedef enum _WVU_COMMAND : ULONG
 {
 	Echo = 0,
-	WVUEnableProtection = 1,
-	WVUDisableProtection = 2,
-	WVUEnableUnload = 3,
-	WVUDisableUnload = 4,
+	EnableProtection = 1,
+	DisableProtection = 2,
+	EnableUnload = 3,
+	DisableUnload = 4,
 	EnumerateProbes = 5,
 	ConfigureProbe = 6,
 	MAXCMDS
@@ -35,8 +35,8 @@ typedef enum _WVU_COMMAND : ULONG
 typedef enum _WVU_RESPONSE : ULONG
 {
 	NORESPONSE = 0,
-	WVUSuccess = 1,
-	WVUFailure = 2,
+	Success = 1,
+	Failure = 2,
 	MAXRESP = 3
 } WVU_RESPONSE;
 
