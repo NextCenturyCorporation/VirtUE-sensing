@@ -9,11 +9,13 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_IMAGELOADPROBE_POOL_TAG
 
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ImageLoad");
+
 /**
 * @brief construct an instance of this probe
 */
 ImageLoadProbe::ImageLoadProbe() :
-	AbstractVirtueProbe(RTL_CONSTANT_STRING("ImageLoad"))
+	AbstractVirtueProbe(probe_name)
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
@@ -209,6 +211,18 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 			pImageInfo->ImageSectionNumber);
 	}
 
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+	if (NULL != pProbeInfo)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+			"***** Unable to find probe info on probe %Z!\n", &probe_name);
+		goto ErrorExit;
+	}
+
+	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
+	{
+		pProbeInfo->Probe->IncrementOperationCount();
+	}
 ErrorExit:
 
 	// Drop a rundown reference 

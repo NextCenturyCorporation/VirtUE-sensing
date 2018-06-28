@@ -8,11 +8,13 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROCLISTVALIDPROBE_POOL_TAG
 
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ProcessListValidation");
+
 /**
 * @brief construct an instance of this probe
 */
 ProcessListValidationProbe::ProcessListValidationProbe() :
-	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessListValidation"))
+	AbstractVirtueProbe(probe_name)
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);
 }

@@ -22,7 +22,7 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
 	this->ProbeName = ProbeName;
 	WVUQueueManager::GetInstance().Register(*this);
-	AbstractVirtueProbe::ProbeCount++;
+	this->ProbeNumber = InterlockedAdd(&AbstractVirtueProbe::ProbeCount, 1L);
 }
 
 /**
@@ -100,8 +100,8 @@ NTSTATUS
 AbstractVirtueProbe::OnRun() 
 {
 	CONST NTSTATUS Status = STATUS_SUCCESS;
-	InterlockedIncrement(&this->OperationCount);
 	KeQuerySystemTimePrecise(&this->LastProbeRunTime);  // always call superclasses probe function
+	InterlockedIncrement(&this->OperationCount);
 	return Status;
 }
 

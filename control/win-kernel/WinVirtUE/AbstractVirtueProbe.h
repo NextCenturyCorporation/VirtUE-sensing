@@ -38,8 +38,9 @@ protected:
 	/** The number of discrete operations since loaded */
 	volatile LONG OperationCount;
 	/** The number of probes */
-	static LONG ProbeCount;
-
+	static volatile LONG ProbeCount;
+	/** This probes unique probe number */
+	volatile LONG ProbeNumber;
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
 	virtual ~AbstractVirtueProbe();
@@ -81,6 +82,8 @@ public:
 	virtual const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
 	/** get probe operation count */
 	virtual volatile const LONG& GetOperationCount() { return this->OperationCount; }
+	/** bump the operation count in a thread safe manner */
+	void IncrementOperationCount() { InterlockedIncrement(&this->OperationCount); }
 	/** return the number of registered probes */
 	static const LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
 
