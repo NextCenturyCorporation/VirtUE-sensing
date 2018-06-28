@@ -657,6 +657,8 @@ get_task_by_pid_number(pid_t pid);
 
 #define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
+	uint8_t clear;
+	uint8_t pad[7];
 	uint64_t nonce;
 	int index;
 	kuid_t user_id;
@@ -692,12 +694,12 @@ struct kernel_lsof_probe {
 	int (*filter)(struct kernel_lsof_probe *,
 				  struct kernel_lsof_data *,
 				  void *);
-	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
-	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
+	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t);
+	int (*lsof)(struct kernel_lsof_probe *, uint64_t);
 	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
 									   uint8_t *, int,
 									   int (*print)(struct kernel_lsof_probe *,
-													uint8_t *, uint64_t, int),
+													uint8_t *, uint64_t),
 									   int (*filter)(struct kernel_lsof_probe *,
 													 struct kernel_lsof_data *,
 													 void *));
@@ -716,11 +718,13 @@ build_pid_index_unlocked(struct probe *p,
 int
 build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce);
 
-
+int
+kernel_lsof_get_record(struct kernel_lsof_probe *parent,
+					   struct probe_msg *msg,
+					   uint8_t *tag);
 
 int
 lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
-						   int count,
 						   uint64_t nonce);
 
 int lsof_pid_filter(struct kernel_lsof_probe *p,
@@ -742,11 +746,14 @@ lsof_uid_filter(struct kernel_lsof_probe *p,
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
 				  uint8_t *tag,
-				  uint64_t nonce,
-				  int count);
+				  uint64_t nonce);
 
 int
-kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce);
+kernel_lsof_unlocked(struct kernel_lsof_probe *p,
+					 uint64_t nonce);
+
+int
+kernel_lsof(struct kernel_lsof_probe *parent, uint64_t nonce);
 
 void
 run_klsof_probe(struct kthread_work *work);
@@ -755,7 +762,7 @@ struct kernel_lsof_probe *
 init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 					   uint8_t *id, int id_len,
 					   int (*print)(struct kernel_lsof_probe *,
-									uint8_t *, uint64_t, int),
+									uint8_t *, uint64_t),
 					   int (*filter)(struct kernel_lsof_probe *,
 									 struct kernel_lsof_data *,
 									 void *));
