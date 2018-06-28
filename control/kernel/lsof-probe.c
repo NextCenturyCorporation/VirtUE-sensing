@@ -133,7 +133,18 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 
 	klsof_p = flex_array_get(parent->klsof_data_flex_array, rr->index);
 	if (!klsof_p || klsof_p->clear == FLEX_ARRAY_FREE) {
-		return -ENOENT;
+   /**
+	* when there is no entry, or the entry is clear, return an
+	* empty record response. per the protocol control/kernel/messages.md
+	**/
+		cur_len = scnprintf(rp->records,
+							rp->records_len - 1,
+							"%s %s, %s]}\n",
+							r_header,
+							rr->json_msg->s->nonce,
+							parent->id);
+
+		goto record_created;
 	}
 
 	if (rr->nonce && klsof_p->nonce != rr->nonce) {
@@ -148,9 +159,9 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 	 **/
 
 	cur_len = scnprintf(rp->records,
-						rp->records_len,
+						rp->records_len - 1,
 						"%s %s, %s, %s uid: %d pid: %d flags: %x "
-						"mode: %x count: %lx %s \n",
+						"mode: %x count: %lx %s]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
 						parent->id,
@@ -166,13 +177,14 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 		flex_array_clear(parent->klsof_data_flex_array, rr->index);
 	}
 
+record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
 	rp->index = rr->index;
 	rp->range = rr->range;
 	return 0;
-}\
+}
 
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,

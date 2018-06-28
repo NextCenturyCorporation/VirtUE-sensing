@@ -74,7 +74,17 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, rr->index);
 	if (!kpsd_p || kpsd_p->clear == FLEX_ARRAY_FREE) {
-		return -ENOENT;
+	/**
+	* when there is no entry, or the entry is clear, return an
+	* empty record response. per the protocol control/kernel/messages.md
+	**/
+		cur_len = scnprintf(rp->records,
+							rp->records_len - 1,
+							"%s %s, %s]}\n",
+							r_header,
+							rr->json_msg->s->nonce,
+							parent->id);
+		goto record_created;
 	}
 
 	if (rr->nonce && kpsd_p->nonce != rr->nonce) {
@@ -90,7 +100,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	 **/
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s %d %s %d %d %llx ] }\n",
+						"%s %s, %s, %s %d %s %d %d %llx ]}\n",
 						r_header, rr->json_msg->s->nonce, parent->id,
 						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
 						kpsd_p->user_id.val, rr->nonce);
@@ -99,6 +109,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
 
+record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
