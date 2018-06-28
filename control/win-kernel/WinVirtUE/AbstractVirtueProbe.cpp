@@ -10,7 +10,7 @@
 
 #pragma warning(suppress: 26439)
 
-LONG AbstractVirtueProbe::ProbeCount = 0L;
+volatile LONG AbstractVirtueProbe::ProbeCount = 0L;
 
 /**
 * @brief base class constructing an instance of a probe 

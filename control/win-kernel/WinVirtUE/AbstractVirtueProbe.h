@@ -85,6 +85,6 @@ public:
 	/** bump the operation count in a thread safe manner */
 	void IncrementOperationCount() { InterlockedIncrement(&this->OperationCount); }
 	/** return the number of registered probes */
-	static const LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
+	static const volatile LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
 
 };
