@@ -865,8 +865,8 @@ class ProbeStatusHeader(SaviorStruct):
     ]
 
 GetProbeStatus = namedtuple('GetProbeStatus',  
-                            ['ProbeNumber', 'LastRunTime', 'RunInterval', 
-                                 'OperationCount', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])    
+        ['ProbeNumber', 'LastRunTime', 'RunInterval', 
+            'OperationCount', 'Attributes', 'ProbeName'])
 class ProbeStatus(SaviorStruct):
     '''
     The ProbeStatus message
@@ -897,7 +897,7 @@ class ProbeStatus(SaviorStruct):
             if not ch:
                 break
             lst.append(ch)
-        ProbeName = "".join(lst)
+        ProbeName = "".join(map(chr, lst))
         probe_status = GetProbeStatus(            
             info.contents.ProbeNumber,
             info.contents.LastRunTime,
@@ -957,6 +957,7 @@ def EnumerateProbes(hFltComms, Filter=None):
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    import pdb;pdb.set_trace()
     header = cast(rsp_buf, POINTER(ProbeStatusHeader))    
     cnt = header.contents.NumberOfEntries
     sb = create_string_buffer(rsp_buf[sizeof(ProbeStatusHeader):])
@@ -967,7 +968,7 @@ def EnumerateProbes(hFltComms, Filter=None):
         offset = 0 * sizeof(ProbeStatus)
         array_of_bytes = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_bytes)        
-        probe = ProbeStatus.build(slc)
+        probe = ProbeStatus.build(bytes(slc))
         probes.append(probe)
 
     return res, probes
