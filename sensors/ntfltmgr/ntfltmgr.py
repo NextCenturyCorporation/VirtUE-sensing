@@ -6,7 +6,7 @@ import json
 import logging
 from enum import IntEnum
 from collections import namedtuple
-from ctypes import c_int, c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
@@ -864,6 +864,9 @@ class ProbeStatusHeader(SaviorStruct):
         ("NumberOfEntries", DWORD)
     ]
 
+GetProbeStatus = namedtuple('GetProbeStatus',  
+                            ['ProbeNumber', 'LastRunTime', 'RunInterval', 
+                                 'OperationCount', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])    
 class ProbeStatus(SaviorStruct):
     '''
     The ProbeStatus message
@@ -877,6 +880,33 @@ class ProbeStatus(SaviorStruct):
         ("ProbeName", BYTE * MAXPROBENAMESZ),
     ]
 
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))    
+        length = MAXPROBENAMESZ
+        offset = type(info.contents).ProbeName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_chars = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_chars)
+        lst = []
+        for ch in slc:
+            if not ch:
+                break
+            lst.append(ch)
+        ProbeName = "".join(lst)
+        probe_status = GetProbeStatus(            
+            info.contents.ProbeNumber,
+            info.contents.LastRunTime,
+            info.contents.RunInterval,
+            info.contents.OperationCount,
+            info.contents.Attributes, 
+            ProbeName)
+        return probe_status
+    
 MAXRSPSZ = 0x1000
 MAXCMDSZ = 0x1000
     
@@ -932,12 +962,13 @@ def EnumerateProbes(hFltComms, Filter=None):
     sb = create_string_buffer(rsp_buf[sizeof(ProbeStatusHeader):])
     length = sizeof(ProbeStatus)
     probes = []
-    for ndx in range(0, cnt, sizeof(ProbeStatus)):
-        offset = ndx
-        array_of_info = memoryview(sb)[offset:length+offset]
-        slc = (BYTE * length).from_buffer(array_of_info)
-        status = cast(slc, POINTER(ProbeStatus))
-        probes.append(status)        
+    
+    for ndx in range(0, cnt):
+        offset = 0 * sizeof(ProbeStatus)
+        array_of_bytes = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_bytes)        
+        probe = ProbeStatus.build(slc)
+        probes.append(probe)
 
     return res, probes
 
@@ -1041,11 +1072,10 @@ def test_command_response():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
 
-    import pdb;pdb.set_trace()
     (res, probes,) = EnumerateProbes(hFltComms)
     print("res = {0}\n".format(res,))
     for probe in probes:
-        print("{0}".format(probe,))
+        print("{0}".format(probe.contents,))
 
     CloseHandle(hFltComms)    
       
