@@ -886,10 +886,10 @@ class ProbeStatus(SaviorStruct):
         build named tuple instance representing this
         classes instance data
         '''        
-        info = cast(msg_pkt.Packet, POINTER(cls))    
+        info = cast(msg_pkt, POINTER(cls))    
         length = MAXPROBENAMESZ
         offset = type(info.contents).ProbeName.offset
-        sb = create_string_buffer(msg_pkt.Packet)
+        sb = create_string_buffer(msg_pkt)
         array_of_chars = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_chars)
         lst = []
