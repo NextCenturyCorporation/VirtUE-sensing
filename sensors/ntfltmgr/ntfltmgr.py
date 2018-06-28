@@ -10,7 +10,7 @@ from ctypes import c_int, c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, S
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
-from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL
+from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG
 
 S_OK = 0
 MAXPROBENAMESZ = 64
@@ -1041,6 +1041,7 @@ def test_command_response():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
 
+    import pdb;pdb.set_trace()
     (res, probes,) = EnumerateProbes(hFltComms)
     print("res = {0}\n".format(res,))
     for probe in probes:
