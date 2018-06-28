@@ -415,6 +415,7 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 			if (NULL == probe_name.Buffer)
 			{
 				WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Unable to allocate NonPaged Memory!\n");
+#pragma warning(suppress: 6242)  // No choice, we want to show an abnormal termination below
 				goto ErrorExit;
 			}
 			probe_name.Length = probe_name.MaximumLength = bufsz;
