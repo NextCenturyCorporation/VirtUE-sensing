@@ -403,7 +403,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		.clear = 1,
 		.nonce = 0L,
 		.index = 0,
-		.range = 1
+		.range = -1
 	};
 
 	struct records_reply rp = {0};
@@ -458,12 +458,9 @@ process_records_request(struct jsmn_message *msg, int index)
 			/**
 			 * re-initialize the request struct to reflect where we are in the loop
 			 **/
-			rr.range--;
-			if (rr.range > 0) {
-				rr.run_probe = 0;
-				rr.index++;
-			}
-		} while(!ccode && rr.range > 0);
+			rr.run_probe = 0;
+			rr.index++;
+		} while(!ccode && rp.index != -ENOENT);
 		spin_unlock(&probe_p->lock);
 		probe_p = NULL;
 	}
