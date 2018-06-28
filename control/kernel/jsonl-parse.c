@@ -338,6 +338,7 @@ allocate_reply_message(struct jsmn_message *request, bool alloc_buffer)
 		if (!rply->line) {
 			goto err_out_rply;
 		}
+		rply->len = CONNECTION_MAX_HEADER;
 	}
 
 	/**
