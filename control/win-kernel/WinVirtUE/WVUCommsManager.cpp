@@ -421,6 +421,7 @@ WVUCommsManager::OnEnumerateProbes(
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Insufficient NonPaged Memory - Failed Allocation!\n");
 		goto ErrorExit;
 	}
+
 	RtlSecureZeroMemory(pByte, ReponseBufferLength);
 	__try
 	{
@@ -449,6 +450,7 @@ WVUCommsManager::OnEnumerateProbes(
 		}
 		RtlCopyMemory(OutputBuffer, pByte, ReponseBufferLength);
 		*ReturnOutputBufferLength = ReponseBufferLength;
+		Status = STATUS_SUCCESS;
 	}
 	__finally { delete[] pByte; pByte = NULL; }
 
