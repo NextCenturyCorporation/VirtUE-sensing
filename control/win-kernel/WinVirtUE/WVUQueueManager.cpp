@@ -398,6 +398,7 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 		goto ErrorExit;
 	}
 	lc_probe_to_be_found.Length = lc_probe_to_be_found.MaximumLength = bufsz;
+	RtlCopyMemory(lc_probe_to_be_found.Buffer, probe_to_be_found.Buffer, bufsz);
 	for (unsigned ndx = 0; ndx < lc_probe_to_be_found.Length; ndx++)
 		lc_probe_to_be_found.Buffer[ndx] |= 0x60;   // lower the case
 
@@ -419,6 +420,7 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 				goto ErrorExit;
 			}
 			probe_name.Length = probe_name.MaximumLength = bufsz;
+			RtlCopyMemory(probe_name.Buffer, probe->Probe->GetProbeName().Buffer, bufsz);
 			for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
 				probe_name.Buffer[ndx] |= 0x60;   // lower the case
 			__try
