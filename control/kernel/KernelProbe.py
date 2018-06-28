@@ -116,7 +116,7 @@ class KernelProbe:
             max_amount = 0x400
             data = self.sock.recv(max_amount)
             while len(data):
-                print >>sys.stderr, 'records response received "%s"' % data
+                print >>sys.stderr, '"%s"' % data
                 data = self.sock.recv(max_amount)
 
         except:
