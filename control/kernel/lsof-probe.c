@@ -75,14 +75,13 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 {
 
 	int index;
-	unsigned long flags;
 	struct kernel_lsof_data *klsof_p;
 
 	if(unlikely(!print_to_log)) {
 		return 0;
 	}
 
-	if (!spin_trylock_irqsave(&parent->lock, flags)) {
+	if (!spin_trylock(&parent->lock)) {
 		return -EAGAIN;
 	}
 	for (index = 0; index < LSOF_ARRAY_SIZE; index++)  {
@@ -103,11 +102,11 @@ print_kernel_lsof(struct kernel_lsof_probe *parent,
 				   klsof_p->dpath + klsof_p->dp_offset);
 		} else {
 			printk(KERN_INFO "array indexing error in print lsof\n");
-			spin_unlock_irqrestore(&parent->lock, flags);
+			spin_unlock(&parent->lock);
 			return -ENOMEM;
 		}
 	}
-	spin_unlock_irqrestore(&parent->lock, flags);
+	spin_unlock(&parent->lock);
 	if (index == LSOF_ARRAY_SIZE) {
 		return -ENOMEM;
 	}
@@ -183,10 +182,9 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
-	unsigned long flags;
 	struct lsof_pid_el *pid_el_p;
 
-	if (!spin_trylock_irqsave(&p->lock, flags)) {
+	if (!spin_trylock(&p->lock)) {
 		return -EAGAIN;
 	}
 	for (index = 0; index < PID_EL_ARRAY_SIZE; index++)  {
@@ -205,11 +203,11 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 			}
 		} else {
 			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
-			spin_unlock_irqrestore(&p->lock, flags);
+			spin_unlock(&p->lock);
 			return -ENOMEM;
 		}
 	}
-	spin_unlock_irqrestore(&p->lock, flags);
+	spin_unlock(&p->lock);
 	return file_index;
 }
 STACK_FRAME_NON_STANDARD(lsof_for_each_pid);
