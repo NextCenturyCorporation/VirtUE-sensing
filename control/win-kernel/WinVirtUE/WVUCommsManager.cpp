@@ -444,7 +444,7 @@ WVUCommsManager::OnEnumerateProbes(
 			ULONG length = pProbeInfo->Probe->GetProbeName().Length < MAXPROBENAMESZ
 				? pProbeInfo->Probe->GetProbeName().Length
 				: MAXPROBENAMESZ;
-			RtlCopyMemory(pProbeStatus->ProbeName, &pProbeInfo->Probe->GetProbeName().Buffer, length);
+			RtlCopyMemory(pProbeStatus->ProbeName, pProbeInfo->Probe->GetProbeName().Buffer, length);
 			pProbeStatus++;
 		}
 		RtlCopyMemory(OutputBuffer, pByte, ReponseBufferLength);
