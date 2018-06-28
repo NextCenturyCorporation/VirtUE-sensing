@@ -35,6 +35,10 @@ protected:
 	LARGE_INTEGER RunInterval;
 	/** Last Time Probe Executed */
 	LARGE_INTEGER LastProbeRunTime;
+	/** The number of discrete operations since loaded */
+	volatile LONG OperationCount;
+	/** The number of probes */
+	static LONG ProbeCount;
 
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
@@ -79,4 +83,10 @@ public:
 	/** get probe attributes */
 	_Must_inspect_result_
 	virtual const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
+	/** get probe operation count */
+	_Must_inspect_result_
+	virtual volatile const LONG& GetOperationCount() { return this->OperationCount; }
+	/** return the number of registered probes */
+	static const LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
+
 };

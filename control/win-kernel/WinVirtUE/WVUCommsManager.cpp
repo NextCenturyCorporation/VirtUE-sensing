@@ -401,16 +401,58 @@ WVUCommsManager::OnEnumerateProbes(
 	PULONG ReturnOutputBufferLength)
 {
 	UNREFERENCED_PARAMETER(pCmdMsg);
-	UNREFERENCED_PARAMETER(OutputBuffer);
-	UNREFERENCED_PARAMETER(OutputBufferLength);
-	UNREFERENCED_PARAMETER(ReturnOutputBufferLength);
 
-	LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	ULONG ProbeCount = AbstractVirtueProbe::GetProbeCount();
+	ULONG ReponseBufferLength = ProbeCount * sizeof(ProbeStatus);
+	
+	if (ReponseBufferLength > OutputBufferLength)
 	{
-		;
+		Status = STATUS_BUFFER_TOO_SMALL;
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, INFO_LEVEL_ID, "Buffer Length Provided is too small!\n");
+		goto ErrorExit;
 	}
 
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;	
+	PBYTE pByte = new BYTE[ReponseBufferLength];
+	if (NULL == pByte)
+	{
+		Status = STATUS_NO_MEMORY;
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Insufficient NonPaged Memory - Failed Allocation!\n");
+		goto ErrorExit;
+	}
+	__try
+	{
+		PProbeStatus pProbeStatus = (PProbeStatus)pByte;
+		ULONG probe_cnt = 0L;
+
+		LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
+		{
+			probe_cnt++;
+			if (probe_cnt > ProbeCount)
+			{
+				Status = STATUS_NO_MORE_ENTRIES;
+				WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Probe Count Mismatch!\n");
+				FLT_ASSERTMSG("Probe Count Mismatch!", FALSE);
+				__leave;
+			}
+			pProbeStatus->Attributes = pProbeInfo->Probe->GetProbeAttribtes();
+			pProbeStatus->LastRunTime = pProbeInfo->Probe->GetLastProbeRunTime();
+			pProbeStatus->OperationCount = pProbeInfo->Probe->GetOperationCount();
+			pProbeStatus->RunInterval = pProbeInfo->Probe->GetRunInterval();
+			ULONG length = pProbeInfo->Probe->GetProbeName().Length < MAXPROBENAMESZ
+				? pProbeInfo->Probe->GetProbeName().Length
+				: MAXPROBENAMESZ;
+			RtlCopyMemory(pProbeStatus->ProbeName, &pProbeInfo->Probe->GetProbeName().Buffer, length);
+			pProbeStatus++;
+		}
+		RtlCopyMemory(OutputBuffer, pByte, ReponseBufferLength);
+		*ReturnOutputBufferLength = ReponseBufferLength;
+	}
+	__finally { delete[] pByte; pByte = NULL; }
+
+ErrorExit:
+	
 	return Status;
 }
 

@@ -378,7 +378,8 @@ WVUQueueManager::Unregister(AbstractVirtueProbe& probe)
 }
 
 /**
-* @brief unregisters a Virtue Probe
+* @brief Finds a probe by name ignoring case
+* @note the case lowering shenanigans are because we operate under IRQL restrictions
 * @param probe The probe to unregister
 * @return TRUE if the registration list is empty else FALSE
 */
@@ -387,21 +388,38 @@ WVUQueueManager::ProbeInfo *
 WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 {
 	ProbeInfo* pProbeInfo = nullptr;
-	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+	ANSI_STRING lc_probe_to_be_found;
+
+	RtlInitAnsiString((PANSI_STRING)&lc_probe_to_be_found, probe_to_be_found.Buffer);
+	for (unsigned ndx = 0; ndx < lc_probe_to_be_found.Length; ndx++)
+		lc_probe_to_be_found.Buffer[ndx] |= 0x60;   // lower the case
+
+	__try
 	{
-		CONST ANSI_STRING& probe_name = probe->Probe->GetProbeName();
-		if (probe_name.Length != probe_to_be_found.Length)
-		{
-			continue; // keep looking for the next one
-		}
-		if(probe_name.Length 
-			== RtlCompareMemory(probe_name.Buffer, probe_to_be_found.Buffer, probe_name.Length))
-		{
-			pProbeInfo = probe;
-			break;
+		ANSI_STRING probe_name;
+		LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+		{	
+			if (probe->Probe->GetProbeName().Length != lc_probe_to_be_found.Length)
+			{
+				continue; // keep looking for the next one
+			}
+			RtlInitAnsiString((PANSI_STRING)&probe_name, probe->Probe->GetProbeName().Buffer);
+			__try
+			{
+				for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
+					probe_name.Buffer[ndx] |= 0x60;   // lower the case
+
+				if (probe_name.Length
+					== RtlCompareMemory(probe_name.Buffer, lc_probe_to_be_found.Buffer, probe_name.Length))
+				{
+					pProbeInfo = probe;
+					__leave;
+				}
+			}
+			__finally { RtlFreeAnsiString(&probe_name); }
 		}
 	}
-
+	__finally { RtlFreeAnsiString(&lc_probe_to_be_found); }
 	return pProbeInfo;
 }
 

@@ -10,15 +10,19 @@
 
 #pragma warning(suppress: 26439)
 
+LONG AbstractVirtueProbe::ProbeCount = 0L;
+
 /**
 * @brief base class constructing an instance of a probe 
 */
 AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
-	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), LastProbeRunTime({ 0LL })
+	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), 
+	LastProbeRunTime({ 0LL }), OperationCount(0L)
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
 	this->ProbeName = ProbeName;
 	WVUQueueManager::GetInstance().Register(*this);
+	AbstractVirtueProbe::ProbeCount++;
 }
 
 /**
@@ -96,6 +100,7 @@ NTSTATUS
 AbstractVirtueProbe::OnRun() 
 {
 	CONST NTSTATUS Status = STATUS_SUCCESS;
+	InterlockedIncrement(&this->OperationCount);
 	KeQuerySystemTimePrecise(&this->LastProbeRunTime);  // always call superclasses probe function
 	return Status;
 }

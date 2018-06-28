@@ -11,7 +11,7 @@
 #else
 #include <windows.h>
 #endif
-
+#define MAXPROBENAMESZ 64
 #define MAXMESSAGELEN 1024
 
 //
@@ -146,3 +146,13 @@ typedef struct _ProcessDestroyInfo
 	_In_ HANDLE ProcessId;
 	_In_ PEPROCESS EProcess;
 } ProcessDestroyInfo, *PProcessDestroyInfo;
+
+/** The probe status as recovered by the probe enumeration function */
+typedef struct _ProbeStatus
+{
+	LARGE_INTEGER LastRunTime;  /** GMT time this probe last ran */
+	LARGE_INTEGER RunInterval;  /** This probes configured run interval - if any */
+	LONG OperationCount;        /** The number of completed operations since driver was loaded */
+	USHORT Attributes;			/** This probes attributes */
+	CHAR ProbeName[MAXPROBENAMESZ];	/** This probes name */
+} ProbeStatus, *PProbeStatus;
