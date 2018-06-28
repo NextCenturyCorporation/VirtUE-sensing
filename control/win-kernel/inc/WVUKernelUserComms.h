@@ -147,9 +147,16 @@ typedef struct _ProcessDestroyInfo
 	_In_ PEPROCESS EProcess;
 } ProcessDestroyInfo, *PProcessDestroyInfo;
 
+/** The probe status message header */
+typedef struct _ProbeStatusHeader
+{
+	DWORD NumberOfEntries;	
+} ProbeStatusHeader, *PProbeStatusHeader;
+
 /** The probe status as recovered by the probe enumeration function */
 typedef struct _ProbeStatus
 {
+	DWORD ProbeNumber;			/** this probes unique probe number */
 	LARGE_INTEGER LastRunTime;  /** GMT time this probe last ran */
 	LARGE_INTEGER RunInterval;  /** This probes configured run interval - if any */
 	LONG OperationCount;        /** The number of completed operations since driver was loaded */

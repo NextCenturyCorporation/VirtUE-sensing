@@ -854,7 +854,28 @@ class RESPONSE_MESSAGE(SaviorStruct):
             info.contents.Size,
             info.contents.Command,
             sb)
-        return command_packet     
+        return command_packet
+    
+class ProbeStatusHeader(SaviorStruct):
+    '''
+    The probe status message header
+    '''
+    _fields_ = [        
+        ("NumberOfEntries", DWORD)
+    ]
+
+class ProbeStatus(SaviorStruct):
+    '''
+    The ProbeStatus message
+    '''
+    _fields_ = [        
+        ("ProbeNumber", DWORD),
+        ("LastRunTime", LONGLONG),
+        ("RunInterval", LONGLONG),
+        ("OperationCount", LONG),
+        ("Attributes", USHORT),
+        ("ProbeName", BYTE * MAXPROBENAMESZ),
+    ]
 
 MAXRSPSZ = 0x1000
 MAXCMDSZ = 0x1000
@@ -891,6 +912,34 @@ def FilterSendMessage(hPort, cmd_buf):
             else MAXRSPSZ)
     response = create_string_buffer(rsp_buf.raw[0:bufsz], bufsz)
     return res, response
+
+    
+def EnumerateProbes(hFltComms, Filter=None):
+    '''
+    Enumerate Probes
+    @note by default, all probes are enumerated and returned
+    '''
+
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
+    cmd_msg.contents.DataSz = 0
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    header = cast(rsp_buf, POINTER(ProbeStatusHeader))    
+    cnt = header.contents.NumberOfEntries
+    sb = create_string_buffer(rsp_buf[sizeof(ProbeStatusHeader):])
+    length = sizeof(ProbeStatus)
+    probes = []
+    for ndx in range(0, cnt, sizeof(ProbeStatus)):
+        offset = ndx
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        status = cast(slc, POINTER(ProbeStatus))
+        probes.append(status)        
+
+    return res, probes
 
 def Echo(hFltComms):
     '''
@@ -968,23 +1017,7 @@ def DisbleUnload(hFltComms):
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
-    
-def EnumerateProbes(hFltComms, Filter=None):
-    '''
-    Enumerate Probes
-    @note by default, all probes are enumerated and returned
-    '''
 
-    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
-    cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
-    cmd_msg.contents.DataSz = 0
-    
-    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
-
-    return res, rsp_msg
 
 def ConfigureProbe(hFltComms, ProbeName, ConfigurationData):
     '''
@@ -1008,10 +1041,10 @@ def test_command_response():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
 
-    (res, rsp_msg,) = EnumerateProbes(hFltComms)
-    print("res={0}, Response={1}, Status={2}\n"
-          .format(res, rsp_msg.contents.Response, 
-              rsp_msg.contents.Status))
+    (res, probes,) = EnumerateProbes(hFltComms)
+    print("res = {0}\n".format(res,))
+    for probe in probes:
+        print("{0}".format(probe,))
 
     CloseHandle(hFltComms)    
       

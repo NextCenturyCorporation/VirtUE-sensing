@@ -86,5 +86,7 @@ public:
 	void IncrementOperationCount() { InterlockedIncrement(&this->OperationCount); }
 	/** return the number of registered probes */
 	static const volatile LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
+	/** retrieve this probes unique probe number */
+	virtual const volatile LONG& GetProbeNumber() { return this->ProbeNumber; }
 
 };

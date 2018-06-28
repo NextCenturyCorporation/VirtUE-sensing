@@ -405,7 +405,7 @@ WVUCommsManager::OnEnumerateProbes(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	ULONG ProbeCount = AbstractVirtueProbe::GetProbeCount();
-	ULONG ReponseBufferLength = ProbeCount * sizeof(ProbeStatus);
+	ULONG ReponseBufferLength = sizeof(ProbeStatusHeader) + (ProbeCount * sizeof(ProbeStatus));
 	
 	if (ReponseBufferLength > OutputBufferLength)
 	{
@@ -422,10 +422,14 @@ WVUCommsManager::OnEnumerateProbes(
 		goto ErrorExit;
 	}
 
+	/** write the header information */
+	PProbeStatusHeader pProbeStatusHeader = (PProbeStatusHeader)pByte;
+	pProbeStatusHeader->NumberOfEntries = ProbeCount;
+
 	RtlSecureZeroMemory(pByte, ReponseBufferLength);
 	__try
 	{
-		PProbeStatus pProbeStatus = (PProbeStatus)pByte;
+		PProbeStatus pProbeStatus = (PProbeStatus)pProbeStatusHeader;
 		ULONG probe_cnt = 0L;
 
 		LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
@@ -438,6 +442,7 @@ WVUCommsManager::OnEnumerateProbes(
 				FLT_ASSERTMSG("Probe Count Mismatch!", FALSE);
 				__leave;
 			}
+			pProbeStatus->ProbeNumber = pProbeInfo->Probe->GetProbeNumber();
 			pProbeStatus->Attributes = pProbeInfo->Probe->GetProbeAttribtes();
 			pProbeStatus->LastRunTime = pProbeInfo->Probe->GetLastProbeRunTime();
 			pProbeStatus->OperationCount = pProbeInfo->Probe->GetOperationCount();
