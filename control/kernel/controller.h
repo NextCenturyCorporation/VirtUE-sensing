@@ -723,9 +723,6 @@ lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
 						   int count,
 						   uint64_t nonce);
 
-int
-lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce);
-
 int lsof_pid_filter(struct kernel_lsof_probe *p,
 					struct kernel_lsof_data *d,
 					void *cmp);

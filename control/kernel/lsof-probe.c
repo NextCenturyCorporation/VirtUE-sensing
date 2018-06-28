@@ -212,23 +212,6 @@ lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
 	return file_index;
 }
 
-
-int
-lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
-{
-
-	int file_index;
-
-	if (!spin_trylock(&p->lock)) {
-		return -EAGAIN;
-	}
-	file_index = lsof_for_each_pid_unlocked(p, count, nonce);
-	spin_unlock(&p->lock);
-	return file_index;
-}
-STACK_FRAME_NON_STANDARD(lsof_for_each_pid);
-
-
 int
 kernel_lsof_unlocked(struct kernel_lsof_probe *p,
 					 int c,
