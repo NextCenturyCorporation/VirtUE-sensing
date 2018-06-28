@@ -1006,12 +1006,11 @@ def test_command_response():
     '''
     Test WinVirtUE command response
     '''
-    import pdb;pdb.set_trace()
-
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-    (res, rsp_msg,) = EnableProtection(hFltComms)
-    print("_res={0}, bytes returned={1}, Response={2}, Status={3}\n"
-          .format(_res, len(rsp_buf), rsp_msg.contents.Response, 
+
+    (res, rsp_msg,) = EnumerateProbes(hFltComms)
+    print("res={0}, Response={1}, Status={2}\n"
+          .format(res, rsp_msg.contents.Response, 
               rsp_msg.contents.Status))
 
     CloseHandle(hFltComms)    
@@ -1022,7 +1021,7 @@ def main():
     '''
     test_command_response()
     
-    test_packet_decode()  
+    #test_packet_decode()  
     
     sys.exit(0)
     
