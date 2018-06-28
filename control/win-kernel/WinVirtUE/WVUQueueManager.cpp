@@ -389,7 +389,7 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 {
 	ProbeInfo* pProbeInfo = nullptr;
 	ANSI_STRING lc_probe_to_be_found = { 0,0,nullptr };
-	USHORT bufsz = probe_to_be_found.Length;
+	USHORT bufsz = probe_to_be_found.MaximumLength;
 
 	lc_probe_to_be_found.Buffer = new CHAR[bufsz];
 	if (NULL == lc_probe_to_be_found.Buffer)
@@ -397,21 +397,27 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Unable to allocate NonPaged Memory!\n");
 		goto ErrorExit;
 	}
-	lc_probe_to_be_found.Length = lc_probe_to_be_found.MaximumLength = bufsz;
-	RtlCopyMemory(lc_probe_to_be_found.Buffer, probe_to_be_found.Buffer, bufsz);
-	for (unsigned ndx = 0; ndx < lc_probe_to_be_found.Length; ndx++)
-		lc_probe_to_be_found.Buffer[ndx] |= 0x60;   // lower the case
-
+	lc_probe_to_be_found.Length = probe_to_be_found.Length;
+	lc_probe_to_be_found.MaximumLength = probe_to_be_found.MaximumLength;
+	
 	__try
 	{
 		ANSI_STRING probe_name = { 0,0,nullptr };
+
+		RtlCopyMemory(lc_probe_to_be_found.Buffer,
+			probe_to_be_found.Buffer,
+			lc_probe_to_be_found.Length);
+
+		for (unsigned ndx = 0; ndx < lc_probe_to_be_found.Length; ndx++)
+			lc_probe_to_be_found.Buffer[ndx] |= 0x60;   // lower the case
+
 		LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
 		{			
 			if (probe->Probe->GetProbeName().Length != lc_probe_to_be_found.Length)
 			{
 				continue; // keep looking for the next one
 			}
-			bufsz = probe->Probe->GetProbeName().Length;
+			bufsz = probe->Probe->GetProbeName().MaximumLength;
 			probe_name.Buffer = new CHAR[bufsz];
 			if (NULL == probe_name.Buffer)
 			{
@@ -419,15 +425,14 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 #pragma warning(suppress: 6242)  // No choice, we want to show an abnormal termination below
 				goto ErrorExit;
 			}
-			probe_name.Length = probe_name.MaximumLength = bufsz;
-			RtlCopyMemory(probe_name.Buffer, probe->Probe->GetProbeName().Buffer, bufsz);
-			for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
-				probe_name.Buffer[ndx] |= 0x60;   // lower the case
+
 			__try
-			{
+			{				
+				probe_name.Length = probe->Probe->GetProbeName().Length;
+				probe_name.MaximumLength = probe->Probe->GetProbeName().MaximumLength;
+				RtlCopyMemory(probe_name.Buffer, probe->Probe->GetProbeName().Buffer, probe_name.Length);
 				for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
 					probe_name.Buffer[ndx] |= 0x60;   // lower the case
-
 				if (probe_name.Length
 					== RtlCompareMemory(probe_name.Buffer, lc_probe_to_be_found.Buffer, probe_name.Length))
 				{
@@ -436,6 +441,10 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 				}
 			}  // If we leave the block normally using __leave then delete, else do not delete
 			__finally { if (FALSE == AbnormalTermination()) { delete[] probe_name.Buffer; } }
+			if (nullptr != pProbeInfo)
+			{
+				__leave;   // leave if we already have a result
+			}
 		}
 	}
 	__finally { delete[] lc_probe_to_be_found.Buffer; }

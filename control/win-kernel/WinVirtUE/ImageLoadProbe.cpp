@@ -212,7 +212,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	}
 
 	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
-	if (NULL != pProbeInfo)
+	if (NULL == pProbeInfo)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
 			"***** Unable to find probe info on probe %Z!\n", &probe_name);
