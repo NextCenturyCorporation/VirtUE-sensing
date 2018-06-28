@@ -143,7 +143,7 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 							r_header,
 							rr->json_msg->s->nonce,
 							parent->id);
-
+		rp->index = -ENOENT;
 		goto record_created;
 	}
 
@@ -172,7 +172,7 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 						klsof_p->mode,
 						atomic64_read(&klsof_p->count),
 						klsof_p->dpath + klsof_p->dp_offset);
-
+	rp->index = rr->index;
 	if (klsof_p && rr->clear) {
 		flex_array_clear(parent->klsof_data_flex_array, rr->index);
 	}
@@ -181,7 +181,6 @@ record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
-	rp->index = rr->index;
 	rp->range = rr->range;
 	return 0;
 }

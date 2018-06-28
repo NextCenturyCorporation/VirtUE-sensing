@@ -84,6 +84,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 							r_header,
 							rr->json_msg->s->nonce,
 							parent->id);
+		rp->index = -ENOENT;
 		goto record_created;
 	}
 
@@ -104,7 +105,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 						r_header, rr->json_msg->s->nonce, parent->id,
 						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
 						kpsd_p->user_id.val, rr->nonce);
-
+	rp->index = rr->index;
 	if (kpsd_p && rr->clear) {
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
@@ -113,7 +114,6 @@ record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
-	rp->index = rr->index;
 	rp->range = rr->range;
 	return 0;
 }
