@@ -27,6 +27,8 @@ protected:
 
 	/** this probes attributes */
 	ProbeAttributes Attributes;
+	/** True then probe is registered */
+	BOOLEAN Registered;
 	/** True then probe is enabled */
 	BOOLEAN Enabled;
 	/** Probes Name */
@@ -75,7 +77,7 @@ public:
 	/* return this probes name */
 	virtual const ANSI_STRING& GetProbeName() const { return this->ProbeName; }
 	/** get the last time the probe ran in GMT */
-	virtual const LARGE_INTEGER& GetLastProbeRunTime() const { return this->LastProbeRunTime; }
+	virtual LARGE_INTEGER& GetLastProbeRunTime() { return this->LastProbeRunTime; }
 	/** get this probes run interval in absolute time */
 	virtual const LARGE_INTEGER& GetRunInterval() const { return this->RunInterval; }
 	/** get probe attributes */
@@ -88,5 +90,6 @@ public:
 	static const volatile LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
 	/** retrieve this probes unique probe number */
 	virtual const volatile LONG& GetProbeNumber() { return this->ProbeNumber; }
-
+	/** returns the registration state */
+	virtual const BOOLEAN& GetIsRegistered() { return this->Registered; }
 };

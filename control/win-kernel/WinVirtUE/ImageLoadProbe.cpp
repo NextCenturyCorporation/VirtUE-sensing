@@ -222,6 +222,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
 	{
 		pProbeInfo->Probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime());
 	}
 ErrorExit:
 

@@ -17,11 +17,12 @@ volatile LONG AbstractVirtueProbe::ProbeCount = 0L;
 */
 AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), 
-	LastProbeRunTime({ 0LL }), OperationCount(0L)
+	Registered(FALSE), LastProbeRunTime({ 0LL }), OperationCount(0L)
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
 	this->ProbeName = ProbeName;
 	WVUQueueManager::GetInstance().Register(*this);
+	this->Registered = TRUE;
 	this->ProbeNumber = InterlockedAdd(&AbstractVirtueProbe::ProbeCount, 1L);
 }
 
@@ -31,6 +32,7 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 AbstractVirtueProbe::~AbstractVirtueProbe()
 {
 	WVUQueueManager::GetInstance().Unregister(*this);
+	this->Registered = FALSE;
 }
 
 /**

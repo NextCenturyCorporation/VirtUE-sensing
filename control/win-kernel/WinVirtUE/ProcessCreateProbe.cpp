@@ -23,9 +23,6 @@ ProcessCreateProbe::ProcessCreateProbe() :
 
 	// initialize the Response Queue TWLL
 	InitializeListHead(&this->ProcessList);
-
-	// we build the queue successfully
-	this->Enabled = TRUE;
 }
 
 
@@ -256,6 +253,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
 	{
 		pProbeInfo->Probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime()); 
 	}
 
 ErrorExit:
