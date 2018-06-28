@@ -4,7 +4,7 @@ ccflags-y += ${MY_CCFLAGS}
 OJECT_FILES_NON_STANDARD := y
 obj-m += controller.o
 controller-y := controller-common.o controller-interface.o lsof-probe.o \
-	jsmn/jsmn.o sysfs-probe.o
+	ps-probe.o jsmn/jsmn.o sysfs-probe.o jsonl-parse.o
 OBJECT_FILES_NON_STANDARD_controller-common.o := n
 
 .PHONY: uname

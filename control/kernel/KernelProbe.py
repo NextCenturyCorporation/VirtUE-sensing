@@ -2,6 +2,7 @@
 import socket, sys, os, subprocess, uuid
 
 class KernelProbe:
+# TODO: self.connect_string is currently unused
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
 
     def __init__(self, socket_name, target_probe):
@@ -114,7 +115,7 @@ class KernelProbe:
             max_amount = 0x400
             data = self.sock.recv(max_amount)
             amount_received = len(data)
-            print >>sys.stderr, 'discovery test received "%s"' % data
+            print >>sys.stderr, 'records response received "%s"' % data
 
         except:
             print >>sys.stderr, 'send_records_message: closing socket'
@@ -170,3 +171,5 @@ if __name__ == "__main__":
     import argparse
     client_main(sys.argv)
     sys.exit(0)
+
+

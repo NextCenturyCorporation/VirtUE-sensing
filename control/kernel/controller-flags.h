@@ -29,6 +29,9 @@
 #define __FLAG_IS_SET(flag, bits) ((flag) & (bits) ? 1 : 0)
 #define __FLAG_IS_IS_CLEAR(flag, bits) ((flag) & (bits) ? 0 : 1)
 
+/**
+ * probe flags, probe.flags
+ **/
 #define PROBE_INITIALIZED       0x01
 #define PROBE_DESTROYED         0x02
 #define PROBE_UNUSED            0x08
@@ -37,10 +40,21 @@
 #define PROBE_LISTEN            0x40
 #define PROBE_CONNECT           0x80
 
-
 #define PROBE_KPS               0x04
 #define PROBE_KLSOF             0x100
 #define PROBE_KSYSFS            0x200
 
-
+/**
+ * state flags, probe.state
+ **/
+#define PROBE_LOW               0x01
+#define PROBE_DEFAULT           0x02
+#define PROBE_HIGH              0x04
+#define PROBE_ADVERSARIAL       0x08
+#define PROBE_OFF               0x10
+#define PROBE_ON                0x20
+#define PROBE_RESET             0x40
+#define PROBE_INCREASE          0x80
+#define PROBE_DECREASE          0x100
+#define PROBE_INVOKE            0x200 /* simulate a direct function call */
 #endif
