@@ -957,7 +957,6 @@ def EnumerateProbes(hFltComms, Filter=None):
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    import pdb;pdb.set_trace()
     header = cast(rsp_buf, POINTER(ProbeStatusHeader))    
     cnt = header.contents.NumberOfEntries
     sb = create_string_buffer(rsp_buf[sizeof(ProbeStatusHeader):])
@@ -965,7 +964,7 @@ def EnumerateProbes(hFltComms, Filter=None):
     probes = []
     
     for ndx in range(0, cnt):
-        offset = 0 * sizeof(ProbeStatus)
+        offset = ndx * sizeof(ProbeStatus)
         array_of_bytes = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_bytes)        
         probe = ProbeStatus.build(bytes(slc))
@@ -1073,6 +1072,7 @@ def test_command_response():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
 
+    import pdb;pdb.set_trace()
     (res, probes,) = EnumerateProbes(hFltComms)
     print("res = {0}\n".format(res,))
     for probe in probes:
