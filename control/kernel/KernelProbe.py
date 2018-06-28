@@ -111,11 +111,13 @@ class KernelProbe:
                               %(message_header, message_nonce, message_command, \
                                 self.target_probe, message_footer))
 
+            self.sock.settimeout(0.5)
             amount_received = 0
             max_amount = 0x400
             data = self.sock.recv(max_amount)
-            amount_received = len(data)
-            print >>sys.stderr, 'records response received "%s"' % data
+            while len(data):
+                print >>sys.stderr, 'records response received "%s"' % data
+                data = self.sock.recv(max_amount)
 
         except:
             print >>sys.stderr, 'send_records_message: closing socket'
