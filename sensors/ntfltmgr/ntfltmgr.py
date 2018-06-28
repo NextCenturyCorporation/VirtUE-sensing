@@ -1076,7 +1076,7 @@ def test_command_response():
     (res, probes,) = EnumerateProbes(hFltComms)
     print("res = {0}\n".format(res,))
     for probe in probes:
-        print("{0}".format(probe.contents,))
+        print("{0}".format(probe,))
 
     CloseHandle(hFltComms)    
       
