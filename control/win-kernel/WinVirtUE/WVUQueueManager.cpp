@@ -388,22 +388,38 @@ WVUQueueManager::ProbeInfo *
 WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 {
 	ProbeInfo* pProbeInfo = nullptr;
-	ANSI_STRING lc_probe_to_be_found;
+	ANSI_STRING lc_probe_to_be_found = { 0,0,nullptr };
+	USHORT bufsz = probe_to_be_found.Length;
 
-	RtlInitAnsiString((PANSI_STRING)&lc_probe_to_be_found, probe_to_be_found.Buffer);
+	lc_probe_to_be_found.Buffer = new CHAR[bufsz];
+	if (NULL == lc_probe_to_be_found.Buffer)
+	{
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Unable to allocate NonPaged Memory!\n");
+		goto ErrorExit;
+	}
+	lc_probe_to_be_found.Length = lc_probe_to_be_found.MaximumLength = bufsz;
 	for (unsigned ndx = 0; ndx < lc_probe_to_be_found.Length; ndx++)
 		lc_probe_to_be_found.Buffer[ndx] |= 0x60;   // lower the case
 
 	__try
 	{
-		ANSI_STRING probe_name;
+		ANSI_STRING probe_name = { 0,0,nullptr };
 		LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
-		{	
+		{			
 			if (probe->Probe->GetProbeName().Length != lc_probe_to_be_found.Length)
 			{
 				continue; // keep looking for the next one
 			}
-			RtlInitAnsiString((PANSI_STRING)&probe_name, probe->Probe->GetProbeName().Buffer);
+			bufsz = probe->Probe->GetProbeName().Length;
+			probe_name.Buffer = new CHAR[bufsz];
+			if (NULL == probe_name.Buffer)
+			{
+				WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Unable to allocate NonPaged Memory!\n");
+				goto ErrorExit;
+			}
+			probe_name.Length = probe_name.MaximumLength = bufsz;
+			for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
+				probe_name.Buffer[ndx] |= 0x60;   // lower the case
 			__try
 			{
 				for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
@@ -415,11 +431,14 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 					pProbeInfo = probe;
 					__leave;
 				}
-			}
-			__finally { RtlFreeAnsiString(&probe_name); }
+			}  // If we leave the block normally using __leave then delete, else do not delete
+			__finally { if (FALSE == AbnormalTermination()) { delete[] probe_name.Buffer; } }
 		}
 	}
-	__finally { RtlFreeAnsiString(&lc_probe_to_be_found); }
+	__finally { delete[] lc_probe_to_be_found.Buffer; }
+
+ErrorExit:
+
 	return pProbeInfo;
 }
 
