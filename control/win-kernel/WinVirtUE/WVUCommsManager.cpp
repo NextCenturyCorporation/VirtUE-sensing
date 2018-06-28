@@ -422,11 +422,13 @@ WVUCommsManager::OnEnumerateProbes(
 		goto ErrorExit;
 	}
 
+	RtlSecureZeroMemory(pByte, ReponseBufferLength);
+
 	/** write the header information */
 	PProbeStatusHeader pProbeStatusHeader = (PProbeStatusHeader)pByte;
 	pProbeStatusHeader->NumberOfEntries = ProbeCount;
+	pProbeStatusHeader++;
 
-	RtlSecureZeroMemory(pByte, ReponseBufferLength);
 	__try
 	{
 		PProbeStatus pProbeStatus = (PProbeStatus)pProbeStatusHeader;
