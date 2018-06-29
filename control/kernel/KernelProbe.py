@@ -10,9 +10,9 @@ class KernelProbe:
                  out_file = '-'):
         self.sock = 0
         self.out_file = 0
+        self.target_probe = target_probe
         self.set_socket(socket_name)
         self.set_out_file(out_file)
-        self.target_probe = target_probe
 
     def set_socket(self, socket_name):
         if self.sock:
@@ -25,11 +25,10 @@ class KernelProbe:
             print >> sys.stderr, msg
 
     def set_out_file(self, out):
-        print >> sys.stderr, "attempting to open %s" % out
+        print >> sys.stderr, "attempting to open %s as output file" % out
         if self.out_file and self.out_file != sys.stdout:
             self.out_file.close()
         if out and out != '-':
-            print >> sys.stderr, "not stdio, opening %s now" % out
             self.out_file = open(out, "w+")
         else:
             self.out_file = sys.stdout
@@ -165,7 +164,6 @@ def client_main(args):
                         help = "output data to this file")
 
     args = parser.parse_args()
-
     probe = KernelProbe()
 
     if args.socket:
