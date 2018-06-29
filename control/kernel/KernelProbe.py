@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import socket, sys, os, subprocess, uuid, io
+import socket, sys, os, subprocess, uuid, io, json
 
 class KernelProbe:
 # TODO: self.connect_string is currently unused
@@ -10,6 +10,7 @@ class KernelProbe:
                  out_file = '-'):
         self.sock = 0
         self.out_file = 0
+        self.in_file = 0
         self.target_probe = target_probe
         self.set_socket(socket_name)
         self.set_out_file(out_file)
@@ -21,8 +22,8 @@ class KernelProbe:
         print >> sys.stderr, 'connecting to %s' % socket_name
         try:
             self.sock.connect(socket_name)
-        except socket.error, msg:
-            print >> sys.stderr, msg
+        except socket.error:
+            print >> sys.stderr, "error connecting to socket %s" % socket_name
 
     def set_out_file(self, out):
         print >> sys.stderr, "attempting to open %s as output file" % out
@@ -33,8 +34,38 @@ class KernelProbe:
         else:
             self.out_file = sys.stdout
 
+    def set_in_file(self, in_file):
+        print >> sys.stderr, "attempting to open %s as input file" % in_file
+        if self.in_file and self.in_file != sys.stdin:
+            self.in_file.close()
+        if in_file:
+            self.in_file = open(in_file, "r")
+        else:
+            self.in_file = sys.stdin
+
     def set_target_probe(self, probe):
         self.target_probe = probe
+
+    def run_input_file(self):
+        # each line in the file is expected to be a json object that contains
+        # a request message
+        for line in self.in_file:
+            try:
+                request = json.loads(line)
+                try:
+                    self.sock.sendall(json.dumps(request))
+                    self.sock.settimeout(0.5)
+                    amount_received = 0
+                    max_amount = 0x400
+                    data = self.sock.recv(max_amount)
+                    while len(data):
+                        self.out_file.write("%s" %(data))
+                        data = self.sock.recv(max_amount)
+                except:
+                    print >> sys.stderr, "run_input_file: closing socket"
+                    self.sock.close()
+            except:
+                print >> sys.stderr, "Not a valid JSON object %s" %(line)
 
     def json_connect(self):
         try:
@@ -162,6 +193,8 @@ def client_main(args):
                         help = "target probe for message")
     parser.add_argument("-f", "--file",
                         help = "output data to this file")
+    parser.add_argument("-i", "--input",
+                        help = "read input commands from this file")
 
     args = parser.parse_args()
     probe = KernelProbe()
@@ -172,6 +205,10 @@ def client_main(args):
         probe.set_target_probe(args.probe)
     if args.file:
         probe.set_out_file(args.file)
+    if args.input:
+        probe.set_in_file(args.input)
+        probe.run_input_file()
+        sys.exit(0)
 
     if args.records:
         probe.send_records_message()
