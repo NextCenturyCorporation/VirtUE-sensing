@@ -71,8 +71,10 @@ k_socket_write(struct socket *sock,
 		   sock, size, out, flags);
 again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
-	if (res == -EAGAIN)
-		goto again;
+	if (res <= 0) {
+		printk(KERN_DEBUG "kernel_sendmsg returned err %lx\n", res);
+//		goto again;
+	}
 
 	return res;
 }

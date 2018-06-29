@@ -1,13 +1,17 @@
 #!/usr/bin/python
-import socket, sys, os, subprocess, uuid
+import socket, sys, os, subprocess, uuid, io
 
 class KernelProbe:
 # TODO: self.connect_string is currently unused
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
-
-    def __init__(self, socket_name, target_probe):
+    def __init__(self,
+                 socket_name = '/var/run/kernel_sensor',
+                 target_probe = '"Kernel PS Probe"',
+                 out_file = sys.stdout):
         self.socket_name = socket_name
         self.target_probe = target_probe
+        self.out_file = out_file
+
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         print >> sys.stderr, 'connecting to %s' % self.socket_name
         try:
@@ -15,11 +19,14 @@ class KernelProbe:
         except socket.error, msg:
             print >>sys.stderr, msg
 
+    def set_out_file(self, out):
+        self.out = out
     def set_socket(self, socket):
         self.socket_name = socket
 
     def set_target_probe(self, probe):
         self.target_probe = probe
+
 
     def json_connect(self):
         try:
@@ -92,11 +99,11 @@ class KernelProbe:
            max_amount = 0x400
            data = self.sock.recv(max_amount)
            amount_received = len(data)
-           print >>sys.stdout, "%s" % data
+           print >> sys.stdout, "%s" % data
 
        except:
-            print >>sys.stderr, 'send_discovery_message: closing socket'
-            self.sock.close()
+           print >>sys.stderr, 'send_discovery_message: closing socket'
+           self.sock.close()
 
     def send_records_message(self):
         try:
@@ -116,7 +123,7 @@ class KernelProbe:
             max_amount = 0x400
             data = self.sock.recv(max_amount)
             while len(data):
-                print >>sys.stdout, '"%s"' % data
+                print >> sys.stdout, '"%s"' % data
                 data = self.sock.recv(max_amount)
 
         except:
@@ -132,30 +139,34 @@ def client_main(args):
     target_probe = '"Kernel PS Probe"'
     parser = argparse.ArgumentParser(description=usage_string)
     parser.add_argument("-s", "--socket",
-                        default=socket_name,
-                        help="path to domain socket")
+                        default = socket_name,
+                        help = "path to domain socket")
     parser.add_argument("-c", "--connect",
-                        action="store_true",
-                        help="issue a JSON connect message")
+                        action = "store_true",
+                        help = "issue a JSON connect message")
     parser.add_argument("-d", "--discover",
-                        action='store_true',
-                        help="retrieve a JSON array of loaded probes (not a full json exchange)")
+                        action = 'store_true',
+                        help = "retrieve a JSON array of loaded probes (not a full json exchange)")
     parser.add_argument("-e", "--echo",
-                        action='store_true',
-                        help="test the controller's echo server")
+                        action = 'store_true',
+                        help = "test the controller's echo server")
     parser.add_argument("-r", "--records",
                         action = 'store_true',
                         help="test the controller's echo server")
-    parser.add_argument("--probe",
-                        default=target_probe,
-                        help="target probe for message")
+    parser.add_argument("-p", "--probe",
+                        default = target_probe,
+                        help = "target probe for message")
+    parser.add_argument("-f", "--file",
+                        default = sys.stdout,
+                        help = "output data to this file")
 
     args = parser.parse_args()
 
     socket_name = args.socket
     target_probe = args.probe
+    out_file = args.file
 
-    probe = KernelProbe(socket_name, target_probe)
+    probe = KernelProbe()
 
     if args.records:
         probe.send_records_message()

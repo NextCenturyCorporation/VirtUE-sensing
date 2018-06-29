@@ -421,6 +421,12 @@ process_records_request(struct jsmn_message *msg, int index)
 		ccode = get_probe(msg->s->probe_id, &probe_p);
 	} while (ccode == -EAGAIN);
 
+	if (ccode < 0) {
+		printk(KERN_DEBUG "could not find a matching probe, exiting %d\n",
+			   ccode);
+		return ccode;
+	}
+
 	if (!ccode && probe_p != NULL) {
         /* send this probe a records request */
 		/* will return 0 or error if no record. */

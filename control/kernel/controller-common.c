@@ -277,9 +277,10 @@ get_probe(uint8_t *probe_id, struct probe **p)
 	*p = NULL;
 	rcu_read_lock();
 	list_for_each_entry_rcu(probe_p, &k_sensor.probes, l_node) {
-		if (! strncmp(probe_p->id, probe_id, strlen(probe_id))) {
+		if (! strncmp(probe_p->id, probe_id, strlen(probe_p->id))) {
 			if(!spin_trylock(&probe_p->lock)) {
 				ccode =  -EAGAIN;
+				goto exit;
 			} else {
 				*p = probe_p;
 				ccode = 0;
