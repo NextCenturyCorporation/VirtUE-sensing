@@ -14,7 +14,7 @@
 ProcessCreateProbe::ProcessCreateProbe() : 
 	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessCreate"))
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime); // | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 
 	// initialize the spinlock that controls access to the Response queue
 	KeInitializeSpinLock(&this->ProcessListSpinLock);
@@ -42,6 +42,7 @@ ProcessCreateProbe::~ProcessCreateProbe()
 
 /**
 * @brief called to configure the probe
+* @note currently not implmented, placeholder code
 * @param NameValuePairs newline terminated with assign operator name value
 * pair configuration information
 */
@@ -78,18 +79,26 @@ _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	if (TRUE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already enabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
-		Status = STATUS_NOT_SUPPORTED;
+		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
 			"Probe %Z not enabled at start - probe is registered but not active\n",
 			&this->ProbeName);
 		goto ErrorExit;
 	}
 	Status = this->RemoveNotify(FALSE);
+
 ErrorExit:
 	this->Enabled = NT_SUCCESS(Status) ? TRUE : FALSE;
-	return NT_SUCCESS(Status) ? TRUE : FALSE;
+	return this->Enabled;
 }
 
 /**
@@ -102,10 +111,12 @@ BOOLEAN ProcessCreateProbe::Stop()
 	BOOLEAN retval = TRUE;
 	if (FALSE == this->Enabled)
 	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already disabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}	
+	this->Enabled = FALSE;
 	retval = NT_SUCCESS(this->RemoveNotify(TRUE));
-	this->Enabled = !retval;
 ErrorExit:
 	return retval;
 }
@@ -175,8 +186,6 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessCreateInfo pPCI = (PProcessCreateInfo)buf;
-		pPCI->ProbeDataHeader.MessageId = 0LL;
-		pPCI->ProbeDataHeader.ReplyLength = 0L;
 		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.CurrentGMT);
 		pPCI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessCreate;
 		pPCI->ProbeDataHeader.DataSz = bufsz;
@@ -190,7 +199,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPCI->CommandLineSz = CreateInfo->CommandLine->Length;
 		RtlMoveMemory(&pPCI->CommandLine[0], CreateInfo->CommandLine->Buffer, pPCI->CommandLineSz);
 		
-		if (FALSE == pPDQ->Enqueue(&pPCI->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPCI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] buf;
@@ -219,14 +228,12 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessDestroyInfo pPDI= (PProcessDestroyInfo)buf;
 		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.CurrentGMT);
-		pPDI->ProbeDataHeader.MessageId = 0LL;
-		pPDI->ProbeDataHeader.ReplyLength = 0L;
 		pPDI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessDestroy;
 		pPDI->ProbeDataHeader.DataSz = bufsz;
 		pPDI->EProcess = Process;
 		pPDI->ProcessId = ProcessId;	
 		
-		if (FALSE == pPDQ->Enqueue(&pPDI->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPDI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] buf;

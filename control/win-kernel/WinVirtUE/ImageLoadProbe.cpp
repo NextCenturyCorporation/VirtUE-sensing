@@ -15,10 +15,11 @@
 ImageLoadProbe::ImageLoadProbe() :
 	AbstractVirtueProbe(RTL_CONSTANT_STRING("ImageLoad"))
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime);// | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
 /**
 * @brief called to configure the probe
+* @note currently not implmented, placeholder code
 * @param NameValuePairs newline terminated with assign operator name value
 * pair configuration information
 */
@@ -39,9 +40,17 @@ BOOLEAN ImageLoadProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
+	if (TRUE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, 
+			"Probe %Z already enabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
+
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
-		Status = STATUS_NOT_SUPPORTED;
+		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
 			"Probe %Z not enabled at start - probe is registered but not active\n", 
 			&this->ProbeName);			
@@ -73,6 +82,14 @@ BOOLEAN ImageLoadProbe::Stop()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
+	if (FALSE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already disabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
+
 	Status = PsRemoveLoadImageNotifyRoutine(ImageLoadProbe::ImageLoadNotificationRoutine);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -82,7 +99,7 @@ BOOLEAN ImageLoadProbe::Stop()
 	}
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "PsRemoveLoadImageNotifyRoutine(): Successfully Disabled Image Load Sensor\n");
-
+	this->Enabled = FALSE;
 ErrorExit:
 
 	return NT_SUCCESS(Status);
@@ -172,8 +189,6 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	RtlSecureZeroMemory(buf, bufsz);
-	pLoadedImageInfo->ProbeDataHeader.MessageId = 0LL;
-	pLoadedImageInfo->ProbeDataHeader.ReplyLength = 0L;
 	pLoadedImageInfo->ProbeDataHeader.ProbeId = ProbeIdType::LoadedImage;
 	pLoadedImageInfo->ProbeDataHeader.DataSz = bufsz;
 	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.CurrentGMT);
@@ -184,7 +199,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	pLoadedImageInfo->FullImageNameSz = FullImageName->Length;
 	RtlMoveMemory(&pLoadedImageInfo->FullImageName[0], FullImageName->Buffer, pLoadedImageInfo->FullImageNameSz);
 
-	if (FALSE == pPDQ->Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
 	{
 #pragma warning(suppress: 26407)
 		delete[] buf;

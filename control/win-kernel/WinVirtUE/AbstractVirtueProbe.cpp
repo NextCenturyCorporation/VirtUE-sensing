@@ -10,18 +10,19 @@
 
 #pragma warning(suppress: 26439)
 
+LONG AbstractVirtueProbe::ProbeCount = 0L;
+
 /**
 * @brief base class constructing an instance of a probe 
 */
 AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
-	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), LastProbeRunTime({ 0LL })
+	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), 
+	LastProbeRunTime({ 0LL }), OperationCount(0L)
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
 	this->ProbeName = ProbeName;
-	if (NULL != pPDQ)
-	{
-		pPDQ->Register(*this);
-	}
+	WVUQueueManager::GetInstance().Register(*this);
+	AbstractVirtueProbe::ProbeCount++;
 }
 
 /**
@@ -29,10 +30,7 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 */
 AbstractVirtueProbe::~AbstractVirtueProbe()
 {
-	if (NULL != pPDQ)
-	{
-		pPDQ->Unregister(*this);
-	}
+	WVUQueueManager::GetInstance().Unregister(*this);
 }
 
 /**
@@ -73,7 +71,9 @@ AbstractVirtueProbe::OnPoll()
 	BOOLEAN success = FALSE;
 	LARGE_INTEGER CurrentGMT = { 0LL };
 
-	if ((Attributes & ProbeAttributes::Temporal) != ProbeAttributes::Temporal)
+	/** leave if we are not enabled and were not temporal */
+	if (FALSE == this->Enabled
+		|| (Attributes & ProbeAttributes::Temporal) != ProbeAttributes::Temporal)
 	{
 		success = FALSE;
 		goto Exit;
@@ -100,6 +100,7 @@ NTSTATUS
 AbstractVirtueProbe::OnRun() 
 {
 	CONST NTSTATUS Status = STATUS_SUCCESS;
+	InterlockedIncrement(&this->OperationCount);
 	KeQuerySystemTimePrecise(&this->LastProbeRunTime);  // always call superclasses probe function
 	return Status;
 }

@@ -171,111 +171,11 @@ typedef struct _WVUGlobals
     KEVENT WVUThreadStartEvent;
 	KEVENT poll_wait_evt;	    // polling thread waiter
     BOOLEAN AllowFilterUnload;  // if true, then allow the filter to be unloaded else don't allow
-    BOOLEAN ProtectionEnabled;   // if true then the driver is protecting
-	BOOLEAN CommandConnected;   // TRUE if the Command Port is connected else FALSE
+    BOOLEAN IsProtectionEnabled;   // if true then the driver is protecting
+	BOOLEAN IsCommandConnected;   // TRUE if the Command Port is connected else FALSE
+	BOOLEAN IsDataStreamConnected;  // TRUE if the data stream port is connected else FALSE
 	PDRIVER_OBJECT DriverObject;	
 	BOOLEAN ShuttingDown;
 	HANDLE MainThreadHandle;
 } WVUGlobals, *PWVUGlobals;
 
-
-/**
-* Savior Command Enumeration 
-*/
-typedef enum _SaviorCommand : UINT16
-{
-	ECHO = 0
-} SaviorCommand;
-
-/** 
-* Savior Command Packet
-*/
-typedef struct _SaviorCommandPkt : FILTER_MESSAGE_HEADER
-{
-	SaviorCommand Cmd;	// The savior command to send to the listening user space service
-	UINT16 CmdMsgSize;	// The command message size
-	UCHAR CmdMsg[1];    // The command message
-} *PSaviorCommandPkt, SaviorCommandPkt;
-
-
-typedef enum _ProbeIdType : USHORT
-{
-	NoProbeIdType = 0x0000,
-	/** Loaded Image (.exe,.dll, etc) notificaton type */
-	LoadedImage    = 0x0001,
-	/** Process Creation notificaton type */
-	ProcessCreate  = 0x0002,
-	/** Process Destruction notificaton type */
-	ProcessDestroy = 0x0003,
-	/** Thread Creation notificaton type */
-	ThreadCreate   = 0x0004,
-	/** Thread Destruction notificaton type */
-	ThreadDestroy  = 0x0005,
-	/** A temporal probe is issueing a report */
-	TemporalProbeReport = 0x0006
-} ProbeIdType;
-
-typedef enum _ProbeReportId : USHORT
-{
-	NoProbeReportId = 0x0000,
-	/** Process List Validation Failed */
-	ProcessListValidationFailedReportId = 0x0001
-} ProbeReportId, *PProbeReportId;
-
-_Struct_size_bytes_(DataSz)
-typedef struct _ProbeDataHeader 
-{
-	_In_ ULONG ReplyLength;
-	_In_ ULONGLONG MessageId;
-	_In_ ProbeIdType  ProbeId;
-	_In_ USHORT DataSz;
-	_In_ LARGE_INTEGER CurrentGMT;
-	_In_ LIST_ENTRY  ListEntry;
-} PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
-
-
-typedef struct _ProcessListValidationFailed
-{
-	_In_ PROBE_DATA_HEADER ProbeDataHeader;
-	_In_ ProbeReportId ReportId;  // the probe report id - ProcessListValidationFailed
-	_In_ NTSTATUS Status;	      // the operations status
-	_In_ HANDLE ProcessId;	      // the process id that was NOT found in the process list
-	_In_ PEPROCESS  EProcess;     // the eprocess that was NOT found in the process list
-} ProcessListValidationFailed, *PProcessListValidationFailed;
-
-typedef struct _LoadedImageInfo
-{	
-	_In_ PROBE_DATA_HEADER ProbeDataHeader;
-	_In_ HANDLE ProcessId;
-	_In_ PEPROCESS  EProcess;
-	_In_ PVOID ImageBase;
-	_In_ SIZE_T ImageSize;
-	_In_ USHORT FullImageNameSz;
-	_In_ UCHAR FullImageName[1];
-} LoadedImageInfo, *PLoadedImageInfo;
-
-
-/**
-* @note Is it important to also include the imagefilename or is it 
-* duplicate information from module load?
-*/
-typedef struct _ProcessCreateInfo
-{
-	_In_ PROBE_DATA_HEADER ProbeDataHeader;	
-	_In_ HANDLE ParentProcessId;
-	_In_ HANDLE ProcessId;
-	_In_ PEPROCESS EProcess;
-	_In_ CLIENT_ID CreatingThreadId;
-	_Inout_ struct _FILE_OBJECT *FileObject;
-	_Inout_ NTSTATUS CreationStatus;
-	_In_ USHORT CommandLineSz;
-	_In_ UCHAR CommandLine[1];
-} ProcessCreateInfo, *PProcessCreateInfo;
-
-
-typedef struct _ProcessDestroyInfo
-{
-	_In_ PROBE_DATA_HEADER ProbeDataHeader;
-	_In_ HANDLE ProcessId;
-	_In_ PEPROCESS EProcess;
-} ProcessDestroyInfo, *PProcessDestroyInfo;

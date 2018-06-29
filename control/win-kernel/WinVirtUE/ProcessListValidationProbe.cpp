@@ -14,11 +14,12 @@
 ProcessListValidationProbe::ProcessListValidationProbe() :
 	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessListValidation"))
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal);// | ProbeAttributes::EnabledAtStart);
+	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);
 }
 
 /**
 * @brief called to configure the probe
+* @note currently not implmented, placeholder code
 * @param NameValuePairs newline terminated with assign operator name value
 * pair configuration information
 */
@@ -94,6 +95,13 @@ ProcessListValidationProbe::OnRun()
 	HANDLE ProcessId = INVALID_HANDLE_VALUE;
 	KLOCK_QUEUE_HANDLE LockHandle = { {NULL,NULL},0 };
 
+	if (FALSE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %Z already disabled - not running polled operation!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
 
 	if (NULL == pPCP)
 	{
@@ -144,12 +152,11 @@ ProcessListValidationProbe::OnRun()
 		pPLVF->Status = ReportStatus;	    // tell the user space program what happened
 		pPLVF->EProcess = Process;			// suspect data, this process does not exist in the OS process list
 		pPLVF->ProcessId = ProcessId;		// suspect data, this pid does not exist in the OS process list
-		pPLVF->ProbeDataHeader.ProbeId = ProbeIdType::TemporalProbeReport;  // this is as temporal probe report
-		pPLVF->ReportId = ProbeReportId::ProcessListValidationFailedReportId;	// Process List Validation Has Failed
+		pPLVF->ProbeDataHeader.ProbeId = ProbeIdType::ProcessListValidation;  // this is as temporal probe report		
 		pPLVF->ProbeDataHeader.DataSz = sizeof(ProcessListValidationFailed);
 		KeQuerySystemTimePrecise(&pPLVF->ProbeDataHeader.CurrentGMT);
 		
-		if (FALSE == pPDQ->Enqueue(&pPLVF->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPLVF->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] pPLVF;

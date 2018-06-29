@@ -35,6 +35,10 @@ protected:
 	LARGE_INTEGER RunInterval;
 	/** Last Time Probe Executed */
 	LARGE_INTEGER LastProbeRunTime;
+	/** The number of discrete operations since loaded */
+	volatile LONG OperationCount;
+	/** The number of probes */
+	static LONG ProbeCount;
 
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
@@ -68,15 +72,16 @@ public:
 	/* destroy an instance of this probe class */
 	VOID CDECL operator delete(_In_ PVOID ptr);	
 	/* return this probes name */
-	_Must_inspect_result_
-	const ANSI_STRING& GetProbeName() const { return this->ProbeName; }
+	virtual const ANSI_STRING& GetProbeName() const { return this->ProbeName; }
 	/** get the last time the probe ran in GMT */
-	_Must_inspect_result_
-	const LARGE_INTEGER& GetLastProbeRunTime() const { return this->LastProbeRunTime; }
+	virtual const LARGE_INTEGER& GetLastProbeRunTime() const { return this->LastProbeRunTime; }
 	/** get this probes run interval in absolute time */
-	_Must_inspect_result_
-	const LARGE_INTEGER& GetRunInterval() const { return this->RunInterval; } 
+	virtual const LARGE_INTEGER& GetRunInterval() const { return this->RunInterval; }
 	/** get probe attributes */
-	_Must_inspect_result_
-	const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
+	virtual const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
+	/** get probe operation count */
+	virtual volatile const LONG& GetOperationCount() { return this->OperationCount; }
+	/** return the number of registered probes */
+	static const LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
+
 };

@@ -11,7 +11,6 @@
 
 // managers
 class WVUQueueManager *pPDQ = nullptr;
-class WVUCommsManager *pFCM = nullptr;
 
 // Probes
 class ImageLoadProbe *pILP = nullptr;
@@ -25,25 +24,9 @@ class ProcessListValidationProbe *pPLVP = nullptr;
 WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 { 
 
-	pPDQ = new WVUQueueManager();
-	if (NULL == pPDQ)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"ProbeDataQueue not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-
-	pFCM = new WVUCommsManager();
-	if (NULL == pFCM)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"WVUCommsManager not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
+	WVUCommsManager& commsmgr = WVUCommsManager::GetInstance();
 	// Start the filter comms manager
-	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == pFCM->Start());
+	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == commsmgr.Start());
 
 	// Make ready the image load probe
 	pILP = new ImageLoadProbe();
@@ -108,11 +91,8 @@ WVUProbeManager::~WVUProbeManager()
 		NT_ASSERTMSG("Failed to stop the image load probe!", TRUE == pILP->Stop());
 		delete pILP;
 	}
-	if (NULL != pFCM)
-	{
-		pFCM->Stop();
-		delete pFCM;
-	}
+
+	WVUCommsManager::GetInstance().Stop();
 
 	if (NULL != pPDQ)
 	{

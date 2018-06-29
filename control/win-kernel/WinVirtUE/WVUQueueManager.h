@@ -62,6 +62,8 @@ public:
 	};
 
 private:
+	WVUQueueManager();
+
 	LARGE_INTEGER wfso_timeout;
 	LARGE_INTEGER timeout;	
 	KSPIN_LOCK PDQueueSpinLock;
@@ -89,10 +91,19 @@ private:
 	}
 
 	_Must_inspect_result_
-		BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+		BOOLEAN IsConnected() { return 0L != KeReadStateEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }	
 
 public:
-	WVUQueueManager();	
+	/**
+	* @brief returns the one and only comms manager instance
+	* @returns WVUQueueManager instance singleton
+	*/
+	static WVUQueueManager& GetInstance()
+	{
+		static WVUQueueManager instance;
+		return instance;
+
+	}
 	~WVUQueueManager();
 	VOID SemaphoreRelease();
 	VOID TerminateLoop();
@@ -111,9 +122,9 @@ public:
 	LIST_ENTRY& GetProbeList() { return this->ProbeList; }
 	VOID Dispose(_In_ PVOID pBuf);																							 
 	// cause the outbund queue processor to start processing
-	VOID OnConnect() { KeSetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE); }
+	VOID OnConnect() { KeSetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect], IO_NO_INCREMENT, FALSE); Globals.IsDataStreamConnected = TRUE;	}
 	// cause the outbound queue processor to stop on disconnect
-	VOID OnDisconnect() { (VOID)KeResetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); }
+	VOID OnDisconnect() { (VOID)KeResetEvent((PRKEVENT)PDQEvents[ProbeDataEvtConnect]); Globals.IsDataStreamConnected = FALSE; }
 	/** The count function utilizes the semaphore state to show the number of queued entries */
 	_Must_inspect_result_
 	LONG Count() { return KeReadStateSemaphore((PRKSEMAPHORE)this->PDQEvents[ProbeDataSemEmptyQueue]); }
@@ -135,4 +146,14 @@ public:
 	_Success_(NULL != return)
 		_IRQL_requires_max_(DISPATCH_LEVEL)
 	ProbeInfo* FindProbeByName(_In_ const ANSI_STRING& probe_to_be_found);
+	/**
+	* @brief copy constructor
+	*/
+	WVUQueueManager(const WVUQueueManager &t) = delete;
+
+	/**
+	* @brief assignment operator
+	*/
+	WVUQueueManager& operator=(const WVUQueueManager &rhs) = delete;
+
 };

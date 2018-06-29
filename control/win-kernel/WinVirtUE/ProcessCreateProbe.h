@@ -94,13 +94,11 @@ public:
 	ProcessEntry* FindProcessByProcessId(_In_ HANDLE ProcessId);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)	
-	BOOLEAN InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId);
+	BOOLEAN InsertProcessEntry(_In_ PEPROCESS pEProcess, _In_ HANDLE ProcessId);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)
-	BOOLEAN RemoveProcessEntry(ProcessEntry* pProcessEntry);
-	_Must_inspect_result_
+	BOOLEAN RemoveProcessEntry(_In_ ProcessEntry* pProcessEntry);
 	KSPIN_LOCK& GetProcessListSpinLock() { return this->ProcessListSpinLock; }
-	_Must_inspect_result_
-	LIST_ENTRY& GetProcessList() { return this->ProcessList; }
+	const LIST_ENTRY& GetProcessList() { return this->ProcessList; }
 };
 

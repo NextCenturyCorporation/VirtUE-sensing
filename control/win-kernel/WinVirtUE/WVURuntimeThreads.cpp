@@ -148,7 +148,7 @@ WVUMainInitThread(PVOID StartContext)
 		}
 	} while (Status == STATUS_ALERTED || Status == STATUS_USER_APC);  // don't bail if we get alerted or APC'd
 
-	pPDQ->TerminateLoop();
+	WVUQueueManager::GetInstance().TerminateLoop();
 	PVOID thd_ary[] = { pSensorThread, pPollThread };
 	KeSetEvent(&Globals.poll_wait_evt, IO_NO_INCREMENT, FALSE);
 	Status = KeWaitForMultipleObjects(NUMBER_OF(thd_ary), thd_ary, WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL);
@@ -185,7 +185,7 @@ WVUProbeCommsThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER send_timeout = { 0LL };
 	send_timeout.QuadPart = RELATIVE(SECONDS(20));
-	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
+	ULONG SenderBufferLen = 0L;
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
 	PVOID SenderBuffer = NULL;
@@ -207,8 +207,8 @@ WVUProbeCommsThread(PVOID StartContext)
 	
 	do
 	{
-		Status = pPDQ->WaitForQueueAndPortConnect();
-		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", pPDQ->Count());
+		Status = WVUQueueManager::GetInstance().WaitForQueueAndPortConnect();
+		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", WVUQueueManager::GetInstance().Count());
 		if (FALSE == NT_SUCCESS(Status) || TRUE == Globals.ShuttingDown)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "KeWaitForMultipleObjects(Globals.ProbeDataEvents,...) Failed! Status=%08x\n", Status);
@@ -216,7 +216,7 @@ WVUProbeCommsThread(PVOID StartContext)
 		}
 
 		// quickly remove a queued entry
-		PLIST_ENTRY pListEntry = pPDQ->Dequeue();
+		PLIST_ENTRY pListEntry = WVUQueueManager::GetInstance().Dequeue();
 		if (NULL == pListEntry)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, WARNING_LEVEL_ID, "Dequeued an emtpy list entry - continuing!\n");
@@ -229,8 +229,6 @@ WVUProbeCommsThread(PVOID StartContext)
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 		SenderBuffer = (PVOID)pPDH;
 #pragma warning(suppress: 28193)  // message id will be inspected in the user space service
-		pPDH->MessageId = pPDQ->GetMessageId();
-		pPDH->ReplyLength = REPLYLEN;
 		SenderBufferLen = pPDH->DataSz;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort,
@@ -240,16 +238,16 @@ WVUProbeCommsThread(PVOID StartContext)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);
-			if (FALSE == pPDQ->PutBack(&pPDH->ListEntry)) // put the dequeued entry back
+			if (FALSE == WVUQueueManager::GetInstance().PutBack(&pPDH->ListEntry)) // put the dequeued entry back
 			{
-				pPDQ->Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
+				WVUQueueManager::GetInstance().Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
 				pListEntry = NULL;
 			}
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT_BUFFER(LOG_SENSOR_THREAD, ReplyBuffer, ReplyBufferLen);
-			pPDQ->Dispose(SenderBuffer);
+			WVUQueueManager::GetInstance().Dispose(SenderBuffer);
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;
@@ -319,10 +317,10 @@ WVUTemporalProbeThread(PVOID StartContext)
 		}
 
 		/** let's not modify the list while we are iterating */
-		KeAcquireInStackQueuedSpinLock(&pPDQ->GetProbeListSpinLock(), &LockHandle);
+		KeAcquireInStackQueuedSpinLock(&WVUQueueManager::GetInstance().GetProbeListSpinLock(), &LockHandle);
 		__try
 		{
-			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+			LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
 			{
 				AbstractVirtueProbe* avp = pProbeInfo->Probe;
 				if (NULL == avp)

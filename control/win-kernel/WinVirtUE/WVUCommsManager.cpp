@@ -78,7 +78,7 @@ WVUCommsManager::~WVUCommsManager()
 {
 	FltUnregisterFilter(Globals.FilterHandle);
 
-	Globals.ProtectionEnabled = FALSE;
+	Globals.IsProtectionEnabled = FALSE;
 }
 
 /**
@@ -147,7 +147,7 @@ WVUCommsManager::Start()
 		goto ErrorExit;
 	}
 
-	Globals.ProtectionEnabled = TRUE;
+	Globals.IsProtectionEnabled = TRUE;
 
 ErrorExit:
 
@@ -186,8 +186,6 @@ WVUCommsManager::WVUDataStreamPortConnect(
 	PVOID *ConnectionPortCookie)
 {
 	const NTSTATUS Status = STATUS_SUCCESS;
-	FLT_ASSERTMSG("WVUProbeDataStreamPort Must Be NULL!!", NULL == Globals.WVUProbeDataStreamPort);
-	FLT_ASSERTMSG("DataStreamUserProcess Must Be NULL!!", NULL == Globals.DataStreamUserProcess);
 
 	Globals.DataStreamUserProcess = PsGetCurrentProcess();
 	Globals.WVUProbeDataStreamPort = WVUProbeDataStreamPort;
@@ -200,10 +198,7 @@ WVUCommsManager::WVUDataStreamPortConnect(
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "DataStream Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.DataStreamUserProcess, Globals.WVUProbeDataStreamPort);
 
-	if (NULL != pPDQ)
-	{
-		pPDQ->OnConnect();
-	}
+	WVUQueueManager::GetInstance().OnConnect();
 
 	return Status;
 }
@@ -231,12 +226,7 @@ WVUCommsManager::WVUDataStreamPortDisconnect(
 	// Ensure that the WVUProbeDataStreamPort is NULL as well
 	Globals.WVUProbeDataStreamPort = NULL;
 
-	Globals.ConnectionCookie = NULL;
-
-	if (NULL != pPDQ)
-	{
-		pPDQ->OnDisconnect();
-	}
+	WVUQueueManager::GetInstance().OnDisconnect();
 }	
 #pragma endregion
 
@@ -260,8 +250,6 @@ WVUCommsManager::WVUCommandConnect(
 	PVOID * ConnectionPortCookie)
 {
 	const NTSTATUS Status = STATUS_SUCCESS;
-	FLT_ASSERTMSG("WVUCommandPort Must Be NULL!!", NULL == Globals.WVUCommandPort);
-	FLT_ASSERTMSG("CommandUserProcess Must Be NULL!!", NULL == Globals.CommandUserProcess);
 
 	Globals.CommandUserProcess = PsGetCurrentProcess();
 	Globals.WVUCommandPort = WVUCommandPort;
@@ -274,7 +262,7 @@ WVUCommsManager::WVUCommandConnect(
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Connected by Process 0x%p Port 0x%p!\n",
 		Globals.CommandUserProcess, Globals.WVUProbeDataStreamPort);
 
-	Globals.CommandConnected = FALSE;
+	Globals.IsCommandConnected = TRUE;
 
 	return Status;
 }
@@ -294,7 +282,7 @@ WVUCommsManager::WVUCommandDisconnect(
 
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Disconnected - Port 0x%p!\n", Globals.WVUProbeDataStreamPort);
 	// close our handle to the connection 
-	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort);
+	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUCommandPort);
 
 	// Reset the user process field
 	Globals.CommandUserProcess = NULL;
@@ -302,9 +290,7 @@ WVUCommsManager::WVUCommandDisconnect(
 	// Ensure that the WVUCommandPort is NULL as well
 	Globals.WVUCommandPort = NULL;
 
-	Globals.ConnectionCookie = NULL;
-
-	Globals.CommandConnected = FALSE;
+	Globals.IsCommandConnected = FALSE;
 }
 
 /**
@@ -321,16 +307,15 @@ WVUCommsManager::OnProtectionStateChange(
 
 	switch (command)
 	{
-	case WVU_COMMAND::WVUDisableProtection:
-		
-		Globals.ProtectionEnabled = FALSE;
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
-		break;
-	case WVU_COMMAND::WVUEnableProtection:
-		Globals.ProtectionEnabled = TRUE;
+	case WVU_COMMAND::DisableProtection:		
+		Globals.IsProtectionEnabled = FALSE; 
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
+		break;
+	case WVU_COMMAND::EnableProtection:
+		Globals.IsProtectionEnabled = TRUE;
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
 		break;
 	default:
 		Status = STATUS_INVALID_PARAMETER_1;
@@ -341,16 +326,16 @@ WVUCommsManager::OnProtectionStateChange(
 	}
 	
 	/** enable/disasble each probe */
-	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+	LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
 	{
 		/** if we are disabling, and the probe is enabled; then stop the probe */
-		if (WVU_COMMAND::WVUDisableProtection == command
+		if (WVU_COMMAND::DisableProtection == command
 			&& TRUE == pProbeInfo->Probe->IsEnabled())
 		{
 			pProbeInfo->Probe->Stop();
 		}
 		/** If we are enabling probes, the probe is disabled AND it's marked EnableAtStart, then start the probe */
-		else if (WVU_COMMAND::WVUEnableProtection == command
+		else if (WVU_COMMAND::EnableProtection == command
 			&& FALSE == pProbeInfo->Probe->IsEnabled()
 			&& (pProbeInfo->Probe->GetProbeAttribtes() 
 				& AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
@@ -379,21 +364,20 @@ WVUCommsManager::OnUnloadStateChange(
 
 	switch (command)
 	{
-	case WVU_COMMAND::WVUDisableUnload:
+	case WVU_COMMAND::DisableUnload:
 #pragma warning(suppress: 28175)
 		Globals.DriverObject->DriverUnload = NULL;
 		Globals.AllowFilterUnload = FALSE;
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Disabled!\n");
 		break;
-	case WVU_COMMAND::WVUEnableUnload:
+	case WVU_COMMAND::EnableUnload:
 #pragma warning(suppress: 28175)
 		Globals.DriverObject->DriverUnload = DriverUnload;
 		Globals.AllowFilterUnload = TRUE;
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Driver Unload Has Been Enabled!\n");
 		break;
-	case WVU_COMMAND::NOCOMMAND:
 	default:
 		Status = STATUS_INVALID_PARAMETER_1;
 		FLT_ASSERTMSG("Invalid OnUnload State Change State!", FALSE);
@@ -417,16 +401,61 @@ WVUCommsManager::OnEnumerateProbes(
 	PULONG ReturnOutputBufferLength)
 {
 	UNREFERENCED_PARAMETER(pCmdMsg);
-	UNREFERENCED_PARAMETER(OutputBuffer);
-	UNREFERENCED_PARAMETER(OutputBufferLength);
-	UNREFERENCED_PARAMETER(ReturnOutputBufferLength);
 
-	LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	ULONG ProbeCount = AbstractVirtueProbe::GetProbeCount();
+	ULONG ReponseBufferLength = ProbeCount * sizeof(ProbeStatus);
+	
+	if (ReponseBufferLength > OutputBufferLength)
 	{
-		;
+		Status = STATUS_BUFFER_TOO_SMALL;
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, INFO_LEVEL_ID, "Buffer Length Provided is too small!\n");
+		goto ErrorExit;
 	}
 
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;	
+	PBYTE pByte = new BYTE[ReponseBufferLength];
+	if (NULL == pByte)
+	{
+		Status = STATUS_NO_MEMORY;
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Insufficient NonPaged Memory - Failed Allocation!\n");
+		goto ErrorExit;
+	}
+
+	RtlSecureZeroMemory(pByte, ReponseBufferLength);
+	__try
+	{
+		PProbeStatus pProbeStatus = (PProbeStatus)pByte;
+		ULONG probe_cnt = 0L;
+
+		LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
+		{
+			probe_cnt++;
+			if (probe_cnt > ProbeCount)
+			{
+				Status = STATUS_NO_MORE_ENTRIES;
+				WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Probe Count Mismatch!\n");
+				FLT_ASSERTMSG("Probe Count Mismatch!", FALSE);
+				__leave;
+			}
+			pProbeStatus->Attributes = pProbeInfo->Probe->GetProbeAttribtes();
+			pProbeStatus->LastRunTime = pProbeInfo->Probe->GetLastProbeRunTime();
+			pProbeStatus->OperationCount = pProbeInfo->Probe->GetOperationCount();
+			pProbeStatus->RunInterval = pProbeInfo->Probe->GetRunInterval();
+			ULONG length = pProbeInfo->Probe->GetProbeName().Length < MAXPROBENAMESZ
+				? pProbeInfo->Probe->GetProbeName().Length
+				: MAXPROBENAMESZ;
+			RtlCopyMemory(pProbeStatus->ProbeName, pProbeInfo->Probe->GetProbeName().Buffer, length);
+			pProbeStatus++;
+		}
+		RtlCopyMemory(OutputBuffer, pByte, ReponseBufferLength);
+		*ReturnOutputBufferLength = ReponseBufferLength;
+		Status = STATUS_SUCCESS;
+	}
+	__finally { delete[] pByte; pByte = NULL; }
+
+ErrorExit:
+	
 	return Status;
 }
 
@@ -468,8 +497,8 @@ WVUCommsManager::CreateStandardResponse(
 	}
 
 	PRESPONSE_MESSAGE pReply = (PRESPONSE_MESSAGE)OutputBuffer;
-	pReply->Size = sizeof(RESPONSE_MESSAGE);
-	pReply->Response = NT_SUCCESS(Status) ? WVUSuccess : WVUFailure;
+	pReply->DataSz = 0;
+	pReply->Response = NT_SUCCESS(Status) ? Success : Failure;
 	pReply->Status = Status;
 	*ReturnOutputBufferLength = sizeof(RESPONSE_MESSAGE);
 
@@ -508,14 +537,13 @@ WVUCommsManager::OnCommandMessage(
 	pCmdMsg = (PCOMMAND_MESSAGE)InputBuffer;
 	switch (pCmdMsg->Command)
 	{
-	case WVU_COMMAND::WVUEnableUnload:
-	case WVU_COMMAND::WVUDisableUnload:
-		FLT_ASSERTMSG("Unload State Changes must be 4 bytes!", sizeof(ULONG) == pCmdMsg->Size);
+	case WVU_COMMAND::EnableUnload:
+	case WVU_COMMAND::DisableUnload:
 		Status = OnUnloadStateChange(pCmdMsg->Command);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
-	case WVU_COMMAND::WVUEnableProtection:
-	case WVU_COMMAND::WVUDisableProtection:
+	case WVU_COMMAND::EnableProtection:
+	case WVU_COMMAND::DisableProtection:
 		Status = OnProtectionStateChange(pCmdMsg->Command);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
@@ -526,8 +554,11 @@ WVUCommsManager::OnCommandMessage(
 		Status = OnConfigureProbe(pCmdMsg);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
+	case WVU_COMMAND::Echo:
+		Status = STATUS_SUCCESS;
+		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
+		break;
 	default:
-	case WVU_COMMAND::NOCOMMAND:
 		Status = STATUS_INVALID_MESSAGE;
 		break;
 	}
