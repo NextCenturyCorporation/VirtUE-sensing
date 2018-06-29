@@ -7,26 +7,35 @@ class KernelProbe:
     def __init__(self,
                  socket_name = '/var/run/kernel_sensor',
                  target_probe = '"Kernel PS Probe"',
-                 out_file = sys.stdout):
-        self.socket_name = socket_name
+                 out_file = '-'):
+        self.sock = 0
+        self.out_file = 0
+        self.set_socket(socket_name)
+        self.set_out_file(out_file)
         self.target_probe = target_probe
-        self.out_file = out_file
 
+    def set_socket(self, socket_name):
+        if self.sock:
+            self.sock.close()
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        print >> sys.stderr, 'connecting to %s' % self.socket_name
+        print >> sys.stderr, 'connecting to %s' % socket_name
         try:
-            self.sock.connect(self.socket_name)
+            self.sock.connect(socket_name)
         except socket.error, msg:
-            print >>sys.stderr, msg
+            print >> sys.stderr, msg
 
     def set_out_file(self, out):
-        self.out = out
-    def set_socket(self, socket):
-        self.socket_name = socket
+        print >> sys.stderr, "attempting to open %s" % out
+        if self.out_file and self.out_file != sys.stdout:
+            self.out_file.close()
+        if out and out != '-':
+            print >> sys.stderr, "not stdio, opening %s now" % out
+            self.out_file = open(out, "w+")
+        else:
+            self.out_file = sys.stdout
 
     def set_target_probe(self, probe):
         self.target_probe = probe
-
 
     def json_connect(self):
         try:
@@ -99,7 +108,7 @@ class KernelProbe:
            max_amount = 0x400
            data = self.sock.recv(max_amount)
            amount_received = len(data)
-           print >> sys.stdout, "%s" % data
+           self.out_file.write("%s" %(data))
 
        except:
            print >>sys.stderr, 'send_discovery_message: closing socket'
@@ -123,7 +132,7 @@ class KernelProbe:
             max_amount = 0x400
             data = self.sock.recv(max_amount)
             while len(data):
-                print >> sys.stdout, '"%s"' % data
+                self.out_file.write("%s" %(data))
                 data = self.sock.recv(max_amount)
 
         except:
@@ -135,11 +144,8 @@ def client_main(args):
     usage_string = """usage: %s [--connect] [--discover] [--echo]
                              [--socket <path>]""" % sys.argv[0]
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
-    socket_name = '/var/run/kernel_sensor'
-    target_probe = '"Kernel PS Probe"'
     parser = argparse.ArgumentParser(description=usage_string)
     parser.add_argument("-s", "--socket",
-                        default = socket_name,
                         help = "path to domain socket")
     parser.add_argument("-c", "--connect",
                         action = "store_true",
@@ -154,19 +160,20 @@ def client_main(args):
                         action = 'store_true',
                         help="test the controller's echo server")
     parser.add_argument("-p", "--probe",
-                        default = target_probe,
                         help = "target probe for message")
     parser.add_argument("-f", "--file",
-                        default = sys.stdout,
                         help = "output data to this file")
 
     args = parser.parse_args()
 
-    socket_name = args.socket
-    target_probe = args.probe
-    out_file = args.file
-
     probe = KernelProbe()
+
+    if args.socket:
+        probe.set_socket(args.socket)
+    if args.probe:
+        probe.set_target_probe(args.probe)
+    if args.file:
+        probe.set_out_file(args.file)
 
     if args.records:
         probe.send_records_message()

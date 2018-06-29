@@ -73,9 +73,11 @@ again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
 	if (res <= 0) {
 		printk(KERN_DEBUG "kernel_sendmsg returned err %lx\n", res);
-//		goto again;
+		if (res == -EAGAIN) {
+			sleep(1);
+			goto again;
+		}
 	}
-
 	return res;
 }
 

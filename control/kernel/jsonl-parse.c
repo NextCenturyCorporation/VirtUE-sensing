@@ -43,7 +43,7 @@ typedef int spinlock_t;
  * so emacs c-mode indentation doesn't get confused.
  **/
 SLIST_HEAD(session_head, jsmn_session) \
-h_sessions;
+	h_sessions;
 
 #else
 spinlock_t sessions_lock;
@@ -422,6 +422,10 @@ process_records_request(struct jsmn_message *msg, int index)
 	} while (ccode == -EAGAIN);
 
 	if (ccode < 0) {
+		/**
+		 * TODO: return an empty discovery response or some json object
+		 * that tells the client the target probe was not found.
+		 **/
 		printk(KERN_DEBUG "could not find a matching probe, exiting %d\n",
 			   ccode);
 		return ccode;
