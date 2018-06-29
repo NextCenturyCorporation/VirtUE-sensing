@@ -4,12 +4,12 @@ ntfltmgr.py - interface with the mini-port filter manager via python
 import sys
 import json
 import logging
-from enum import IntEnum
+from enum import IntEnum, Flag
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
 
-from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID
+from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN
 from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG
 
 S_OK = 0
@@ -74,7 +74,7 @@ class CtypesEnum(IntEnum):
         '''
         return int(obj)
 
-class PARAM_FLAG(CtypesEnum):
+class PARAM_FLAG(Flag):
     '''
     Parameter Flag Enumerations
     '''
@@ -201,6 +201,21 @@ class DataType(CtypesEnum):
     ThreadCreate   = 0x0004
     ThreadDestroy  = 0x0005        
     ProcessListValidationFailed = 0x0006
+
+class ProbeAttributeFlags(Flag):
+    '''
+    Probe Attribute Flag Enumerations
+    '''
+    # No attributes
+    NoAttributes = 0
+    # Real Time Probe that emits events as it happens
+    RealTime = (1 << 0)
+    # Emits events at regular time intervals
+    Temporal = (1 << 1)
+    # Indicates the probe will start at driver load  
+    EnabledAtStart = (1 << 2)
+    # Set if Probe Type is Dynamic (Loaded by external operation)
+    DynamicProbe = (1 << 2)  
     
 class LIST_ENTRY(SaviorStruct):
     '''
@@ -877,6 +892,7 @@ class ProbeStatus(SaviorStruct):
         ("RunInterval", LONGLONG),
         ("OperationCount", LONG),
         ("Attributes", USHORT),
+        ("Enabled", BOOLEAN),
         ("ProbeName", BYTE * MAXPROBENAMESZ),
     ]
 
@@ -903,7 +919,7 @@ class ProbeStatus(SaviorStruct):
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
-            info.contents.Attributes, 
+            ProbeAttributeFlags(info.contents.Attributes), 
             ProbeName)
         return probe_status
     
@@ -1071,14 +1087,15 @@ def test_command_response():
     Test WinVirtUE command response
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-
-    import pdb;pdb.set_trace()
-    (res, probes,) = EnumerateProbes(hFltComms)
-    print("res = {0}\n".format(res,))
-    for probe in probes:
-        print("{0}".format(probe,))
-
-    CloseHandle(hFltComms)    
+    
+    try:        
+        (res, probes,) = EnumerateProbes(hFltComms)
+        print("res = {0}\n".format(res,))
+        for probe in probes:
+            print("{0}".format(probe,))
+            ConfigureProbe(hFltComms, probe.ProbeName,'\"{\"repeat-interval\": 60}\"')
+    finally:
+        CloseHandle(hFltComms)    
       
 def main():
     '''

@@ -445,6 +445,7 @@ WVUCommsManager::OnEnumerateProbes(
 				__leave;
 			}
 			pProbeStatus->ProbeNumber = pProbeInfo->Probe->GetProbeNumber();
+			pProbeStatus->Enabled = pProbeInfo->Probe->IsEnabled();
 			pProbeStatus->Attributes = pProbeInfo->Probe->GetProbeAttribtes();
 			pProbeStatus->LastRunTime = pProbeInfo->Probe->GetLastProbeRunTime();
 			pProbeStatus->OperationCount = pProbeInfo->Probe->GetOperationCount();

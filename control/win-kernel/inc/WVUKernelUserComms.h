@@ -161,5 +161,6 @@ typedef struct _ProbeStatus
 	LARGE_INTEGER RunInterval;  /** This probes configured run interval - if any */
 	LONG OperationCount;        /** The number of completed operations since driver was loaded */
 	USHORT Attributes;			/** This probes attributes */
+	BOOLEAN Enabled;			/** TRUE if this probe is enabled else FALSE */
 	CHAR ProbeName[MAXPROBENAMESZ];	/** This probes name */
 } ProbeStatus, *PProbeStatus;
