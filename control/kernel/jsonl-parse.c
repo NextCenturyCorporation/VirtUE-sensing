@@ -1125,7 +1125,7 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 		p = c;
 		while (*p && count) {
 			if (*p != 0x0a && *p != 0x0d) {
-				*c++ = *p++;
+				c++; p++;
 			} else {
 				*(p + 1) = *p;
 				p += 2;

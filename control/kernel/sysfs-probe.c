@@ -60,7 +60,9 @@ calc_file_size(struct kstat *kstat)
 	return kstat->blksize > 0 ? kstat->blksize: 0x100;
 }
 
-
+/**
+ * TODO: do we need the task_struct as a parameter?
+ **/
 ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 						struct task_struct *t,
 						int *start,
