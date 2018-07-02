@@ -150,3 +150,13 @@ For example, a reply record that containes an embedded new line could be similar
 "{Virtue-protocol-verion: 0.1, reply: [nonce, [id, record 1 \\\n data]] }\n"
 
 The server will escape the newline characters when forming the reply, and the client is responsible for un-escaping the newline characters when it parses the reply message.
+
+### Un-escaped data in Probe Record Responses
+
+If a probe includes record data that is problematic (or not useful) to encode as a JSONL string, the record will include a nested object of the form:
+
+{type: raw, length: _length_}
+
+indicating that non-JSONL data follows the record reply object, as follows:
+
+"{Virtue-protocol-verion: 0.1, reply: [nonce, id, {type: raw, length: _length_} ] }\n" _length_ bytes of data.
