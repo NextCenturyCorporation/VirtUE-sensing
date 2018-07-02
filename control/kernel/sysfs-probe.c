@@ -162,6 +162,12 @@ calc_file_size(struct kstat *kstat)
  *
  *
  * TODO: do we need the task_struct as a parameter?
+ *       answer: no, we don't need the task struct.
+ * TODO: remove task_struct, and change sysfs_get_record
+ *       so it will read files based on a filter, instead
+ *       of reading files in the /proc/ file system, which
+ *       is the current proof-of-concept
+ *
  **/
 ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 						struct task_struct *t,
@@ -271,7 +277,7 @@ sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, uint64_t nonce)
 									nonce);
 			put_task_struct(task);
 		} else {
-			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
+			printk(KERN_INFO "array indexing error in sysfs_for_each_pid\n");
 			return -ENOMEM;
 		}
 	}
