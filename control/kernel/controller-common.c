@@ -32,6 +32,10 @@ EXPORT_SYMBOL(k_sensor);
 atomic64_t SHOULD_SHUTDOWN = ATOMIC64_INIT(0);
 EXPORT_SYMBOL(SHOULD_SHUTDOWN);
 
+/**
+ * TODO:  https://lwn.net/Articles/588444/
+ * checking for unused flags
+ **/
 
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
