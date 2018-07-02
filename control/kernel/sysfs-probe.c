@@ -38,6 +38,14 @@
  * NOTE: do we need the struct task_struct ????
  **/
 
+int
+sysfs_get_record(struct kernel_sysfs_probe *probe,
+				 struct probe_msg *msg,
+				 uint8_t *tag)
+{
+	return 0;
+}
+
 
 
 static inline size_t
@@ -122,8 +130,9 @@ err_exit:
 }
 STACK_FRAME_NON_STANDARD(sysfs_read_data);
 
+
 int
-sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
+sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
@@ -131,18 +140,15 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 	static char sysfs_path[MAX_DENTRY_LEN + 1];
 	static char *format = "/proc/%d/mounts";
 
-	if (!spin_trylock(&p->lock)) {
-		return -EAGAIN;
-	}
+
 	for (index = 0; index < PID_EL_ARRAY_SIZE; index++)  {
 		memset(sysfs_path, 0x00, MAX_DENTRY_LEN + 1);
 		pid_el_p = flex_array_get(p->ksysfs_pid_flex_array, index);
 		if (pid_el_p) {
 			if (pid_el_p->nonce != nonce) {
 				break;
-			} else {
-				goto unlock_out;
 			}
+
 			snprintf(sysfs_path, MAX_DENTRY_LEN, format, pid_el_p->pid);
 			file_index = index;
 			task = get_task_by_pid_number(pid_el_p->pid);
@@ -154,11 +160,24 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 			put_task_struct(task);
 		} else {
 			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
-			spin_unlock(&p->lock);
 			return -ENOMEM;
 		}
 	}
-unlock_out:
+	return file_index;
+}
+
+
+
+int
+sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
+{
+	int file_index = 0;
+
+	if (!spin_trylock(&p->lock)) {
+		return -EAGAIN;
+	}
+
+	file_index = sysfs_for_each_unlocked(p, count, nonce);
 
 	spin_unlock(&p->lock);
 	return file_index;
@@ -227,6 +246,26 @@ run_sysfs_probe(struct kthread_work *work)
 	return;
 }
 
+
+/**
+ * probe is LOCKED upon entry
+ **/
+static int
+sysfs_message(struct probe *probe, struct probe_msg *msg)
+{
+	switch(msg->id) {
+	case RECORDS: {
+		return sysfs_get_record((struct kernel_sysfs_probe *)probe,
+								msg,
+								"kernel-sysfs");
+	}
+	default:
+		return -EINVAL;
+	}
+}
+
+
+
 void *
 destroy_sysfs_probe(struct probe *probe)
 {
@@ -275,6 +314,9 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 
 	sysfs_p->_init = init_sysfs_probe;
 	sysfs_p->_destroy = destroy_sysfs_probe;
+	sysfs_p->message = sysfs_message;
+
+
 	if (print) {
 		sysfs_p->print = print;
 	} else {
