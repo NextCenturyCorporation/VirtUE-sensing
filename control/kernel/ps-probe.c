@@ -62,6 +62,11 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	assert(msg->output_len == (sizeof(struct records_reply)));
 	assert(rr->index >= 0 && rr->index < PS_ARRAY_SIZE);
 
+
+	if (!rp->records || rp->records_len <=0) {
+		return -ENOMEM;
+	}
+
 	if (rr->run_probe) {
 		/**
 		 * refresh all the ps records in the flex array
@@ -92,9 +97,6 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 		return -EINVAL;
 	}
 
-	if (!rp->records || rp->records_len <=0) {
-		return -ENOMEM;
-	}
 
 	/**
 	 * build the record json object(s)
@@ -106,6 +108,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
 						kpsd_p->user_id.val, rr->nonce);
 	rp->index = rr->index;
+
 	if (kpsd_p && rr->clear) {
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}

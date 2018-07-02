@@ -25,24 +25,119 @@
 #include "controller.h"
 #include "jsmn/jsmn.h"
 
-/**
- * caller holds a reference count on struct task AND
- * holds a lock on p->lock
- **/
 
 /**
  * as a demonstration for this early version of the sysfs probe,
  * all paths are under /proc, but this is not a restriction, just
  * a demonstration
  *
- * NOTE: do we need the struct task_struct ????
  **/
-
+/**
+ * Note: the parent probe is LOCKED by the caller, and caller
+ * will unlock the probe upon return from this function.
+ **/
 int
-sysfs_get_record(struct kernel_sysfs_probe *probe,
+sysfs_get_record(struct kernel_sysfs_probe *p,
 				 struct probe_msg *msg,
 				 uint8_t *tag)
 {
+	struct kernel_sysfs_data *kfsd_p;
+	uint8_t *cursor;
+	int ccode = 0;
+	ssize_t cur_len = 0, raw_len = 0;
+	struct records_request *rr = (struct records_request *)msg->input;
+	struct records_reply *rp = (struct records_reply *)msg->output;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+	uint8_t * raw_header = "{type: raw, length: ";
+
+	assert(p);
+	assert(msg);
+	assert(tag);
+	assert(rr);
+	assert(rp);
+	assert(msg->input_len == (sizeof(struct records_request)));
+	assert(msg->output_len == (sizeof(struct records_reply)));
+	assert(rr->index >= 0 && rr->index < SYSFS_ARRAY_SIZE);
+
+	if (!rp->records || rp->records_len <=0) {
+		return -ENOMEM;
+	}
+
+
+	if (rr->run_probe) {
+		/**
+		 * refresh all the ps records in the flex array
+		 **/
+		ccode = build_pid_index_unlocked(
+			(struct probe *)p,
+			p->ksysfs_pid_flex_array,
+			rr->nonce);
+		ccode = kernel_sysfs_unlocked(p, rr->nonce);
+		if (ccode < 0) {
+			return ccode;
+		}
+	}
+
+	kfsd_p = flex_array_get(p->ksysfs_flex_array, rr->index);
+	if (!kfsd_p || kfsd_p->clear == FLEX_ARRAY_FREE) {
+	/**
+	* when there is no entry, or the entry is clear, return an
+	* empty record response. per the protocol control/kernel/messages.md
+	**/
+		cur_len = scnprintf(rp->records,
+							rp->records_len - 1,
+							"%s %s, %s ]}\n",
+							r_header,
+							rr->json_msg->s->nonce,
+							p->id);
+
+		rp->index = -ENOENT;
+		goto record_created;
+	}
+
+	if (rr->nonce && kfsd_p->nonce != rr->nonce) {
+		return -EINVAL;
+	}
+
+
+	/**
+	 * build the record json object(s), with a raw extension
+	 **/
+
+	raw_len = sizeof(struct kstat) + kfsd_p->data_len;
+
+	cur_len = scnprintf(rp->records,
+						rp->records_len - 1,
+						"%s %s, %s, %s %d %x %s %s %lx}]}\n",
+						r_header,
+						rr->json_msg->s->nonce,
+						p->id,
+						tag,
+						rr->index,
+						kfsd_p->pid,
+						kfsd_p->dpath,
+						raw_header,
+						raw_len);
+
+	rp->records = krealloc(rp->records, cur_len + raw_len + 1, GFP_KERNEL);
+	if (! rp->records) {
+		return -ENOMEM;
+	}
+	cur_len += (raw_len + 1);
+
+	cursor = rp->records + cur_len;
+	memcpy(cursor, &kfsd_p->stat, sizeof(struct kstat));
+	cursor += sizeof(struct kstat);
+	memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
+	if (kfsd_p && rr->clear) {
+		kfree(kfsd_p->data);
+		flex_array_clear(p->ksysfs_flex_array, rr->index);
+	}
+
+record_created:
+	rp->records_len = cur_len;
+	rp->records[cur_len] = 0x00;
+	rp->range = rr->range;
 	return 0;
 }
 
@@ -60,7 +155,12 @@ calc_file_size(struct kstat *kstat)
 	return kstat->blksize > 0 ? kstat->blksize: 0x100;
 }
 
+
 /**
+ * caller holds a reference count on struct task AND
+ * holds a lock on p->lock
+ *
+ *
  * TODO: do we need the task_struct as a parameter?
  **/
 ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
@@ -70,7 +170,7 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 						uint64_t nonce)
 {
 
-	static struct kernel_sysfs_data ksysfsd;
+	static struct kernel_sysfs_data ksysfsd, *clear_p;
 	ssize_t ccode = 0;
 	struct file *f = NULL;
 	/**
@@ -103,6 +203,16 @@ ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
 			goto err_exit;
 		}
 		if (*start <  LSOF_ARRAY_SIZE) {
+			/**
+			 * check for an allocated data buffer stored in this
+			 * array element - if its there, free it
+			 **/
+			 clear_p = flex_array_get(p->ksysfs_flex_array, *start);
+			 if (clear_p && clear_p->clear != FLEX_ARRAY_FREE &&
+				 clear_p->data) {
+				kfree(clear_p->data);
+			}
+
 			flex_array_put(p->ksysfs_flex_array,
 						   *start,
 						   &ksysfsd,
@@ -134,7 +244,7 @@ STACK_FRAME_NON_STANDARD(sysfs_read_data);
 
 
 int
-sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
+sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
@@ -179,7 +289,7 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 		return -EAGAIN;
 	}
 
-	file_index = sysfs_for_each_unlocked(p, count, nonce);
+	file_index = sysfs_for_each_unlocked(p, nonce);
 
 	spin_unlock(&p->lock);
 	return file_index;
@@ -187,15 +297,38 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 STACK_FRAME_NON_STANDARD(sysfs_for_each_pid);
 
 int
-kernel_sysfs(struct kernel_sysfs_probe *p, int c, uint64_t nonce)
+kernel_sysfs_unlocked(struct kernel_sysfs_probe *p,
+					  uint64_t nonce)
 {
 	int count;
 
-	count = build_pid_index((struct probe *)p, p->ksysfs_pid_flex_array, nonce);
-	count = sysfs_for_each_pid(p, count, nonce);
+	count = build_pid_index_unlocked((struct probe *)p,
+									 p->ksysfs_pid_flex_array,
+									 nonce);
+	count = sysfs_for_each_unlocked(p, nonce);
 
 	return count;
 }
+
+int
+kernel_sysfs(struct kernel_sysfs_probe *p,
+			 int c,
+			 uint64_t nonce)
+{
+	int count;
+
+	if (!spin_trylock(&p->lock)) {
+		return -EAGAIN;
+	}
+	count = build_pid_index_unlocked((struct probe *)p,
+									 p->ksysfs_pid_flex_array,
+									 nonce);
+	count = sysfs_for_each_unlocked(p, nonce);
+	spin_unlock(&p->lock);
+	return count;
+}
+
+
 
 int
 filter_sysfs_data(struct kernel_sysfs_probe *p,
@@ -232,6 +365,7 @@ run_sysfs_probe(struct kthread_work *work)
 /**
  *  call print by default. But, in the future there will be other
  *  options, notably outputting in json format to a socket
+ * TODO: we now have the json output, so use it by default
  **/
 	probe_struct->print(probe_struct, "kernel-sysfs", nonce, ++count);
 	probe_struct->repeat--;

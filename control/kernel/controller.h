@@ -782,6 +782,8 @@ extern int sysfs_timeout;
 extern int sysfs_level;
 
 struct kernel_sysfs_data {
+	uint8_t clear;
+	uint8_t pad[7];
 	uint64_t nonce;
 	int index;
 	pid_t pid;
@@ -850,6 +852,9 @@ int
 filter_sysfs_data(struct kernel_sysfs_probe *,
 				  struct kernel_sysfs_data *,
 				  void *);
+int
+kernel_sysfs_unlocked(struct kernel_sysfs_probe *, uint64_t);
+
 int
 kernel_sysfs(struct kernel_sysfs_probe *, int, uint64_t);
 
