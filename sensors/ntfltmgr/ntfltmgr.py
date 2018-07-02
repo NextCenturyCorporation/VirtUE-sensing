@@ -209,13 +209,13 @@ class ProbeAttributeFlags(Flag):
     # No attributes
     NoAttributes = 0
     # Real Time Probe that emits events as it happens
-    RealTime = (1 << 0)
+    RealTime = (1 << 1)
     # Emits events at regular time intervals
-    Temporal = (1 << 1)
+    Temporal = (1 << 2)
     # Indicates the probe will start at driver load  
-    EnabledAtStart = (1 << 2)
+    EnabledAtStart = (1 << 3)
     # Set if Probe Type is Dynamic (Loaded by external operation)
-    DynamicProbe = (1 << 2)  
+    DynamicProbe = (1 << 4)  
     
 class LIST_ENTRY(SaviorStruct):
     '''
