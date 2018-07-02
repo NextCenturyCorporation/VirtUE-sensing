@@ -209,13 +209,13 @@ class ProbeAttributeFlags(Flag):
     # No attributes
     NoAttributes = 0
     # Real Time Probe that emits events as it happens
-    RealTime = (1 << 0)
+    RealTime = (1 << 1)
     # Emits events at regular time intervals
-    Temporal = (1 << 1)
+    Temporal = (1 << 2)
     # Indicates the probe will start at driver load  
-    EnabledAtStart = (1 << 2)
+    EnabledAtStart = (1 << 3)
     # Set if Probe Type is Dynamic (Loaded by external operation)
-    DynamicProbe = (1 << 2)  
+    DynamicProbe = (1 << 4)  
     
 class LIST_ENTRY(SaviorStruct):
     '''
@@ -1066,17 +1066,25 @@ def DisbleUnload(hFltComms):
     return res, rsp_msg
 
 
-def ConfigureProbe(hFltComms, ProbeName, ConfigurationData):
+def ConfigureProbe(hFltComms, cfgdata, ProbeNumber=0):
     '''
     Configure a specific probe with the provided 
     configuration data
     '''
-    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    import pdb;pdb.set_trace()
+
+    if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
+        raise ValueError("Parameter cfgdata is invalid!")
+        
+    data_len = len(cfgdata) - sizeof(BYTE)
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + data_len)    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    cmd_msg.contents.DataSz = 0
-    
+    cmd_msg.contents.ProbeNumber = ProbeNumber
+    cmd_msg.contents.DataSz = data_len
+    cfg = cast(cmd_buf[type(cmd_msg.contents).Data.offset:], POINTER(BYTE * data_len))
+    array_of_bytes = memoryview(cfgdata)
+    cfg.contents = (BYTE * len(cfgdata)).from_buffer(array_of_bytes)        
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
@@ -1093,7 +1101,7 @@ def test_command_response():
         print("res = {0}\n".format(res,))
         for probe in probes:
             print("{0}".format(probe,))
-            ConfigureProbe(hFltComms, probe.ProbeName,'\"{\"repeat-interval\": 60}\"')
+            ConfigureProbe(hFltComms,'\"{\"repeat-interval\": 60}\"', probe.ProbeNumber)
     finally:
         CloseHandle(hFltComms)    
       
