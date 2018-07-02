@@ -807,7 +807,7 @@ class WVU_RESPONSE(CtypesEnum):
     WVUSuccess = 0x1
     WVUFailure = 0x2
 
-GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'DataSz', 'Data'])
+GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'ProbeNumber', 'DataSz', 'Data'])
     
 class COMMAND_MESSAGE(SaviorStruct):
     '''
@@ -815,12 +815,13 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
+        ("ProbeNumber", ULONG),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
 
     @classmethod
-    def build(cls, cmd, data):
+    def build(cls, cmd, probenum, data):
         '''
         build named tuple instance representing this
         classes instance data
@@ -828,6 +829,7 @@ class COMMAND_MESSAGE(SaviorStruct):
         sb = create_string_buffer(sizeof(cls) + len(data) - 1)
         info = cast(sb, POINTER(cls))
         info.contents.Command = cmd
+        info.contents.ProbeNumber = probenum
         info.contents.DataSz = len(data)        
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
@@ -836,6 +838,7 @@ class COMMAND_MESSAGE(SaviorStruct):
             
         command_packet = GetCommandMessage(
             info.contents.Command,
+            info.contents.ProbeNumber,
             info.contents.DataSz,
             sb)
         return command_packet  
@@ -970,6 +973,7 @@ def EnumerateProbes(hFltComms, Filter=None):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
+    cmd_msg.contents.ProbeNumber = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -996,6 +1000,7 @@ def Echo(hFltComms):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.Echo
+    cmd_msg.contents.ProbeNumber = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -1003,7 +1008,7 @@ def Echo(hFltComms):
 
     return res, rsp_msg
 
-def EnableProtection(hFltComms):
+def EnableProtection(hFltComms, ProbeNumber=0):
     '''
     Enable Full Protection
     '''
@@ -1012,13 +1017,14 @@ def EnableProtection(hFltComms):
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
     cmd_msg.contents.DataSz = 0
+    cmd_msg.contents.ProbeNumber = ProbeNumber
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
     
-def DisableProtection(hFltComms):
+def DisableProtection(hFltComms, ProbeNumber=0):
     '''
     Disable Full Protection
     '''
@@ -1027,6 +1033,7 @@ def DisableProtection(hFltComms):
     
     cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
     cmd_msg.contents.DataSz = 0
+    cmd_msg.contents.ProbeNumber = ProbeNumber
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1085,7 +1092,7 @@ def ConfigureProbe(hFltComms, cfgdata, ProbeNumber=0):
     cfg = cast(cmd_buf[type(cmd_msg.contents).Data.offset:], POINTER(BYTE * data_len))
     sb = create_string_buffer(cfgdata)
     array_of_bytes = memoryview(bytes(sb.encode('utf-8')))
-    cfg.contents = (BYTE * len(cfgdata)).from_buffer(array_of_bytes)        
+    cfg.contents = (BYTE * len(sb)).from_buffer(array_of_bytes)        
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
@@ -1120,3 +1127,4 @@ def main():
 
 if __name__ == '__main__':        
     main()
+

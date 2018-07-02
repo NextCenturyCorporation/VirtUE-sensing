@@ -67,6 +67,7 @@ AbstractVirtueProbe::operator delete(PVOID ptr)
 * @brief called by system polling thread to check if elapsed time has expired
 * @return TRUE if time has expired else FALSE
 */
+_Use_decl_annotations_
 BOOLEAN
 AbstractVirtueProbe::OnPoll()
 {
