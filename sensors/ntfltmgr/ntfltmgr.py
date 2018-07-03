@@ -1090,9 +1090,8 @@ def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     cmd_msg.contents.SensorId = SensorId
     cmd_msg.contents.DataSz = data_len
     cfg = cast(cmd_buf[type(cmd_msg.contents).Data.offset:], POINTER(BYTE * data_len))
-    sb = create_string_buffer(cfgdata.encode('utf-8'))
-    array_of_bytes = memoryview(bytes(sb))
-    cfg.contents = (BYTE * len(sb)).from_buffer(array_of_bytes)        
+    array_of_bytes = memoryview(bytes(cmd_buf.encode('utf-8')))
+    cfg.contents = (BYTE * len(cmd_buf)).from_buffer(array_of_bytes)        
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
