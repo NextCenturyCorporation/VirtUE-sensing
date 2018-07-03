@@ -11,7 +11,7 @@
 #else
 #include <windows.h>
 #endif
-#define MAXPROBENAMESZ 64
+#define MAXSENSORNAMESZ 64
 #define MAXMESSAGELEN 1024
 
 //
@@ -59,7 +59,7 @@ typedef struct _RESPONSE_MESSAGE
 //
 typedef struct _COMMAND_MESSAGE {
 	WVU_COMMAND Command;    // The Command
-	ULONG ProbeNumber;      // The probe number this command is directed towards (0 is all probes)
+	ULONG ProbeId;      // The probe number this command is directed towards (0 is all probes)
 	SIZE_T DataSz;			// The Optional Command Message Data Size
 	UCHAR Data[1];          // Optional Command Message Data
 } COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
@@ -159,11 +159,11 @@ typedef struct _ProbeStatusHeader
 /** The probe status as recovered by the probe enumeration function */
 typedef struct _ProbeStatus
 {
-	DWORD ProbeNumber;			/** this probes unique probe number */
+	DWORD ProbeId;			/** this probes unique probe number, becomes SensorId or sensor_id in user space */
 	LARGE_INTEGER LastRunTime;  /** GMT time this probe last ran */
 	LARGE_INTEGER RunInterval;  /** This probes configured run interval - if any */
 	LONG OperationCount;        /** The number of completed operations since driver was loaded */
 	USHORT Attributes;			/** This probes attributes */
 	BOOLEAN Enabled;			/** TRUE if this probe is enabled else FALSE */
-	CHAR ProbeName[MAXPROBENAMESZ];	/** This probes name */
+	CHAR ProbeName[MAXSENSORNAMESZ];	/** This probes name, becomes SensorName or sensor_name in user space */
 } ProbeStatus, *PProbeStatus;

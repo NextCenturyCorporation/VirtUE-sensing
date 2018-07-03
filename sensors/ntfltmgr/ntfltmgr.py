@@ -807,7 +807,7 @@ class WVU_RESPONSE(CtypesEnum):
     WVUSuccess = 0x1
     WVUFailure = 0x2
 
-GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'ProbeNumber', 'DataSz', 'Data'])
+GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'SensorId', 'DataSz', 'Data'])
     
 class COMMAND_MESSAGE(SaviorStruct):
     '''
@@ -815,7 +815,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
-        ("ProbeNumber", ULONG),
+        ("SensorId", ULONG),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
@@ -829,7 +829,7 @@ class COMMAND_MESSAGE(SaviorStruct):
         sb = create_string_buffer(sizeof(cls) + len(data) - 1)
         info = cast(sb, POINTER(cls))
         info.contents.Command = cmd
-        info.contents.ProbeNumber = probenum
+        info.contents.SensorId = probenum
         info.contents.DataSz = len(data)        
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
@@ -838,7 +838,7 @@ class COMMAND_MESSAGE(SaviorStruct):
             
         command_packet = GetCommandMessage(
             info.contents.Command,
-            info.contents.ProbeNumber,
+            info.contents.SensorId,
             info.contents.DataSz,
             sb)
         return command_packet  
@@ -883,20 +883,20 @@ class ProbeStatusHeader(SaviorStruct):
     ]
 
 GetProbeStatus = namedtuple('GetProbeStatus',  
-        ['ProbeNumber', 'LastRunTime', 'RunInterval', 
-            'OperationCount', 'Attributes', 'ProbeName'])
+        ['SensorId', 'LastRunTime', 'RunInterval', 
+            'OperationCount', 'Attributes', 'SensorName'])
 class ProbeStatus(SaviorStruct):
     '''
     The ProbeStatus message
     '''
     _fields_ = [        
-        ("ProbeNumber", DWORD),
+        ("SensorId", DWORD),
         ("LastRunTime", LONGLONG),
         ("RunInterval", LONGLONG),
         ("OperationCount", LONG),
         ("Attributes", USHORT),
         ("Enabled", BOOLEAN),
-        ("ProbeName", BYTE * MAXPROBENAMESZ),
+        ("SensorName", BYTE * MAXPROBENAMESZ),
     ]
 
     @classmethod
@@ -907,7 +907,7 @@ class ProbeStatus(SaviorStruct):
         '''        
         info = cast(msg_pkt, POINTER(cls))    
         length = MAXPROBENAMESZ
-        offset = type(info.contents).ProbeName.offset
+        offset = type(info.contents).SensorName.offset
         sb = create_string_buffer(msg_pkt)
         array_of_chars = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_chars)
@@ -916,14 +916,14 @@ class ProbeStatus(SaviorStruct):
             if not ch:
                 break
             lst.append(ch)
-        ProbeName = "".join(map(chr, lst))
+        SensorName = "".join(map(chr, lst))
         probe_status = GetProbeStatus(            
-            info.contents.ProbeNumber,
+            info.contents.SensorId,
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
             ProbeAttributeFlags(info.contents.Attributes), 
-            ProbeName)
+            SensorName)
         return probe_status
     
 MAXRSPSZ = 0x1000
@@ -973,7 +973,7 @@ def EnumerateProbes(hFltComms, Filter=None):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
-    cmd_msg.contents.ProbeNumber = 0
+    cmd_msg.contents.SensorId = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -1000,7 +1000,7 @@ def Echo(hFltComms):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.Echo
-    cmd_msg.contents.ProbeNumber = 0
+    cmd_msg.contents.SensorId = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -1008,7 +1008,7 @@ def Echo(hFltComms):
 
     return res, rsp_msg
 
-def EnableProtection(hFltComms, ProbeNumber=0):
+def EnableProtection(hFltComms, SensorId=0):
     '''
     Enable Full Protection
     '''
@@ -1017,14 +1017,14 @@ def EnableProtection(hFltComms, ProbeNumber=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.ProbeNumber = ProbeNumber
+    cmd_msg.contents.SensorId = SensorId
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
     
-def DisableProtection(hFltComms, ProbeNumber=0):
+def DisableProtection(hFltComms, SensorId=0):
     '''
     Disable Full Protection
     '''
@@ -1033,7 +1033,7 @@ def DisableProtection(hFltComms, ProbeNumber=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.ProbeNumber = ProbeNumber
+    cmd_msg.contents.SensorId = SensorId
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1073,7 +1073,7 @@ def DisbleUnload(hFltComms):
     return res, rsp_msg
 
 
-def ConfigureProbe(hFltComms, cfgdata, ProbeNumber=0):
+def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     '''
     Configure a specific probe with the provided 
     configuration data
@@ -1086,7 +1086,7 @@ def ConfigureProbe(hFltComms, cfgdata, ProbeNumber=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + data_len)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    cmd_msg.contents.ProbeNumber = ProbeNumber
+    cmd_msg.contents.SensorId = SensorId
     cmd_msg.contents.DataSz = data_len
     cfg = cast(cmd_buf[type(cmd_msg.contents).Data.offset:], POINTER(BYTE * data_len))
     cfg.contents = cfgdata
@@ -1106,7 +1106,7 @@ def test_command_response():
         print("res = {0}\n".format(res,))
         for probe in probes:
             print("{0}".format(probe,))
-            ConfigureProbe(hFltComms,'\"{\"repeat-interval\": 60}\"', probe.ProbeNumber)
+            ConfigureProbe(hFltComms,'\"{\"repeat-interval\": 60}\"', probe.SensorId)
     finally:
         CloseHandle(hFltComms)    
       

@@ -444,15 +444,15 @@ WVUCommsManager::OnEnumerateProbes(
 				FLT_ASSERTMSG("Probe Count Mismatch!", FALSE);
 				__leave;
 			}
-			pProbeStatus->ProbeNumber = pProbeInfo->Probe->GetProbeNumber();
+			pProbeStatus->ProbeId = pProbeInfo->Probe->GetProbeId();
 			pProbeStatus->Enabled = pProbeInfo->Probe->IsEnabled();
 			pProbeStatus->Attributes = pProbeInfo->Probe->GetProbeAttribtes();
 			pProbeStatus->LastRunTime = pProbeInfo->Probe->GetLastProbeRunTime();
 			pProbeStatus->OperationCount = pProbeInfo->Probe->GetOperationCount();
 			pProbeStatus->RunInterval = pProbeInfo->Probe->GetRunInterval();
-			ULONG length = pProbeInfo->Probe->GetProbeName().Length < MAXPROBENAMESZ
+			ULONG length = pProbeInfo->Probe->GetProbeName().Length < MAXSENSORNAMESZ
 				? pProbeInfo->Probe->GetProbeName().Length
-				: MAXPROBENAMESZ;
+				: MAXSENSORNAMESZ;
 			RtlCopyMemory(pProbeStatus->ProbeName, pProbeInfo->Probe->GetProbeName().Buffer, length);
 			pProbeStatus++;
 		}

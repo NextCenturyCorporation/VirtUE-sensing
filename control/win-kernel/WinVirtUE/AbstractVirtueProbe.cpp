@@ -23,7 +23,7 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 	this->ProbeName = ProbeName;
 	WVUQueueManager::GetInstance().Register(*this);
 	this->Registered = TRUE;
-	this->ProbeNumber = InterlockedAdd(&AbstractVirtueProbe::ProbeCount, 1L);
+	this->ProbeId = InterlockedAdd(&AbstractVirtueProbe::ProbeCount, 1L);
 }
 
 /**
