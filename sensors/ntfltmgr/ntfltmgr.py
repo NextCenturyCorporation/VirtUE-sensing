@@ -1078,8 +1078,6 @@ def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     Configure a specific probe with the provided 
     configuration data
     '''
-    import pdb;pdb.set_trace()
-
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
         raise ValueError("Parameter cfgdata is invalid!")
         
@@ -1119,9 +1117,9 @@ def main():
     '''
     let's test some stuff
     '''
-    test_command_response()
+    #test_command_response()
     
-    #test_packet_decode()  
+    test_packet_decode()  
     
     sys.exit(0)
     
