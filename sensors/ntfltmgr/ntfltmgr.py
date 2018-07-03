@@ -14,7 +14,7 @@ from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, 
 
 S_OK = 0
 MAXPROBENAMESZ = 64
-SIZE_T = WPARAM
+SIZE_T = c_ulonglong
 NTSTATUS = DWORD
 PVOID = c_void_p
 ULONGLONG = c_ulonglong
