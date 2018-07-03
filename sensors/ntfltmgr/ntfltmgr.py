@@ -1089,8 +1089,9 @@ def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
     cmd_msg.contents.SensorId = SensorId
     cmd_msg.contents.DataSz = data_len
-    cfg = cast(cmd_buf[type(cmd_msg.contents).Data.offset:], POINTER(BYTE * data_len))
-    array_of_bytes = memoryview(bytes(cmd_buf.encode('utf-8')))
+    cfg = cast(cmd_buf[type(cmd_msg.contents).Data.offset:], 
+            POINTER(BYTE * data_len))
+    array_of_bytes = memoryview(bytes(cmd_buf))
     cfg.contents = (BYTE * len(cmd_buf)).from_buffer(array_of_bytes)        
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
