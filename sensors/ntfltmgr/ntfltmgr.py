@@ -1078,7 +1078,8 @@ def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     Configure a specific probe with the provided 
     configuration data
     '''
-    
+    import pdb;pdb.set_trace()
+
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
         raise ValueError("Parameter cfgdata is invalid!")
         
@@ -1089,7 +1090,9 @@ def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     cmd_msg.contents.SensorId = SensorId
     cmd_msg.contents.DataSz = data_len
     cfg = cast(cmd_buf[type(cmd_msg.contents).Data.offset:], POINTER(BYTE * data_len))
-    cfg.contents = cfgdata
+    sb = create_string_buffer(cfgdata.encode('utf-8'))
+    array_of_bytes = memoryview(bytes(sb))
+    cfg.contents = (BYTE * len(sb)).from_buffer(array_of_bytes)        
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
