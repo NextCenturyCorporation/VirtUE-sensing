@@ -7,7 +7,7 @@ import logging
 from enum import IntEnum, Flag
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
-from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll
+from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
 
 from ctypes.wintypes import WPARAM, DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN
 from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG
@@ -1083,16 +1083,18 @@ def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
         raise ValueError("Parameter cfgdata is invalid!")
         
-    data_len = len(cfgdata) - sizeof(BYTE)
-    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + data_len)    
+    length = len(cfgdata) - sizeof(BYTE)
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
     cmd_msg.contents.SensorId = SensorId
-    cmd_msg.contents.DataSz = data_len
+    cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
-    ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]
-    slc = (BYTE * length).from_buffer(ary)        
-    slc = cfgdata
+    ary = memoryview(cmd_buf)[offset:offset + length]
+    slc = (BYTE * len(cfgdata)).from_buffer(ary)        
+    data = cfgdata.encode('utf-8')
+    fit = min(len(cfgdata), len(slc))
+    memmove(slc, data, fit)
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
