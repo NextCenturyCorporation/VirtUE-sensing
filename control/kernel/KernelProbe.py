@@ -61,6 +61,8 @@ class KernelProbe:
                     while len(data):
                         self.out_file.write("%s" %(data))
                         data = self.sock.recv(max_amount)
+                        self.out_file.write("%s" %(data))
+
                 except:
                     print >> sys.stderr, "run_input_file: closing socket"
                     self.sock.close()

@@ -8,18 +8,28 @@ import socket, sys, os, subprocess, uuid, io, json
 # input and output file - json in, json out
 
 
+# default is sensor_states.low
 class sensor_states:
-    off, on, low, high, adversarial = range(4)
+    low, high, adversarial = range(1,4)
+
+class sensor_commands:
+    connect, discovery, state, records, reset = range(1,6)
 
 class bcc_probe:
     def __init__(self,
-                 target_probe,
-                 socket_name = '/var/run/u_sensor' + target_probe):
-        self.sock = 0
+                 probe_name,
+                 socket_name = '/var/run/bcc_sensor/' + probe_name,
+                 out_file = '-'):
+
         self.target_probe = target_probe
-        self.state = sensor_states.lowtate.
+        self.state = sensor_states.low
+        self.sock = 0
+        self.out_file = 0
+        self.in_file = 0
+
         self.set_socket(socket_name)
-        
+        self.set_out_file(out_file)
+
     def set_socket(self, socket_name):
         if self.sock:
             self.sock.close()
@@ -30,6 +40,47 @@ class bcc_probe:
         except socket.error:
             print >> sys.stderr, "error connecting to socket %s" % socket_name
 
+    def set_out_file(self, out_file):
+        print >> sys.stderr, "attempting to open %s as output file" % out
+        if self.out_file and self.out_file != sys.stdout:
+            self.out_file.close()
+        if out and out != '-':
+            self.out_file = open(out, "w+")
+        else:
+            self.out_file = sys.stdout
+
+    def set_in_file(self, in_file):
+        print >> sys.stderr, "attempting to open %s as input file" % in_file
+        if self.in_file and self.in_file != sys.stdin:
+            self.in_file.close()
+        if in_file:
+            self.in_file = open(in_file, "r")
+        else:
+            self.in_file = sys.stdin
+
+"""
+Commands are json objects like this:
+{Virtue-protocol-verion: 0.1, request: [nonce, command, probe] }\n
+
+they are loaded into a dictionary. the request element contains a list:
+[nonce, command, probe_name]
+
+request[command] is a dictionary:
+{cmd: verb, parm: value}
+
+Replies are json objects like this:
+
+{Virtue-protocol-verion: 0.1, response: [nonce, result] }\n
+
+the response element contains a list:
+
+[nonce, result]
+
+response[result] is a dictionary:
+
+{cmd: verb, parm: value}
+
+"""
 
 # client_main is for testing, expect this class to be inherited by
 # specific bcc_probes
@@ -47,4 +98,4 @@ if __name__ == "__main__":
     client_main(sys.argv)
     sys.exit(0)
 
-    
+
