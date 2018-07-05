@@ -23,7 +23,9 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 	this->ProbeName = ProbeName;
 	WVUQueueManager::GetInstance().Register(*this);
 	this->Registered = TRUE;
-	FLT_ASSERTMSG("Unable to create a valid UUID!", ExUuidCreate(&this->ProbeId));
+	FLT_ASSERTMSG("Unable to create a valid UUID!", 
+		TRUE == NT_SUCCESS(ExUuidCreate(&this->ProbeId)));
+	InterlockedIncrement(&AbstractVirtueProbe::ProbeCount);
 }
 
 /**
@@ -33,6 +35,7 @@ AbstractVirtueProbe::~AbstractVirtueProbe()
 {
 	WVUQueueManager::GetInstance().Unregister(*this);
 	this->Registered = FALSE;
+	InterlockedDecrement(&AbstractVirtueProbe::ProbeCount);
 }
 
 /**
