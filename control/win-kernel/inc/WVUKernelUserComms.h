@@ -58,12 +58,11 @@ typedef struct _RESPONSE_MESSAGE
 //  Command: User -> Kernel
 //
 typedef struct _COMMAND_MESSAGE {
-	WVU_COMMAND Command;    // The Command
-	ULONG ProbeId;      // The probe number this command is directed towards (0 is all probes)
-	SIZE_T DataSz;			// The Optional Command Message Data Size
-	UCHAR Data[1];          // Optional Command Message Data
+	WVU_COMMAND Command;// The Command
+	UUID ProbeId;		// The probe id this command is directed towards (0 is all probes)
+	SIZE_T DataSz;		// The Optional Command Message Data Size
+	UCHAR Data[1];      // Optional Command Message Data
 } COMMAND_MESSAGE, *PCOMMAND_MESSAGE;
-
 
 //
 //  Connection type enumeration. It will be primarily used in connection context.

@@ -826,13 +826,13 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
-        ("SensorId", ULONG),
+        ("SensorId", UUID),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
 
     @classmethod
-    def build(cls, cmd, probenum, data):
+    def build(cls, cmd, sensor_id, data):
         '''
         build named tuple instance representing this
         classes instance data
@@ -840,7 +840,7 @@ class COMMAND_MESSAGE(SaviorStruct):
         sb = create_string_buffer(sizeof(cls) + len(data) - 1)
         info = cast(sb, POINTER(cls))
         info.contents.Command = cmd
-        info.contents.SensorId = probenum
+        info.contents.SensorId = sensor_id
         info.contents.DataSz = len(data)        
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
@@ -1061,6 +1061,7 @@ def EnableUnload(hFltComms):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableUnload
+    cmd_msg.contents.SensorId = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -1077,6 +1078,7 @@ def DisbleUnload(hFltComms):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.DisableUnload
+    cmd_msg.contents.SensorId = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
