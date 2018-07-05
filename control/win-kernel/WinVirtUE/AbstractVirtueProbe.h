@@ -42,7 +42,8 @@ protected:
 	/** The number of probes */
 	static volatile LONG ProbeCount;
 	/** This probes unique probe number */
-	volatile LONG ProbeId;
+	UUID ProbeId;
+
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
 	virtual ~AbstractVirtueProbe();
@@ -89,7 +90,7 @@ public:
 	/** return the number of registered probes */
 	static const volatile LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
 	/** retrieve this probes unique probe number */
-	virtual const volatile LONG& GetProbeId() { return this->ProbeId; }
+	virtual const UUID& GetProbeId() { return this->ProbeId; }
 	/** returns the registration state */
 	virtual const BOOLEAN& GetIsRegistered() { return this->Registered; }
 };

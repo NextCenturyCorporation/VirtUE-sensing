@@ -2,6 +2,7 @@
 ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
+import uuid
 import json
 import logging
 from enum import IntEnum, Flag
@@ -225,6 +226,16 @@ LIST_ENTRY._fields_ = [
     ("space", BYTE * 16)
 ]
 
+
+GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
+
+class UUID(SaviorStruct):
+    '''
+    Probe Data Header
+    '''
+    _fields_ = [
+        ('Data', BYTE * 16)
+    ]
 
 GetProbeDataHeader = namedtuple('GetProbeDataHeader',  
         ['ProbeId', 'DataSz', 'CurrentGMT', 'Packet'])
@@ -890,7 +901,7 @@ class ProbeStatus(SaviorStruct):
     The ProbeStatus message
     '''
     _fields_ = [        
-        ("SensorId", DWORD),
+        ("SensorId", UUID),
         ("LastRunTime", LONGLONG),
         ("RunInterval", LONGLONG),
         ("OperationCount", LONG),
@@ -917,8 +928,9 @@ class ProbeStatus(SaviorStruct):
                 break
             lst.append(ch)
         SensorName = "".join(map(chr, lst))
+        sensor_id = uuid.UUID(bytes=info.contents.SensorId)
         probe_status = GetProbeStatus(            
-            info.contents.SensorId,
+            sensor_id,
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
@@ -1008,7 +1020,7 @@ def Echo(hFltComms):
 
     return res, rsp_msg
 
-def EnableProtection(hFltComms, SensorId=0):
+def EnableProtection(hFltComms, sensor_id=0):
     '''
     Enable Full Protection
     '''
@@ -1017,14 +1029,14 @@ def EnableProtection(hFltComms, SensorId=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.SensorId = SensorId
+    cmd_msg.contents.SensorId = sensor_id
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
     
-def DisableProtection(hFltComms, SensorId=0):
+def DisableProtection(hFltComms, sensor_id=0):
     '''
     Disable Full Protection
     '''
@@ -1033,7 +1045,7 @@ def DisableProtection(hFltComms, SensorId=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.SensorId = SensorId
+    cmd_msg.contents.SensorId = sensor_id
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1073,12 +1085,11 @@ def DisbleUnload(hFltComms):
     return res, rsp_msg
 
 
-def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
+def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     '''
     Configure a specific probe with the provided 
     configuration data
     '''
-    import pdb;pdb.set_trace()
 
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
         raise ValueError("Parameter cfgdata is invalid!")
@@ -1087,7 +1098,7 @@ def ConfigureProbe(hFltComms, cfgdata, SensorId=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    cmd_msg.contents.SensorId = SensorId
+    cmd_msg.contents.SensorId = sensor_id
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
     ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]

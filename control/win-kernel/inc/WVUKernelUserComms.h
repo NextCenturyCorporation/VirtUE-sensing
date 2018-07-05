@@ -159,7 +159,7 @@ typedef struct _ProbeStatusHeader
 /** The probe status as recovered by the probe enumeration function */
 typedef struct _ProbeStatus
 {
-	DWORD ProbeId;			/** this probes unique probe number, becomes SensorId or sensor_id in user space */
+	UUID ProbeId;			    /** this probes unique probe number, becomes SensorId or sensor_id in user space */
 	LARGE_INTEGER LastRunTime;  /** GMT time this probe last ran */
 	LARGE_INTEGER RunInterval;  /** This probes configured run interval - if any */
 	LONG OperationCount;        /** The number of completed operations since driver was loaded */
