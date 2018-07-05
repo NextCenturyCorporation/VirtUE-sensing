@@ -143,6 +143,9 @@ public:
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	BOOLEAN Unregister(_In_ AbstractVirtueProbe& probe);
 	_Must_inspect_result_
+		_Success_(NULL != return)
+		ProbeInfo *FindProbeById(const UUID& probeid_to_be_found);
+	_Must_inspect_result_
 	_Success_(NULL != return)
 		_IRQL_requires_max_(DISPATCH_LEVEL)
 	ProbeInfo* FindProbeByName(_In_ const ANSI_STRING& probe_to_be_found);

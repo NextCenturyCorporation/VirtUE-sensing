@@ -17,7 +17,6 @@ ProcessCreateProbe::ProcessCreateProbe() :
 	AbstractVirtueProbe(probe_name)
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
-
 	// initialize the spinlock that controls access to the Response queue
 	KeInitializeSpinLock(&this->ProcessListSpinLock);
 
@@ -41,16 +40,17 @@ ProcessCreateProbe::~ProcessCreateProbe()
 
 /**
 * @brief called to configure the probe
-* @note currently not implmented, placeholder code
-* @param NameValuePairs newline terminated with assign operator name value
+* @note Do create threads, or defer execution during the entire configure operation.
+* Unpredictable and bizzare results could occur.
+* @param config_data newline terminated with assign operator name value
 * pair configuration information
 */
 _Use_decl_annotations_
 BOOLEAN 
-ProcessCreateProbe::Configure(_In_ const ANSI_STRING& NameValuePairs)
+ProcessCreateProbe::Configure(_In_ const ANSI_STRING& config_data)
 {
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
+	UNREFERENCED_PARAMETER(config_data);
+	return FALSE;
 }
 
 _Use_decl_annotations_
@@ -169,6 +169,14 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+	if (NULL == pProbeInfo)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+			"***** Unable to find probe info on probe %Z!\n", &probe_name);
+		goto ErrorExit;
+	}
+
 	if (CreateInfo)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
@@ -185,9 +193,10 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessCreateInfo pPCI = (PProcessCreateInfo)buf;
-		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.CurrentGMT);
-		pPCI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessCreate;
-		pPCI->ProbeDataHeader.DataSz = bufsz;
+		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.current_gmt);
+		pPCI->ProbeDataHeader.probe_type = ProbeType::ProcessCreate;
+		pPCI->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		pPCI->ProbeDataHeader.data_sz = bufsz;
 		pPCI->EProcess = Process;
 		pPCI->ProcessId = ProcessId;
 		pPCI->ParentProcessId = CreateInfo->ParentProcessId;
@@ -226,9 +235,10 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessDestroyInfo pPDI= (PProcessDestroyInfo)buf;
-		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.CurrentGMT);
-		pPDI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessDestroy;
-		pPDI->ProbeDataHeader.DataSz = bufsz;
+		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.current_gmt);
+		pPDI->ProbeDataHeader.probe_type = ProbeType::ProcessDestroy;
+		pPDI->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		pPDI->ProbeDataHeader.data_sz = bufsz;
 		pPDI->EProcess = Process;
 		pPDI->ProcessId = ProcessId;	
 		
@@ -240,14 +250,6 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 				"***** Process Destroyed Enqueue Operation Failed: EPROCESS %p, ProcessId %p, \n",
 				Process, ProcessId);
 		}
-	}
-
-	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
-	if (NULL == pProbeInfo)
-	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
-			"***** Unable to find probe info on probe %Z!\n", &probe_name);
-		goto ErrorExit;
 	}
 
 	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)

@@ -14,23 +14,23 @@ static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ImageLoad");
 /**
 * @brief construct an instance of this probe
 */
-ImageLoadProbe::ImageLoadProbe() :
-	AbstractVirtueProbe(probe_name)
+ImageLoadProbe::ImageLoadProbe() : AbstractVirtueProbe(probe_name) 
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
 /**
 * @brief called to configure the probe
-* @note currently not implmented, placeholder code
-* @param NameValuePairs newline terminated with assign operator name value
+* @note Do create threads, or defer execution during the entire configure operation.
+* Unpredictable and bizzare results could occur.
+* @param config_data newline terminated with assign operator name value
 * pair configuration information
 */
 _Use_decl_annotations_
 BOOLEAN 
-ImageLoadProbe::Configure(_In_ const ANSI_STRING& NameValuePairs)
+ImageLoadProbe::Configure(_In_ const ANSI_STRING& config_data)
 {
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
+	UNREFERENCED_PARAMETER(config_data);
+	return FALSE;
 }
 
 /**
@@ -189,11 +189,19 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 		goto ErrorExit;
 	}
 
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+	if (NULL == pProbeInfo)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+			"***** Unable to find probe info on probe %Z!\n", &probe_name);
+		goto ErrorExit;
+	}
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	RtlSecureZeroMemory(buf, bufsz);
-	pLoadedImageInfo->ProbeDataHeader.ProbeId = ProbeIdType::LoadedImage;
-	pLoadedImageInfo->ProbeDataHeader.DataSz = bufsz;
-	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.CurrentGMT);
+	pLoadedImageInfo->ProbeDataHeader.probe_type = ProbeType::LoadedImage;
+	pLoadedImageInfo->ProbeDataHeader.data_sz = bufsz;
+	pLoadedImageInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.current_gmt);
 	pLoadedImageInfo->EProcess = pProcess;
 	pLoadedImageInfo->ProcessId = ProcessId;
 	pLoadedImageInfo->ImageBase = pImageInfo->ImageBase;
@@ -209,15 +217,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 			"ProcessId=%p,ImageBase=%p,ImageSize=%p,ImageSectionNumber=%ul\n",
 			FullImageName, ProcessId, pImageInfo->ImageBase, (PVOID)pImageInfo->ImageSize,
 			pImageInfo->ImageSectionNumber);
-	}
-
-	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
-	if (NULL == pProbeInfo)
-	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
-			"***** Unable to find probe info on probe %Z!\n", &probe_name);
-		goto ErrorExit;
-	}
+	}	
 
 	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
 	{

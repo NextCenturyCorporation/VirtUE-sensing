@@ -22,7 +22,7 @@ public:
 	ImageLoadProbe();
 	~ImageLoadProbe() = default;
 	_Must_inspect_result_
-		BOOLEAN Configure(_In_ const ANSI_STRING& NameValuePairs);
+		BOOLEAN Configure(_In_ const ANSI_STRING& config_data);
 	_Success_(TRUE == return)
 	BOOLEAN Start();
 	_Success_(TRUE == return)

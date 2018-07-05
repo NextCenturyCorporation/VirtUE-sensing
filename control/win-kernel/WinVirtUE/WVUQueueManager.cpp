@@ -165,7 +165,7 @@ WVUQueueManager::update_counters(
 	PLIST_ENTRY pListEntry)
 {
 	PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
+	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->data_sz);
 	WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
 }
@@ -181,7 +181,7 @@ WVUQueueManager::TrimProbeDataQueue()
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
 		this->NumberOfQueueEntries = this->Count();
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
-		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->data_sz)));
 		delete[] pPDH;
 		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Trimmed WVUQueueManager\n");
 		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
@@ -297,7 +297,7 @@ WVUQueueManager::Dequeue()
 			__leave;
 		}
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->data_sz)));
 		this->NumberOfQueueEntries = this->Count();
 		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
@@ -375,6 +375,37 @@ WVUQueueManager::Unregister(AbstractVirtueProbe& probe)
 	}
 	__finally { KeReleaseInStackQueuedSpinLock(&LockHandle); }
 	return is_empty;
+}
+
+/**
+* @brief Finds a probe by name ignoring case
+* @note the case lowering shenanigans are because we operate under IRQL restrictions
+* @param probe The probe to unregister
+* @return TRUE if the registration list is empty else FALSE
+*/
+_Use_decl_annotations_
+WVUQueueManager::ProbeInfo* 
+WVUQueueManager::FindProbeById(const UUID & probeid_to_be_found)
+{
+	ProbeInfo* pProbeInfo = nullptr;
+	if (TRUE == IsEqualGUID(probeid_to_be_found, ZEROGUID))
+	{
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Invalid Zero GUID Value!\n");
+		goto ErrorExit;
+	}
+
+	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+	{		
+		if (TRUE == IsEqualGUID(probeid_to_be_found, probe->Probe->GetProbeId()))
+		{
+			pProbeInfo = probe;
+			break;
+		}
+	}
+
+ErrorExit:
+
+	return pProbeInfo;
 }
 
 /**

@@ -229,7 +229,7 @@ WVUProbeCommsThread(PVOID StartContext)
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 		SenderBuffer = (PVOID)pPDH;
 #pragma warning(suppress: 28193)  // message id will be inspected in the user space service
-		SenderBufferLen = pPDH->DataSz;
+		SenderBufferLen = pPDH->data_sz;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);

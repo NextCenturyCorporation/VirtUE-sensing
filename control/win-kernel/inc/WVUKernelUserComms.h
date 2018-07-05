@@ -78,7 +78,7 @@ typedef struct _WVU_CONNECTION_CONTEXT {
 	WVU_CONNECTION_TYPE   Type;  // The connection type
 } WVU_CONNECTION_CONTEXT, *PWVU_CONNECTION_CONTEXT;
 
-typedef enum _ProbeIdType : USHORT
+typedef enum _ProbeType : USHORT
 {
 	NoProbeIdType = 0x0000,
 	/** Loaded Image (.exe,.dll, etc) notificaton type */
@@ -93,14 +93,15 @@ typedef enum _ProbeIdType : USHORT
 	ThreadDestroy = 0x0005,
 	/** process list validation */
 	ProcessListValidation = 0x0006
-} ProbeIdType;
+} ProbeType;
 
-_Struct_size_bytes_(DataSz)
+_Struct_size_bytes_(data_sz)
 typedef struct _ProbeDataHeader
 {
-	_In_ ProbeIdType  ProbeId;
-	_In_ USHORT DataSz;
-	_In_ LARGE_INTEGER CurrentGMT;
+	_In_ UUID probe_id;
+	_In_ ProbeType  probe_type;
+	_In_ USHORT data_sz;
+	_In_ LARGE_INTEGER current_gmt;
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
 

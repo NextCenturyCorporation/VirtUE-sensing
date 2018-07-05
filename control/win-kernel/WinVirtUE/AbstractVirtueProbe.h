@@ -6,6 +6,7 @@
 */
 #pragma once
 #include "common.h"
+#include "jsmn.h"
 #include "externs.h"
 
 class AbstractVirtueProbe
@@ -24,7 +25,6 @@ public:
 	} ProbeAttributes;
 
 protected:
-
 	/** this probes attributes */
 	ProbeAttributes Attributes;
 	/** True then probe is registered */
@@ -43,6 +43,8 @@ protected:
 	static volatile LONG ProbeCount;
 	/** This probes unique probe number */
 	UUID ProbeId;
+	/** json parser */
+	jsmn_parser parser;
 
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
@@ -57,7 +59,7 @@ public:
 	_Must_inspect_result_
 		virtual BOOLEAN IsEnabled() = 0;
 	_Must_inspect_result_
-		virtual BOOLEAN Configure(_In_ const ANSI_STRING& NameValuePairs) = 0;
+		virtual BOOLEAN Configure(_In_ const ANSI_STRING& config_data) = 0;
 	/** called by the polling thread to do work */
 	_Must_inspect_result_
 		virtual BOOLEAN OnPoll();
@@ -92,5 +94,5 @@ public:
 	/** retrieve this probes unique probe number */
 	virtual const UUID& GetProbeId() { return this->ProbeId; }
 	/** returns the registration state */
-	virtual const BOOLEAN& GetIsRegistered() { return this->Registered; }
+	virtual const BOOLEAN& GetIsRegistered() { return this->Registered; }	
 };

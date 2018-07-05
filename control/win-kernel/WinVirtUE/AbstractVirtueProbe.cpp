@@ -20,7 +20,8 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 	Registered(FALSE), LastProbeRunTime({ 0LL }), OperationCount(0L)
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
-	this->ProbeName = ProbeName;
+	jsmn_init(&parser);
+	this->ProbeName = ProbeName;	
 	WVUQueueManager::GetInstance().Register(*this);
 	this->Registered = TRUE;
 	FLT_ASSERTMSG("Unable to create a valid UUID!", 
@@ -113,12 +114,14 @@ AbstractVirtueProbe::OnRun()
 
 /**
 * @brief called to configure the probe 
-* @param NameValuePairs newline terminated with assign operator name value 
+* @note Do create threads, or defer execution during the entire configure operation.
+* Unpredictable and bizzare results could occur.
+* @param config_data newline terminated with assign operator name value 
 * pair configuration information
 */
 _Use_decl_annotations_
-BOOLEAN AbstractVirtueProbe::Configure(const ANSI_STRING & NameValuePairs)
+BOOLEAN AbstractVirtueProbe::Configure(const ANSI_STRING & config_data)
 {
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
+	UNREFERENCED_PARAMETER(config_data);
+	return FALSE;
 }
