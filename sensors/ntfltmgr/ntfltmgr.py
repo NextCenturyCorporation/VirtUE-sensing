@@ -15,7 +15,7 @@ from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, 
 
 S_OK = 0
 MAXPROBENAMESZ = 64
-SIZE_T = WPARAM
+SIZE_T = c_ulonglong
 NTSTATUS = DWORD
 PVOID = c_void_p
 ULONGLONG = c_ulonglong
@@ -1090,7 +1090,6 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     Configure a specific probe with the provided 
     configuration data
     '''
-
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
         raise ValueError("Parameter cfgdata is invalid!")
         
@@ -1130,9 +1129,9 @@ def main():
     '''
     let's test some stuff
     '''
-    test_command_response()
+    #test_command_response()
     
-    #test_packet_decode()  
+    test_packet_decode()  
     
     sys.exit(0)
     
