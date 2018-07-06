@@ -49,7 +49,6 @@ class SaviorStruct(Structure):
         return state
 
     __repr__ = __str__
-
     
     @classmethod
     def GetProbeDataHeader(cls, msg_pkt):
@@ -58,7 +57,8 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(DataType(info.contents.ProbeId), 
+        pdh = GetProbeDataHeader(info.contents.probe_id,
+                                 ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
                                  msg_pkt)
@@ -95,7 +95,7 @@ class CLIENT_ID(SaviorStruct):
 
 class INSTANCE_INFORMATION_CLASS(CtypesEnum):
     '''
-    ProbeId of filter instance information requested
+    filter instance information requested
     '''
     InstanceBasicInformation   = 0x0
     InstanceFullInformation    = 0x1
@@ -104,7 +104,7 @@ class INSTANCE_INFORMATION_CLASS(CtypesEnum):
 
 class FILTER_INFORMATION_CLASS(CtypesEnum):
     '''
-    ProbeId of filter driver information requested
+    filter driver information requested
     '''
     FilterFullInformation              = 0x0
     FilterAggregateBasicInformation    = 0x1
@@ -191,9 +191,9 @@ class FILTER_MESSAGE_HEADER(SaviorStruct):
 FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'MessageId', 'Remainder'])
         
 
-class DataType(CtypesEnum):
+class ProbeType(CtypesEnum):
     '''
-    ProbeId of filter driver data to unpack
+    Probe Type of filter driver data to unpack
     '''
     NONE           = 0x0000
     LoadedImage    = 0x0001
@@ -218,15 +218,6 @@ class ProbeAttributeFlags(Flag):
     # Set if Probe Type is Dynamic (Loaded by external operation)
     DynamicProbe = (1 << 4)  
     
-class LIST_ENTRY(SaviorStruct):
-    '''
-    Two Way Linked List - forward declare an incomplete type
-    '''
-LIST_ENTRY._fields_ = [
-    ("space", BYTE * 16)
-]
-
-
 GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
 
 class UUID(SaviorStruct):
@@ -237,15 +228,24 @@ class UUID(SaviorStruct):
         ('Data', BYTE * 16)
     ]
 
+class LIST_ENTRY(SaviorStruct):
+    '''
+    Two Way Linked List - forward declare an incomplete type
+    '''
+LIST_ENTRY._fields_ = [
+    ("space", BYTE * 16)
+]
+
 GetProbeDataHeader = namedtuple('GetProbeDataHeader',  
-        ['ProbeId', 'DataSz', 'CurrentGMT', 'Packet'])
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Packet'])
     
 class ProbeDataHeader(SaviorStruct):
     '''
     Probe Data Header
     '''
     _fields_ = [
-        ('ProbeId', USHORT),
+        ('probe_id', UUID),
+	('probe_type', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
@@ -253,7 +253,9 @@ class ProbeDataHeader(SaviorStruct):
 
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
-        ['ProbeId', 'DataSz', 'CurrentGMT', 'Status', 'ProcessId', 'EProcess'])
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Status', 
+            'ProcessId', 'EProcess'])
+
 class ProcessListValidationFailed(SaviorStruct):
     '''
     Probe Data Header
@@ -281,7 +283,7 @@ class ProcessListValidationFailed(SaviorStruct):
 
     
 GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  
-        ['ProbeId', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
         'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 class LoadedImageInfo(SaviorStruct):
     '''
@@ -311,7 +313,7 @@ class LoadedImageInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         img_nfo = GetLoadedImageInfo(
-            DataType(info.contents.Header.ProbeId).name,
+            ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -323,7 +325,7 @@ class LoadedImageInfo(SaviorStruct):
 
 
 GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  
-        ['ProbeId', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
         'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 
         'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz', 
         'CommandLine'])
@@ -358,7 +360,7 @@ class ProcessCreateInfo(SaviorStruct ):
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
         create_info = GetProcessCreateInfo(
-            DataType(info.contents.Header.ProbeId).name,
+            ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
@@ -373,7 +375,7 @@ class ProcessCreateInfo(SaviorStruct ):
         return create_info
 
 GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
-        ['ProbeId', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
          'ProcessId', 'EProcess'])
     
 class ProcessDestroyInfo(SaviorStruct):
@@ -394,7 +396,7 @@ class ProcessDestroyInfo(SaviorStruct):
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         create_info = GetProcessDestroyInfo(
-            DataType(info.contents.Header.ProbeId).name,
+            ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
@@ -783,16 +785,16 @@ def test_packet_decode():
         print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
-        if pdh.ProbeId == DataType.LoadedImage:            
+        if pdh.probe_type == ProbeType.LoadedImage:            
             msg_data = LoadedImageInfo.build(pdh)
-        elif pdh.ProbeId == DataType.ProcessCreate:
+        elif pdh.probe_type == ProbeType.ProcessCreate:
             msg_data = ProcessCreateInfo.build(pdh)
-        elif pdh.ProbeId == DataType.ProcessDestroy:
+        elif pdh.probe_type == ProbeType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(pdh)
-        elif pdh.ProbeId == DataType.ProcessListValidationFailed:
+        elif pdh.probe_type == ProbeType.ProcessListValidationFailed:
             msg_data = ProcessListValidationFailed.build(pdh)
         else:
-            print("Unknown or unsupported data type %s encountered\n" % (pdh.ProbeId,))
+            print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue
         print(json.dumps(msg_data._asdict(), indent=4))
 
@@ -840,7 +842,8 @@ class COMMAND_MESSAGE(SaviorStruct):
         sb = create_string_buffer(sizeof(cls) + len(data) - 1)
         info = cast(sb, POINTER(cls))
         info.contents.Command = cmd
-        info.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
+        memmove(info.contents.SensorId, sensor_id.bytes, 
+                len(info.contents.SensorId.Data))
         info.contents.DataSz = len(data)        
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
@@ -1027,7 +1030,8 @@ def EnableProtection(hFltComms, sensor_id=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
+    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
+            len(cmd_msg.contents.SensorId.Data))
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1043,7 +1047,8 @@ def DisableProtection(hFltComms, sensor_id=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
+    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
+            len(cmd_msg.contents.SensorId.Data))
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1095,7 +1100,8 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    cmd_msg.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
+    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
+            len(cmd_msg.contents.SensorId.Data))
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
     ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]
@@ -1116,7 +1122,6 @@ def test_command_response():
     try:        
         (res, probes,) = EnumerateProbes(hFltComms)
         print("res = {0}\n".format(res,))
-        import pdb;pdb.set_trace()
         for probe in probes:
             print("{0}".format(probe,))
             ConfigureProbe(hFltComms,'\"{\"repeat-interval\": 60}\"', probe.SensorId)
@@ -1127,9 +1132,9 @@ def main():
     '''
     let's test some stuff
     '''
-    test_command_response()
+    #test_command_response()
     
-    #test_packet_decode()  
+    test_packet_decode()  
     
     sys.exit(0)
     
