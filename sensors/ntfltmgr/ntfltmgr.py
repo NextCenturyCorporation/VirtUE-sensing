@@ -1136,7 +1136,7 @@ def test_command_response():
         import pdb;pdb.set_trace()
         for probe in probes:
             print("{0}".format(probe,))
-            ConfigureProbe(hFltComms,'\"{\"repeat-interval\": 60}\"', probe.SensorId)
+            ConfigureProbe(hFltComms,'{repeat-interval: 60}', probe.SensorId)
     finally:
         CloseHandle(hFltComms)    
       

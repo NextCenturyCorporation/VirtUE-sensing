@@ -20,7 +20,6 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 	Registered(FALSE), LastProbeRunTime({ 0LL }), OperationCount(0L)
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
-	jsmn_init(&parser);
 	this->ProbeName = ProbeName;	
 	WVUQueueManager::GetInstance().Register(*this);
 	this->Registered = TRUE;
