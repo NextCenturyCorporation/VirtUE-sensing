@@ -56,8 +56,9 @@ class SaviorStruct(Structure):
         accepts raw packet data from the driver and returns
         the ProbeDataHeader in the form of a named tuple
         '''     
-        info = cast(msg_pkt, POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(info.contents.probe_id,
+        info = cast(msg_pkt, POINTER(ProbeDataHeader))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
+        pdh = GetProbeDataHeader(probe_id,
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
@@ -790,6 +791,7 @@ def test_packet_decode():
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
+        import pdb;pdb.set_trace()
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
         if pdh.probe_type == ProbeType.LoadedImage:            
             msg_data = LoadedImageInfo.build(pdh)
