@@ -317,7 +317,7 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = str(UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
         img_nfo = GetLoadedImageInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -943,7 +943,7 @@ class ProbeStatus(SaviorStruct):
                 break
             lst.append(ch)
         SensorName = "".join(map(chr, lst))
-        sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId))
+        sensor_id = UUID(bytes=bytes(info.contents.SensorId))
         probe_status = GetProbeStatus(            
             sensor_id,
             info.contents.LastRunTime,
