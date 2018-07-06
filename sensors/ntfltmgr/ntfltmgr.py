@@ -1118,6 +1118,7 @@ def test_command_response():
     try:        
         (res, probes,) = EnumerateProbes(hFltComms)
         print("res = {0}\n".format(res,))
+        import pdb;pdb.set_trace()
         for probe in probes:
             print("{0}".format(probe,))
             ConfigureProbe(hFltComms,'\"{\"repeat-interval\": 60}\"', probe.SensorId)
