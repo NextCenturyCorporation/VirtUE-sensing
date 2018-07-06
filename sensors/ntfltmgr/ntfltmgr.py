@@ -826,7 +826,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
-        ("SensorId", ULONG),
+        ("SensorId", UUID),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
@@ -1130,7 +1130,7 @@ def main():
     '''
     test_command_response()
     
-    test_packet_decode()  
+    #test_packet_decode()  
     
     sys.exit(0)
     
