@@ -832,7 +832,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     ]
 
     @classmethod
-    def build(cls, cmd, probenum, data):
+    def build(cls, cmd, sensor_id, data):
         '''
         build named tuple instance representing this
         classes instance data
@@ -840,7 +840,7 @@ class COMMAND_MESSAGE(SaviorStruct):
         sb = create_string_buffer(sizeof(cls) + len(data) - 1)
         info = cast(sb, POINTER(cls))
         info.contents.Command = cmd
-        info.contents.SensorId = probenum
+        info.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
         info.contents.DataSz = len(data)        
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
@@ -985,7 +985,6 @@ def EnumerateProbes(hFltComms, Filter=None):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
-    cmd_msg.contents.SensorId = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -1012,7 +1011,6 @@ def Echo(hFltComms):
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
     cmd_msg.contents.Command = WVU_COMMAND.Echo
-    cmd_msg.contents.SensorId = 0
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -1029,7 +1027,7 @@ def EnableProtection(hFltComms, sensor_id=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.SensorId = sensor_id
+    cmd_msg.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1045,7 +1043,7 @@ def DisableProtection(hFltComms, sensor_id=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
     cmd_msg.contents.DataSz = 0
-    cmd_msg.contents.SensorId = sensor_id
+    cmd_msg.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1097,7 +1095,7 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    cmd_msg.contents.SensorId = sensor_id
+    cmd_msg.contents.SensorId = uuid.UUID(bytes=bytes(sensor_id))
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
     ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]
