@@ -57,7 +57,7 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))
-        probe_id = str(UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = str(UUID(bytes=bytes(info.contents.probe_id.Data)))
         pdh = GetProbeDataHeader(probe_id,
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
