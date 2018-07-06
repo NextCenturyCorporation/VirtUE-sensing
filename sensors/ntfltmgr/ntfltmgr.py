@@ -942,7 +942,7 @@ class ProbeStatus(SaviorStruct):
                 break
             lst.append(ch)
         SensorName = "".join(map(chr, lst))
-        sensor_id = UUID(bytes=bytes(info.contents.SensorId))
+        sensor_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
         probe_status = GetProbeStatus(            
             sensor_id,
             info.contents.LastRunTime,
@@ -1130,6 +1130,7 @@ def test_command_response():
     Test WinVirtUE command response
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+    import pdb;pdb.set_trace()
     try:        
         (res, probes,) = EnumerateProbes(hFltComms)
         print("res = {0}\n".format(res,))        
@@ -1143,7 +1144,7 @@ def main():
     '''
     let's test some stuff
     '''
-    #test_command_response()
+    test_command_response()
     
     test_packet_decode()  
     
