@@ -520,6 +520,9 @@ WVUCommsManager::OnConfigureProbe(
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, INFO_LEVEL_ID, "Probe Configure Failed for %w - This is probably OK! - continuing\n", 
 			pProbeInfo->Probe->GetProbeName());
 	}
+
+	Status = STATUS_SUCCESS;
+
 Exit:
 
 	return Status;
