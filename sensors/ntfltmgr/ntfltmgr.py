@@ -3,8 +3,8 @@ ntfltmgr.py - interface with the mini-port filter manager via python
 '''
 import sys
 import json
+import uuid
 import logging
-from uuid import UUID
 from enum import IntEnum, Flag
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
@@ -57,7 +57,7 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))
-        probe_id = str(UUID(bytes=bytes(info.contents.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
         pdh = GetProbeDataHeader(probe_id,
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
@@ -275,7 +275,7 @@ class ProcessListValidationFailed(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
         process_list_validation_failed = GetProcessListValidationFailed(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -317,7 +317,7 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        probe_id = str(UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
         img_nfo = GetLoadedImageInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -366,7 +366,7 @@ class ProcessCreateInfo(SaviorStruct ):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
-        probe_id = str(UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
         create_info = GetProcessCreateInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -404,7 +404,7 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
         create_info = GetProcessDestroyInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
