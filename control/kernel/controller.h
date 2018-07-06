@@ -369,7 +369,9 @@ struct probe {
 		spinlock_t lock;
 		struct semaphore s_lock;
 	};
+	/** TODO: rename id to name **/
 	uint8_t *id;
+	uint8_t uuid[16];
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
 	int (*message)(struct probe *, struct probe_msg *);

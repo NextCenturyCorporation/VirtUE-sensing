@@ -20,6 +20,7 @@
 #include <linux/init_task.h>
 #include <linux/printk.h>
 #include <linux/spinlock.h>
+#include <linux/uuid.h>
 /*#include <trace/ftrace.h>*/
 #include <linux/rculist.h>
 #include <linux/flex_array.h>

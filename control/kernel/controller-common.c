@@ -669,7 +669,8 @@ struct probe *init_probe(struct probe *probe,
  **/
 		memcpy(probe->id, id, id_size - 1);
 	}
-
+	/* generate the probe uuid */
+	generate_random_uuid(probe->uuid);
 	probe->lock=__SPIN_LOCK_UNLOCKED("probe");
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */
