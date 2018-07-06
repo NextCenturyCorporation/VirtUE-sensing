@@ -275,7 +275,7 @@ class ProcessListValidationFailed(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
         process_list_validation_failed = GetProcessListValidationFailed(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -317,7 +317,7 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
         img_nfo = GetLoadedImageInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -366,7 +366,7 @@ class ProcessCreateInfo(SaviorStruct ):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
         create_info = GetProcessCreateInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -404,7 +404,7 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
         create_info = GetProcessDestroyInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
