@@ -64,6 +64,7 @@ typedef enum message_command command;
 #define MAX_NONCE_SIZE 32
 #define MAX_CMD_SIZE 128
 #define MAX_ID_SIZE MAX_CMD_SIZE
+#define MAX_NAME_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
 struct jsmn_message;
 struct jsmn_session;
@@ -114,8 +115,12 @@ struct jsmn_session
 	struct jsmn_message *req;
 	struct list_head h_replies;
 	uint8_t cmd[MAX_CMD_SIZE];
-	uint8_t probe_id[MAX_ID_SIZE];
-
+	/**
+	 * reminder: converting probe_id to probe_name be be aligned with
+	 * user-space sensor wrapper
+	 **/
+	uint8_t probe_id[MAX_NAME_SIZE];
+	uint8_t probe_uuid[16];
 };
 
 
@@ -171,6 +176,8 @@ struct state_request
 struct state_reply
 {
 	command cmd; /* enum message_command */
+	uint8_t name[MAX_NAME_SIZE];
+	uint8_t uuid[16];
 	uint64_t flags, state;
 	int timeout, repeat;
 	bool clear;    /* clear records? */

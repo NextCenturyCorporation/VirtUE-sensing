@@ -268,6 +268,9 @@ build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
 STACK_FRAME_NON_STANDARD(build_pid_index);
 
 /**
+ * TODO: convert get_probe to use the probe->uuid field
+ **/
+/**
  *  probe is LOCKED upon return
  **/
 int
