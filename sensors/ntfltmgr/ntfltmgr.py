@@ -57,7 +57,7 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))        
-        pdh = GetProbeDataHeader(info.contents.probe_id,
+        pdh = GetProbeDataHeader(info.contents.Header.probe_id,
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
@@ -275,7 +275,7 @@ class ProcessListValidationFailed(SaviorStruct):
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         process_list_validation_failed = GetProcessListValidationFailed(
-            info.contents.probe_id,
+            info.contents.Header.probe_id,
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -316,7 +316,7 @@ class LoadedImageInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         img_nfo = GetLoadedImageInfo(
-            info.contents.probe_id,
+            info.contents.Header.probe_id,
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -364,7 +364,7 @@ class ProcessCreateInfo(SaviorStruct ):
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
         create_info = GetProcessCreateInfo(
-            info.contents.probe_id,
+            info.contents.Header.probe_id,
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -401,7 +401,7 @@ class ProcessDestroyInfo(SaviorStruct):
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         create_info = GetProcessDestroyInfo(
-            info.contents.probe_id,
+            info.contents.Header.probe_id,
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
