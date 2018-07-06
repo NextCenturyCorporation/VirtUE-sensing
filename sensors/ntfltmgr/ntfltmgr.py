@@ -795,7 +795,6 @@ def test_packet_decode():
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
-        import pdb;pdb.set_trace()
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
         if pdh.probe_type == ProbeType.LoadedImage:            
             msg_data = LoadedImageInfo.build(pdh)
@@ -1134,6 +1133,7 @@ def test_command_response():
     try:        
         (res, probes,) = EnumerateProbes(hFltComms)
         print("res = {0}\n".format(res,))
+        import pdb;pdb.set_trace()
         for probe in probes:
             print("{0}".format(probe,))
             ConfigureProbe(hFltComms,'\"{\"repeat-interval\": 60}\"', probe.SensorId)
@@ -1144,9 +1144,9 @@ def main():
     '''
     let's test some stuff
     '''
-    #test_command_response()
+    test_command_response()
     
-    test_packet_decode()  
+    #test_packet_decode()  
     
     sys.exit(0)
     
