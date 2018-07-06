@@ -43,7 +43,7 @@ ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & config_data)
 	jsmn_init(&parser);
 
 	parsed = jsmn_parse(&parser, config_data.Buffer, config_data.Length, tokens, NUMBER_OF(tokens));
-	if (parsed < 0 && JSMN_ERROR_PART != parsed)  // we'll take partial packets, no prob!
+	if (parsed < 0)  // we'll take partial packets, no prob!
 	{
 		success = FALSE;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Failed to parse JSON: %d\n", parsed);
@@ -76,7 +76,7 @@ ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & config_data)
 			}
 			__try
 			{
-				Status = RtlUnicodeStringToInteger(&ucvalue, 0x10, &interval);
+				Status = RtlUnicodeStringToInteger(&ucvalue, 0, &interval);
 				if (FALSE == NT_SUCCESS(Status))
 				{
 					success = FALSE;

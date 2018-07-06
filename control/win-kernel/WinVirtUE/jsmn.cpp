@@ -289,7 +289,7 @@ int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 #endif
 		}
 	}
-
+#ifdef JSMN_DONT_ACCEPT_PARTIAL_PACKETS
 	if (tokens != NULL) {
 		for (i = parser->toknext - 1; i >= 0; i--) {
 			/* Unmatched opened object or array */
@@ -298,6 +298,7 @@ int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 			}
 		}
 	}
+#endif
 
 	return count;
 }
