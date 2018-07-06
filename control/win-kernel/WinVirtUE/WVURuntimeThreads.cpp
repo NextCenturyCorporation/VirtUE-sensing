@@ -328,7 +328,7 @@ WVUTemporalProbeThread(PVOID StartContext)
 					continue;
 				}
 
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %Z for work to be done!\n", &avp->GetProbeName());
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %w for work to be done!\n", &avp->GetProbeName());
 				// poll the probe for any required actions on our part
 				if (FALSE == avp->OnPoll())
 				{
@@ -344,7 +344,7 @@ WVUTemporalProbeThread(PVOID StartContext)
 				LARGE_INTEGER local_time;
 				ExSystemTimeToLocalTime(&probe_last_runtime, &local_time);
 				RtlTimeToTimeFields(&local_time, &time_fields);
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %Z successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n",
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %w successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n",
 					avp->GetProbeName(), time_fields.Month, time_fields.Day, time_fields.Year, time_fields.Hour, time_fields.Minute, time_fields.Second, time_fields.Milliseconds);
 			}
 		}

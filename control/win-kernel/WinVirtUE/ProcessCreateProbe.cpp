@@ -82,14 +82,14 @@ BOOLEAN ProcessCreateProbe::Start()
 	{
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z already enabled - continuing!\n", &this->ProbeName);
+			"Probe %w already enabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z not enabled at start - probe is registered but not active\n",
+			"Probe %w not enabled at start - probe is registered but not active\n",
 			&this->ProbeName);
 		goto ErrorExit;
 	}
@@ -111,7 +111,7 @@ BOOLEAN ProcessCreateProbe::Stop()
 	if (FALSE == this->Enabled)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z already disabled - continuing!\n", &this->ProbeName);
+			"Probe %w already disabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}	
 	this->Enabled = FALSE;
@@ -173,7 +173,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 	if (NULL == pProbeInfo)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
-			"***** Unable to find probe info on probe %Z!\n", &probe_name);
+			"***** Unable to find probe info on probe %w!\n", &probe_name);
 		goto ErrorExit;
 	}
 

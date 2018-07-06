@@ -36,11 +36,14 @@ ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & config_data)
 	INT value_width = 0;
 	PCHAR pbuf = NULL;
 	jsmn_parser parser;
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	UNICODE_STRING ucvalue = { 0,0, NULL };
+	ULONG interval = 0L;
 
 	jsmn_init(&parser);
 
 	parsed = jsmn_parse(&parser, config_data.Buffer, config_data.Length, tokens, NUMBER_OF(tokens));
-	if (parsed < 0)
+	if (parsed < 0 && JSMN_ERROR_PART != parsed)  // we'll take partial packets, no prob!
 	{
 		success = FALSE;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Failed to parse JSON: %d\n", parsed);
@@ -63,10 +66,33 @@ ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & config_data)
 			value_width = tokens[ndx + 1].end - tokens[ndx + 1].start;
 			pbuf = config_data.Buffer + tokens[ndx + 1].start;
 			ANSI_STRING value = { (USHORT)value_width, (USHORT)value_width, pbuf };
+			Status = RtlAnsiStringToUnicodeString(&ucvalue, &value, TRUE);
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				success = FALSE;
+				WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+					"Failed to allocate memory for ansi to unicode conversion for %w - error: \n", value);
+				goto ErrorExit;
+			}
+			__try
+			{
+				Status = RtlUnicodeStringToInteger(&ucvalue, 0x10, &interval);
+				if (FALSE == NT_SUCCESS(Status))
+				{
+					success = FALSE;
+					WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+						"Failed to convert from string %wZ to native ulong format\n", ucvalue);
+					__leave;
+				}
+				RunInterval.QuadPart = RELATIVE(SECONDS(interval));
+			}
+			__finally { RtlFreeUnicodeString(&ucvalue); }
 			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID,
 				"Configuration Applied JSON name: %w value: %w from configuration\n", value);
 		}
 	}
+
+	success = TRUE;
 
 ErrorExit:
 
@@ -141,7 +167,7 @@ ProcessListValidationProbe::OnRun()
 	{
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z already disabled - not running polled operation!\n", &this->ProbeName);
+			"Probe %w already disabled - not running polled operation!\n", &this->ProbeName);
 		goto ErrorExit;
 	}
 
@@ -188,7 +214,7 @@ ProcessListValidationProbe::OnRun()
 		if (NULL == pProbeInfo)
 		{
 			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, WARNING_LEVEL_ID,
-				"***** Unable to find probe info on probe %Z!\n", &probe_name);		
+				"***** Unable to find probe info on probe %w!\n", &probe_name);		
 		}
 		PProcessListValidationFailed pPLVF = (PProcessListValidationFailed)new BYTE[sizeof ProcessListValidationFailed];
 		if (NULL == pPLVF)
