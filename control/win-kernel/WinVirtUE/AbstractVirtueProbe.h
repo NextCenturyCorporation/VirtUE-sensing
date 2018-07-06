@@ -43,8 +43,6 @@ protected:
 	static volatile LONG ProbeCount;
 	/** This probes unique probe number */
 	UUID ProbeId;
-	/** json parser */
-	jsmn_parser parser;
 
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);

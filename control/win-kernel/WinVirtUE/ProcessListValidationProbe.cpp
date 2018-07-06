@@ -35,10 +35,11 @@ ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & config_data)
 	INT parsed = 0;
 	INT value_width = 0;
 	PCHAR pbuf = NULL;
+	jsmn_parser parser;
 
 	jsmn_init(&parser);
 
-	parsed = jsmn_parse(&this->parser, config_data.Buffer, config_data.Length, tokens, NUMBER_OF(tokens));
+	parsed = jsmn_parse(&parser, config_data.Buffer, config_data.Length, tokens, NUMBER_OF(tokens));
 	if (parsed < 0)
 	{
 		success = FALSE;
