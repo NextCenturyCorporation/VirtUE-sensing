@@ -490,7 +490,8 @@ WVUCommsManager::OnConfigureProbe(
 	{
 		LIST_FOR_EACH(probe, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
 		{
-			if (FALSE == probe->Probe->Configure(config_data))
+			if (NULL != probe->Probe
+				&& FALSE == probe->Probe->Configure(config_data))
 			{
 				WVU_DEBUG_PRINT(LOG_COMMS_MGR, INFO_LEVEL_ID, "Probe Configure Failed - This is probably OK! - continuing\n");
 			}
@@ -513,6 +514,12 @@ WVUCommsManager::OnConfigureProbe(
 		goto Exit;
 	}
 
+	if (NULL != pProbeInfo->Probe 
+		&& FALSE == pProbeInfo->Probe->Configure(config_data))
+	{
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, INFO_LEVEL_ID, "Probe Configure Failed for %w - This is probably OK! - continuing\n", 
+			pProbeInfo->Probe->GetProbeName());
+	}
 Exit:
 
 	return Status;
