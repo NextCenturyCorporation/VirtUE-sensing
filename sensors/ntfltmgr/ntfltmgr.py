@@ -1135,7 +1135,7 @@ def test_command_response():
         print("res = {0}\n".format(res,))        
         for probe in probes:
             print("{0}".format(probe,))
-            ConfigureProbe(hFltComms,'{\"repeat-interval\": 60}', probe.SensorId)
+            ConfigureProbe(hFltComms,'{repeat-interval: 60}', probe.SensorId)
     finally:
         CloseHandle(hFltComms)    
       
@@ -1143,9 +1143,9 @@ def main():
     '''
     let's test some stuff
     '''
-    test_command_response()
+    #test_command_response()
     
-    #test_packet_decode()  
+    test_packet_decode()  
     
     sys.exit(0)
     
