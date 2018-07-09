@@ -24,6 +24,7 @@
 
 #pragma warning( pop )
 
+#include "Utility.h"
 #include "config.h"
 #include "trace.h"
 #include "CPPRuntime.h"

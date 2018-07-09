@@ -148,7 +148,7 @@ public:
 	_Must_inspect_result_
 	_Success_(NULL != return)
 		_IRQL_requires_max_(DISPATCH_LEVEL)
-	ProbeInfo* FindProbeByName(_In_ const ANSI_STRING& probe_to_be_found);
+	ProbeInfo* FindProbeByName(_In_ const ANSI_STRING& probe_to_be_found, _In_ BOOLEAN IgnoreCase=TRUE);
 	/**
 	* @brief copy constructor
 	*/
