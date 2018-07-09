@@ -46,6 +46,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="jsmn.cpp" />
+    <ClCompile Include="Utility.cpp" />
     <ClCompile Include="RegistryModificationProbe.cpp" />
     <ClCompile Include="WVUCommsManager.cpp" />
     <ClCompile Include="ImageLoadProbe.cpp" />
@@ -280,6 +281,7 @@
     <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="jsmn.h" />
     <ClInclude Include="RegistryModificationProbe.h" />
+    <ClInclude Include="Utility.h" />
     <ClInclude Include="WVUCommsManager.h" />
     <ClInclude Include="ImageLoadProbe.h" />
     <ClInclude Include="ObjectCreateNotifyCB.h" />

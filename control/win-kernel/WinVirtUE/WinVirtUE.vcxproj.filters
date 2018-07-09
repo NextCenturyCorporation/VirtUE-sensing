@@ -125,6 +125,9 @@
     <ClCompile Include="RegistryModificationProbe.cpp">
       <Filter>Source Files\Probes</Filter>
     </ClCompile>
+    <ClCompile Include="Utility.cpp">
+      <Filter>Source Files\Misc</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CPPRuntime\CPPRuntime.h">
@@ -207,6 +210,9 @@
     </ClInclude>
     <ClInclude Include="RegistryModificationProbe.h">
       <Filter>Header Files\Probes</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility.h">
+      <Filter>Header Files\Misc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
