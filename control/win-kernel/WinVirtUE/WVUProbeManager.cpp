@@ -16,6 +16,7 @@ class WVUQueueManager *pPDQ = nullptr;
 class ImageLoadProbe *pILP = nullptr;
 class ProcessCreateProbe *pPCP = nullptr;
 class ProcessListValidationProbe *pPLVP = nullptr;
+class RegistryModificationProbe *pRMP = nullptr;
 
 /**
 * @brief Construct an instance of the Windows Virtue Manager
@@ -64,6 +65,19 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 	// Start the process create probe
 	NT_ASSERTMSG("Failed to start the process list validation probe!", TRUE == pPLVP->Start());
 
+	// Make ready the process list validation probe
+	pRMP = new RegistryModificationProbe();
+	if (NULL == pRMP)
+	{
+		Status = STATUS_MEMORY_NOT_ALLOCATED;
+		WVU_DEBUG_PRINT(LOG_PROBE_MGR, ERROR_LEVEL_ID,
+			"RegistryModificationProbe not constructed - Status=%08x\n", Status);
+		goto ErrorExit;
+	}
+	// Start the process create probe
+	NT_ASSERTMSG("Failed to start the Registry Modification Probe!", TRUE == pRMP->Start());
+
+	
 ErrorExit:
 	return;
 }

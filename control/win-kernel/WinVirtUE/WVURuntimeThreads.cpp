@@ -44,14 +44,10 @@ WVUMainInitThread(PVOID StartContext)
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);	
 	
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainInitThread Acquired runndown protection . . .\n");
-	pWVUMgr = new WVUProbeManager();
-	if (NULL == pWVUMgr)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"WVUProbeManager not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
+
+	WVUProbeManager& instance = WVUProbeManager::GetInstance();  // touch off the probe manager
+	UNREFERENCED_PARAMETER(instance);
+
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create sensor thread
 	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUProbeCommsThread, NULL);

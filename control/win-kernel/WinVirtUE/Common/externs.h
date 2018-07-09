@@ -21,11 +21,10 @@ extern CONST ULONG HEADER_BLOCK_SIZE;
 extern CONST LONGLONG FILE_ALLOCATION_NA;
 extern CONST ULONG FILE_ATTRIBUTES_NA;
 
-extern class WVUProbeManager *pWVUMgr;
-
 extern class ImageLoadProbe *pILP;
 extern class ProcessCreateProbe *pPCP;
 extern class ProcessListValidationProbe *pPLVP;
+extern class RegistryModificationProbe *pRMP;
 
 extern const UUID ZEROGUID;
 
