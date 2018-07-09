@@ -9,7 +9,8 @@
 #define COMMON_POOL_TAG WVU_FLTCOMMSMGR_POOL_TAG
 
 CONST PWSTR WVUCommsManager::CommandName = L"\\WVUCommand"; // Command/Response Comms Port
-CONST PWSTR WVUCommsManager::PortName = L"\\WVUPort";		 // Real-Time streaming data as sent to the API
+CONST PWSTR WVUCommsManager::PortName = L"\\WVUPort";		// Real-Time streaming data as sent to the API
+DEFINE_GUID(ZEROGUID, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);     // constant zero value guid
 
 /**
 * @brief destroys this Filter Comms Manager Instance
@@ -405,7 +406,7 @@ WVUCommsManager::OnEnumerateProbes(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	ULONG ProbeCount = AbstractVirtueProbe::GetProbeCount();
-	ULONG ReponseBufferLength = ProbeCount * sizeof(ProbeStatus);
+	ULONG ReponseBufferLength = sizeof(ProbeStatusHeader) + (ProbeCount * sizeof(ProbeStatus));
 	
 	if (ReponseBufferLength > OutputBufferLength)
 	{
@@ -423,9 +424,15 @@ WVUCommsManager::OnEnumerateProbes(
 	}
 
 	RtlSecureZeroMemory(pByte, ReponseBufferLength);
+
+	/** write the header information */
+	PProbeStatusHeader pProbeStatusHeader = (PProbeStatusHeader)pByte;
+	pProbeStatusHeader->NumberOfEntries = ProbeCount;
+	pProbeStatusHeader++;
+
 	__try
 	{
-		PProbeStatus pProbeStatus = (PProbeStatus)pByte;
+		PProbeStatus pProbeStatus = (PProbeStatus)pProbeStatusHeader;
 		ULONG probe_cnt = 0L;
 
 		LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
@@ -438,13 +445,15 @@ WVUCommsManager::OnEnumerateProbes(
 				FLT_ASSERTMSG("Probe Count Mismatch!", FALSE);
 				__leave;
 			}
+			pProbeStatus->ProbeId = pProbeInfo->Probe->GetProbeId();
+			pProbeStatus->Enabled = pProbeInfo->Probe->IsEnabled();
 			pProbeStatus->Attributes = pProbeInfo->Probe->GetProbeAttribtes();
 			pProbeStatus->LastRunTime = pProbeInfo->Probe->GetLastProbeRunTime();
 			pProbeStatus->OperationCount = pProbeInfo->Probe->GetOperationCount();
 			pProbeStatus->RunInterval = pProbeInfo->Probe->GetRunInterval();
-			ULONG length = pProbeInfo->Probe->GetProbeName().Length < MAXPROBENAMESZ
+			ULONG length = pProbeInfo->Probe->GetProbeName().Length < MAXSENSORNAMESZ
 				? pProbeInfo->Probe->GetProbeName().Length
-				: MAXPROBENAMESZ;
+				: MAXSENSORNAMESZ;
 			RtlCopyMemory(pProbeStatus->ProbeName, pProbeInfo->Probe->GetProbeName().Buffer, length);
 			pProbeStatus++;
 		}
@@ -471,6 +480,51 @@ WVUCommsManager::OnConfigureProbe(
 {
 	UNREFERENCED_PARAMETER(pCmdMsg);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	WVUQueueManager::ProbeInfo* pProbeInfo = nullptr;
+	ANSI_STRING config_data = { (USHORT)pCmdMsg->DataSz, (USHORT)pCmdMsg->DataSz, (PCHAR)&pCmdMsg->Data[0] };
+	
+	/** if we receive a zero guid, then send the configure information to all 
+	* registered probes, enabled or not 
+	*/
+	if (TRUE == IsEqualGUID(pCmdMsg->ProbeId, ZEROGUID))
+	{
+		LIST_FOR_EACH(probe, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
+		{
+			if (NULL != probe->Probe
+				&& FALSE == probe->Probe->Configure(config_data))
+			{
+				WVU_DEBUG_PRINT(LOG_COMMS_MGR, INFO_LEVEL_ID, "Probe Configure Failed - This is probably OK! - continuing\n");
+			}
+		}
+		Status = STATUS_SUCCESS;
+		goto Exit;
+	}
+
+	pProbeInfo = WVUQueueManager::GetInstance().FindProbeById(pCmdMsg->ProbeId);
+	if (NULL == pProbeInfo)
+	{
+		UNICODE_STRING ProbeId;
+		Status = STATUS_NOT_FOUND;
+		FLT_ASSERTMSG("Unable to convert a GUID to a string representation!", NT_SUCCESS(RtlStringFromGUID(pCmdMsg->ProbeId, &ProbeId)));
+		__try
+		{
+			WVU_DEBUG_PRINT(LOG_COMMS_MGR, WARNING_LEVEL_ID, "Probe %wZ Not Found!\n", pCmdMsg->ProbeId, ProbeId);
+		}
+		__finally { RtlFreeUnicodeString(&ProbeId); }
+		goto Exit;
+	}
+
+	if (NULL != pProbeInfo->Probe 
+		&& FALSE == pProbeInfo->Probe->Configure(config_data))
+	{
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, INFO_LEVEL_ID, "Probe Configure Failed for %w - This is probably OK! - continuing\n", 
+			pProbeInfo->Probe->GetProbeName());
+	}
+
+	Status = STATUS_SUCCESS;
+
+Exit:
+
 	return Status;
 }
 

@@ -6,6 +6,7 @@
 */
 #pragma once
 #include "common.h"
+#include "jsmn.h"
 #include "externs.h"
 
 class AbstractVirtueProbe
@@ -24,9 +25,10 @@ public:
 	} ProbeAttributes;
 
 protected:
-
 	/** this probes attributes */
 	ProbeAttributes Attributes;
+	/** True then probe is registered */
+	BOOLEAN Registered;
 	/** True then probe is enabled */
 	BOOLEAN Enabled;
 	/** Probes Name */
@@ -38,7 +40,9 @@ protected:
 	/** The number of discrete operations since loaded */
 	volatile LONG OperationCount;
 	/** The number of probes */
-	static LONG ProbeCount;
+	static volatile LONG ProbeCount;
+	/** This probes unique probe number */
+	UUID ProbeId;
 
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
@@ -53,7 +57,7 @@ public:
 	_Must_inspect_result_
 		virtual BOOLEAN IsEnabled() = 0;
 	_Must_inspect_result_
-		virtual BOOLEAN Configure(_In_ const ANSI_STRING& NameValuePairs) = 0;
+		virtual BOOLEAN Configure(_In_ const ANSI_STRING& config_data) = 0;
 	/** called by the polling thread to do work */
 	_Must_inspect_result_
 		virtual BOOLEAN OnPoll();
@@ -74,14 +78,19 @@ public:
 	/* return this probes name */
 	virtual const ANSI_STRING& GetProbeName() const { return this->ProbeName; }
 	/** get the last time the probe ran in GMT */
-	virtual const LARGE_INTEGER& GetLastProbeRunTime() const { return this->LastProbeRunTime; }
+	virtual LARGE_INTEGER& GetLastProbeRunTime() { return this->LastProbeRunTime; }
 	/** get this probes run interval in absolute time */
 	virtual const LARGE_INTEGER& GetRunInterval() const { return this->RunInterval; }
 	/** get probe attributes */
 	virtual const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
 	/** get probe operation count */
 	virtual volatile const LONG& GetOperationCount() { return this->OperationCount; }
+	/** bump the operation count in a thread safe manner */
+	void IncrementOperationCount() { InterlockedIncrement(&this->OperationCount); }
 	/** return the number of registered probes */
-	static const LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
-
+	static const volatile LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
+	/** retrieve this probes unique probe number */
+	virtual const UUID& GetProbeId() { return this->ProbeId; }
+	/** returns the registration state */
+	virtual const BOOLEAN& GetIsRegistered() { return this->Registered; }	
 };

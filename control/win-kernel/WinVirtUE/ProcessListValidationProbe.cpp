@@ -8,27 +8,95 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROCLISTVALIDPROBE_POOL_TAG
 
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ProcessListValidation");
+
 /**
 * @brief construct an instance of this probe
 */
 ProcessListValidationProbe::ProcessListValidationProbe() :
-	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessListValidation"))
+	AbstractVirtueProbe(probe_name)
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::Temporal | ProbeAttributes::EnabledAtStart);
 }
 
 /**
 * @brief called to configure the probe
-* @note currently not implmented, placeholder code
-* @param NameValuePairs newline terminated with assign operator name value
+* @note Do create threads, or defer execution during the entire configure operation.
+* Unpredictable and bizzare results could occur.
+* @param config_data newline terminated with assign operator name value
 * pair configuration information
 */
 _Use_decl_annotations_
 BOOLEAN 
-ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & NameValuePairs)
+ProcessListValidationProbe::Configure(_In_ const ANSI_STRING & config_data)
 {
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
+	BOOLEAN success = FALSE;
+	jsmntok_t tokens[32];
+	INT parsed = 0;
+	INT value_width = 0;
+	PCHAR pbuf = NULL;
+	jsmn_parser parser;
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	UNICODE_STRING ucvalue = { 0,0, NULL };
+	ULONG interval = 0L;
+
+	jsmn_init(&parser);
+
+	parsed = jsmn_parse(&parser, config_data.Buffer, config_data.Length, tokens, NUMBER_OF(tokens));
+	if (parsed < 0)  // we'll take partial packets, no prob!
+	{
+		success = FALSE;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Failed to parse JSON: %d\n", parsed);
+		goto ErrorExit;
+			
+	}
+
+	if (parsed < 1 || tokens[0].type != JSMN_OBJECT)
+	{
+		success = FALSE;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "JSON Object Expected!\n");
+		goto ErrorExit;
+
+	}
+
+	for (int ndx = 0; ndx < parsed; ndx++)
+	{
+		if (0 == jsoneq(config_data, &tokens[ndx], RTL_CONSTANT_STRING("repeat-interval")))
+		{
+			value_width = tokens[ndx + 1].end - tokens[ndx + 1].start;
+			pbuf = config_data.Buffer + tokens[ndx + 1].start;
+			ANSI_STRING value = { (USHORT)value_width, (USHORT)value_width, pbuf };
+			Status = RtlAnsiStringToUnicodeString(&ucvalue, &value, TRUE);
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				success = FALSE;
+				WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+					"Failed to allocate memory for ansi to unicode conversion for %w - error: \n", value);
+				goto ErrorExit;
+			}
+			__try
+			{
+				Status = RtlUnicodeStringToInteger(&ucvalue, 0, &interval);
+				if (FALSE == NT_SUCCESS(Status))
+				{
+					success = FALSE;
+					WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+						"Failed to convert from string %wZ to native ulong format\n", ucvalue);
+					__leave;
+				}
+				RunInterval.QuadPart = RELATIVE(SECONDS(interval));
+			}
+			__finally { RtlFreeUnicodeString(&ucvalue); }
+			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID,
+				"Configuration Applied JSON name: %w value: %w from configuration\n", value);
+		}
+	}
+
+	success = TRUE;
+
+ErrorExit:
+
+	return success;
 }
 
 /**
@@ -99,7 +167,7 @@ ProcessListValidationProbe::OnRun()
 	{
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z already disabled - not running polled operation!\n", &this->ProbeName);
+			"Probe %w already disabled - not running polled operation!\n", &this->ProbeName);
 		goto ErrorExit;
 	}
 
@@ -142,6 +210,12 @@ ProcessListValidationProbe::OnRun()
 		// MFS - create the WVUProbeManager class that is charge of init/fini of probes and receives notifictions
 		// Notify the WVUProbeManager that the Sensor is in an Alarm State.  User Space Program MUST acknowledge.
 		// Normal, UnAcknowledged Alarm State, Alarm State, 
+		WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+		if (NULL == pProbeInfo)
+		{
+			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, WARNING_LEVEL_ID,
+				"***** Unable to find probe info on probe %w!\n", &probe_name);		
+		}
 		PProcessListValidationFailed pPLVF = (PProcessListValidationFailed)new BYTE[sizeof ProcessListValidationFailed];
 		if (NULL == pPLVF)
 		{
@@ -152,9 +226,10 @@ ProcessListValidationProbe::OnRun()
 		pPLVF->Status = ReportStatus;	    // tell the user space program what happened
 		pPLVF->EProcess = Process;			// suspect data, this process does not exist in the OS process list
 		pPLVF->ProcessId = ProcessId;		// suspect data, this pid does not exist in the OS process list
-		pPLVF->ProbeDataHeader.ProbeId = ProbeIdType::ProcessListValidation;  // this is as temporal probe report		
-		pPLVF->ProbeDataHeader.DataSz = sizeof(ProcessListValidationFailed);
-		KeQuerySystemTimePrecise(&pPLVF->ProbeDataHeader.CurrentGMT);
+		pPLVF->ProbeDataHeader.probe_type = ProbeType::ProcessListValidation;  // this is as temporal probe report		
+		pPLVF->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		pPLVF->ProbeDataHeader.data_sz = sizeof(ProcessListValidationFailed);
+		KeQuerySystemTimePrecise(&pPLVF->ProbeDataHeader.current_gmt);
 		
 		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPLVF->ProbeDataHeader.ListEntry))
 		{

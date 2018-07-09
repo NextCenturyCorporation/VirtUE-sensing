@@ -45,6 +45,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="jsmn.cpp" />
+    <ClCompile Include="Utility.cpp" />
     <ClCompile Include="WVUCommsManager.cpp" />
     <ClCompile Include="ImageLoadProbe.cpp" />
     <ClCompile Include="WVUQueueManager.cpp" />
@@ -277,6 +279,8 @@
     <ClInclude Include="Driver.h" />
     <ClInclude Include="FltMgrCallbacks.h" />
     <ClInclude Include="FltMgrCtxReg.h" />
+    <ClInclude Include="jsmn.h" />
+    <ClInclude Include="Utility.h" />
     <ClInclude Include="WVUCommsManager.h" />
     <ClInclude Include="ImageLoadProbe.h" />
     <ClInclude Include="ObjectCreateNotifyCB.h" />

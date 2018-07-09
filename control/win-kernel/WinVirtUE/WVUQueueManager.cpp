@@ -165,7 +165,7 @@ WVUQueueManager::update_counters(
 	PLIST_ENTRY pListEntry)
 {
 	PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
+	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->data_sz);
 	WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
 }
@@ -181,7 +181,7 @@ WVUQueueManager::TrimProbeDataQueue()
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
 		this->NumberOfQueueEntries = this->Count();
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
-		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->data_sz)));
 		delete[] pPDH;
 		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Trimmed WVUQueueManager\n");
 		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
@@ -297,7 +297,7 @@ WVUQueueManager::Dequeue()
 			__leave;
 		}
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->data_sz)));
 		this->NumberOfQueueEntries = this->Count();
 		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
@@ -384,63 +384,59 @@ WVUQueueManager::Unregister(AbstractVirtueProbe& probe)
 * @return TRUE if the registration list is empty else FALSE
 */
 _Use_decl_annotations_
-WVUQueueManager::ProbeInfo *
-WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
+WVUQueueManager::ProbeInfo* 
+WVUQueueManager::FindProbeById(const UUID & probeid_to_be_found)
 {
 	ProbeInfo* pProbeInfo = nullptr;
-	ANSI_STRING lc_probe_to_be_found = { 0,0,nullptr };
-	USHORT bufsz = probe_to_be_found.Length;
-
-	lc_probe_to_be_found.Buffer = new CHAR[bufsz];
-	if (NULL == lc_probe_to_be_found.Buffer)
+	if (TRUE == IsEqualGUID(probeid_to_be_found, ZEROGUID))
 	{
-		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Unable to allocate NonPaged Memory!\n");
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Invalid Zero GUID Value!\n");
 		goto ErrorExit;
 	}
-	lc_probe_to_be_found.Length = lc_probe_to_be_found.MaximumLength = bufsz;
-	RtlCopyMemory(lc_probe_to_be_found.Buffer, probe_to_be_found.Buffer, bufsz);
-	for (unsigned ndx = 0; ndx < lc_probe_to_be_found.Length; ndx++)
-		lc_probe_to_be_found.Buffer[ndx] |= 0x60;   // lower the case
 
-	__try
-	{
-		ANSI_STRING probe_name = { 0,0,nullptr };
-		LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
-		{			
-			if (probe->Probe->GetProbeName().Length != lc_probe_to_be_found.Length)
-			{
-				continue; // keep looking for the next one
-			}
-			bufsz = probe->Probe->GetProbeName().Length;
-			probe_name.Buffer = new CHAR[bufsz];
-			if (NULL == probe_name.Buffer)
-			{
-				WVU_DEBUG_PRINT(LOG_QUEUE_MGR, ERROR_LEVEL_ID, "Unable to allocate NonPaged Memory!\n");
-#pragma warning(suppress: 6242)  // No choice, we want to show an abnormal termination below
-				goto ErrorExit;
-			}
-			probe_name.Length = probe_name.MaximumLength = bufsz;
-			RtlCopyMemory(probe_name.Buffer, probe->Probe->GetProbeName().Buffer, bufsz);
-			for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
-				probe_name.Buffer[ndx] |= 0x60;   // lower the case
-			__try
-			{
-				for (unsigned ndx = 0; ndx < probe_name.Length; ndx++)
-					probe_name.Buffer[ndx] |= 0x60;   // lower the case
-
-				if (probe_name.Length
-					== RtlCompareMemory(probe_name.Buffer, lc_probe_to_be_found.Buffer, probe_name.Length))
-				{
-					pProbeInfo = probe;
-					__leave;
-				}
-			}  // If we leave the block normally using __leave then delete, else do not delete
-			__finally { if (FALSE == AbnormalTermination()) { delete[] probe_name.Buffer; } }
+	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+	{		
+		if (TRUE == IsEqualGUID(probeid_to_be_found, probe->Probe->GetProbeId()))
+		{
+			pProbeInfo = probe;
+			break;
 		}
 	}
-	__finally { delete[] lc_probe_to_be_found.Buffer; }
 
 ErrorExit:
+
+	return pProbeInfo;
+}
+
+/**
+* @brief Finds a probe by name ignoring case
+* @note the case lowering shenanigans are because we operate under IRQL restrictions
+* @param probe The probe to unregister
+* @param IgnoreCase If TRUE then case ignored else not ignored
+* @return ProbeInfo instance else nullptr if not found
+*/
+_Use_decl_annotations_
+WVUQueueManager::ProbeInfo *
+WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found, BOOLEAN IgnoreCase)
+{
+	ProbeInfo* pProbeInfo = nullptr;
+
+	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+	{
+		if (NULL == probe
+			|| NULL == probe->Probe
+			|| NULL == probe->Probe->GetProbeName().Buffer)
+		{
+			FLT_ASSERTMSG("Something is dramatically wrong with the probe data!", FALSE);
+			continue;  // nope, we don't have a name?
+		}
+
+		if (0 == CompareAnsiString(probe->Probe->GetProbeName(), probe_to_be_found, IgnoreCase))
+		{
+			pProbeInfo = probe;
+			break;
+		}
+	}
 
 	return pProbeInfo;
 }

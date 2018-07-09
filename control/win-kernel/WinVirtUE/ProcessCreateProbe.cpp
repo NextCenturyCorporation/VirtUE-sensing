@@ -8,22 +8,20 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROCESSCTORDTORPROBE_POOL_TAG
 
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ProcessCreate");
+
 /**
 * @brief construct an instance of this probe 
 */
 ProcessCreateProbe::ProcessCreateProbe() : 
-	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessCreate"))
+	AbstractVirtueProbe(probe_name)
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
-
 	// initialize the spinlock that controls access to the Response queue
 	KeInitializeSpinLock(&this->ProcessListSpinLock);
 
 	// initialize the Response Queue TWLL
 	InitializeListHead(&this->ProcessList);
-
-	// we build the queue successfully
-	this->Enabled = TRUE;
 }
 
 
@@ -42,16 +40,17 @@ ProcessCreateProbe::~ProcessCreateProbe()
 
 /**
 * @brief called to configure the probe
-* @note currently not implmented, placeholder code
-* @param NameValuePairs newline terminated with assign operator name value
+* @note Do create threads, or defer execution during the entire configure operation.
+* Unpredictable and bizzare results could occur.
+* @param config_data newline terminated with assign operator name value
 * pair configuration information
 */
 _Use_decl_annotations_
 BOOLEAN 
-ProcessCreateProbe::Configure(_In_ const ANSI_STRING& NameValuePairs)
+ProcessCreateProbe::Configure(_In_ const ANSI_STRING& config_data)
 {
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
+	UNREFERENCED_PARAMETER(config_data);
+	return FALSE;
 }
 
 _Use_decl_annotations_
@@ -83,14 +82,14 @@ BOOLEAN ProcessCreateProbe::Start()
 	{
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z already enabled - continuing!\n", &this->ProbeName);
+			"Probe %w already enabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
 		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z not enabled at start - probe is registered but not active\n",
+			"Probe %w not enabled at start - probe is registered but not active\n",
 			&this->ProbeName);
 		goto ErrorExit;
 	}
@@ -112,7 +111,7 @@ BOOLEAN ProcessCreateProbe::Stop()
 	if (FALSE == this->Enabled)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z already disabled - continuing!\n", &this->ProbeName);
+			"Probe %w already disabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}	
 	this->Enabled = FALSE;
@@ -170,6 +169,14 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+	if (NULL == pProbeInfo)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+			"***** Unable to find probe info on probe %w!\n", &probe_name);
+		goto ErrorExit;
+	}
+
 	if (CreateInfo)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
@@ -186,9 +193,10 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessCreateInfo pPCI = (PProcessCreateInfo)buf;
-		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.CurrentGMT);
-		pPCI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessCreate;
-		pPCI->ProbeDataHeader.DataSz = bufsz;
+		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.current_gmt);
+		pPCI->ProbeDataHeader.probe_type = ProbeType::ProcessCreate;
+		pPCI->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		pPCI->ProbeDataHeader.data_sz = bufsz;
 		pPCI->EProcess = Process;
 		pPCI->ProcessId = ProcessId;
 		pPCI->ParentProcessId = CreateInfo->ParentProcessId;
@@ -227,9 +235,10 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessDestroyInfo pPDI= (PProcessDestroyInfo)buf;
-		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.CurrentGMT);
-		pPDI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessDestroy;
-		pPDI->ProbeDataHeader.DataSz = bufsz;
+		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.current_gmt);
+		pPDI->ProbeDataHeader.probe_type = ProbeType::ProcessDestroy;
+		pPDI->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		pPDI->ProbeDataHeader.data_sz = bufsz;
 		pPDI->EProcess = Process;
 		pPDI->ProcessId = ProcessId;	
 		
@@ -243,7 +252,12 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 	}
 
-	
+	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
+	{
+		pProbeInfo->Probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime()); 
+	}
+
 ErrorExit:
 
 	// Drop a rundown reference 
