@@ -159,5 +159,5 @@ From this ProbeStatus message, a python program can utilize the SensorId UUID to
 2. EnableProtection - enables all regisetered sensors (targeted sensor_id not supported yet)
 3. DisableProtection - disables all regisetered sensors (targeted sensor_id not supported yet)
 4. EnableUnload - enables the driver unload from the operating system
-4. EnableUnload - disables the driver load from the operating system
+4. DisableUnload - disables the driver load from the operating system
 * Additional commands will be added in the future as required.
