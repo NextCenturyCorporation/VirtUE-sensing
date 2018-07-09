@@ -390,7 +390,7 @@ RegistryModificationProbe::RegistryModificationCB(
 	UNREFERENCED_PARAMETER(Argument2);
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 #pragma warning(push)
-#pragma warning(disable:4302) // type cast truncation error 
+#pragma warning(disable:4302) // ignore type cast truncation error 
 	USHORT Class = (USHORT)Argument1;
 #pragma warning(pop)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
