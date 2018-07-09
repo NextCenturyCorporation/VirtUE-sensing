@@ -21,8 +21,9 @@ ProcessListValidationProbe::ProcessListValidationProbe() :
 
 /**
 * @brief called to configure the probe
-* @note Do create threads, or defer execution during the entire configure operation.
-* Unpredictable and bizzare results could occur.
+* @note Do not create threads that will actively configure this probe, or
+* defer execution during during which the probe is configured else
+* unpredictable and bizzare results could occur.
 * @param config_data newline terminated with assign operator name value
 * pair configuration information
 */

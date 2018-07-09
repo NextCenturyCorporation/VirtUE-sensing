@@ -92,7 +92,9 @@ typedef enum _ProbeType : USHORT
 	/** Thread Destruction notificaton type */
 	ThreadDestroy = 0x0005,
 	/** process list validation */
-	ProcessListValidation = 0x0006
+	ProcessListValidation = 0x0006,
+	/** Registry Modificatin */
+	RegistryModification = 0x0007
 } ProbeType;
 
 _Struct_size_bytes_(data_sz)
@@ -105,6 +107,12 @@ typedef struct _ProbeDataHeader
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
 
+typedef struct _RegistryModificationInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+} RegistryModificationInfo, *PRegistryModificationInfo;
 
 typedef struct _ProcessListValidationFailed
 {

@@ -46,12 +46,12 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="jsmn.cpp" />
+    <ClCompile Include="RegistryModificationProbe.cpp" />
     <ClCompile Include="WVUCommsManager.cpp" />
     <ClCompile Include="ImageLoadProbe.cpp" />
     <ClCompile Include="WVUQueueManager.cpp" />
     <ClCompile Include="ProcessCreateProbe.cpp" />
     <ClCompile Include="ProcessListValidationProbe.cpp" />
-    <ClCompile Include="RegistryModificationCB.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="Driver.cpp" />
     <ClCompile Include="FltMgrCallbacks.cpp" />
@@ -279,13 +279,13 @@
     <ClInclude Include="FltMgrCallbacks.h" />
     <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="jsmn.h" />
+    <ClInclude Include="RegistryModificationProbe.h" />
     <ClInclude Include="WVUCommsManager.h" />
     <ClInclude Include="ImageLoadProbe.h" />
     <ClInclude Include="ObjectCreateNotifyCB.h" />
     <ClInclude Include="WVUQueueManager.h" />
     <ClInclude Include="ProcessCreateProbe.h" />
     <ClInclude Include="ProcessListValidationProbe.h" />
-    <ClInclude Include="RegistryModificationCB.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="trace.h" />
     <ClInclude Include="UnDoc.h" />
