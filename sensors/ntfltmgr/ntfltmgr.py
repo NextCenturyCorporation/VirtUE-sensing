@@ -1082,7 +1082,7 @@ def EnableUnload(hFltComms):
 
     return res, rsp_msg
     
-def DisbleUnload(hFltComms):
+def DisableUnload(hFltComms):
     '''
     @note this functionality might not function on release targets
     Disable Driver Unload 
