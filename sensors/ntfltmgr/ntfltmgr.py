@@ -11,7 +11,7 @@ from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structur
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
 
 from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN
-from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG
+from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG, UINT
 
 S_OK = 0
 MAXPROBENAMESZ = 64
@@ -191,7 +191,89 @@ class FILTER_MESSAGE_HEADER(SaviorStruct):
     
 FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'MessageId', 'Remainder'])
         
-
+class KeyValueInformationClass(CtypesEnum):
+    '''
+    Key Value Informatoin Class
+    '''
+    KeyValueBasicInformation = 0
+    KeyValueFullInformation = 1
+    KeyValuePartialInformation = 2
+    KeyValueFullInformationAlign64 = 3
+    KeyValuePartialInformationAlign64 = 4
+    KeyValueLayerInformation = 5
+    MaxKeyValueInfoClass = 6  # MaxKeyValueInfoClass should always be the last enum    
+    
+class RegNotifyClass(CtypesEnum):
+    '''
+    Hook selector for registry kernel mode callbacks
+    '''    
+    RegNtDeleteKey = 0
+    RegNtPreDeleteKey = RegNtDeleteKey
+    RegNtSetValueKey = 1
+    RegNtPreSetValueKey = RegNtSetValueKey
+    RegNtDeleteValueKey = 2 
+    RegNtPreDeleteValueKey = RegNtDeleteValueKey
+    RegNtSetInformationKey = 3
+    RegNtPreSetInformationKey = RegNtSetInformationKey
+    RegNtRenameKey = 4
+    RegNtPreRenameKey = RegNtRenameKey
+    RegNtEnumerateKey = 5
+    RegNtPreEnumerateKey = RegNtEnumerateKey
+    RegNtEnumerateValueKey = 6
+    RegNtPreEnumerateValueKey = RegNtEnumerateValueKey
+    RegNtQueryKey = 7
+    RegNtPreQueryKey = RegNtQueryKey
+    RegNtQueryValueKey = 8
+    RegNtPreQueryValueKey = RegNtQueryValueKey
+    RegNtQueryMultipleValueKey = 9
+    RegNtPreQueryMultipleValueKey = RegNtQueryMultipleValueKey
+    RegNtPreCreateKey = 10
+    RegNtPostCreateKey = 11
+    RegNtPreOpenKey = 12
+    RegNtPostOpenKey = 13
+    RegNtKeyHandleClose = 14
+    RegNtPreKeyHandleClose = RegNtKeyHandleClose    
+    # .Net only    
+    RegNtPostDeleteKey = 15
+    RegNtPostSetValueKey = 16
+    RegNtPostDeleteValueKey = 17
+    RegNtPostSetInformationKey = 18
+    RegNtPostRenameKey = 19
+    RegNtPostEnumerateKey = 20
+    RegNtPostEnumerateValueKey = 21
+    RegNtPostQueryKey = 22
+    RegNtPostQueryValueKey = 23
+    RegNtPostQueryMultipleValueKey = 24
+    RegNtPostKeyHandleClose = 25
+    RegNtPreCreateKeyEx = 26 
+    RegNtPostCreateKeyEx = 27
+    RegNtPreOpenKeyEx = 28
+    RegNtPostOpenKeyEx = 29    
+    # new to Windows Vista
+    RegNtPreFlushKey = 30
+    RegNtPostFlushKey = 31
+    RegNtPreLoadKey = 32
+    RegNtPostLoadKey = 33
+    RegNtPreUnLoadKey = 34
+    RegNtPostUnLoadKey = 35
+    RegNtPreQueryKeySecurity = 36
+    RegNtPostQueryKeySecurity = 37
+    RegNtPreSetKeySecurity = 38
+    RegNtPostSetKeySecurity = 39    
+    # per-object context cleanup    
+    RegNtCallbackObjectContextCleanup = 40
+    # new in Vista SP2 
+    RegNtPreRestoreKey = 41
+    RegNtPostRestoreKey = 42
+    RegNtPreSaveKey = 43
+    RegNtPostSaveKey = 44
+    RegNtPreReplaceKey = 45
+    RegNtPostReplaceKey = 46
+    # new to Windows 10
+    RegNtPreQueryKeyName = 47
+    RegNtPostQueryKeyName = 48
+    MaxRegNtNotifyClass = 49 # should always be the last enum    
+    
 class ProbeType(CtypesEnum):
     '''
     Probe Type of filter driver data to unpack
@@ -203,6 +285,7 @@ class ProbeType(CtypesEnum):
     ThreadCreate   = 0x0004
     ThreadDestroy  = 0x0005        
     ProcessListValidationFailed = 0x0006
+    RegQueryValueKeyInfo = 0x0007
 
 class ProbeAttributeFlags(Flag):
     '''
@@ -251,6 +334,52 @@ class ProbeDataHeader(SaviorStruct):
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
     ]
+
+        
+GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',  
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+        'ProcessId', 'EProcess', 'Class', 'Object', 'KeyValueInformationClass', 'ValueName'])
+class RegQueryValueKeyInfo(SaviorStruct):
+    '''
+    Probe Data Header
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
+        ("Class", UINT),
+        ("Object", ULONGLONG),
+        ("KeyValueInformationClass", UINT),
+        ("ValueNameLength", ULONG),
+        ("ValueName", BYTE * 1)
+    ]
+    
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.ValueNameLength
+        offset = type(info.contents).ValueName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ValueName = "".join(map(chr, slc[::2]))
+        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        img_nfo = GetRegQueryValueKeyInfo(
+            probe_id,
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            info.contents.EProcess,
+            RegNotifyClass(info.contents.Class).name, 
+            info.contents.Object,
+            KeyValueInformationClass(info.contents.KeyValueInformationClass).name,
+            ValueName)
+        return img_nfo
 
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
@@ -804,6 +933,8 @@ def test_packet_decode():
             msg_data = ProcessDestroyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.ProcessListValidationFailed:
             msg_data = ProcessListValidationFailed.build(pdh)
+        elif pdh.probe_type == ProbeType.RegistryModification:
+            msg_data = RegQueryValueKeyInfo.build(pdh)            
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue

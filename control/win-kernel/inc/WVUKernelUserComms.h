@@ -93,7 +93,7 @@ typedef enum _ProbeType : USHORT
 	ThreadDestroy = 0x0005,
 	/** process list validation */
 	ProcessListValidation = 0x0006,
-	/** Registry Modificatin */
+	/** Registry Modification */
 	RegistryModification = 0x0007
 } ProbeType;
 
