@@ -444,7 +444,9 @@ WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
 
 		LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
 		{			
-			if (probe->Probe->GetProbeName().Length != lc_probe_to_be_found.Length)
+			if (NULL == probe 
+				|| NULL == probe->Probe
+				|| probe->Probe->GetProbeName().Length != lc_probe_to_be_found.Length)
 			{
 				continue; // keep looking for the next one
 			}

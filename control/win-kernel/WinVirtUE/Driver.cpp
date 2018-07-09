@@ -195,6 +195,6 @@ ErrorExit:
 
 Exit:
 
-	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting on Error Status 0x%08x!\n");
+	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting on Error Status 0x%08x!\n", Status);
 	return Status;
 }

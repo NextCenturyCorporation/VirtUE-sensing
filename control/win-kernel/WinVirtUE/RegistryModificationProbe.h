@@ -47,7 +47,7 @@ public:
 		NTSTATUS OnRun();
 	_Must_inspect_result_
 		virtual const LARGE_INTEGER& GetCookie() const { return this->Cookie; }
-	_Must_inspect_result_
+	_Success_(NULL != return)
 		CONST PCHAR
 		GetNotifyClassString(
 			_In_ USHORT NotifyClass);

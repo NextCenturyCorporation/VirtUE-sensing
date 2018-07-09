@@ -263,7 +263,7 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 		delete[] pInfo;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, 
 			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
-			"ProcessId=%p,ImageBase=%p,EProcess=%p,KeyValueInformationClass=%d\n",
+			"ProcessId=%p, EProcess=%p,KeyValueInformationClass=%d\n",
 			prgvki->ValueName, pInfo->ProcessId, pInfo->EProcess, pInfo->KeyValueInformationClass);
 	}
 
