@@ -224,10 +224,58 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 	PVOID Argument1,
 	PVOID Argument2)
 {
-	UNREFERENCED_PARAMETER(CallbackContext);
-	UNREFERENCED_PARAMETER(Argument1);
-	UNREFERENCED_PARAMETER(Argument2);
-	return STATUS_SUCCESS;
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
+	PREG_QUERY_VALUE_KEY_INFORMATION prgvki = (PREG_QUERY_VALUE_KEY_INFORMATION)Argument2;
+#pragma warning(push)
+#pragma warning(disable:4302) // ignore type cast truncation error 
+	USHORT Class = (USHORT)Argument1;
+#pragma warning(pop)
+	FLT_ASSERTMSG("Incorrect Operation!", RegNtPreQueryValueKey == Class);
+	if (NULL == probe || NULL == prgvki)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
+		goto ErrorExit;
+	}
+	USHORT bufsz = sizeof RegQueryValueKeyInfo + prgvki->ValueName->MaximumLength;
+	PRegQueryValueKeyInfo pInfo = (PRegQueryValueKeyInfo)new BYTE[bufsz];
+	if (NULL == pInfo)
+	{
+		Status = STATUS_NO_MEMORY;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
+		goto ErrorExit;
+	}
+	pInfo->ProbeDataHeader.probe_type = ProbeType::LoadedImage;
+	pInfo->ProbeDataHeader.data_sz = bufsz;
+	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
+	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);
+	pInfo->Class = (REG_NOTIFY_CLASS)Class;
+	pInfo->Object = prgvki->Object;
+	pInfo->ProcessId = PsGetCurrentProcessId();
+	pInfo->EProcess = PsGetCurrentProcess();
+	pInfo->KeyValueInformationClass = prgvki->KeyValueInformationClass;
+	pInfo->ValueNameLength = prgvki->ValueName->MaximumLength;
+	RtlMoveMemory(&pInfo->ValueName[0], &prgvki->ValueName->Buffer[0], pInfo->ValueNameLength);
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pInfo->ProbeDataHeader.ListEntry))
+	{
+#pragma warning(suppress: 26407)
+		delete[] pInfo;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, 
+			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
+			"ProcessId=%p,ImageBase=%p,EProcess=%p,KeyValueInformationClass=%d\n",
+			prgvki->ValueName, pInfo->ProcessId, pInfo->EProcess, pInfo->KeyValueInformationClass);
+	}
+
+	if (NULL != probe)
+	{
+		probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&probe->GetLastProbeRunTime());
+	}
+		
+ErrorExit:
+
+	return Status;
 }
 /**
 * @brief This function is called when a RegNtPreRenameKeyCallback request
@@ -394,7 +442,16 @@ RegistryModificationProbe::RegistryModificationCB(
 	USHORT Class = (USHORT)Argument1;
 #pragma warning(pop)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	ANSI_STRING notification = RTL_CONSTANT_STRING(probe->GetNotifyClassString(Class));
+	ANSI_STRING notification = { 0,0,NULL };
+
+	if (NULL == probe)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context Passed to Callback Function!\n");
+		goto ErrorExit;
+	}
+
+	notification = RTL_CONSTANT_STRING(probe->GetNotifyClassString(Class));
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, INFO_LEVEL_ID,
 		"Callback Driver Object Context %p, Registry Notification Class=%w, Arg2=%08x\n", 
@@ -416,6 +473,8 @@ RegistryModificationProbe::RegistryModificationCB(
 		// Drop a rundown reference 
 		ExReleaseRundownProtection(&Globals.RunDownRef);
 	}
+
+ErrorExit:
 
 	return Status;
 }

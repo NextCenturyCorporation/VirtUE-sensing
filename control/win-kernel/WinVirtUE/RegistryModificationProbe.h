@@ -8,6 +8,8 @@
 #include "common.h"
 #include "externs.h"
 #include "AbstractVirtueProbe.h"
+#include "WVUQueueManager.h"
+
 class RegistryModificationProbe :
 	public AbstractVirtueProbe
 {
