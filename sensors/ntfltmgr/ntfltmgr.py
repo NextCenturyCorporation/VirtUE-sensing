@@ -393,7 +393,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
             Valuename = "0x" + "".join(map(chr, bytes(slc)[::2]))
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetRegQueryValueKeyInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -430,7 +430,7 @@ class ProcessListValidationFailed(SaviorStruct):
         info = cast(msg_pkt.Packet, POINTER(cls))
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         process_list_validation_failed = GetProcessListValidationFailed(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -472,7 +472,7 @@ class LoadedImageInfo(SaviorStruct):
         ModuleName = "".join(map(chr, slc[::2]))
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetLoadedImageInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -526,7 +526,7 @@ class ProcessCreateInfo(SaviorStruct ):
         CommandLine = "".join(map(chr, slc[::2]))
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
