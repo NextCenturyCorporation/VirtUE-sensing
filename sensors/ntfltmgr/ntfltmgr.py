@@ -97,8 +97,8 @@ class CLIENT_ID(SaviorStruct):
     The CLIENT ID Structure
     '''
     _fields_ = [
-        ("UniqueProcess", LONGLONG),
-        ("UniqueThread", LONGLONG)
+        ("UniqueProcess", ULONGLONG),
+        ("UniqueThread", ULONGLONG)
     ]
 
 class INSTANCE_INFORMATION_CLASS(CtypesEnum):
@@ -155,10 +155,10 @@ class OVERLAPPED(SaviorStruct):
     Contains information used in asynchronous (or overlapped) input and output (I/O).
     '''    
     _fields_ = [
-        ("Internal", c_ulonglong),
-        ("InternalHigh", c_ulonglong),
-        ("Pointer", LONGLONG),
-        ("hEvent", HANDLE)
+        ("Internal", ULONGLONG),
+        ("InternalHigh", ULONGLONG),
+        ("Pointer", ULONGLONG),
+        ("hEvent", ULONGLONG)
     ]
 
 class SECURITY_ATTRIBUTES(SaviorStruct):
@@ -417,8 +417,8 @@ class ProcessListValidationFailed(SaviorStruct):
     _fields_ = [
         ("Header", ProbeDataHeader),
         ("Status", NTSTATUS),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID)
+        ("ProcessId", ULONGLONG),
+        ("EProcess", ULONGLONG)
     ]
     
     @classmethod
@@ -496,11 +496,11 @@ class ProcessCreateInfo(SaviorStruct ):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ParentProcessId", HANDLE),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID),
+        ("ParentProcessId", ULONGLONG),
+        ("ProcessId", ULONGLONG),
+        ("EProcess", ULONGLONG),
         ("CreatingThreadId", CLIENT_ID),
-        ("FileObject", PVOID),
+        ("FileObject", ULONGLONG),
         ("CreationStatus", NTSTATUS),
         ("CommandLineSz", USHORT),
         ("CommandLine", BYTE * 1)        
@@ -518,6 +518,7 @@ class ProcessCreateInfo(SaviorStruct ):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
+        import pdb;pdb.set_trace()
         CommandLine = "".join(map(chr, slc[::2]))
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
@@ -546,8 +547,8 @@ class ProcessDestroyInfo(SaviorStruct):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID) 
+        ("ProcessId", ULONGLONG),
+        ("EProcess", ULONGLONG) 
     ]
     
     @classmethod
