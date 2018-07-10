@@ -513,16 +513,11 @@ class ProcessCreateInfo(SaviorStruct ):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        length = info.contents.CommandLineSz
         offset = type(info.contents).CommandLine.offset
+        length = msg_pkt.DataSz - offset
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
-        slc = None
-        try:
-            slc = (BYTE * length).from_buffer(array_of_info)
-        except ValueError as verr:
-            import pdb;pdb.set_trace()
-            print(verr)
+        slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = "".join(map(chr, slc[::2]))
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
