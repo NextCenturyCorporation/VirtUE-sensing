@@ -1094,7 +1094,7 @@ class ProbeStatus(SaviorStruct):
         SensorName = "".join(map(chr, lst))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
         probe_status = GetProbeStatus(            
-            str(sensor_id),
+            sensor_id,
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
