@@ -58,7 +58,7 @@ class SaviorStruct(Structure):
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))
         probe_id = uuid.UUID(bytes=bytes(info.contents.probe_id.Data))
-        pdh = GetProbeDataHeader(probe_id,
+        pdh = GetProbeDataHeader(str(probe_id),
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
@@ -391,7 +391,6 @@ class RegQueryValueKeyInfo(SaviorStruct):
             ValueName = "".join(map(chr, slc[::2]))
         except ValueError as _verr:
             Valuename = "0x" + "".join(map(chr, bytes(slc)[::2]))
-        import pdb;pdb.set_trace()
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetRegQueryValueKeyInfo(
             probe_id,
