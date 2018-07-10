@@ -85,4 +85,7 @@ CONST ULONG FILE_ATTRIBUTES_NA = 0;
 
 /** Assume that ListEntry is the list name */
 #define LIST_FOR_EACH(pos, head, T) \
-	LIST_FOR_EACH_ENTRY(pos, head, T, ListEntry)    
+	LIST_FOR_EACH_ENTRY(pos, head, T, ListEntry)
+
+#define TOLOWERCASE(ch) (ch | (1 << 5))
+#define TOUPPERCASE(ch) (ch & ~(1<< 5))
