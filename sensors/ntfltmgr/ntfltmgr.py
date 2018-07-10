@@ -558,7 +558,7 @@ class ProcessDestroyInfo(SaviorStruct):
                 else info.contents.EProcess)
         print(info.contents.EProcess)
         create_info = GetProcessDestroyInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -1094,7 +1094,7 @@ class ProbeStatus(SaviorStruct):
         SensorName = "".join(map(chr, lst))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
         probe_status = GetProbeStatus(            
-            sensor_id,
+            str(sensor_id),
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
