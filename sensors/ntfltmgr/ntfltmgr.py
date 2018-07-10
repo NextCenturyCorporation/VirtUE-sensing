@@ -7,8 +7,8 @@ import uuid
 import logging
 from enum import IntEnum, Flag
 from collections import namedtuple
-from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
-from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
+from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Union
+from ctypes import addressof, cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
 
 from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN
 from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG, UINT
@@ -313,9 +313,22 @@ GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
 
 class UUID(SaviorStruct):
     '''
-    Probe Data Header
+    UUID Data Structure Definition
     '''
     _fields_ = [
+        ('Data1', UINT),
+        ('Data2', USHORT),
+        ('Data3', USHORT),
+        ('Data4', BYTE * 8)
+    ]
+
+
+class _UUID(Union):
+    '''
+    Convenience Union for UUID
+    '''
+    _fields_ = [
+        ('UUID', UUID),
         ('Data', BYTE * 16)
     ]
 
@@ -373,8 +386,17 @@ class RegQueryValueKeyInfo(SaviorStruct):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        ValueName = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        ValueName = ''
+        try:
+            ValueName = "".join(map(chr, slc[::2]))
+        except ValueError as _verr:
+            Valuename = "0x" + "".join(map(chr, bytes(slc)[::2]))
+        fields = (info.contents.Header.probe_id.Data1,
+                  info.contents.Header.probe_id.Data2,
+                  info.contents.Header.probe_id.Data3,
+                  info.contents.Header.probe_id.Data4,)
+        probe_id = str(uuid.UUID(fields=fields))
+        import pdb;pdb.set_trace()
         img_nfo = GetRegQueryValueKeyInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -383,7 +405,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
             RegNotifyClass(info.contents.Class).name, 
-            info.contents.Object,
+            cls.LongLongToHex(info.contents.Object),
             KeyValueInformationClass(info.contents.KeyValueInformationClass).name,
             ValueName)
         return img_nfo
@@ -462,7 +484,7 @@ class LoadedImageInfo(SaviorStruct):
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
             cls.LongLongToHex(info.contents.ImageBase), 
-            cls.LongLongToHex(info.contents.ImageSize),
+            info.contents.ImageSize,
             ModuleName)
         return img_nfo
 
@@ -500,7 +522,12 @@ class ProcessCreateInfo(SaviorStruct ):
         offset = type(info.contents).CommandLine.offset
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
-        slc = (BYTE * length).from_buffer(array_of_info)
+        slc = None
+        try:
+            slc = (BYTE * length).from_buffer(array_of_info)
+        except ValueError as verr:
+            import pdb;pdb.set_trace()
+            print(verr)
         CommandLine = "".join(map(chr, slc[::2]))
         probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
         create_info = GetProcessCreateInfo(
@@ -541,6 +568,9 @@ class ProcessDestroyInfo(SaviorStruct):
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        info.contents.EProcess = (0 if not info.contents.EProcess 
+                else info.contents.EProcess)
+        print(info.contents.EProcess)
         create_info = GetProcessDestroyInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -977,7 +1007,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
-        ("SensorId", UUID),
+        ("SensorId", _UUID),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
@@ -1249,8 +1279,9 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
-            len(cmd_msg.contents.SensorId.Data))
+    import pdb;pdb.set_trace()
+    memmove(cmd_msg.contents.SensorId.Data, 
+            sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
     ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]
