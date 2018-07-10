@@ -261,6 +261,7 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 	{
 #pragma warning(suppress: 26407)
 		delete[] pInfo;
+
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, 
 			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
 			"ProcessId=%p, EProcess=%p,KeyValueInformationClass=%d\n",
@@ -272,7 +273,9 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 		probe->IncrementOperationCount();
 		KeQuerySystemTimePrecise(&probe->GetLastProbeRunTime());
 	}
-		
+	
+	Status = STATUS_SUCCESS;  // yup, make sure we say it's all good!
+
 ErrorExit:
 
 	return Status;
