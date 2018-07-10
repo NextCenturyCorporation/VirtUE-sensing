@@ -392,7 +392,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         except ValueError as _verr:
             Valuename = "0x" + "".join(map(chr, bytes(slc)[::2]))
         import pdb;pdb.set_trace()
-        probe_id = uuid.UUID(bytes=info.contents.Header.probe_id.Data)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetRegQueryValueKeyInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
