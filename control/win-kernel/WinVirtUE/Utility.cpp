@@ -17,6 +17,7 @@
 * @param IgnoreCase If TRUE then case is ignored else not ignored
 * @return 0 if strings are the same else a negated index where the strings differ
 */
+_Use_decl_annotations_
 LONG CompareAnsiString(
 	CONST ANSI_STRING& string1, 
 	CONST ANSI_STRING& string2,
