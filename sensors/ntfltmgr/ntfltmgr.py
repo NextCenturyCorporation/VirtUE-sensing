@@ -62,8 +62,15 @@ class SaviorStruct(Structure):
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
-                                 msg_pkt)
+                                 msg_pkt)        
         return pdh
+    
+    @staticmethod
+    def LongLongToHex(num):
+        '''
+        convert a long long to a hex number        
+        '''
+        return hex(0x10000000000000000 - abs(num))
 
 class CtypesEnum(IntEnum):
     '''
@@ -90,8 +97,8 @@ class CLIENT_ID(SaviorStruct):
     The CLIENT ID Structure
     '''
     _fields_ = [
-        ("UniqueProcess", c_void_p),
-        ("UniqueThread", c_void_p)
+        ("UniqueProcess", LONGLONG),
+        ("UniqueThread", LONGLONG)
     ]
 
 class INSTANCE_INFORMATION_CLASS(CtypesEnum):
@@ -150,7 +157,7 @@ class OVERLAPPED(SaviorStruct):
     _fields_ = [
         ("Internal", c_ulonglong),
         ("InternalHigh", c_ulonglong),
-        ("Pointer", PVOID),
+        ("Pointer", LONGLONG),
         ("hEvent", HANDLE)
     ]
 
@@ -374,7 +381,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
-            info.contents.EProcess,
+            cls.LongLongToHex(info.contents.EProcess),
             RegNotifyClass(info.contents.Class).name, 
             info.contents.Object,
             KeyValueInformationClass(info.contents.KeyValueInformationClass).name,
@@ -412,7 +419,7 @@ class ProcessListValidationFailed(SaviorStruct):
             info.contents.Header.CurrentGMT,
             info.contents.Status,
             info.contents.ProcessId,
-            info.contents.EProcess)
+            cls.LongLongToHex(info.contents.EProcess))
         return process_list_validation_failed
 
     
@@ -428,7 +435,7 @@ class LoadedImageInfo(SaviorStruct):
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("ImageBase", LONGLONG),
-        ("ImageSize", ULONGLONG),
+        ("ImageSize", LONGLONG),
         ("FullImageNameSz", USHORT),
         ("FullImageName", BYTE * 1)
     ]
@@ -453,9 +460,9 @@ class LoadedImageInfo(SaviorStruct):
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
-            info.contents.EProcess,
-            info.contents.ImageBase, 
-            info.contents.ImageSize,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.ImageBase), 
+            cls.LongLongToHex(info.contents.ImageSize),
             ModuleName)
         return img_nfo
 
@@ -503,10 +510,10 @@ class ProcessCreateInfo(SaviorStruct ):
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
             info.contents.ProcessId,
-            info.contents.EProcess,
-            info.contents.CreatingThreadId.UniqueProcess,
-            info.contents.CreatingThreadId.UniqueThread,
-            info.contents.FileObject,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.CreatingThreadId.UniqueProcess),
+            cls.LongLongToHex(info.contents.CreatingThreadId.UniqueThread),
+            cls.LongLongToHex(info.contents.FileObject),
             info.contents.CreationStatus,
             info.contents.CommandLineSz,
             CommandLine)
@@ -540,7 +547,7 @@ class ProcessDestroyInfo(SaviorStruct):
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
-            info.contents.EProcess)
+            cls.LongLongToHex(info.contents.EProcess))
         return create_info
     
 

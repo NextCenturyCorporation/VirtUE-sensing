@@ -246,7 +246,7 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
 		goto ErrorExit;
 	}
-	pInfo->ProbeDataHeader.probe_type = ProbeType::LoadedImage;
+	pInfo->ProbeDataHeader.probe_type = ProbeType::RegistryModification;
 	pInfo->ProbeDataHeader.data_sz = bufsz;
 	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
 	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);
