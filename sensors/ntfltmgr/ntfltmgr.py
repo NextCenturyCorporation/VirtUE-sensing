@@ -386,11 +386,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        ValueName = ''
-        try:
-            ValueName = "".join(map(chr, slc[::2]))
-        except ValueError as _verr:
-            Valuename = "0x" + "".join(map(chr, bytes(slc)[::2]))
+        ValueName = bytes(slc).decode('utf-16')
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetRegQueryValueKeyInfo(
             str(probe_id),
@@ -518,8 +514,7 @@ class ProcessCreateInfo(SaviorStruct ):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        import pdb;pdb.set_trace()
-        CommandLine = "".join(map(chr, slc[::2]))
+        CommandLine = bytes(slc).decode('utf-16')
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
             str(probe_id),
