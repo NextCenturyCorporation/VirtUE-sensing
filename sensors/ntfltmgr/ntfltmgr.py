@@ -933,7 +933,7 @@ def test_packet_decode():
             msg_data = ProcessDestroyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.ProcessListValidationFailed:
             msg_data = ProcessListValidationFailed.build(pdh)
-        elif pdh.probe_type == ProbeType.RegistryModification:
+        elif pdh.probe_type == ProbeType.RegQueryValueKeyInfo:
             msg_data = RegQueryValueKeyInfo.build(pdh)            
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
@@ -1261,7 +1261,6 @@ def test_command_response():
     Test WinVirtUE command response
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-    import pdb;pdb.set_trace()
     try:        
         (res, probes,) = EnumerateProbes(hFltComms)
         print("res = {0}\n".format(res,))        
