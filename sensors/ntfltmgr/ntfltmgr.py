@@ -368,7 +368,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("Class", UINT),
-        ("Object", ULONGLONG),
+        ("Object", LONGLONG),
         ("KeyValueInformationClass", UINT),
         ("ValueNameLength", ULONG),
         ("ValueName", BYTE * 1)
@@ -413,8 +413,8 @@ class ProcessListValidationFailed(SaviorStruct):
     _fields_ = [
         ("Header", ProbeDataHeader),
         ("Status", NTSTATUS),
-        ("ProcessId", ULONGLONG),
-        ("EProcess", ULONGLONG)
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG)
     ]
     
     @classmethod
@@ -492,11 +492,11 @@ class ProcessCreateInfo(SaviorStruct ):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ParentProcessId", ULONGLONG),
-        ("ProcessId", ULONGLONG),
-        ("EProcess", ULONGLONG),
+        ("ParentProcessId", LONGLONG),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
         ("CreatingThreadId", CLIENT_ID),
-        ("FileObject", ULONGLONG),
+        ("FileObject", LONGLONG),
         ("CreationStatus", NTSTATUS),
         ("CommandLineSz", USHORT),
         ("CommandLine", BYTE * 1)        
@@ -542,8 +542,8 @@ class ProcessDestroyInfo(SaviorStruct):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ProcessId", ULONGLONG),
-        ("EProcess", ULONGLONG) 
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG) 
     ]
     
     @classmethod
