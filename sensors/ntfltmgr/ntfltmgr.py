@@ -57,7 +57,7 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.probe_id.Data))
         pdh = GetProbeDataHeader(probe_id,
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
@@ -348,7 +348,7 @@ class ProbeDataHeader(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
-        ('probe_id', UUID),
+        ('probe_id', _UUID),
 	('probe_type', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
@@ -391,12 +391,8 @@ class RegQueryValueKeyInfo(SaviorStruct):
             ValueName = "".join(map(chr, slc[::2]))
         except ValueError as _verr:
             Valuename = "0x" + "".join(map(chr, bytes(slc)[::2]))
-        fields = (info.contents.Header.probe_id.Data1,
-                  info.contents.Header.probe_id.Data2,
-                  info.contents.Header.probe_id.Data3,
-                  info.contents.Header.probe_id.Data4,)
-        probe_id = str(uuid.UUID(fields=fields))
         import pdb;pdb.set_trace()
+        probe_id = uuid.UUID(bytes=info.contents.Header.probe_id.Data)
         img_nfo = GetRegQueryValueKeyInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -433,7 +429,7 @@ class ProcessListValidationFailed(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         process_list_validation_failed = GetProcessListValidationFailed(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -475,7 +471,7 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetLoadedImageInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -529,7 +525,7 @@ class ProcessCreateInfo(SaviorStruct ):
             import pdb;pdb.set_trace()
             print(verr)
         CommandLine = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
             probe_id,
             ProbeType(info.contents.Header.probe_type).name,
@@ -567,7 +563,7 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         info.contents.EProcess = (0 if not info.contents.EProcess 
                 else info.contents.EProcess)
         print(info.contents.EProcess)
@@ -1083,7 +1079,7 @@ class ProbeStatus(SaviorStruct):
     The ProbeStatus message
     '''
     _fields_ = [        
-        ("SensorId", UUID),
+        ("SensorId", _UUID),
         ("LastRunTime", LONGLONG),
         ("RunInterval", LONGLONG),
         ("OperationCount", LONG),
@@ -1110,7 +1106,7 @@ class ProbeStatus(SaviorStruct):
                 break
             lst.append(ch)
         SensorName = "".join(map(chr, lst))
-        sensor_id = UUID(bytes=bytes(info.contents.SensorId))        
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
         probe_status = GetProbeStatus(            
             sensor_id,
             info.contents.LastRunTime,
@@ -1279,7 +1275,6 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    import pdb;pdb.set_trace()
     memmove(cmd_msg.contents.SensorId.Data, 
             sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
