@@ -7,8 +7,8 @@ import uuid
 import logging
 from enum import IntEnum, Flag
 from collections import namedtuple
-from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
-from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
+from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Union
+from ctypes import addressof, cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
 
 from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN
 from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG, UINT
@@ -57,8 +57,8 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
-        pdh = GetProbeDataHeader(probe_id,
+        probe_id = uuid.UUID(bytes=bytes(info.contents.probe_id.Data))
+        pdh = GetProbeDataHeader(str(probe_id),
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
@@ -97,8 +97,8 @@ class CLIENT_ID(SaviorStruct):
     The CLIENT ID Structure
     '''
     _fields_ = [
-        ("UniqueProcess", LONGLONG),
-        ("UniqueThread", LONGLONG)
+        ("UniqueProcess", ULONGLONG),
+        ("UniqueThread", ULONGLONG)
     ]
 
 class INSTANCE_INFORMATION_CLASS(CtypesEnum):
@@ -155,10 +155,10 @@ class OVERLAPPED(SaviorStruct):
     Contains information used in asynchronous (or overlapped) input and output (I/O).
     '''    
     _fields_ = [
-        ("Internal", c_ulonglong),
-        ("InternalHigh", c_ulonglong),
-        ("Pointer", LONGLONG),
-        ("hEvent", HANDLE)
+        ("Internal", ULONGLONG),
+        ("InternalHigh", ULONGLONG),
+        ("Pointer", ULONGLONG),
+        ("hEvent", ULONGLONG)
     ]
 
 class SECURITY_ATTRIBUTES(SaviorStruct):
@@ -313,13 +313,23 @@ GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
 
 class UUID(SaviorStruct):
     '''
-    Probe Data Header
+    UUID Data Structure Definition
     '''
     _fields_ = [
         ('Data1', UINT),
         ('Data2', USHORT),
         ('Data3', USHORT),
         ('Data4', BYTE * 8)
+    ]
+
+
+class _UUID(Union):
+    '''
+    Convenience Union for UUID
+    '''
+    _fields_ = [
+        ('UUID', UUID),
+        ('Data', BYTE * 16)
     ]
 class LIST_ENTRY(SaviorStruct):
     '''
@@ -337,7 +347,7 @@ class ProbeDataHeader(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
-        ('probe_id', UUID),
+        ('probe_id', _UUID),
 	('probe_type', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
@@ -357,7 +367,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("Class", UINT),
-        ("Object", ULONGLONG),
+        ("Object", LONGLONG),
         ("KeyValueInformationClass", UINT),
         ("ValueNameLength", ULONG),
         ("ValueName", BYTE * 1)
@@ -375,17 +385,17 @@ class RegQueryValueKeyInfo(SaviorStruct):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        ValueName = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        ValueName = bytes(slc).decode('utf-16')
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetRegQueryValueKeyInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
             RegNotifyClass(info.contents.Class).name, 
-            info.contents.Object,
+            cls.LongLongToHex(info.contents.Object),
             KeyValueInformationClass(info.contents.KeyValueInformationClass).name,
             ValueName)
         return img_nfo
@@ -402,8 +412,8 @@ class ProcessListValidationFailed(SaviorStruct):
     _fields_ = [
         ("Header", ProbeDataHeader),
         ("Status", NTSTATUS),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID)
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG)
     ]
     
     @classmethod
@@ -413,9 +423,9 @@ class ProcessListValidationFailed(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         process_list_validation_failed = GetProcessListValidationFailed(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -455,9 +465,9 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         img_nfo = GetLoadedImageInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -481,11 +491,11 @@ class ProcessCreateInfo(SaviorStruct ):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ParentProcessId", HANDLE),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID),
+        ("ParentProcessId", LONGLONG),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
         ("CreatingThreadId", CLIENT_ID),
-        ("FileObject", PVOID),
+        ("FileObject", LONGLONG),
         ("CreationStatus", NTSTATUS),
         ("CommandLineSz", USHORT),
         ("CommandLine", BYTE * 1)        
@@ -498,15 +508,15 @@ class ProcessCreateInfo(SaviorStruct ):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        length = info.contents.CommandLineSz
         offset = type(info.contents).CommandLine.offset
+        length = msg_pkt.DataSz - offset
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        CommandLine = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        CommandLine = bytes(slc).decode('utf-16')
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -531,8 +541,8 @@ class ProcessDestroyInfo(SaviorStruct):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID) 
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG) 
     ]
     
     @classmethod
@@ -542,9 +552,12 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        info.contents.EProcess = (0 if not info.contents.EProcess 
+                else info.contents.EProcess)
+        print(info.contents.EProcess)
         create_info = GetProcessDestroyInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
@@ -979,7 +992,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
-        ("SensorId", UUID),
+        ("SensorId", _UUID),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
@@ -1055,7 +1068,7 @@ class ProbeStatus(SaviorStruct):
     The ProbeStatus message
     '''
     _fields_ = [        
-        ("SensorId", UUID),
+        ("SensorId", _UUID),
         ("LastRunTime", LONGLONG),
         ("RunInterval", LONGLONG),
         ("OperationCount", LONG),
@@ -1076,13 +1089,9 @@ class ProbeStatus(SaviorStruct):
         sb = create_string_buffer(msg_pkt)
         array_of_chars = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_chars)
-        lst = []
-        for ch in slc:
-            if not ch:
-                break
-            lst.append(ch)
+        lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
-        sensor_id = UUID(bytes=bytes(info.contents.SensorId))        
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
         probe_status = GetProbeStatus(            
             sensor_id,
             info.contents.LastRunTime,
@@ -1251,8 +1260,8 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
-            len(cmd_msg.contents.SensorId.Data))
+    memmove(cmd_msg.contents.SensorId.Data, 
+            sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
     ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]
