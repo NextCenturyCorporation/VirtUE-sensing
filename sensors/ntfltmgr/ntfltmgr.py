@@ -1090,11 +1090,7 @@ class ProbeStatus(SaviorStruct):
         sb = create_string_buffer(msg_pkt)
         array_of_chars = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_chars)
-        lst = []
-        for ch in slc:
-            if not ch:
-                break
-            lst.append(ch)
+        lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
         probe_status = GetProbeStatus(            
