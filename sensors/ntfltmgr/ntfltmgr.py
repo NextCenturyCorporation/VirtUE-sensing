@@ -316,9 +316,11 @@ class UUID(SaviorStruct):
     Probe Data Header
     '''
     _fields_ = [
-        ('Data', BYTE * 16)
+        ('Data1', UINT),
+        ('Data2', USHORT),
+        ('Data3', USHORT),
+        ('Data4', BYTE * 8)
     ]
-
 class LIST_ENTRY(SaviorStruct):
     '''
     Two Way Linked List - forward declare an incomplete type
@@ -462,7 +464,7 @@ class LoadedImageInfo(SaviorStruct):
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
             cls.LongLongToHex(info.contents.ImageBase), 
-            cls.LongLongToHex(info.contents.ImageSize),
+            info.contents.ImageSize,
             ModuleName)
         return img_nfo
 

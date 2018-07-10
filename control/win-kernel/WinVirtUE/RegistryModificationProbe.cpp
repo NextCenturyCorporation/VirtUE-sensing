@@ -173,6 +173,92 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 	UNREFERENCED_PARAMETER(CallbackContext);
 	UNREFERENCED_PARAMETER(Argument1);
 	UNREFERENCED_PARAMETER(Argument2);
+
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
+	PREG_CREATE_KEY_INFORMATION_V1 prcki = (PREG_CREATE_KEY_INFORMATION_V1)Argument2;
+#pragma warning(push)
+#pragma warning(disable:4302) // ignore type cast truncation error 
+	USHORT Class = (USHORT)Argument1;
+#pragma warning(pop)
+	FLT_ASSERTMSG("Incorrect Operation!", RegNtPreCreateKeyEx == Class);
+	if (NULL == probe || NULL == prcki)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
+		goto ErrorExit;
+	}
+	USHORT bufsz = sizeof REG_CREATE_KEY_INFORMATION_V1
+		+ prcki->CompleteName->Length
+		+ prcki->Class->Length
+		+ prcki->RemainingName->Length
+		+ (3 * sizeof(USHORT));
+	PRegCreateKeyInfo pInfo = (PRegCreateKeyInfo)new BYTE[bufsz];
+	if (NULL == pInfo)
+	{
+		Status = STATUS_NO_MEMORY;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
+		goto ErrorExit;
+	}
+	pInfo->ProbeDataHeader.probe_type = ProbeType::RegistryModification;
+	pInfo->ProbeDataHeader.data_sz = bufsz;
+	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
+	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);
+	pInfo->RootObject = prcki->RootObject;
+	pInfo->Options = prcki->Options;
+	pInfo->SecurityDescriptor = prcki->SecurityDescriptor;
+	pInfo->SecurityQualityOfService = prcki->SecurityQualityOfService;
+	pInfo->DesiredAccess = prcki->DesiredAccess;
+	pInfo->GrantedAccess = prcki->GrantedAccess;
+	pInfo->Version = prcki->Version;
+	pInfo->Wow64Flags = prcki->Wow64Flags;
+	pInfo->Attributes = prcki->Attributes;
+	pInfo->CheckAccessMode = prcki->CheckAccessMode;
+	pInfo->NumberOfAtoms = 3;
+
+	/** calculate the offset into the buffer we'll start writting */
+	SIZE_T offset = offsetof(RegCreateKeyInfo, Buffer);
+	/** point to that address we've just calculated */
+	PAtom pAtom = (PAtom)Add2Ptr(pInfo, offset);
+	/** set the atoms size */
+	pAtom->Size = prcki->CompleteName->Length;
+	/** move data into the datom */
+	RtlMoveMemory(&pAtom->Data, prcki->CompleteName->Buffer, pAtom->Size);
+	/** bump to the next available memory address in this buffer */
+	pAtom = (PAtom)Add2Ptr(pAtom, pAtom->Size + sizeof pAtom->Size);
+
+	/** repeat */
+	pAtom->Size = prcki->Class->Length;
+	RtlMoveMemory(&pAtom->Data, prcki->Class->Buffer, pAtom->Size);
+	pAtom = (PAtom)Add2Ptr(pAtom, pAtom->Size + sizeof pAtom->Size);
+
+	pAtom->Size = prcki->RemainingName->Length;
+	RtlMoveMemory(&pAtom->Data, prcki->RemainingName->Buffer, pAtom->Size);	
+
+	
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pInfo->ProbeDataHeader.ListEntry))
+	{
+#pragma warning(suppress: 26407)
+		delete[] pInfo;
+
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
+			"ProcessId=%p, EProcess=%p,KeyValueInformationClass=%d\n",
+			prgvki->ValueName, pInfo->ProcessId, pInfo->EProcess, pInfo->KeyValueInformationClass);
+	}
+
+	if (NULL != probe)
+	{
+		probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&probe->GetLastProbeRunTime());
+	}
+
+	Status = STATUS_SUCCESS;  // yup, make sure we say it's all good!
+
+ErrorExit:
+
+	return Status;
+
 	return STATUS_SUCCESS;
 }
 /**

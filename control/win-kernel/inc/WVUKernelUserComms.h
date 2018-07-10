@@ -107,6 +107,38 @@ typedef struct _ProbeDataHeader
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
 
+/**
+* An untyped length/value pair
+*/
+typedef struct _Atom
+{
+	USHORT Size;
+	BYTE Data[1];
+} Atom, *PAtom;
+
+typedef struct _RegCreateKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ PVOID           RootObject;
+	_In_ ULONG           Options;
+	_In_ PVOID           SecurityDescriptor;
+	_In_ PVOID           SecurityQualityOfService;
+	_In_ ACCESS_MASK     DesiredAccess;
+	_In_ ACCESS_MASK     GrantedAccess;
+	_In_ ULONG_PTR       Version;
+	_In_ ULONG           Wow64Flags;
+	_In_ ULONG           Attributes;
+	_In_ KPROCESSOR_MODE CheckAccessMode;
+	_In_ USHORT			 NumberOfAtoms;
+	_In_ BYTE            Buffer[1];
+	// In the order below, we will embed an atom
+	// for each unicode string to be unpacked on
+	// the python/user end
+	// _In_ PUNICODE_STRING CompleteName; 
+	// _In_ PUNICODE_STRING Class;
+	// _In_ PUNICODE_STRING RemainingName;
+} RegCreateKeyInfo, *PRegCreateKeyInfo;
+
 typedef struct _RegQueryValueKeyInfo
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
