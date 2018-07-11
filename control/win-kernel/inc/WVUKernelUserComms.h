@@ -133,14 +133,8 @@ typedef struct _RegCreateKeyInfo
 	_In_ ULONG           Wow64Flags;
 	_In_ ULONG           Attributes;
 	_In_ KPROCESSOR_MODE CheckAccessMode;
-	_In_ USHORT			 NumberOfAtoms;
-	_In_ BYTE            Buffer[1];
-	// In the order below, we will embed an atom
-	// for each unicode string to be unpacked on
-	// the python/user end
-	// _In_ PUNICODE_STRING CompleteName; 
-	// _In_ PUNICODE_STRING Class;
-	// _In_ PUNICODE_STRING RemainingName;
+	_In_ USHORT			 CompleteNameSz;
+	_In_ BYTE            CompleteName[1];
 } RegCreateKeyInfo, *PRegCreateKeyInfo;
 
 typedef struct _RegQueryValueKeyInfo

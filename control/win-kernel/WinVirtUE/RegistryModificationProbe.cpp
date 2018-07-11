@@ -188,11 +188,7 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
 		goto ErrorExit;
 	}
-	USHORT bufsz = sizeof REG_CREATE_KEY_INFORMATION_V1
-		+ prcki->CompleteName->Length
-		+ prcki->Class->Length
-		+ prcki->RemainingName->Length
-		+ (3 * sizeof(USHORT));
+	USHORT bufsz = sizeof REG_CREATE_KEY_INFORMATION_V1 + prcki->CompleteName->Length;
 	PRegCreateKeyInfo pInfo = (PRegCreateKeyInfo)new BYTE[bufsz];
 	if (NULL == pInfo)
 	{
@@ -216,27 +212,8 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 	pInfo->Wow64Flags = prcki->Wow64Flags;
 	pInfo->Attributes = prcki->Attributes;
 	pInfo->CheckAccessMode = prcki->CheckAccessMode;
-	pInfo->NumberOfAtoms = 3;
-
-	/** calculate the offset into the buffer we'll start writting */
-	SIZE_T offset = offsetof(RegCreateKeyInfo, Buffer);
-	/** point to that address we've just calculated */
-	PAtom pAtom = (PAtom)Add2Ptr(pInfo, offset);
-	/** set the atoms size */
-	pAtom->Size = prcki->CompleteName->Length;
-	/** move data into the datom */
-	RtlMoveMemory(&pAtom->Data, prcki->CompleteName->Buffer, pAtom->Size);
-	/** bump to the next available memory address in this buffer */
-	pAtom = (PAtom)Add2Ptr(pAtom, pAtom->Size + sizeof pAtom->Size);
-
-	/** repeat */
-	pAtom->Size = prcki->Class->Length;
-	RtlMoveMemory(&pAtom->Data, prcki->Class->Buffer, pAtom->Size);
-	pAtom = (PAtom)Add2Ptr(pAtom, pAtom->Size + sizeof pAtom->Size);
-
-	pAtom->Size = prcki->RemainingName->Length;
-	RtlMoveMemory(&pAtom->Data, prcki->RemainingName->Buffer, pAtom->Size);	
-
+	pInfo->CompleteNameSz = prcki->CompleteName->Length;
+	RtlMoveMemory(&pInfo->CompleteName[0], prcki->CompleteName->Buffer, pInfo->CompleteNameSz);
 	
 	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pInfo->ProbeDataHeader.ListEntry))
 	{
