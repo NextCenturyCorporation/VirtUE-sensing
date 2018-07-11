@@ -72,6 +72,26 @@ class SaviorStruct(Structure):
         '''
         return hex(0x10000000000000000 - abs(num))
 
+    @staticmethod
+    def DecodeString(slc):
+        '''
+        given a byte array slice, decode it
+        '''
+        ValueName = ''
+        try:
+            ValueName = bytes(slc).decode('utf-16')
+        except UnicodeDecodeError as _err:
+            try:
+                ValueName = bytes(slc).decode('utf-8')
+            except UnicodeDecodeError as _err:
+                try:
+                    ary = bytes(slc)
+                    ValueName = "".join(map(chr, ary[::2]))
+                except ValueError as verr:
+                    import pdb;pdb.set_trace()   # hmm . . .
+                    ValueName = "<Cannot Decode>"
+        return ValueName
+
 class CtypesEnum(IntEnum):
     '''
     A ctypes-compatible IntEnum superclass
@@ -407,12 +427,12 @@ class RegCreateKeyInfo(SaviorStruct):
         classes instance data
         '''        
         info = cast(msg_pkt.Packet, POINTER(cls))
-        length = info.contents.CompleteName
+        length = info.contents.CompleteNameSz
         offset = type(info.contents).CompleteName.offset
-        sb = create_string_buffer(msg_pkt.Packet)
+        sb = create_string_buffer(msg_pkt.Packet, len(msg_pkt.Packet))
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        CompleteName = bytes(slc).decode('utf-16')        
+        CompleteName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))            
         key_nfo = GetRegCreateKeyInfo(
             str(probe_id),
@@ -464,7 +484,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        ValueName = bytes(slc).decode('utf-16')
+        ValueName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         key_info = GetRegQueryValueKeyInfo(
             str(probe_id),
@@ -657,7 +677,7 @@ class ProcessCreateInfo(SaviorStruct ):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        CommandLine = bytes(slc).decode('utf-16')
+        CommandLine = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
             str(probe_id),
