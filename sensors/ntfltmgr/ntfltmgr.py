@@ -281,7 +281,7 @@ class RegNotifyClass(CtypesEnum):
     RegNtPostQueryKeyName = 48
     MaxRegNtNotifyClass = 49 # should always be the last enum    
  
-class KPROCESSOR_MODE(CHAR, Enum):
+class KPROCESSOR_MODE(IntEnum):
     '''
     Processor Mode
     '''    
@@ -371,13 +371,12 @@ class ProbeDataHeader(SaviorStruct):
 
     
 GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',  
-                                 ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
-                                  'ProcessId', 'EProcess', 
-                                  'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
-                                  'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
-                                  'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
-                                  'Attributes', 'CheckAccessMode', 'NumberOfAtoms', 'CompleteName',
-                                  'Class', 'RemainingName'])
+    ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT',
+    'ProcessId', 'EProcess',
+    'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
+    'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
+    'Attributes', 'CheckAccessMode', 'NumberOfAtoms', 'CompleteName',
+    'Class', 'RemainingName'])
 class RegCreateKeyInfo(SaviorStruct):
     '''
     Probe Data Header
@@ -395,7 +394,7 @@ class RegCreateKeyInfo(SaviorStruct):
         ("Version", LONGLONG),
         ("Wow64Flags", ULONG),
         ("Attributes", ULONG),
-        ("CheckAccessMode", KPROCESSOR_MODE),                            
+        ("CheckAccessMode", CHAR),                            
         ("NumberOfAtoms", USHORT),
         ("Atoms", BYTE * 1)
     ]
@@ -420,7 +419,7 @@ class RegCreateKeyInfo(SaviorStruct):
         Class = "" 
         RemainingName = ""
         
-        key_nfo = GetRegQueryValueKeyInfo(
+        key_nfo = GetRegCreateKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
@@ -436,7 +435,7 @@ class RegCreateKeyInfo(SaviorStruct):
             cls.LongLongToHex(info.contents.Version),
             info.contents.Wow64Flags,
             info.contents.Attributes,
-            KPROCESSOR_MODE(info.contents.CheckAccessMode).name, 
+            KPROCESSOR_MODE(int(info.contents.CheckAccessMode[0])).name, 
             info.contents.NumberOfAtoms, 
             CompleteName, Class, RemainingName) 
         return key_nfo
