@@ -468,7 +468,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         ("Class", UINT),
         ("Object", LONGLONG),
         ("KeyValueInformationClass", UINT),
-        ("ValueNameLength", ULONG),
+        ("ValueNameLength", USHORT),
         ("ValueName", BYTE * 1)
     ]
     
@@ -483,6 +483,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         offset = type(info.contents).ValueName.offset
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
+        import pdb;pdb.set_trace()
         slc = (BYTE * length).from_buffer(array_of_info)
         ValueName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
@@ -535,7 +536,7 @@ class RegSetValueKeyInfo(SaviorStruct):
         ("EProcess", LONGLONG),            
         ("Object", LONGLONG),
         ("Type", UINT),
-        ("ValueNameLength", ULONG),
+        ("ValueNameLength", USHORT),
         ("ValueName", BYTE * 1)
     ]
 
@@ -1124,6 +1125,7 @@ def test_packet_decode():
         elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
             msg_data = RegCreateKeyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
+            import pdb;pdb.set_trace()
             msg_data = RegSetValueKeyInfo.build(pdh)            
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
