@@ -281,7 +281,7 @@ class RegNotifyClass(CtypesEnum):
     RegNtPostQueryKeyName = 48
     MaxRegNtNotifyClass = 49 # should always be the last enum    
  
-class KPROCESSOR_MODE(CHAR, Enum):
+class KPROCESSOR_MODE(IntEnum):
     '''
     Processor Mode
     '''    
@@ -375,7 +375,6 @@ GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',
                                   'ProcessId', 'EProcess', 
                                   'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
                                   'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
-                                  'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
                                   'Attributes', 'CheckAccessMode', 'NumberOfAtoms', 'CompleteName',
                                   'Class', 'RemainingName'])
 class RegCreateKeyInfo(SaviorStruct):
@@ -395,7 +394,7 @@ class RegCreateKeyInfo(SaviorStruct):
         ("Version", LONGLONG),
         ("Wow64Flags", ULONG),
         ("Attributes", ULONG),
-        ("CheckAccessMode", KPROCESSOR_MODE),                            
+        ("CheckAccessMode", CHAR),                            
         ("NumberOfAtoms", USHORT),
         ("Atoms", BYTE * 1)
     ]
