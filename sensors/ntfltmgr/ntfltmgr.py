@@ -558,7 +558,7 @@ class RegSetValueKeyInfo(SaviorStruct):
         try:
             obj_type_name = RegObjectType(info.contents.Type).name
         except ValueError as _verr:
-            obj_type_name = "<Unknown>"
+            obj_type_name = info.contents.Type
 
         key_info = GetRegSetValueKeyInfo(
             str(probe_id),
