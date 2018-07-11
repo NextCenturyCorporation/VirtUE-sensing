@@ -554,6 +554,12 @@ class RegSetValueKeyInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ValueName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        obj_type_name = ''
+        try:
+            obj_type_name = RegObjectType(info.contents.Type).name
+        except ValueError as _verr:
+            obj_type_name = "<Unknown>"
+
         key_info = GetRegSetValueKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
@@ -562,7 +568,7 @@ class RegSetValueKeyInfo(SaviorStruct):
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
             cls.LongLongToHex(info.contents.Object),
-            RegObjectType(info.contents.Type).name,                 
+            obj_type_name,
             ValueName)
         return key_info
 
