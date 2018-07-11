@@ -429,7 +429,7 @@ RegistryModificationProbe::RegNtPreSetValueKeyCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
 		goto ErrorExit;
 	}
-	USHORT bufsz = sizeof PRegSetValueKeyInfo + psvki->ValueName->MaximumLength;
+	USHORT bufsz = sizeof RegSetValueKeyInfo + psvki->ValueName->MaximumLength;
 	PRegSetValueKeyInfo pInfo = (PRegSetValueKeyInfo)new BYTE[bufsz];
 	if (NULL == pInfo)
 	{
