@@ -435,7 +435,7 @@ class RegCreateKeyInfo(SaviorStruct):
             cls.LongLongToHex(info.contents.Version),
             info.contents.Wow64Flags,
             info.contents.Attributes,
-            KPROCESSOR_MODE(info.contents.CheckAccessMode).name, 
+            KPROCESSOR_MODE(int(info.contents.CheckAccessMode[0])).name, 
             info.contents.NumberOfAtoms, 
             CompleteName, Class, RemainingName) 
         return key_nfo
