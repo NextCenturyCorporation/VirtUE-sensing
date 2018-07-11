@@ -81,7 +81,6 @@ class SaviorStruct(Structure):
         try:
             ValueName = bytes(slc).decode('utf-16')
         except UnicodeDecodeError as _err:
-            import pdb;pdb.set_trace()
             try:
                 ValueName = bytes(slc).decode('utf-8')
             except UnicodeDecodeError as _err:
@@ -89,6 +88,7 @@ class SaviorStruct(Structure):
                     ary = bytes(slc)
                     ValueName = "".join(map(chr, ary[::2]))
                 except ValueError as verr:
+                    import pdb;pdb.set_trace()   # hmm . . .
                     ValueName = "<Cannot Decode>"
         return ValueName
 
