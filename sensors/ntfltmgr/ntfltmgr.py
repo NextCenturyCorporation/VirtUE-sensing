@@ -87,8 +87,7 @@ class SaviorStruct(Structure):
                 try:
                     ary = bytes(slc)
                     ValueName = "".join(map(chr, ary[::2]))
-                except ValueError as verr:
-                    import pdb;pdb.set_trace()   # hmm . . .
+                except ValueError as _verr:
                     ValueName = "<Cannot Decode>"
         return ValueName
 
@@ -393,7 +392,7 @@ class ProbeDataHeader(SaviorStruct):
 
     
 GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',  
-    ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT',
+    ['probe_id', 'probe_type', 'CurrentGMT',
     'ProcessId', 'EProcess',
     'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
     'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
@@ -438,7 +437,6 @@ class RegCreateKeyInfo(SaviorStruct):
         key_nfo = GetRegCreateKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -456,7 +454,7 @@ class RegCreateKeyInfo(SaviorStruct):
         return key_nfo
         
 GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 
         'ProcessId', 'EProcess', 'Class', 'Object', 'KeyValueInformationClass', 'ValueName'])
 class RegQueryValueKeyInfo(SaviorStruct):
     '''
@@ -491,7 +489,6 @@ class RegQueryValueKeyInfo(SaviorStruct):
         key_info = GetRegQueryValueKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -524,7 +521,7 @@ class RegObjectType(IntEnum):
 
         
 GetRegSetValueKeyInfo = namedtuple('GetRegSetValueKeyInfo',  
-             ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+             ['probe_id', 'probe_type', 'CurrentGMT', 
               'ProcessId', 'EProcess', 'Object', 'Type', 'ValueName'])
     
 class RegSetValueKeyInfo(SaviorStruct):
@@ -564,7 +561,6 @@ class RegSetValueKeyInfo(SaviorStruct):
         key_info = GetRegSetValueKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -574,7 +570,7 @@ class RegSetValueKeyInfo(SaviorStruct):
         return key_info
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Status', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 'Status', 
             'ProcessId', 'EProcess'])
 
 class ProcessListValidationFailed(SaviorStruct):
@@ -598,8 +594,7 @@ class ProcessListValidationFailed(SaviorStruct):
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         process_list_validation_failed = GetProcessListValidationFailed(
             str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
+            ProbeType(info.contents.Header.probe_type).name,            
             info.contents.Header.CurrentGMT,
             info.contents.Status,
             info.contents.ProcessId,
@@ -608,7 +603,7 @@ class ProcessListValidationFailed(SaviorStruct):
 
     
 GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 
         'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 class LoadedImageInfo(SaviorStruct):
     '''
@@ -641,7 +636,6 @@ class LoadedImageInfo(SaviorStruct):
         img_nfo = GetLoadedImageInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -652,7 +646,7 @@ class LoadedImageInfo(SaviorStruct):
 
 
 GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 
         'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 
         'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz', 
         'CommandLine'])
@@ -690,7 +684,6 @@ class ProcessCreateInfo(SaviorStruct ):
         create_info = GetProcessCreateInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
             info.contents.ProcessId,
@@ -704,7 +697,7 @@ class ProcessCreateInfo(SaviorStruct ):
         return create_info
 
 GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 
          'ProcessId', 'EProcess'])
     
 class ProcessDestroyInfo(SaviorStruct):
@@ -731,7 +724,6 @@ class ProcessDestroyInfo(SaviorStruct):
         create_info = GetProcessDestroyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess))

@@ -30,14 +30,11 @@ RegistryModificationProbe::RegistryModificationProbe() : AbstractVirtueProbe(pro
 	g_pCallbackFcns[RegNtPreOpenKeyEx] = RegNtPreOpenKeyExCallback;
 	g_pCallbackFcns[RegNtPreSetValueKey] = RegNtPreSetValueKeyCallback;
 	g_pCallbackFcns[RegNtPreQueryValueKey] = RegNtPreQueryValueKeyCallback;
-
-
 	g_pCallbackFcns[RegNtPreDeleteValueKey] = RegNtPreDeleteValueKeyCallback;
 	g_pCallbackFcns[RegNtPreRenameKey] = RegNtPreRenameKeyCallback;
 
+	/** These will require additional research on how to pack multpile strings */
 	g_pCallbackFcns[RegNtPreQueryMultipleValueKey] = RegNtPreQueryMultipleValueKeyCallback;
-
-
 	g_pCallbackFcns[RegNtPreLoadKey] = RegNtPreLoadKeyCallback;
 	g_pCallbackFcns[RegNtPreUnLoadKey] = RegNtPreUnLoadKeyCallback;
 	g_pCallbackFcns[RegNtPreReplaceKey] = RegNtPreReplaceKeyCallback;
