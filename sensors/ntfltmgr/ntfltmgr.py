@@ -431,7 +431,7 @@ class RegCreateKeyInfo(SaviorStruct):
         sb = create_string_buffer(msg_pkt.Packet, len(msg_pkt.Packet))
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        CompleteName = DecodeString(slc)
+        CompleteName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))            
         key_nfo = GetRegCreateKeyInfo(
             str(probe_id),
@@ -483,7 +483,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        ValueName = DecodeString(slc)
+        ValueName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         key_info = GetRegQueryValueKeyInfo(
             str(probe_id),
@@ -611,7 +611,7 @@ class ProcessCreateInfo(SaviorStruct ):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        CommandLine = DecodeString(slc)
+        CommandLine = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
             str(probe_id),
