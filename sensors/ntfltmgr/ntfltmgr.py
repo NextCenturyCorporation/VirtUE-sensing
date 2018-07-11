@@ -5,7 +5,7 @@ import sys
 import json
 import uuid
 import logging
-from enum import IntEnum, Flag, Enum
+from enum import IntEnum, Flag
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Union
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
@@ -308,6 +308,7 @@ class ProbeType(CtypesEnum):
     ProcessListValidationFailed = 0x0006
     RegQueryValueKeyInfo = 0x0007
     RegCreateKeyInfo = 0x0008
+    RegSetValueKeyInfo = 0x0009
 
 class ProbeAttributeFlags(Flag):
     '''
@@ -478,6 +479,71 @@ class RegQueryValueKeyInfo(SaviorStruct):
             ValueName)
         return key_info
 
+
+class RegObjectType(IntEnum):
+    '''
+    Registry Object Type
+    '''
+    RegNone = 0 # No value type
+    RegSz = 1 # Unicode nul terminated string
+    RegExpandSz = 2 # Unicode nul terminated string
+    # (with environment variable references)
+    RegBinary = 3 # Free form binary
+    RegDWord = 4 # 32-bit number
+    RegDWordLE = 4 # 32-bit number (same as REG_DWORD)
+    RegDWordBE = 5 # 32-bit number
+    RegLink = 6 # Symbolic Link (unicode)
+    RegMultiSz = 7 # Multiple Unicode strings
+    RegResourceList = 8 # Resource list in the resource map
+    RegFullResourceDescriptor = 9 # Resource list in the hardware description
+    RegResourceRequirementsList = 10
+    RegQWord = 11 # 64-bit number
+    RegQWordLE = 11 # 64-bit number (same as REG_QWORD)
+
+        
+GetRegSetValueKeyInfo = namedtuple('GetRegSetValueKeyInfo',  
+             ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+              'ProcessId', 'EProcess', 'Object', 'Type', 'ValueName'])
+    
+class RegSetValueKeyInfo(SaviorStruct):
+    '''
+    Registry Set Value Key
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("Type", UINT),
+        ("ValueNameLength", ULONG),
+        ("ValueName", BYTE * 1)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.ValueNameLength
+        offset = type(info.contents).ValueName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ValueName = bytes(slc).decode('utf-16')
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        key_info = GetRegQueryValueKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            RegObjectType(info.contents.Type).name,                 
+            ValueName)
+        return key_info
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
         ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Status', 
@@ -1036,7 +1102,9 @@ def test_packet_decode():
         elif pdh.probe_type == ProbeType.RegQueryValueKeyInfo:
             msg_data = RegQueryValueKeyInfo.build(pdh)            
         elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
-            msg_data = RegCreateKeyInfo.build(pdh)                  
+            msg_data = RegCreateKeyInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
+            msg_data = RegSetValueKeyInfo.build(pdh)            
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue

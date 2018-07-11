@@ -217,13 +217,11 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 	
 	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pInfo->ProbeDataHeader.ListEntry))
 	{
-#pragma warning(suppress: 26407)
-		delete[] pInfo;
-
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
 			"***** Registry Modification Probe Enqueue Operation Failed: CompleteName=%wZ,"
 			"Class=%wZ,RemainingName=%wZ,ProcessId=%p, EProcess=%p\n",
 			prcki->CompleteName, prcki->RemainingName, pInfo->ProcessId, pInfo->EProcess);
+		delete[] pInfo;
 	}
 
 	if (NULL != probe)
@@ -322,13 +320,11 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 	RtlMoveMemory(&pInfo->ValueName[0], &prgvki->ValueName->Buffer[0], pInfo->ValueNameLength);
 	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pInfo->ProbeDataHeader.ListEntry))
 	{
-#pragma warning(suppress: 26407)
-		delete[] pInfo;
-
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, 
 			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
 			"ProcessId=%p, EProcess=%p,KeyValueInformationClass=%d\n",
 			prgvki->ValueName, pInfo->ProcessId, pInfo->EProcess, pInfo->KeyValueInformationClass);
+		delete[] pInfo;
 	}
 
 	if (NULL != probe)
@@ -419,10 +415,58 @@ RegistryModificationProbe::RegNtPreSetValueKeyCallback(
 	PVOID Argument1,
 	PVOID Argument2)
 {
-	UNREFERENCED_PARAMETER(CallbackContext);
-	UNREFERENCED_PARAMETER(Argument1);
-	UNREFERENCED_PARAMETER(Argument2);
-	return STATUS_SUCCESS;
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
+	PREG_SET_VALUE_KEY_INFORMATION psvki = (PREG_SET_VALUE_KEY_INFORMATION)Argument2;
+#pragma warning(push)
+#pragma warning(disable:4302) // ignore type cast truncation error 
+	USHORT Class = (USHORT)Argument1;
+#pragma warning(pop)
+	FLT_ASSERTMSG("Incorrect Operation!", RegNtPreSetValueKey == Class);
+	if (NULL == probe || NULL == psvki)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
+		goto ErrorExit;
+	}
+	USHORT bufsz = sizeof PRegSetValueKeyInfo + psvki->ValueName->MaximumLength;
+	PRegSetValueKeyInfo pInfo = (PRegSetValueKeyInfo)new BYTE[bufsz];
+	if (NULL == pInfo)
+	{
+		Status = STATUS_NO_MEMORY;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
+		goto ErrorExit;
+	}
+	pInfo->ProbeDataHeader.probe_type = ProbeType::RegQueryValueKeyInformation;
+	pInfo->ProbeDataHeader.data_sz = bufsz;
+	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
+	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);
+	pInfo->ProcessId = PsGetCurrentProcessId();
+	pInfo->EProcess = PsGetCurrentProcess();
+	pInfo->Object = psvki->Object;
+	pInfo->Type = (RegObjectType)psvki->Type;
+	pInfo->ValueNameLength = psvki->ValueName->MaximumLength;
+	RtlMoveMemory(&pInfo->ValueName[0], &psvki->ValueName->Buffer[0], pInfo->ValueNameLength);
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pInfo->ProbeDataHeader.ListEntry))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
+			"ProcessId=%p, EProcess=%p,Type=%ld\n",
+			psvki->ValueName, pInfo->ProcessId, pInfo->EProcess, pInfo->Type);
+		delete[] pInfo;
+	}
+
+	if (NULL != probe)
+	{
+		probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&probe->GetLastProbeRunTime());
+	}
+
+	Status = STATUS_SUCCESS;  // yup, make sure we say it's all good!
+
+ErrorExit:
+
+	return Status;;
 }
 /**
 * @brief This function is called when a RegNtPreDeleteKeyCallback request

@@ -95,7 +95,8 @@ typedef enum _ProbeType : USHORT
 	ProcessListValidation = 0x0006,
 	/** Registry Modification */
 	RegQueryValueKeyInformation = 0x0007,
-	RegCreateKeyInformation = 0x0008
+	RegCreateKeyInformation = 0x0008,
+	RegSetValueKeyInformation = 0x0009
 } ProbeType;
 
 _Struct_size_bytes_(data_sz)
@@ -107,16 +108,6 @@ typedef struct _ProbeDataHeader
 	_In_ LARGE_INTEGER current_gmt;
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
-
-/**
-* An untyped length/value pair
-*/
-_Struct_size_bytes_(Size + sizeof _Atom)
-typedef struct _Atom
-{
-	USHORT Size;
-	BYTE Data[1];
-} Atom, *PAtom;
 
 typedef struct _RegCreateKeyInfo
 {
@@ -136,6 +127,36 @@ typedef struct _RegCreateKeyInfo
 	_In_ USHORT			 CompleteNameSz;
 	_In_ BYTE            CompleteName[1];
 } RegCreateKeyInfo, *PRegCreateKeyInfo;
+
+typedef enum _RegObjectType : ULONG
+{
+	RegNone = REG_NONE, // No value type
+	RegSz = REG_SZ, // Unicode nul terminated string
+	RegExpandSz = REG_EXPAND_SZ, // Unicode nul terminated string
+	// (with environment variable references)
+	RegBinary = REG_BINARY, // Free form binary
+	RegDWord = REG_DWORD, // 32-bit number
+	RegDWordLE = REG_DWORD_LITTLE_ENDIAN, // 32-bit number (same as REG_DWORD)
+	RegDWordBE = REG_DWORD_BIG_ENDIAN, // 32-bit number
+	RegLink = REG_LINK, // Symbolic Link (unicode)
+	RegMultiSz = REG_MULTI_SZ, // Multiple Unicode strings
+	RegResourceList = REG_RESOURCE_LIST, // Resource list in the resource map
+	RegFullResourceDescriptor = REG_FULL_RESOURCE_DESCRIPTOR, // Resource list in the hardware description
+	RegResourceRequirementsList = REG_RESOURCE_REQUIREMENTS_LIST,
+	RegQWord = REG_QWORD, // 64-bit number
+	RegQWordLE = REG_QWORD_LITTLE_ENDIAN // 64-bit number (same as REG_QWORD)
+} RegObjectType, *PRegObjectType;
+
+typedef struct _RegSetValueKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			  // registry key object pointer	
+	_In_ RegObjectType Type;      // the registry object type
+	_In_ ULONG ValueNameLength;   // the value name length	
+	_In_ BYTE ValueName[0];		  // key value information
+} RegSetValueKeyInfo, *PRegSetValueKeyInfo;
 
 typedef struct _RegQueryValueKeyInfo
 {
