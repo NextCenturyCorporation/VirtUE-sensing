@@ -375,8 +375,8 @@ GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',
     'ProcessId', 'EProcess',
     'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
     'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
-    'Attributes', 'CheckAccessMode', 'NumberOfAtoms', 'CompleteName',
-    'Class', 'RemainingName'])
+    'Attributes', 'CheckAccessMode', 'CompleteName'])
+
 class RegCreateKeyInfo(SaviorStruct):
     '''
     Probe Data Header
@@ -395,8 +395,8 @@ class RegCreateKeyInfo(SaviorStruct):
         ("Wow64Flags", ULONG),
         ("Attributes", ULONG),
         ("CheckAccessMode", CHAR),                            
-        ("NumberOfAtoms", USHORT),
-        ("Atoms", BYTE * 1)
+        ("CompleteNameSz", USHORT),
+        ("CompleteName", BYTE * 1)
     ]
 
     @classmethod
@@ -406,19 +406,13 @@ class RegCreateKeyInfo(SaviorStruct):
         classes instance data
         '''        
         info = cast(msg_pkt.Packet, POINTER(cls))
-        #length = info.contents.ValueNameLength
-        #offset = type(info.contents).ValueName.offset
-        #sb = create_string_buffer(msg_pkt.Packet)
-        #array_of_info = memoryview(sb)[offset:length+offset]
-        #slc = (BYTE * length).from_buffer(array_of_info)
-        #ValueName = bytes(slc).decode('utf-16')
-        
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
-        
-        CompleteName = ""
-        Class = "" 
-        RemainingName = ""
-        
+        length = info.contents.CompleteName
+        offset = type(info.contents).CompleteName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        CompleteName = bytes(slc).decode('utf-16')        
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))            
         key_nfo = GetRegCreateKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
@@ -436,8 +430,7 @@ class RegCreateKeyInfo(SaviorStruct):
             info.contents.Wow64Flags,
             info.contents.Attributes,
             KPROCESSOR_MODE(int(info.contents.CheckAccessMode[0])).name, 
-            info.contents.NumberOfAtoms, 
-            CompleteName, Class, RemainingName) 
+            CompleteName) 
         return key_nfo
         
 GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',  
