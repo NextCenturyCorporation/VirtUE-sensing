@@ -329,7 +329,9 @@ class ProbeType(CtypesEnum):
     RegCreateKeyInfo = 0x0008
     RegSetValueKeyInfo = 0x0009
     RegOpenKeyInfo = 0x000A
-
+    RegDeleteValueKeyInfo = 0x000B
+    RegRenameKeyInfo = 0x000C
+    
 class ProbeAttributeFlags(Flag):
     '''
     Probe Attribute Flag Enumerations
@@ -345,8 +347,27 @@ class ProbeAttributeFlags(Flag):
     # Set if Probe Type is Dynamic (Loaded by external operation)
     DynamicProbe = (1 << 4)  
     
-GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
+class RegObjectType(IntEnum):
+    '''
+    Registry Object Type
+    '''
+    RegNone = 0 # No value type
+    RegSz = 1 # Unicode nul terminated string
+    RegExpandSz = 2 # Unicode nul terminated string
+    # (with environment variable references)
+    RegBinary = 3 # Free form binary
+    RegDWord = 4 # 32-bit number
+    RegDWordLE = 4 # 32-bit number (same as REG_DWORD)
+    RegDWordBE = 5 # 32-bit number
+    RegLink = 6 # Symbolic Link (unicode)
+    RegMultiSz = 7 # Multiple Unicode strings
+    RegResourceList = 8 # Resource list in the resource map
+    RegFullResourceDescriptor = 9 # Resource list in the hardware description
+    RegResourceRequirementsList = 10
+    RegQWord = 11 # 64-bit number
+    RegQWordLE = 11 # 64-bit number (same as REG_QWORD)
 
+GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
 class UUID(SaviorStruct):
     '''
     UUID Data Structure Definition
@@ -376,8 +397,7 @@ LIST_ENTRY._fields_ = [
 ]
 
 GetProbeDataHeader = namedtuple('GetProbeDataHeader',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Packet'])
-    
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Packet'])  
 class ProbeDataHeader(SaviorStruct):
     '''
     Probe Data Header
@@ -397,7 +417,6 @@ GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',
     'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
     'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
     'Attributes', 'CheckAccessMode', 'CompleteName'])
-
 class RegCreateKeyInfo(SaviorStruct):
     '''
     Probe Data Header
@@ -498,27 +517,90 @@ class RegQueryValueKeyInfo(SaviorStruct):
             ValueName)
         return key_info
 
-
-class RegObjectType(IntEnum):
+    
+GetRegRenameKeyInfo = namedtuple('GetRegRenameKeyInfo',  
+                                ['probe_id', 'probe_type', 'CurrentGMT', 
+                                 'ProcessId', 'EProcess', 'Object', 'NewName'])
+class RegRenameKeyInfo(SaviorStruct):
     '''
-    Registry Object Type
-    '''
-    RegNone = 0 # No value type
-    RegSz = 1 # Unicode nul terminated string
-    RegExpandSz = 2 # Unicode nul terminated string
-    # (with environment variable references)
-    RegBinary = 3 # Free form binary
-    RegDWord = 4 # 32-bit number
-    RegDWordLE = 4 # 32-bit number (same as REG_DWORD)
-    RegDWordBE = 5 # 32-bit number
-    RegLink = 6 # Symbolic Link (unicode)
-    RegMultiSz = 7 # Multiple Unicode strings
-    RegResourceList = 8 # Resource list in the resource map
-    RegFullResourceDescriptor = 9 # Resource list in the hardware description
-    RegResourceRequirementsList = 10
-    RegQWord = 11 # 64-bit number
-    RegQWordLE = 11 # 64-bit number (same as REG_QWORD)
+    Registry Rename Value Key
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("NewNameLength", USHORT),
+        ("NewName", BYTE * 1)
+    ]
 
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.ValueNameLength
+        offset = type(info.contents).NewName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        NewName = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+
+        key_info = GetRegSetValueKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            NewName)
+        return key_info
+
+
+
+GetRegDeleteValueKeyInfo = namedtuple('GetRegDeleteValueKeyInfo',  
+                                   ['probe_id', 'probe_type', 'CurrentGMT', 
+              'ProcessId', 'EProcess', 'Object', 'ValueName'])
+class RegDeleteValueKeyInfo(SaviorStruct):
+    '''
+    Registry Delete Value Key
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("ValueNameLength", USHORT),
+        ("ValueName", BYTE * 1)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.ValueNameLength
+        offset = type(info.contents).ValueName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ValueName = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+
+        key_info = GetRegSetValueKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            ValueName)
+        return key_info
         
 GetRegSetValueKeyInfo = namedtuple('GetRegSetValueKeyInfo',  
              ['probe_id', 'probe_type', 'CurrentGMT', 
@@ -1124,9 +1206,13 @@ def test_packet_decode():
         elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
             msg_data = RegCreateKeyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
-            msg_data = RegSetValueKeyInfo.build(pdh)       
+            msg_data = RegSetValueKeyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.RegOpenKeyInfo:
-            msg_data = RegCreateKeyInfo.build(pdh)                        
+            msg_data = RegCreateKeyInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.RegDeleteValueKeyInfo:
+            msg_data = RegDeleteValueKeyInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.RegRenameKeyInfo:
+            msg_data = RegRenameKeyInfo.build(pdh)            
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue

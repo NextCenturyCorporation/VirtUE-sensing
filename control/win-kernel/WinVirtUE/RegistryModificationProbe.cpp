@@ -375,7 +375,7 @@ RegistryModificationProbe::RegNtPreRenameKeyCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
 		goto ErrorExit;
 	}
-	USHORT bufsz = sizeof RegSetValueKeyInfo + prrki->NewName->MaximumLength;
+	USHORT bufsz = sizeof RegRenameKeyInfo + prrki->NewName->MaximumLength;
 	PRegRenameKeyInfo pInfo = (PRegRenameKeyInfo)new BYTE[bufsz];
 	if (NULL == pInfo)
 	{
@@ -449,7 +449,7 @@ RegistryModificationProbe::RegNtPreDeleteValueKeyCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
 		goto ErrorExit;
 	}
-	USHORT bufsz = sizeof RegSetValueKeyInfo + prdvki->ValueName->MaximumLength;
+	USHORT bufsz = sizeof RegDeleteValueKeyInfo + prdvki->ValueName->MaximumLength;
 	PRegDeleteValueKeyInfo pInfo = (PRegDeleteValueKeyInfo)new BYTE[bufsz];
 	if (NULL == pInfo)
 	{
@@ -457,7 +457,7 @@ RegistryModificationProbe::RegNtPreDeleteValueKeyCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
 		goto ErrorExit;
 	}
-	pInfo->ProbeDataHeader.probe_type = ProbeType::RegSetValueKeyInformation;
+	pInfo->ProbeDataHeader.probe_type = ProbeType::RegDeleteValueKeyInformation;
 	pInfo->ProbeDataHeader.data_sz = bufsz;
 	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
 	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);
