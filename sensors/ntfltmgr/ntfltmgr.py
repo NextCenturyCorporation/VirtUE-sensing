@@ -1125,7 +1125,6 @@ def test_packet_decode():
         elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
             msg_data = RegCreateKeyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
-            import pdb;pdb.set_trace()
             msg_data = RegSetValueKeyInfo.build(pdh)            
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
