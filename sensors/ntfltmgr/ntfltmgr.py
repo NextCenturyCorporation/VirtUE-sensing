@@ -549,7 +549,7 @@ class RegRenameKeyInfo(SaviorStruct):
         NewName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
 
-        key_info = GetRegSetValueKeyInfo(
+        key_info = GetRegRenameKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.CurrentGMT,
@@ -592,7 +592,7 @@ class RegDeleteValueKeyInfo(SaviorStruct):
         ValueName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
 
-        key_info = GetRegSetValueKeyInfo(
+        key_info = GetRegDeleteValueKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.CurrentGMT,
