@@ -154,7 +154,7 @@ typedef struct _RegSetValueKeyInfo
 	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
 	_In_ PVOID Object;			  // registry key object pointer	
 	_In_ RegObjectType Type;      // the registry object type
-	_In_ ULONG ValueNameLength;   // the value name length	
+	_In_ USHORT ValueNameLength;   // the value name length	
 	_In_ BYTE ValueName[0];		  // key value information
 } RegSetValueKeyInfo, *PRegSetValueKeyInfo;
 
@@ -163,10 +163,10 @@ typedef struct _RegQueryValueKeyInfo
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
 	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
 	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
-	_In_ REG_NOTIFY_CLASS Class;  // This registry modification notification class
+	_In_ ULONG Class;  // This registry modification notification class
 	_In_ PVOID Object;			  // registry key object pointer
 	_In_ KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass;   // value that indicates the type of information to be returned by the system
-	_In_ ULONG ValueNameLength;   // the value name length	
+	_In_ USHORT ValueNameLength;   // the value name length	
 	_In_ BYTE ValueName[0];		  // key value information
 } RegQueryValueKeyInfo, *PRegQueryValueKeyInfo;
 
