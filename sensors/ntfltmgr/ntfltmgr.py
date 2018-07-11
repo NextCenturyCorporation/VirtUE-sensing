@@ -406,9 +406,9 @@ class RegCreateKeyInfo(SaviorStruct):
         classes instance data
         '''        
         info = cast(msg_pkt.Packet, POINTER(cls))
-        length = info.contents.CompleteName
+        length = info.contents.CompleteNameSz
         offset = type(info.contents).CompleteName.offset
-        sb = create_string_buffer(msg_pkt.Packet)
+        sb = create_string_buffer(msg_pkt.Packet, len(msg_pkt.Packet))
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CompleteName = bytes(slc).decode('utf-16')        
