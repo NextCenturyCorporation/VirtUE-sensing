@@ -329,6 +329,7 @@ class ProbeType(CtypesEnum):
     RegQueryValueKeyInfo = 0x0007
     RegCreateKeyInfo = 0x0008
     RegSetValueKeyInfo = 0x0009
+    RegOpenKeyInfo = 0x000A
 
 class ProbeAttributeFlags(Flag):
     '''
@@ -1131,7 +1132,9 @@ def test_packet_decode():
         elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
             msg_data = RegCreateKeyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
-            msg_data = RegSetValueKeyInfo.build(pdh)            
+            msg_data = RegSetValueKeyInfo.build(pdh)       
+        elif pdh.probe_type == ProbeType.RegOpenKeyInfo:
+            msg_data = RegCreateKeyInfo.build(pdh)                        
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue

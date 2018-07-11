@@ -16,7 +16,6 @@ class RegistryModificationProbe :
 private:
 	static EX_CALLBACK_FUNCTION RegistryModificationCB;
 	static EX_CALLBACK_FUNCTION DefaultExCallback;
-	static EX_CALLBACK_FUNCTION RegNtPreDeleteKeyCallback;
 	static EX_CALLBACK_FUNCTION RegNtPreSetValueKeyCallback;
 	static EX_CALLBACK_FUNCTION RegNtPreDeleteValueKeyCallback;
 	static EX_CALLBACK_FUNCTION RegNtPreRenameKeyCallback;

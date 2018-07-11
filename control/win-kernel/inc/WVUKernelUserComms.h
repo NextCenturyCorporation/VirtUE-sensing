@@ -96,7 +96,10 @@ typedef enum _ProbeType : USHORT
 	/** Registry Modification */
 	RegQueryValueKeyInformation = 0x0007,
 	RegCreateKeyInformation = 0x0008,
-	RegSetValueKeyInformation = 0x0009
+	RegSetValueKeyInformation = 0x0009,
+	RegOpenKeyInformation = 0x000A,
+	RegDeleteValueKeyInformation = 0x000B,	
+	RegRenameKeyInformation = 0x000C
 } ProbeType;
 
 _Struct_size_bytes_(data_sz)
@@ -108,6 +111,26 @@ typedef struct _ProbeDataHeader
 	_In_ LARGE_INTEGER current_gmt;
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
+
+typedef struct _RegDeleteValueKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			  // registry key object pointer	
+	_In_ USHORT ValueNameLength;   // the value name length	
+	_In_ BYTE ValueName[0];		  // key value information
+} RegDeleteValueKeyInfo, *PRegDeleteValueKeyInfo;
+
+typedef struct _RegRenameKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			  // registry key object pointer	
+	_In_ USHORT NewNameLength;   // the new name length	
+	_In_ BYTE NewName[0];		  // new name
+} RegRenameKeyInfo, *PRegRenameKeyInfo;
 
 typedef struct _RegCreateKeyInfo
 {
