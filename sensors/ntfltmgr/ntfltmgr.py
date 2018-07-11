@@ -466,6 +466,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("Class", UINT),
+        ("_blank", UINT),
         ("Object", LONGLONG),
         ("KeyValueInformationClass", UINT),
         ("ValueNameLength", USHORT),
@@ -483,7 +484,6 @@ class RegQueryValueKeyInfo(SaviorStruct):
         offset = type(info.contents).ValueName.offset
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
-        import pdb;pdb.set_trace()
         slc = (BYTE * length).from_buffer(array_of_info)
         ValueName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
@@ -552,9 +552,9 @@ class RegSetValueKeyInfo(SaviorStruct):
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        ValueName = bytes(slc).decode('utf-16')
+        ValueName = cls.DecodeString(slc)
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
-        key_info = GetRegQueryValueKeyInfo(
+        key_info = GetRegSetValueKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
