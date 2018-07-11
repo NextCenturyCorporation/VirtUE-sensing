@@ -5,12 +5,12 @@ import sys
 import json
 import uuid
 import logging
-from enum import IntEnum, Flag
+from enum import IntEnum, Flag, Enum
 from collections import namedtuple
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Union
-from ctypes import addressof, cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
+from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
 
-from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN
+from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN, CHAR
 from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG, UINT
 
 S_OK = 0
@@ -280,6 +280,20 @@ class RegNotifyClass(CtypesEnum):
     RegNtPreQueryKeyName = 47
     RegNtPostQueryKeyName = 48
     MaxRegNtNotifyClass = 49 # should always be the last enum    
+ 
+class KPROCESSOR_MODE(CHAR, Enum):
+    '''
+    Processor Mode
+    '''    
+    KernelMode = 0x0
+    UserMode = 0x1
+    
+    @classmethod
+    def from_param(cls, obj):
+        '''
+        convert to integer value
+        '''
+        return CHAR(obj)    
     
 class ProbeType(CtypesEnum):
     '''
@@ -293,6 +307,7 @@ class ProbeType(CtypesEnum):
     ThreadDestroy  = 0x0005        
     ProcessListValidationFailed = 0x0006
     RegQueryValueKeyInfo = 0x0007
+    RegCreateKeyInfo = 0x0008
 
 class ProbeAttributeFlags(Flag):
     '''
@@ -354,6 +369,77 @@ class ProbeDataHeader(SaviorStruct):
         ('ListEntry', LIST_ENTRY)
     ]
 
+    
+GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',  
+                                 ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+                                  'ProcessId', 'EProcess', 
+                                  'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
+                                  'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
+                                  'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
+                                  'Attributes', 'CheckAccessMode', 'NumberOfAtoms', 'CompleteName',
+                                  'Class', 'RemainingName'])
+class RegCreateKeyInfo(SaviorStruct):
+    '''
+    Probe Data Header
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
+        ("RootObject", LONGLONG),
+        ("Options", ULONG),
+        ("SecurityDescriptor", LONGLONG),
+        ("SecurityQualityOfService", LONGLONG),
+        ("DesiredAccess", ULONG),
+        ("GrantedAccess", ULONG),
+        ("Version", LONGLONG),
+        ("Wow64Flags", ULONG),
+        ("Attributes", ULONG),
+        ("CheckAccessMode", KPROCESSOR_MODE),                            
+        ("NumberOfAtoms", USHORT),
+        ("Atoms", BYTE * 1)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        #length = info.contents.ValueNameLength
+        #offset = type(info.contents).ValueName.offset
+        #sb = create_string_buffer(msg_pkt.Packet)
+        #array_of_info = memoryview(sb)[offset:length+offset]
+        #slc = (BYTE * length).from_buffer(array_of_info)
+        #ValueName = bytes(slc).decode('utf-16')
+        
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        
+        CompleteName = ""
+        Class = "" 
+        RemainingName = ""
+        
+        key_nfo = GetRegQueryValueKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.DataSz,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.RootObject),
+            info.contents.Options,
+            cls.LongLongToHex(info.contents.SecurityDescriptor),
+            cls.LongLongToHex(info.contents.SecurityQualityOfService),
+            info.contents.DesiredAccess,
+            info.contents.GrantedAccess,
+            cls.LongLongToHex(info.contents.Version),
+            info.contents.Wow64Flags,
+            info.contents.Attributes,
+            KPROCESSOR_MODE(info.contents.CheckAccessMode).name, 
+            info.contents.NumberOfAtoms, 
+            CompleteName, Class, RemainingName) 
+        return key_nfo
         
 GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',  
         ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
@@ -387,7 +473,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ValueName = bytes(slc).decode('utf-16')
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
-        img_nfo = GetRegQueryValueKeyInfo(
+        key_info = GetRegQueryValueKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
@@ -398,7 +484,7 @@ class RegQueryValueKeyInfo(SaviorStruct):
             cls.LongLongToHex(info.contents.Object),
             KeyValueInformationClass(info.contents.KeyValueInformationClass).name,
             ValueName)
-        return img_nfo
+        return key_info
 
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
@@ -957,6 +1043,8 @@ def test_packet_decode():
             msg_data = ProcessListValidationFailed.build(pdh)
         elif pdh.probe_type == ProbeType.RegQueryValueKeyInfo:
             msg_data = RegQueryValueKeyInfo.build(pdh)            
+        elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
+            msg_data = RegCreateKeyInfo.build(pdh)                  
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue

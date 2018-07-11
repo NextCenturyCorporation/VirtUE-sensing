@@ -7,7 +7,7 @@
 #include "RegistryModificationProbe.h"
 
 /** this probes name */
-static ANSI_STRING probe_name = RTL_CONSTANT_STRING("RegistryModification");
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("RegQueryValueKeyInfo");
 
 /** this probes current known altitude */
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
@@ -200,10 +200,12 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
 		goto ErrorExit;
 	}
-	pInfo->ProbeDataHeader.probe_type = ProbeType::RegistryModification;
+	pInfo->ProbeDataHeader.probe_type = ProbeType::RegCreateKeyInformation;
 	pInfo->ProbeDataHeader.data_sz = bufsz;
 	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
 	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);
+	pInfo->ProcessId = PsGetCurrentProcessId();
+	pInfo->EProcess = PsGetCurrentProcess();
 	pInfo->RootObject = prcki->RootObject;
 	pInfo->Options = prcki->Options;
 	pInfo->SecurityDescriptor = prcki->SecurityDescriptor;
@@ -242,9 +244,9 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 		delete[] pInfo;
 
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
-			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
-			"ProcessId=%p, EProcess=%p,KeyValueInformationClass=%d\n",
-			prgvki->ValueName, pInfo->ProcessId, pInfo->EProcess, pInfo->KeyValueInformationClass);
+			"***** Registry Modification Probe Enqueue Operation Failed: CompleteName=%wZ,"
+			"Class=%wZ,RemainingName=%wZ,ProcessId=%p, EProcess=%p\n",
+			prcki->CompleteName, prcki->RemainingName, pInfo->ProcessId, pInfo->EProcess);
 	}
 
 	if (NULL != probe)
@@ -258,8 +260,6 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 ErrorExit:
 
 	return Status;
-
-	return STATUS_SUCCESS;
 }
 /**
 * @brief This function is called when a RegNtPreQueryMultipleValueKeyCallback request
@@ -332,7 +332,7 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
 		goto ErrorExit;
 	}
-	pInfo->ProbeDataHeader.probe_type = ProbeType::RegistryModification;
+	pInfo->ProbeDataHeader.probe_type = ProbeType::RegQueryValueKeyInformation;
 	pInfo->ProbeDataHeader.data_sz = bufsz;
 	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
 	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);

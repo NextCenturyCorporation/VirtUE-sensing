@@ -94,7 +94,8 @@ typedef enum _ProbeType : USHORT
 	/** process list validation */
 	ProcessListValidation = 0x0006,
 	/** Registry Modification */
-	RegistryModification = 0x0007
+	RegQueryValueKeyInformation = 0x0007,
+	RegCreateKeyInformation = 0x0008
 } ProbeType;
 
 _Struct_size_bytes_(data_sz)
@@ -110,6 +111,7 @@ typedef struct _ProbeDataHeader
 /**
 * An untyped length/value pair
 */
+_Struct_size_bytes_(Size + sizeof _Atom)
 typedef struct _Atom
 {
 	USHORT Size;
@@ -119,6 +121,8 @@ typedef struct _Atom
 typedef struct _RegCreateKeyInfo
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
 	_In_ PVOID           RootObject;
 	_In_ ULONG           Options;
 	_In_ PVOID           SecurityDescriptor;
