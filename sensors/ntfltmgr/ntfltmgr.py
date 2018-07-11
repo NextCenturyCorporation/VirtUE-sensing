@@ -371,12 +371,12 @@ class ProbeDataHeader(SaviorStruct):
 
     
 GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',  
-                                 ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
-                                  'ProcessId', 'EProcess', 
-                                  'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
-                                  'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
-                                  'Attributes', 'CheckAccessMode', 'NumberOfAtoms', 'CompleteName',
-                                  'Class', 'RemainingName'])
+    ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT',
+    'ProcessId', 'EProcess',
+    'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
+    'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
+    'Attributes', 'CheckAccessMode', 'NumberOfAtoms', 'CompleteName',
+    'Class', 'RemainingName'])
 class RegCreateKeyInfo(SaviorStruct):
     '''
     Probe Data Header
@@ -419,7 +419,7 @@ class RegCreateKeyInfo(SaviorStruct):
         Class = "" 
         RemainingName = ""
         
-        key_nfo = GetRegQueryValueKeyInfo(
+        key_nfo = GetRegCreateKeyInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.DataSz,
