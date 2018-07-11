@@ -541,7 +541,7 @@ class RegRenameKeyInfo(SaviorStruct):
         classes instance data
         '''        
         info = cast(msg_pkt.Packet, POINTER(cls))
-        length = info.contents.ValueNameLength
+        length = info.contents.NewNameLength
         offset = type(info.contents).NewName.offset
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
