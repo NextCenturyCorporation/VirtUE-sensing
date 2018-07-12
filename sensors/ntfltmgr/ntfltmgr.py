@@ -564,7 +564,7 @@ class RegRenameKeyInfo(SaviorStruct):
 
 GetRegPostOperationInfo = namedtuple('GetRegPostOperationInfo',  
             ['probe_id', 'probe_type', 'CurrentGMT', 
-             'ProcessId', 'EProcess', 'Object', 'Status',
+             'ProcessId', 'EProcess', 'Object',
              'Status', 'PreInformation', 'ReturnStatus'])
 class RegPostOperationInfo(SaviorStruct):
     '''
