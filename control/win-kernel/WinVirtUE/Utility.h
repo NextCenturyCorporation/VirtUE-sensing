@@ -6,7 +6,7 @@
 */
 #pragma once
 #include "common.h"
-_IRQL_always_function_max_(DISPATCHER_LEVEL)
+_IRQL_always_function_max_(DISPATCH_LEVEL)
 _IRQL_always_function_min_(PASSIVE_LEVEL)
 _Check_return_
 _Success_(0 == return)

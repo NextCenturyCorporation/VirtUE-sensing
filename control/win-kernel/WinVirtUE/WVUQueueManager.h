@@ -83,6 +83,8 @@ private:
 	volatile LONGLONG SizeOfDataInQueue;
 	/** for debugging ease, show the number of current queue entries */
 	volatile LONGLONG NumberOfQueueEntries;
+	/** for debugging ease, show the number of discarded entries */
+	volatile LONG NumberOfDiscards;
 	// Wait for the queue to have at least one entry and the port to be connected
 	_Success_(NT_SUCCESS(return) == TRUE)
 		NTSTATUS AcquireQueueSempahore() {
@@ -158,5 +160,9 @@ public:
 	* @brief assignment operator
 	*/
 	WVUQueueManager& operator=(const WVUQueueManager &rhs) = delete;
-
+	
+	/** The number of discarded entries from queue overflow */
+	volatile LONG& GetNumberOfDiscards() { return this->NumberOfDiscards; }
+	/** bump and return the number of discarded entries */
+	LONG IncrementDiscardsCount() { return InterlockedIncrement(&this->NumberOfDiscards); }
 };

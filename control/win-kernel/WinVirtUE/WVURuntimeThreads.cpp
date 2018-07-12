@@ -229,6 +229,7 @@ WVUProbeCommsThread(PVOID StartContext)
 			if (FALSE == WVUQueueManager::GetInstance().PutBack(&pPDH->ListEntry)) // put the dequeued entry back
 			{
 				WVUQueueManager::GetInstance().Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
+				WVUQueueManager::GetInstance().IncrementDiscardsCount();
 				pListEntry = NULL;
 			}
 		}
