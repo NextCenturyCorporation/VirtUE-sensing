@@ -596,9 +596,9 @@ class RegPostOperationInfo(SaviorStruct):
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
             cls.LongLongToHex(info.contents.Object),
-            info.contents.Status,
-            info.contents.PreInformation,
-            info.contents.ReturnStatus)
+            hex(info.contents.Status),
+            cls.LongLongToHex(info.contents.PreInformation),
+            hex(info.contents.ReturnStatus))
         return key_info
     
 GetRegDeleteValueKeyInfo = namedtuple('GetRegDeleteValueKeyInfo',  
