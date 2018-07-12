@@ -596,15 +596,11 @@ RegistryModificationProbe::RegNtPostOperationCallback(
 	PVOID Argument1,
 	PVOID Argument2)
 {
-	UNREFERENCED_PARAMETER(CallbackContext);
+	UNREFERENCED_PARAMETER(Argument1);
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	PREG_POST_OPERATION_INFORMATION prpoi = (PREG_POST_OPERATION_INFORMATION)Argument2;
-#pragma warning(push)
-#pragma warning(disable:4302) // ignore type cast truncation error 
-	USHORT Class = (USHORT)Argument1;
-#pragma warning(pop)
-	FLT_ASSERTMSG("Incorrect Operation!", RegNtDeleteValueKey == Class);
+
 	if (NULL == probe || NULL == prpoi)
 	{
 		Status = STATUS_SUCCESS;

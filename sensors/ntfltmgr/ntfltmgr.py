@@ -330,7 +330,8 @@ class ProbeType(CtypesEnum):
     RegSetValueKeyInfo = 0x0009
     RegOpenKeyInfo = 0x000A
     RegDeleteValueKeyInfo = 0x000B
-    RegRenameKeyInfo = 0x000C
+    RegRenameKeyInfo = 0x000C    
+    RegPostOperationInfo = 0x1001     # post operation handlers start at 0x1001
     
 class ProbeAttributeFlags(Flag):
     '''
