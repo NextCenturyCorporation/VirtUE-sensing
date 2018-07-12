@@ -319,7 +319,7 @@ class ProbeType(CtypesEnum):
     Probe Type of filter driver data to unpack
     '''
     NONE           = 0x0000
-    LoadedImage    = 0x0001
+    ImageLoad    = 0x0001
     ProcessCreate  = 0x0002
     ProcessDestroy = 0x0003
     ThreadCreate   = 0x0004
@@ -724,10 +724,10 @@ class ProcessListValidationFailed(SaviorStruct):
         return process_list_validation_failed
 
     
-GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  
+GetImageLoadInfo = namedtuple('GetImageLoadInfo',  
         ['probe_id', 'probe_type', 'CurrentGMT', 
         'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
-class LoadedImageInfo(SaviorStruct):
+class ImageLoadInfo(SaviorStruct):
     '''
     Probe Data Header
     '''    
@@ -755,7 +755,7 @@ class LoadedImageInfo(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
         probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
-        img_nfo = GetLoadedImageInfo(
+        img_nfo = GetImageLoadInfo(
             str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
             info.contents.Header.CurrentGMT,
@@ -1233,8 +1233,8 @@ def test_packet_decode():
         print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
-        if pdh.probe_type == ProbeType.LoadedImage:            
-            msg_data = LoadedImageInfo.build(pdh)
+        if pdh.probe_type == ProbeType.ImageLoad:            
+            msg_data = ImageLoadInfo.build(pdh)
         elif pdh.probe_type == ProbeType.ProcessCreate:
             msg_data = ProcessCreateInfo.build(pdh)
         elif pdh.probe_type == ProbeType.ProcessDestroy:
