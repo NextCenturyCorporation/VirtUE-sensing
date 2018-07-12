@@ -562,9 +562,48 @@ class RegRenameKeyInfo(SaviorStruct):
 
 
 
+GetRegPostOperationInfo = namedtuple('GetRegPostOperationInfo',  
+            ['probe_id', 'probe_type', 'CurrentGMT', 
+             'ProcessId', 'EProcess', 'Object', 'Status',
+             'Status', 'PreInformation', 'ReturnStatus'])
+class RegPostOperationInfo(SaviorStruct):
+    '''
+    Registry Post Operations
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("Status", NTSTATUS),
+        ("PreInformation", LONGLONG),
+        ("ReturnStatus", NTSTATUS)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))        
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+
+        key_info = GetRegPostOperationInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            info.contents.Status,
+            info.contents.PreInformation,
+            info.contents.ReturnStatus)
+        return key_info
+    
 GetRegDeleteValueKeyInfo = namedtuple('GetRegDeleteValueKeyInfo',  
-                                   ['probe_id', 'probe_type', 'CurrentGMT', 
-              'ProcessId', 'EProcess', 'Object', 'ValueName'])
+                                      ['probe_id', 'probe_type', 'CurrentGMT', 
+                                    'ProcessId', 'EProcess', 'Object', 'ValueName'])
 class RegDeleteValueKeyInfo(SaviorStruct):
     '''
     Registry Delete Value Key
@@ -1214,6 +1253,8 @@ def test_packet_decode():
             msg_data = RegDeleteValueKeyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.RegRenameKeyInfo:
             msg_data = RegRenameKeyInfo.build(pdh)            
+        elif pdh.probe_type == ProbeType.RegPostOperationInfo:
+            msg_data = RegPostOperationInfo.build(pdh)                        
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue
