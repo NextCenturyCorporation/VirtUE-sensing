@@ -1225,7 +1225,7 @@ def test_packet_decode():
     '''
     Test WinVirtUE packet decode
     '''
-    MAXPKTSZ = 0x1000000  # max packet size
+    MAXPKTSZ = 0x10000  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
