@@ -27,11 +27,22 @@ RegistryModificationProbe::RegistryModificationProbe() : AbstractVirtueProbe(pro
 
 	/** specialized callback handlers */
 	g_pCallbackFcns[RegNtPreCreateKeyEx] = RegNtPreCreateKeyExCallback;
+	g_pCallbackFcns[RegNtPostCreateKeyEx] = RegNtPostOperationCallback;
+
 	g_pCallbackFcns[RegNtPreOpenKeyEx] = RegNtPreOpenKeyExCallback;
+	g_pCallbackFcns[RegNtPostOpenKeyEx] = RegNtPostOperationCallback;
+
 	g_pCallbackFcns[RegNtPreSetValueKey] = RegNtPreSetValueKeyCallback;
+	g_pCallbackFcns[RegNtPostSetValueKey] = RegNtPostOperationCallback;
+
 	g_pCallbackFcns[RegNtPreQueryValueKey] = RegNtPreQueryValueKeyCallback;
+	g_pCallbackFcns[RegNtPostQueryValueKey] = RegNtPostOperationCallback;
+
 	g_pCallbackFcns[RegNtPreDeleteValueKey] = RegNtPreDeleteValueKeyCallback;
+	g_pCallbackFcns[RegNtPostDeleteValueKey] = RegNtPostOperationCallback;
+
 	g_pCallbackFcns[RegNtPreRenameKey] = RegNtPreRenameKeyCallback;
+	g_pCallbackFcns[RegNtPostRenameKey] = RegNtPostOperationCallback;
 
 	/** These will require additional research on how to pack multpile strings */
 	g_pCallbackFcns[RegNtPreQueryMultipleValueKey] = RegNtPreQueryMultipleValueKeyCallback;
@@ -563,6 +574,83 @@ ErrorExit:
 	return Status;
 }
 
+/**
+* @brief This function is called when a RegNtPreQueryMultipleValueKeyCallback request
+* is made.
+* @param CallbackContext The value that the driver passed as the Context parameter to CmRegisterCallback
+* or CmRegisterCallbackEx when it registered this RegistryCallback routine.
+* @param Argument1 A REG_NOTIFY_CLASS-typed value that identifies the type
+* of registry operation that is being performed and whether the RegistryCallback
+* routine is being called before or after the registry operation is performed.
+* @param Argument2 A pointer to a structure that contains information that is
+* specific to the type of registry operation. The structure type depends on the
+* REG_NOTIFY_CLASS-typed value for Argument1, as shown in the following table.
+* For information about which REG_NOTIFY_CLASS-typed values are available for which
+* operating system versions, see REG_NOTIFY_CLASS.
+* @retval the driver entry's returned status
+*/
+_Use_decl_annotations_
+NTSTATUS
+RegistryModificationProbe::RegNtPostOperationCallback(
+	PVOID CallbackContext,
+	PVOID Argument1,
+	PVOID Argument2)
+{
+	UNREFERENCED_PARAMETER(CallbackContext);
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
+	PREG_POST_OPERATION_INFORMATION prpoi = (PREG_POST_OPERATION_INFORMATION)Argument2;
+#pragma warning(push)
+#pragma warning(disable:4302) // ignore type cast truncation error 
+	USHORT Class = (USHORT)Argument1;
+#pragma warning(pop)
+	FLT_ASSERTMSG("Incorrect Operation!", RegNtDeleteValueKey == Class);
+	if (NULL == probe || NULL == prpoi)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
+		goto ErrorExit;
+	}
+	USHORT bufsz = sizeof RegPostOperationInfo;
+	PRegPostOperationInfo pInfo = (PRegPostOperationInfo)new BYTE[bufsz];
+	if (NULL == pInfo)
+	{
+		Status = STATUS_NO_MEMORY;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
+		goto ErrorExit;
+	}
+	pInfo->ProbeDataHeader.probe_type = ProbeType::RegDeleteValueKeyInformation;
+	pInfo->ProbeDataHeader.data_sz = bufsz;
+	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
+	KeQuerySystemTimePrecise(&pInfo->ProbeDataHeader.current_gmt);
+	pInfo->ProcessId = PsGetCurrentProcessId();
+	pInfo->EProcess = PsGetCurrentProcess();
+	pInfo->Object = prpoi->Object;
+	pInfo->PreInformation = prpoi->PreInformation;
+	pInfo->ReturnStatus = prpoi->ReturnStatus;
+	pInfo->Status = pInfo->Status;
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pInfo->ProbeDataHeader.ListEntry))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+			"***** Registry Modification Probe Enqueue Operation Failed: ValueName=%wZ,"
+			"Status=%08x, ReturnStatus=%08x,Object=%p,PreInformation=%p,ProcessId=%p, "
+			"EProcess=%p\n", pInfo->Status, pInfo->ReturnStatus, pInfo->Object, 
+			pInfo->PreInformation, pInfo->ProcessId, pInfo->EProcess);
+		delete[] pInfo;
+	}
+
+	if (NULL != probe)
+	{
+		probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&probe->GetLastProbeRunTime());
+	}
+
+	Status = STATUS_SUCCESS;  // yup, make sure we say it's all good!
+
+ErrorExit:
+
+	return Status;
+}
 /**
 * @brief This function is called by default when a registry modification request
 * is made.

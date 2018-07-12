@@ -99,7 +99,10 @@ typedef enum _ProbeType : USHORT
 	RegSetValueKeyInformation = 0x0009,
 	RegOpenKeyInformation = 0x000A,
 	RegDeleteValueKeyInformation = 0x000B,	
-	RegRenameKeyInformation = 0x000C
+	RegRenameKeyInformation = 0x000C,
+	/** post operations start at 0x1001 */
+	RegPostOperationInformation = 0x1001
+
 } ProbeType;
 
 _Struct_size_bytes_(data_sz)
@@ -111,6 +114,17 @@ typedef struct _ProbeDataHeader
 	_In_ LARGE_INTEGER current_gmt;
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
+
+typedef struct _RegPostOperationInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;			// The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;		// The EProcess that is emitting the registry changes
+	_In_ PVOID Object;				// A pointer to the registry key object for which the operation has completed.	
+	_In_ NTSTATUS Status;			// The NTSTATUS-typed value that the system will return for the registry operation
+	_In_ PVOID PreInformation;		// A pointer to the structure that contains preprocessing information for the registry operation that has completed
+	_In_ NTSTATUS ReturnStatus;		// A driver-supplied NTSTATUS-typed value.
+} RegPostOperationInfo, *PRegPostOperationInfo;
 
 typedef struct _RegDeleteValueKeyInfo
 {

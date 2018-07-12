@@ -26,7 +26,8 @@ private:
 	static EX_CALLBACK_FUNCTION RegNtPreLoadKeyCallback;
 	static EX_CALLBACK_FUNCTION RegNtPreUnLoadKeyCallback;
 	static EX_CALLBACK_FUNCTION RegNtPreReplaceKeyCallback;
-
+	static EX_CALLBACK_FUNCTION RegNtPostOperationCallback;
+			
 	LARGE_INTEGER Cookie;
 public:
 	RegistryModificationProbe();
