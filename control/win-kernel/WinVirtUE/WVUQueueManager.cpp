@@ -7,7 +7,7 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-CONST INT WVUQueueManager::PROBEDATAQUEUESZ = 0x10000;
+CONST INT WVUQueueManager::PROBEDATAQUEUESZ = 0x40000; // 256K max entries
 
 /**
 * @brief construct an instance of the WVUQueueManager.  The WVUQueueManager constructs a 

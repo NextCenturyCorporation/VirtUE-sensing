@@ -82,7 +82,7 @@ typedef enum _ProbeType : USHORT
 {
 	NoProbeIdType = 0x0000,
 	/** Loaded Image (.exe,.dll, etc) notificaton type */
-	LoadedImage = 0x0001,
+	ImageLoad = 0x0001,
 	/** Process Creation notificaton type */
 	ProcessCreate = 0x0002,
 	/** Process Destruction notificaton type */
@@ -100,10 +100,20 @@ typedef enum _ProbeType : USHORT
 	RegOpenKeyInformation = 0x000A,
 	RegDeleteValueKeyInformation = 0x000B,	
 	RegRenameKeyInformation = 0x000C,
+	RegQueryMultipleValueKeyInformation = 0x000D,
+	RegPreReplaceKey = 0x000E,
+	RegPostReplaceKey = 0x000F,
+	RegPreLoadKey = 0x0010,
 	/** post operations start at 0x1001 */
 	RegPostOperationInformation = 0x1001
-
 } ProbeType;
+
+_Struct_size_bytes_(Size + sizeof USHORT)
+typedef struct _Atom
+{
+	_In_ USHORT Size;
+	_In_  BYTE Buffer[0];
+} Atom, *PAtom;
 
 _Struct_size_bytes_(data_sz)
 typedef struct _ProbeDataHeader
@@ -126,24 +136,47 @@ typedef struct _RegPostOperationInfo
 	_In_ NTSTATUS ReturnStatus;		// A driver-supplied NTSTATUS-typed value.
 } RegPostOperationInfo, *PRegPostOperationInfo;
 
+typedef struct _RegLoadKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	    // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;	// The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			// registry key object pointer	
+	_In_ ACCESS_MASK     DesiredAccess;
+	_In_ ULONG EntryCount;		// The number of entries in the ValueEntries array
+	_In_ LONG BufferLength;		// variable that contains the length, in bytes, of the ValueBuffer buffer.
+	_In_ BYTE ValueBuffer[0];	// A pointer to a buffer that receives the unicode strings KeyName and SourceFile
+} RegLoadKeyInfo, *PRegLoadKeyInfo;
+
+typedef struct _RegQueryMultipleValueKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	    // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;	// The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			// registry key object pointer	
+	_In_ ULONG EntryCount;		// The number of entries in the ValueEntries array
+	_In_ LONG BufferLength;		// variable that contains the length, in bytes, of the ValueBuffer buffer.
+	_In_ BYTE ValueBuffer[0];	// A pointer to a buffer that receives (from the system) the data for all the value entries specified by the ValueEntries array
+} RegQueryMultipleValueKeyInfo, *PRegQueryMultipleValueKeyInfo;
+
 typedef struct _RegDeleteValueKeyInfo
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
 	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
 	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
 	_In_ PVOID Object;			  // registry key object pointer	
-	_In_ USHORT ValueNameLength;   // the value name length	
+	_In_ USHORT ValueNameLength;  // the value name length	
 	_In_ BYTE ValueName[0];		  // key value information
 } RegDeleteValueKeyInfo, *PRegDeleteValueKeyInfo;
 
 typedef struct _RegRenameKeyInfo
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
-	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
-	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
-	_In_ PVOID Object;			  // registry key object pointer	
-	_In_ USHORT NewNameLength;   // the new name length	
-	_In_ BYTE NewName[0];		  // new name
+	_In_ HANDLE ProcessId;	    // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;   // The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			// registry key object pointer	
+	_In_ USHORT NewNameLength;  // the new name length	
+	_In_ BYTE NewName[0];		// new name
 } RegRenameKeyInfo, *PRegRenameKeyInfo;
 
 typedef struct _RegCreateKeyInfo

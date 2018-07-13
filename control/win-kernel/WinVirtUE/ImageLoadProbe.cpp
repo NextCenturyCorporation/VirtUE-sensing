@@ -184,7 +184,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	}
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	RtlSecureZeroMemory(buf, bufsz);
-	pLoadedImageInfo->ProbeDataHeader.probe_type = ProbeType::LoadedImage;
+	pLoadedImageInfo->ProbeDataHeader.probe_type = ProbeType::ImageLoad;
 	pLoadedImageInfo->ProbeDataHeader.data_sz = bufsz;
 	pLoadedImageInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
 	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.current_gmt);

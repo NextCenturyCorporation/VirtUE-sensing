@@ -44,16 +44,19 @@ RegistryModificationProbe::RegistryModificationProbe() : AbstractVirtueProbe(pro
 	g_pCallbackFcns[RegNtPreRenameKey] = RegNtPreRenameKeyCallback;
 	g_pCallbackFcns[RegNtPostRenameKey] = RegNtPostOperationCallback;
 
-	/** These will require additional research on how to pack multpile strings */
-	g_pCallbackFcns[RegNtPreQueryMultipleValueKey] = RegNtPreQueryMultipleValueKeyCallback;
 	g_pCallbackFcns[RegNtPreLoadKey] = RegNtPreLoadKeyCallback;
-	g_pCallbackFcns[RegNtPreUnLoadKey] = RegNtPreUnLoadKeyCallback;
-	g_pCallbackFcns[RegNtPreReplaceKey] = RegNtPreReplaceKeyCallback;
+	g_pCallbackFcns[RegNtPostLoadKey] = RegNtPostOperationCallback;
+
+	g_pCallbackFcns[RegNtPreReplaceKey] = RegNtReplaceKeyCallback;
+	g_pCallbackFcns[RegNtPostReplaceKey] = RegNtReplaceKeyCallback;
+
+	g_pCallbackFcns[RegNtPreQueryMultipleValueKey] = RegNtPreQueryMultipleValueKeyCallback;
+	g_pCallbackFcns[RegNtPostQueryMultipleValueKey] = RegNtPostOperationCallback;
 }
 
 #pragma region Registry Pre-Operation Handlers
 /**
-* @brief This function is called when a RegNtPreReplaceKeyCallback request
+* @brief This function is called when a RegNtReplaceKeyCallback request
 * is made.
 * @param CallbackContext The value that the driver passed as the Context parameter to CmRegisterCallback
 * or CmRegisterCallbackEx when it registered this RegistryCallback routine.
@@ -69,7 +72,7 @@ RegistryModificationProbe::RegistryModificationProbe() : AbstractVirtueProbe(pro
 */
 _Use_decl_annotations_
 NTSTATUS
-RegistryModificationProbe::RegNtPreReplaceKeyCallback(
+RegistryModificationProbe::RegNtReplaceKeyCallback(
 	PVOID CallbackContext,
 	PVOID Argument1,
 	PVOID Argument2)
@@ -79,33 +82,7 @@ RegistryModificationProbe::RegNtPreReplaceKeyCallback(
 	UNREFERENCED_PARAMETER(Argument2);
 	return STATUS_SUCCESS;
 }
-/**
-* @brief This function is called when a RegNtPreUnLoadKeyCallback request
-* is made.
-* @param CallbackContext The value that the driver passed as the Context parameter to CmRegisterCallback
-* or CmRegisterCallbackEx when it registered this RegistryCallback routine.
-* @param Argument1 A REG_NOTIFY_CLASS-typed value that identifies the type
-* of registry operation that is being performed and whether the RegistryCallback
-* routine is being called before or after the registry operation is performed.
-* @param Argument2 A pointer to a structure that contains information that is
-* specific to the type of registry operation. The structure type depends on the
-* REG_NOTIFY_CLASS-typed value for Argument1, as shown in the following table.
-* For information about which REG_NOTIFY_CLASS-typed values are available for which
-* operating system versions, see REG_NOTIFY_CLASS.
-* @retval the driver entry's returned status
-*/
-_Use_decl_annotations_
-NTSTATUS
-RegistryModificationProbe::RegNtPreUnLoadKeyCallback(
-	PVOID CallbackContext,
-	PVOID Argument1,
-	PVOID Argument2)
-{
-	UNREFERENCED_PARAMETER(CallbackContext);
-	UNREFERENCED_PARAMETER(Argument1);
-	UNREFERENCED_PARAMETER(Argument2);
-	return STATUS_SUCCESS;
-}
+
 /**
 * @brief This function is called when a RegNtPreLoadKeyCallback request
 * is made.
@@ -179,10 +156,6 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 	PVOID Argument1,
 	PVOID Argument2)
 {
-	UNREFERENCED_PARAMETER(CallbackContext);
-	UNREFERENCED_PARAMETER(Argument1);
-	UNREFERENCED_PARAMETER(Argument2);
-
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	PREG_CREATE_KEY_INFORMATION_V1 prcki = (PREG_CREATE_KEY_INFORMATION_V1)Argument2;
@@ -197,7 +170,7 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context or arguments Passed to Callback Function!\n");
 		goto ErrorExit;
 	}
-	USHORT bufsz = sizeof REG_CREATE_KEY_INFORMATION_V1 + prcki->CompleteName->Length;
+	USHORT bufsz = sizeof RegCreateKeyInfo + prcki->CompleteName->Length;
 	PRegCreateKeyInfo pInfo = (PRegCreateKeyInfo)new BYTE[bufsz];
 	if (NULL == pInfo)
 	{
@@ -615,6 +588,31 @@ RegistryModificationProbe::RegNtPostOperationCallback(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Unable to allocate non-paged memory!\n");
 		goto ErrorExit;
 	}
+
+	PCUNICODE_STRING ObjectName = nullptr;
+	ULONG_PTR ObjectId = 0L;
+	ULONG Flags = 0L;
+	__try
+	{
+		Status = CmCallbackGetKeyObjectIDEx((PLARGE_INTEGER)&probe->GetCookie(), prpoi->Object, &ObjectId, &ObjectName, Flags);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, TRACE_LEVEL_ID, "CmCallbackGetKeyObjectIDEx failed - Status=0x%08x\n",
+				Status);
+			goto Abend;
+		}
+		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, TRACE_LEVEL_ID, "ObjectName=%wZ, ObjectId=%p\n", *ObjectName, ObjectId);
+	}
+	__finally
+	{
+		if (AbnormalTermination() == FALSE)
+		{
+			CmCallbackReleaseKeyObjectIDEx(ObjectName);
+		}
+	}
+
+Abend:
+
 	pInfo->ProbeDataHeader.probe_type = ProbeType::RegPostOperationInformation;
 	pInfo->ProbeDataHeader.data_sz = bufsz;
 	pInfo->ProbeDataHeader.probe_id = probe->GetProbeId();
@@ -775,9 +773,6 @@ BOOLEAN RegistryModificationProbe::Start()
 	Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, this, &Cookie, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-
-
-
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
 		goto ErrorExit;
 	}
