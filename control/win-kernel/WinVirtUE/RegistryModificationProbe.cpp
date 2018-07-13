@@ -1,13 +1,13 @@
 /**
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
-* @brief Configuration Manger Registry Modification callback handlers
+* @brief Registry Modification Probe 
 */
 
 #include "RegistryModificationProbe.h"
 
 /** this probes name */
-static ANSI_STRING probe_name = RTL_CONSTANT_STRING("RegQueryValueKeyInfo");
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("RegistryModification");
 
 /** this probes current known altitude */
 static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");

@@ -2,7 +2,7 @@
 * @file RegistryModificationProbe.h
 * @version 0.1.0.1
 * @copyright (2018) Two Six Labs
-* @brief  ImageLoad Probe class declaration
+* @brief Registry Modification Probe class declaration
 */
 #pragma once
 #include "common.h"
