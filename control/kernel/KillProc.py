@@ -19,6 +19,7 @@
 
 ###
 ### TODO: add a wildcard capability to the pgrep filter
+### TODO: rationalize exception handling to be smarter
 ###
 import subprocess
 import signal
