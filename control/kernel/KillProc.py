@@ -17,7 +17,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA  02110-1301, USA.
 
-
+###
+### TODO: add a wildcard capability to the pgrep filter
+###
 import subprocess
 import signal
 import os
@@ -50,9 +52,9 @@ class KillProc:
 
 def client_main(args):
     examples = """examples:
-        ./KillProc.py emacs                # kill all processes named emacs with SIGTERM
-        ./KillProc.py 1094                 # kill pid 1094
-        ./KillProc.py 1094 signal.SIGKILL  # kill pid 1094 with SIGKILL
+        ./KillProc.py -n emacs             # kill all processes named emacs with SIGTERM
+        ./KillProc.py -p 1094              # kill pid 1094
+        ./KillProc.py -p 1094 -s 4         # kill pid 1094 with SIGKILL
     """
 
     parser = argparse.ArgumentParser(
