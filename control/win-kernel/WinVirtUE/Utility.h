@@ -6,9 +6,11 @@
 */
 #pragma once
 #include "common.h"
-
+_IRQL_always_function_max_(DISPATCH_LEVEL)
+_IRQL_always_function_min_(PASSIVE_LEVEL)
 _Check_return_
 _Success_(0 == return)
 LONG CompareAnsiString(_In_ CONST ANSI_STRING& string1, 
 	_In_ CONST ANSI_STRING& string2, 
 	_In_ BOOLEAN IgnoreCase = FALSE);
+

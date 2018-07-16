@@ -7,11 +7,11 @@ import uuid
 import logging
 from enum import IntEnum, Flag
 from collections import namedtuple
-from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure
+from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Union
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
 
-from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN
-from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG
+from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN, CHAR
+from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG, UINT
 
 S_OK = 0
 MAXPROBENAMESZ = 64
@@ -57,13 +57,39 @@ class SaviorStruct(Structure):
         the ProbeDataHeader in the form of a named tuple
         '''     
         info = cast(msg_pkt, POINTER(ProbeDataHeader))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.probe_id.Data)))
-        pdh = GetProbeDataHeader(probe_id,
+        probe_id = uuid.UUID(bytes=bytes(info.contents.probe_id.Data))
+        pdh = GetProbeDataHeader(str(probe_id),
                                  ProbeType(info.contents.probe_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
-                                 msg_pkt)
+                                 msg_pkt)        
         return pdh
+    
+    @staticmethod
+    def LongLongToHex(num):
+        '''
+        convert a long long to a hex number        
+        '''
+        return hex(0x10000000000000000 - abs(num))
+
+    @staticmethod
+    def DecodeString(slc):
+        '''
+        given a byte array slice, decode it
+        '''
+        ValueName = ''
+        try:
+            ValueName = bytes(slc).decode('utf-16')
+        except UnicodeDecodeError as _err:
+            try:
+                ValueName = bytes(slc).decode('utf-8')
+            except UnicodeDecodeError as _err:
+                try:
+                    ary = bytes(slc)
+                    ValueName = "".join(map(chr, ary[::2]))
+                except ValueError as _verr:
+                    ValueName = "<Cannot Decode>"
+        return ValueName
 
 class CtypesEnum(IntEnum):
     '''
@@ -90,8 +116,8 @@ class CLIENT_ID(SaviorStruct):
     The CLIENT ID Structure
     '''
     _fields_ = [
-        ("UniqueProcess", c_void_p),
-        ("UniqueThread", c_void_p)
+        ("UniqueProcess", ULONGLONG),
+        ("UniqueThread", ULONGLONG)
     ]
 
 class INSTANCE_INFORMATION_CLASS(CtypesEnum):
@@ -148,10 +174,10 @@ class OVERLAPPED(SaviorStruct):
     Contains information used in asynchronous (or overlapped) input and output (I/O).
     '''    
     _fields_ = [
-        ("Internal", c_ulonglong),
-        ("InternalHigh", c_ulonglong),
-        ("Pointer", PVOID),
-        ("hEvent", HANDLE)
+        ("Internal", ULONGLONG),
+        ("InternalHigh", ULONGLONG),
+        ("Pointer", ULONGLONG),
+        ("hEvent", ULONGLONG)
     ]
 
 class SECURITY_ATTRIBUTES(SaviorStruct):
@@ -191,19 +217,122 @@ class FILTER_MESSAGE_HEADER(SaviorStruct):
     
 FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'MessageId', 'Remainder'])
         
-
+class KeyValueInformationClass(CtypesEnum):
+    '''
+    Key Value Informatoin Class
+    '''
+    KeyValueBasicInformation = 0
+    KeyValueFullInformation = 1
+    KeyValuePartialInformation = 2
+    KeyValueFullInformationAlign64 = 3
+    KeyValuePartialInformationAlign64 = 4
+    KeyValueLayerInformation = 5
+    MaxKeyValueInfoClass = 6  # MaxKeyValueInfoClass should always be the last enum    
+    
+class RegNotifyClass(CtypesEnum):
+    '''
+    Hook selector for registry kernel mode callbacks
+    '''    
+    RegNtDeleteKey = 0
+    RegNtPreDeleteKey = RegNtDeleteKey
+    RegNtSetValueKey = 1
+    RegNtPreSetValueKey = RegNtSetValueKey
+    RegNtDeleteValueKey = 2 
+    RegNtPreDeleteValueKey = RegNtDeleteValueKey
+    RegNtSetInformationKey = 3
+    RegNtPreSetInformationKey = RegNtSetInformationKey
+    RegNtRenameKey = 4
+    RegNtPreRenameKey = RegNtRenameKey
+    RegNtEnumerateKey = 5
+    RegNtPreEnumerateKey = RegNtEnumerateKey
+    RegNtEnumerateValueKey = 6
+    RegNtPreEnumerateValueKey = RegNtEnumerateValueKey
+    RegNtQueryKey = 7
+    RegNtPreQueryKey = RegNtQueryKey
+    RegNtQueryValueKey = 8
+    RegNtPreQueryValueKey = RegNtQueryValueKey
+    RegNtQueryMultipleValueKey = 9
+    RegNtPreQueryMultipleValueKey = RegNtQueryMultipleValueKey
+    RegNtPreCreateKey = 10
+    RegNtPostCreateKey = 11
+    RegNtPreOpenKey = 12
+    RegNtPostOpenKey = 13
+    RegNtKeyHandleClose = 14
+    RegNtPreKeyHandleClose = RegNtKeyHandleClose    
+    # .Net only    
+    RegNtPostDeleteKey = 15
+    RegNtPostSetValueKey = 16
+    RegNtPostDeleteValueKey = 17
+    RegNtPostSetInformationKey = 18
+    RegNtPostRenameKey = 19
+    RegNtPostEnumerateKey = 20
+    RegNtPostEnumerateValueKey = 21
+    RegNtPostQueryKey = 22
+    RegNtPostQueryValueKey = 23
+    RegNtPostQueryMultipleValueKey = 24
+    RegNtPostKeyHandleClose = 25
+    RegNtPreCreateKeyEx = 26 
+    RegNtPostCreateKeyEx = 27
+    RegNtPreOpenKeyEx = 28
+    RegNtPostOpenKeyEx = 29    
+    # new to Windows Vista
+    RegNtPreFlushKey = 30
+    RegNtPostFlushKey = 31
+    RegNtPreLoadKey = 32
+    RegNtPostLoadKey = 33
+    RegNtPreUnLoadKey = 34
+    RegNtPostUnLoadKey = 35
+    RegNtPreQueryKeySecurity = 36
+    RegNtPostQueryKeySecurity = 37
+    RegNtPreSetKeySecurity = 38
+    RegNtPostSetKeySecurity = 39    
+    # per-object context cleanup    
+    RegNtCallbackObjectContextCleanup = 40
+    # new in Vista SP2 
+    RegNtPreRestoreKey = 41
+    RegNtPostRestoreKey = 42
+    RegNtPreSaveKey = 43
+    RegNtPostSaveKey = 44
+    RegNtPreReplaceKey = 45
+    RegNtPostReplaceKey = 46
+    # new to Windows 10
+    RegNtPreQueryKeyName = 47
+    RegNtPostQueryKeyName = 48
+    MaxRegNtNotifyClass = 49 # should always be the last enum    
+ 
+class KPROCESSOR_MODE(IntEnum):
+    '''
+    Processor Mode
+    '''    
+    KernelMode = 0x0
+    UserMode = 0x1
+    
+    @classmethod
+    def from_param(cls, obj):
+        '''
+        convert to integer value
+        '''
+        return CHAR(obj)    
+    
 class ProbeType(CtypesEnum):
     '''
     Probe Type of filter driver data to unpack
     '''
     NONE           = 0x0000
-    LoadedImage    = 0x0001
+    ImageLoad    = 0x0001
     ProcessCreate  = 0x0002
     ProcessDestroy = 0x0003
     ThreadCreate   = 0x0004
     ThreadDestroy  = 0x0005        
     ProcessListValidationFailed = 0x0006
-
+    RegQueryValueKeyInfo = 0x0007
+    RegCreateKeyInfo = 0x0008
+    RegSetValueKeyInfo = 0x0009
+    RegOpenKeyInfo = 0x000A
+    RegDeleteValueKeyInfo = 0x000B
+    RegRenameKeyInfo = 0x000C    
+    RegPostOperationInfo = 0x1001     # post operation handlers start at 0x1001
+    
 class ProbeAttributeFlags(Flag):
     '''
     Probe Attribute Flag Enumerations
@@ -219,16 +348,47 @@ class ProbeAttributeFlags(Flag):
     # Set if Probe Type is Dynamic (Loaded by external operation)
     DynamicProbe = (1 << 4)  
     
-GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
+class RegObjectType(IntEnum):
+    '''
+    Registry Object Type
+    '''
+    RegNone = 0 # No value type
+    RegSz = 1 # Unicode nul terminated string
+    RegExpandSz = 2 # Unicode nul terminated string
+    # (with environment variable references)
+    RegBinary = 3 # Free form binary
+    RegDWord = 4 # 32-bit number
+    RegDWordLE = 4 # 32-bit number (same as REG_DWORD)
+    RegDWordBE = 5 # 32-bit number
+    RegLink = 6 # Symbolic Link (unicode)
+    RegMultiSz = 7 # Multiple Unicode strings
+    RegResourceList = 8 # Resource list in the resource map
+    RegFullResourceDescriptor = 9 # Resource list in the hardware description
+    RegResourceRequirementsList = 10
+    RegQWord = 11 # 64-bit number
+    RegQWordLE = 11 # 64-bit number (same as REG_QWORD)
 
+GetUUID = namedtuple('GetUUID',  ['Data1', 'Data2', 'Data3', 'Data4'])
 class UUID(SaviorStruct):
     '''
-    Probe Data Header
+    UUID Data Structure Definition
     '''
     _fields_ = [
-        ('Data', BYTE * 16)
+        ('Data1', UINT),
+        ('Data2', USHORT),
+        ('Data3', USHORT),
+        ('Data4', BYTE * 8)
     ]
 
+
+class _UUID(Union):
+    '''
+    Convenience Union for UUID
+    '''
+    _fields_ = [
+        ('UUID', UUID),
+        ('Data', BYTE * 16)
+    ]
 class LIST_ENTRY(SaviorStruct):
     '''
     Two Way Linked List - forward declare an incomplete type
@@ -238,23 +398,301 @@ LIST_ENTRY._fields_ = [
 ]
 
 GetProbeDataHeader = namedtuple('GetProbeDataHeader',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Packet'])
-    
+        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Packet'])  
 class ProbeDataHeader(SaviorStruct):
     '''
     Probe Data Header
     '''
     _fields_ = [
-        ('probe_id', UUID),
+        ('probe_id', _UUID),
 	('probe_type', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
     ]
 
+    
+GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',  
+    ['probe_id', 'probe_type', 'CurrentGMT',
+    'ProcessId', 'EProcess',
+    'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
+    'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
+    'Attributes', 'CheckAccessMode', 'CompleteName'])
+class RegCreateKeyInfo(SaviorStruct):
+    '''
+    Probe Data Header
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
+        ("RootObject", LONGLONG),
+        ("Options", ULONG),
+        ("SecurityDescriptor", LONGLONG),
+        ("SecurityQualityOfService", LONGLONG),
+        ("DesiredAccess", ULONG),
+        ("GrantedAccess", ULONG),
+        ("Version", LONGLONG),
+        ("Wow64Flags", ULONG),
+        ("Attributes", ULONG),
+        ("CheckAccessMode", CHAR),                            
+        ("CompleteNameSz", USHORT),
+        ("CompleteName", BYTE * 1)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.CompleteNameSz
+        offset = type(info.contents).CompleteName.offset
+        sb = create_string_buffer(msg_pkt.Packet, len(msg_pkt.Packet))
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        CompleteName = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))            
+        key_nfo = GetRegCreateKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.RootObject),
+            info.contents.Options,
+            cls.LongLongToHex(info.contents.SecurityDescriptor),
+            cls.LongLongToHex(info.contents.SecurityQualityOfService),
+            info.contents.DesiredAccess,
+            info.contents.GrantedAccess,
+            cls.LongLongToHex(info.contents.Version),
+            info.contents.Wow64Flags,
+            info.contents.Attributes,
+            KPROCESSOR_MODE(int(info.contents.CheckAccessMode[0])).name, 
+            CompleteName) 
+        return key_nfo
+        
+GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',  
+        ['probe_id', 'probe_type', 'CurrentGMT', 
+        'ProcessId', 'EProcess', 'Class', 'Object', 'KeyValueInformationClass', 'ValueName'])
+class RegQueryValueKeyInfo(SaviorStruct):
+    '''
+    Probe Data Header
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
+        ("Class", UINT),
+        ("_blank", UINT),
+        ("Object", LONGLONG),
+        ("KeyValueInformationClass", UINT),
+        ("ValueNameLength", USHORT),
+        ("ValueName", BYTE * 1)
+    ]
+    
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.ValueNameLength
+        offset = type(info.contents).ValueName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ValueName = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        key_info = GetRegQueryValueKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            RegNotifyClass(info.contents.Class).name, 
+            cls.LongLongToHex(info.contents.Object),
+            KeyValueInformationClass(info.contents.KeyValueInformationClass).name,
+            ValueName)
+        return key_info
+
+    
+GetRegRenameKeyInfo = namedtuple('GetRegRenameKeyInfo',  
+                                ['probe_id', 'probe_type', 'CurrentGMT', 
+                                 'ProcessId', 'EProcess', 'Object', 'NewName'])
+class RegRenameKeyInfo(SaviorStruct):
+    '''
+    Registry Rename Value Key
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("NewNameLength", USHORT),
+        ("NewName", BYTE * 1)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.NewNameLength
+        offset = type(info.contents).NewName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        NewName = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+
+        key_info = GetRegRenameKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            NewName)
+        return key_info
+
+
+
+GetRegPostOperationInfo = namedtuple('GetRegPostOperationInfo',  
+            ['probe_id', 'probe_type', 'CurrentGMT', 
+             'ProcessId', 'EProcess', 'Object',
+             'Status', 'PreInformation', 'ReturnStatus'])
+class RegPostOperationInfo(SaviorStruct):
+    '''
+    Registry Post Operations
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("Status", NTSTATUS),
+        ("PreInformation", LONGLONG),
+        ("ReturnStatus", NTSTATUS)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))        
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+
+        key_info = GetRegPostOperationInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            hex(info.contents.Status),
+            cls.LongLongToHex(info.contents.PreInformation),
+            hex(info.contents.ReturnStatus))
+        return key_info
+    
+GetRegDeleteValueKeyInfo = namedtuple('GetRegDeleteValueKeyInfo',  
+                                      ['probe_id', 'probe_type', 'CurrentGMT', 
+                                    'ProcessId', 'EProcess', 'Object', 'ValueName'])
+class RegDeleteValueKeyInfo(SaviorStruct):
+    '''
+    Registry Delete Value Key
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("ValueNameLength", USHORT),
+        ("ValueName", BYTE * 1)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.ValueNameLength
+        offset = type(info.contents).ValueName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ValueName = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+
+        key_info = GetRegDeleteValueKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            ValueName)
+        return key_info
+        
+GetRegSetValueKeyInfo = namedtuple('GetRegSetValueKeyInfo',  
+             ['probe_id', 'probe_type', 'CurrentGMT', 
+              'ProcessId', 'EProcess', 'Object', 'Type', 'ValueName'])
+    
+class RegSetValueKeyInfo(SaviorStruct):
+    '''
+    Registry Set Value Key
+    '''    
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),            
+        ("Object", LONGLONG),
+        ("Type", UINT),
+        ("ValueNameLength", USHORT),
+        ("ValueName", BYTE * 1)
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        length = info.contents.ValueNameLength
+        offset = type(info.contents).ValueName.offset
+        sb = create_string_buffer(msg_pkt.Packet)
+        array_of_info = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_info)
+        ValueName = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        obj_type_name = ''
+        try:
+            obj_type_name = RegObjectType(info.contents.Type).name
+        except ValueError as _verr:
+            obj_type_name = info.contents.Type
+
+        key_info = GetRegSetValueKeyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.Object),
+            obj_type_name,
+            ValueName)
+        return key_info
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Status', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 'Status', 
             'ProcessId', 'EProcess'])
 
 class ProcessListValidationFailed(SaviorStruct):
@@ -264,8 +702,8 @@ class ProcessListValidationFailed(SaviorStruct):
     _fields_ = [
         ("Header", ProbeDataHeader),
         ("Status", NTSTATUS),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID)
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG)
     ]
     
     @classmethod
@@ -275,22 +713,21 @@ class ProcessListValidationFailed(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         process_list_validation_failed = GetProcessListValidationFailed(
-            probe_id,
-            ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,            
             info.contents.Header.CurrentGMT,
             info.contents.Status,
             info.contents.ProcessId,
-            info.contents.EProcess)
+            cls.LongLongToHex(info.contents.EProcess))
         return process_list_validation_failed
 
     
-GetLoadedImageInfo = namedtuple('GetLoadedImageInfo',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+GetImageLoadInfo = namedtuple('GetImageLoadInfo',  
+        ['probe_id', 'probe_type', 'CurrentGMT', 
         'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
-class LoadedImageInfo(SaviorStruct):
+class ImageLoadInfo(SaviorStruct):
     '''
     Probe Data Header
     '''    
@@ -299,7 +736,7 @@ class LoadedImageInfo(SaviorStruct):
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("ImageBase", LONGLONG),
-        ("ImageSize", ULONGLONG),
+        ("ImageSize", LONGLONG),
         ("FullImageNameSz", USHORT),
         ("FullImageName", BYTE * 1)
     ]
@@ -317,22 +754,21 @@ class LoadedImageInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
-        img_nfo = GetLoadedImageInfo(
-            probe_id,
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        img_nfo = GetImageLoadInfo(
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
-            info.contents.EProcess,
-            info.contents.ImageBase, 
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.ImageBase), 
             info.contents.ImageSize,
             ModuleName)
         return img_nfo
 
 
 GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 
         'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 
         'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz', 
         'CommandLine'])
@@ -343,11 +779,11 @@ class ProcessCreateInfo(SaviorStruct ):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ParentProcessId", HANDLE),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID),
+        ("ParentProcessId", LONGLONG),
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG),
         ("CreatingThreadId", CLIENT_ID),
-        ("FileObject", PVOID),
+        ("FileObject", LONGLONG),
         ("CreationStatus", NTSTATUS),
         ("CommandLineSz", USHORT),
         ("CommandLine", BYTE * 1)        
@@ -360,31 +796,30 @@ class ProcessCreateInfo(SaviorStruct ):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        length = info.contents.CommandLineSz
         offset = type(info.contents).CommandLine.offset
+        length = msg_pkt.DataSz - offset
         sb = create_string_buffer(msg_pkt.Packet)
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
-        CommandLine = "".join(map(chr, slc[::2]))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        CommandLine = cls.DecodeString(slc)
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
         create_info = GetProcessCreateInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
             info.contents.ProcessId,
-            info.contents.EProcess,
-            info.contents.CreatingThreadId.UniqueProcess,
-            info.contents.CreatingThreadId.UniqueThread,
-            info.contents.FileObject,
+            cls.LongLongToHex(info.contents.EProcess),
+            cls.LongLongToHex(info.contents.CreatingThreadId.UniqueProcess),
+            cls.LongLongToHex(info.contents.CreatingThreadId.UniqueThread),
+            cls.LongLongToHex(info.contents.FileObject),
             info.contents.CreationStatus,
             info.contents.CommandLineSz,
             CommandLine)
         return create_info
 
 GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 
+        ['probe_id', 'probe_type', 'CurrentGMT', 
          'ProcessId', 'EProcess'])
     
 class ProcessDestroyInfo(SaviorStruct):
@@ -393,8 +828,8 @@ class ProcessDestroyInfo(SaviorStruct):
     '''
     _fields_ = [
         ("Header", ProbeDataHeader),
-        ("ProcessId", HANDLE),
-        ("EProcess", PVOID) 
+        ("ProcessId", LONGLONG),
+        ("EProcess", LONGLONG) 
     ]
     
     @classmethod
@@ -404,14 +839,16 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = str(uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data)))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        info.contents.EProcess = (0 if not info.contents.EProcess 
+                else info.contents.EProcess)
+        print(info.contents.EProcess)
         create_info = GetProcessDestroyInfo(
-            probe_id,
+            str(probe_id),
             ProbeType(info.contents.Header.probe_type).name,
-            info.contents.Header.DataSz,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
-            info.contents.EProcess)
+            cls.LongLongToHex(info.contents.EProcess))
         return create_info
     
 
@@ -788,7 +1225,7 @@ def test_packet_decode():
     '''
     Test WinVirtUE packet decode
     '''
-    MAXPKTSZ = 0x400  # max packet size
+    MAXPKTSZ = 0x10000  # max packet size
     (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
@@ -796,14 +1233,28 @@ def test_packet_decode():
         print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
-        if pdh.probe_type == ProbeType.LoadedImage:            
-            msg_data = LoadedImageInfo.build(pdh)
+        if pdh.probe_type == ProbeType.ImageLoad:            
+            msg_data = ImageLoadInfo.build(pdh)
         elif pdh.probe_type == ProbeType.ProcessCreate:
             msg_data = ProcessCreateInfo.build(pdh)
         elif pdh.probe_type == ProbeType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(pdh)
         elif pdh.probe_type == ProbeType.ProcessListValidationFailed:
             msg_data = ProcessListValidationFailed.build(pdh)
+        elif pdh.probe_type == ProbeType.RegQueryValueKeyInfo:
+            msg_data = RegQueryValueKeyInfo.build(pdh)            
+        elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
+            msg_data = RegCreateKeyInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
+            msg_data = RegSetValueKeyInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.RegOpenKeyInfo:
+            msg_data = RegCreateKeyInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.RegDeleteValueKeyInfo:
+            msg_data = RegDeleteValueKeyInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.RegRenameKeyInfo:
+            msg_data = RegRenameKeyInfo.build(pdh)            
+        elif pdh.probe_type == ProbeType.RegPostOperationInfo:
+            msg_data = RegPostOperationInfo.build(pdh)                        
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue
@@ -839,7 +1290,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
-        ("SensorId", UUID),
+        ("SensorId", _UUID),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
@@ -915,7 +1366,7 @@ class ProbeStatus(SaviorStruct):
     The ProbeStatus message
     '''
     _fields_ = [        
-        ("SensorId", UUID),
+        ("SensorId", _UUID),
         ("LastRunTime", LONGLONG),
         ("RunInterval", LONGLONG),
         ("OperationCount", LONG),
@@ -936,13 +1387,9 @@ class ProbeStatus(SaviorStruct):
         sb = create_string_buffer(msg_pkt)
         array_of_chars = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_chars)
-        lst = []
-        for ch in slc:
-            if not ch:
-                break
-            lst.append(ch)
+        lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
-        sensor_id = UUID(bytes=bytes(info.contents.SensorId))        
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
         probe_status = GetProbeStatus(            
             sensor_id,
             info.contents.LastRunTime,
@@ -1111,8 +1558,8 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
-    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
-            len(cmd_msg.contents.SensorId.Data))
+    memmove(cmd_msg.contents.SensorId.Data, 
+            sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
     ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]
@@ -1130,7 +1577,6 @@ def test_command_response():
     Test WinVirtUE command response
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-    import pdb;pdb.set_trace()
     try:        
         (res, probes,) = EnumerateProbes(hFltComms)
         print("res = {0}\n".format(res,))        

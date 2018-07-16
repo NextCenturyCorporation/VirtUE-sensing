@@ -10,7 +10,6 @@
 
 #define COMMON_POOL_TAG WVU_THREAD_POOL_TAG
 
-static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
 class WVUProbeManager *pWVUMgr;
 #pragma region Main Initialization Thread
@@ -45,14 +44,10 @@ WVUMainInitThread(PVOID StartContext)
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);	
 	
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainInitThread Acquired runndown protection . . .\n");
-	pWVUMgr = new WVUProbeManager();
-	if (NULL == pWVUMgr)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"WVUProbeManager not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
+
+	WVUProbeManager& instance = WVUProbeManager::GetInstance();  // touch off the probe manager
+	UNREFERENCED_PARAMETER(instance);
+
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create sensor thread
 	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUProbeCommsThread, NULL);
@@ -104,14 +99,7 @@ WVUMainInitThread(PVOID StartContext)
 			"Add Failed! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	
-	Cookie.QuadPart = (LONGLONG)Globals.DriverObject;
-	Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, NULL, &Cookie, NULL);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
-		goto ErrorExit;
-	}
+
 #endif
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
@@ -241,6 +229,7 @@ WVUProbeCommsThread(PVOID StartContext)
 			if (FALSE == WVUQueueManager::GetInstance().PutBack(&pPDH->ListEntry)) // put the dequeued entry back
 			{
 				WVUQueueManager::GetInstance().Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
+				WVUQueueManager::GetInstance().IncrementDiscardsCount();
 				pListEntry = NULL;
 			}
 		}

@@ -38,21 +38,6 @@ ProcessCreateProbe::~ProcessCreateProbe()
 	}
 }
 
-/**
-* @brief called to configure the probe
-* @note Do create threads, or defer execution during the entire configure operation.
-* Unpredictable and bizzare results could occur.
-* @param config_data newline terminated with assign operator name value
-* pair configuration information
-*/
-_Use_decl_annotations_
-BOOLEAN 
-ProcessCreateProbe::Configure(_In_ const ANSI_STRING& config_data)
-{
-	UNREFERENCED_PARAMETER(config_data);
-	return FALSE;
-}
-
 _Use_decl_annotations_
 NTSTATUS
 ProcessCreateProbe::RemoveNotify(BOOLEAN remove)

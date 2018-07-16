@@ -57,7 +57,7 @@ public:
 	_Must_inspect_result_
 		virtual BOOLEAN IsEnabled() = 0;
 	_Must_inspect_result_
-		virtual BOOLEAN Configure(_In_ const ANSI_STRING& config_data) = 0;
+		virtual BOOLEAN Configure(_In_ const ANSI_STRING& config_data);
 	/** called by the polling thread to do work */
 	_Must_inspect_result_
 		virtual BOOLEAN OnPoll();

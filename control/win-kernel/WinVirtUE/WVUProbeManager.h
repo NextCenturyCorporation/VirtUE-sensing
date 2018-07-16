@@ -13,15 +13,34 @@
 #include "ImageLoadProbe.h"
 #include "ProcessListValidationProbe.h"
 #include "ProcessCreateProbe.h"
-
+#include "RegistryModificationProbe.h"
 
 class WVUProbeManager
 {
 private:
 	NTSTATUS Status;
-public:
 	WVUProbeManager();
+public:
 	~WVUProbeManager();
+	/**
+	* @brief returns the one and only probe manager instance
+	* @returns WVUProbeManager instance singleton
+	*/
+	static WVUProbeManager& GetInstance()
+	{
+		static WVUProbeManager instance;
+		return instance;
+	}
+	/**
+	* @brief copy constructor
+	*/
+	WVUProbeManager(const WVUProbeManager &t) = delete;
+
+	/**
+	* @brief assignment operator
+	*/
+	WVUProbeManager& operator=(const WVUProbeManager &rhs) = delete;
+
 	/* construct a new instance of this class */
 	_Must_inspect_impl_
 		PVOID operator new(_In_ size_t size);

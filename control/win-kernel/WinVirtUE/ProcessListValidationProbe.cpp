@@ -21,8 +21,9 @@ ProcessListValidationProbe::ProcessListValidationProbe() :
 
 /**
 * @brief called to configure the probe
-* @note Do create threads, or defer execution during the entire configure operation.
-* Unpredictable and bizzare results could occur.
+* @note Do not create threads that will actively configure this probe, or
+* defer execution during during which the probe is configured else
+* unpredictable and bizzare results could occur.
 * @param config_data newline terminated with assign operator name value
 * pair configuration information
 */
@@ -211,7 +212,7 @@ ProcessListValidationProbe::OnRun()
 		// Notify the WVUProbeManager that the Sensor is in an Alarm State.  User Space Program MUST acknowledge.
 		// Normal, UnAcknowledged Alarm State, Alarm State, 
 		WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
-		if (NULL == pProbeInfo)
+		if (NULL == pProbeInfo || NULL == pProbeInfo->Probe)
 		{
 			WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, WARNING_LEVEL_ID,
 				"***** Unable to find probe info on probe %w!\n", &probe_name);		

@@ -82,7 +82,7 @@ typedef enum _ProbeType : USHORT
 {
 	NoProbeIdType = 0x0000,
 	/** Loaded Image (.exe,.dll, etc) notificaton type */
-	LoadedImage = 0x0001,
+	ImageLoad = 0x0001,
 	/** Process Creation notificaton type */
 	ProcessCreate = 0x0002,
 	/** Process Destruction notificaton type */
@@ -92,8 +92,28 @@ typedef enum _ProbeType : USHORT
 	/** Thread Destruction notificaton type */
 	ThreadDestroy = 0x0005,
 	/** process list validation */
-	ProcessListValidation = 0x0006
+	ProcessListValidation = 0x0006,
+	/** Registry Modification */
+	RegQueryValueKeyInformation = 0x0007,
+	RegCreateKeyInformation = 0x0008,
+	RegSetValueKeyInformation = 0x0009,
+	RegOpenKeyInformation = 0x000A,
+	RegDeleteValueKeyInformation = 0x000B,	
+	RegRenameKeyInformation = 0x000C,
+	RegQueryMultipleValueKeyInformation = 0x000D,
+	RegPreReplaceKey = 0x000E,
+	RegPostReplaceKey = 0x000F,
+	RegPreLoadKey = 0x0010,
+	/** post operations start at 0x1001 */
+	RegPostOperationInformation = 0x1001
 } ProbeType;
+
+_Struct_size_bytes_(Size + sizeof USHORT)
+typedef struct _Atom
+{
+	_In_ USHORT Size;
+	_In_  BYTE Buffer[0];
+} Atom, *PAtom;
 
 _Struct_size_bytes_(data_sz)
 typedef struct _ProbeDataHeader
@@ -105,6 +125,120 @@ typedef struct _ProbeDataHeader
 	_In_ LIST_ENTRY  ListEntry;
 } PROBE_DATA_HEADER, *PPROBE_DATA_HEADER;
 
+typedef struct _RegPostOperationInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;			// The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;		// The EProcess that is emitting the registry changes
+	_In_ PVOID Object;				// A pointer to the registry key object for which the operation has completed.	
+	_In_ NTSTATUS Status;			// The NTSTATUS-typed value that the system will return for the registry operation
+	_In_ PVOID PreInformation;		// A pointer to the structure that contains preprocessing information for the registry operation that has completed
+	_In_ NTSTATUS ReturnStatus;		// A driver-supplied NTSTATUS-typed value.
+} RegPostOperationInfo, *PRegPostOperationInfo;
+
+typedef struct _RegLoadKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	    // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;	// The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			// registry key object pointer	
+	_In_ ACCESS_MASK     DesiredAccess;
+	_In_ ULONG EntryCount;		// The number of entries in the ValueEntries array
+	_In_ LONG BufferLength;		// variable that contains the length, in bytes, of the ValueBuffer buffer.
+	_In_ BYTE ValueBuffer[0];	// A pointer to a buffer that receives the unicode strings KeyName and SourceFile
+} RegLoadKeyInfo, *PRegLoadKeyInfo;
+
+typedef struct _RegQueryMultipleValueKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	    // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;	// The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			// registry key object pointer	
+	_In_ ULONG EntryCount;		// The number of entries in the ValueEntries array
+	_In_ LONG BufferLength;		// variable that contains the length, in bytes, of the ValueBuffer buffer.
+	_In_ BYTE ValueBuffer[0];	// A pointer to a buffer that receives (from the system) the data for all the value entries specified by the ValueEntries array
+} RegQueryMultipleValueKeyInfo, *PRegQueryMultipleValueKeyInfo;
+
+typedef struct _RegDeleteValueKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			  // registry key object pointer	
+	_In_ USHORT ValueNameLength;  // the value name length	
+	_In_ BYTE ValueName[0];		  // key value information
+} RegDeleteValueKeyInfo, *PRegDeleteValueKeyInfo;
+
+typedef struct _RegRenameKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	    // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;   // The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			// registry key object pointer	
+	_In_ USHORT NewNameLength;  // the new name length	
+	_In_ BYTE NewName[0];		// new name
+} RegRenameKeyInfo, *PRegRenameKeyInfo;
+
+typedef struct _RegCreateKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+	_In_ PVOID           RootObject;
+	_In_ ULONG           Options;
+	_In_ PVOID           SecurityDescriptor;
+	_In_ PVOID           SecurityQualityOfService;
+	_In_ ACCESS_MASK     DesiredAccess;
+	_In_ ACCESS_MASK     GrantedAccess;
+	_In_ ULONG_PTR       Version;
+	_In_ ULONG           Wow64Flags;
+	_In_ ULONG           Attributes;
+	_In_ KPROCESSOR_MODE CheckAccessMode;
+	_In_ USHORT			 CompleteNameSz;
+	_In_ BYTE            CompleteName[1];
+} RegCreateKeyInfo, *PRegCreateKeyInfo;
+
+typedef enum _RegObjectType : ULONG
+{
+	RegNone = REG_NONE, // No value type
+	RegSz = REG_SZ, // Unicode nul terminated string
+	RegExpandSz = REG_EXPAND_SZ, // Unicode nul terminated string
+	// (with environment variable references)
+	RegBinary = REG_BINARY, // Free form binary
+	RegDWord = REG_DWORD, // 32-bit number
+	RegDWordLE = REG_DWORD_LITTLE_ENDIAN, // 32-bit number (same as REG_DWORD)
+	RegDWordBE = REG_DWORD_BIG_ENDIAN, // 32-bit number
+	RegLink = REG_LINK, // Symbolic Link (unicode)
+	RegMultiSz = REG_MULTI_SZ, // Multiple Unicode strings
+	RegResourceList = REG_RESOURCE_LIST, // Resource list in the resource map
+	RegFullResourceDescriptor = REG_FULL_RESOURCE_DESCRIPTOR, // Resource list in the hardware description
+	RegResourceRequirementsList = REG_RESOURCE_REQUIREMENTS_LIST,
+	RegQWord = REG_QWORD, // 64-bit number
+	RegQWordLE = REG_QWORD_LITTLE_ENDIAN // 64-bit number (same as REG_QWORD)
+} RegObjectType, *PRegObjectType;
+
+typedef struct _RegSetValueKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+	_In_ PVOID Object;			  // registry key object pointer	
+	_In_ RegObjectType Type;      // the registry object type
+	_In_ USHORT ValueNameLength;   // the value name length	
+	_In_ BYTE ValueName[0];		  // key value information
+} RegSetValueKeyInfo, *PRegSetValueKeyInfo;
+
+typedef struct _RegQueryValueKeyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;	// probe data header
+	_In_ HANDLE ProcessId;	      // The process that is emitting the registry changes
+	_In_ PEPROCESS  EProcess;     // The EProcess that is emitting the registry changes
+	_In_ ULONG Class;  // This registry modification notification class
+	_In_ PVOID Object;			  // registry key object pointer
+	_In_ KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass;   // value that indicates the type of information to be returned by the system
+	_In_ USHORT ValueNameLength;   // the value name length	
+	_In_ BYTE ValueName[0];		  // key value information
+} RegQueryValueKeyInfo, *PRegQueryValueKeyInfo;
 
 typedef struct _ProcessListValidationFailed
 {

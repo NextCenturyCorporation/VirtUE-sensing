@@ -317,10 +317,7 @@ WVUUnload(
 
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
-	if (NULL != pWVUMgr)
-	{
-		delete pWVUMgr;
-	}
+
 	// we've made, all is well
 	Status = STATUS_SUCCESS;
 

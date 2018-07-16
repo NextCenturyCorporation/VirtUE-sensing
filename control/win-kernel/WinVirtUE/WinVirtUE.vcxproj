@@ -47,12 +47,12 @@
     </ClCompile>
     <ClCompile Include="jsmn.cpp" />
     <ClCompile Include="Utility.cpp" />
+    <ClCompile Include="RegistryModificationProbe.cpp" />
     <ClCompile Include="WVUCommsManager.cpp" />
     <ClCompile Include="ImageLoadProbe.cpp" />
     <ClCompile Include="WVUQueueManager.cpp" />
     <ClCompile Include="ProcessCreateProbe.cpp" />
     <ClCompile Include="ProcessListValidationProbe.cpp" />
-    <ClCompile Include="RegistryModificationCB.cpp" />
     <ClCompile Include="Debug.cpp" />
     <ClCompile Include="Driver.cpp" />
     <ClCompile Include="FltMgrCallbacks.cpp" />
@@ -177,7 +177,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -185,7 +185,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -202,7 +202,7 @@
       <WppEnabled>false</WppEnabled>
       <WppRecorderEnabled>true</WppRecorderEnabled>
       <WppScanConfigurationData>trace.h</WppScanConfigurationData>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -218,7 +218,7 @@
       <WppEnabled>false</WppEnabled>
       <WppRecorderEnabled>true</WppRecorderEnabled>
       <WppScanConfigurationData>trace.h</WppScanConfigurationData>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
@@ -226,7 +226,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -234,7 +234,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
@@ -242,7 +242,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -250,7 +250,7 @@
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <DisableSpecificWarnings>4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6271;4200;26438;26448;26481;26493;26409;26461;26439;26433;26432;26403;26401;26462;26447;26429;26440;26486</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -280,6 +280,7 @@
     <ClInclude Include="FltMgrCallbacks.h" />
     <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="jsmn.h" />
+    <ClInclude Include="RegistryModificationProbe.h" />
     <ClInclude Include="Utility.h" />
     <ClInclude Include="WVUCommsManager.h" />
     <ClInclude Include="ImageLoadProbe.h" />
@@ -287,7 +288,6 @@
     <ClInclude Include="WVUQueueManager.h" />
     <ClInclude Include="ProcessCreateProbe.h" />
     <ClInclude Include="ProcessListValidationProbe.h" />
-    <ClInclude Include="RegistryModificationCB.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="trace.h" />
     <ClInclude Include="UnDoc.h" />

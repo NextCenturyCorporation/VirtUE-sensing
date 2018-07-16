@@ -7,7 +7,6 @@
 #pragma once
 #include "common.h"
 #include "ObjectCreateNotifyCB.h"
-#include "RegistryModificationCB.h"
 #include "externs.h"
 
 KSTART_ROUTINE WVUMainInitThread;
