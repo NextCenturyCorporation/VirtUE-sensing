@@ -36,7 +36,10 @@
  * @param tag - expected to be the probe id string
  * @return error code or zero
  *
- * Note: the parent probe is LOCKED by the caller
+ * Optionally runs the ps probe to re-populate the flex array
+ * with new ps records.
+ * Note: the parent probe is LOCKED by the caller, and caller
+ * will unlock the probe upon return from this function.
  **/
 int
 kernel_ps_get_record(struct kernel_ps_probe *parent,
@@ -45,11 +48,10 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 {
 	struct kernel_ps_data *kpsd_p;
 	int ccode = 0;
-	ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
-	ssize_t remaining = orig_len, cur_len = 0;
+	ssize_t cur_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;
 	struct records_reply *rp = (struct records_reply *)msg->output;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [", *cursor;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
 
 	assert(parent);
 	assert(msg);
@@ -60,98 +62,63 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	assert(msg->output_len == (sizeof(struct records_reply)));
 	assert(rr->index >= 0 && rr->index < PS_ARRAY_SIZE);
 
+
+	if (!rp->records || rp->records_len <=0) {
+		return -ENOMEM;
+	}
+
 	if (rr->run_probe) {
 		/**
 		 * refresh all the ps records in the flex array
 		 **/
 		ccode = kernel_ps_unlocked(parent, rr->nonce);
 		if (ccode < 0) {
-			spin_unlock(&parent->lock);
 			return ccode;
 		}
 	}
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, rr->index);
-	if (kpsd_p && kpsd_p->clear == FLEX_ARRAY_FREE) {
-		return -ENOENT;
-	}
-
-	if (!kpsd_p) {
-		return -ENOENT;
+	if (!kpsd_p || kpsd_p->clear == FLEX_ARRAY_FREE) {
+	/**
+	* when there is no entry, or the entry is clear, return an
+	* empty record response. per the protocol control/kernel/messages.md
+	**/
+		cur_len = scnprintf(rp->records,
+							rp->records_len - 1,
+							"%s %s, %s]}\n",
+							r_header,
+							rr->json_msg->s->nonce,
+							parent->id);
+		rp->index = -ENOENT;
+		goto record_created;
 	}
 
 	if (rr->nonce && kpsd_p->nonce != rr->nonce) {
 		return -EINVAL;
 	}
 
-	if (!rp->records || rp->records_len <=0) {
-		return -ENOMEM;
-	}
-
-	if (unlikely(strlcat(rp->records,
-						 r_header,
-						 orig_len) >= orig_len)) {
-		goto err_exit;
-	}
-
-	if (unlikely(strlcat(rp->records,
-						 rr->json_msg->s->nonce,
-						 orig_len) >= orig_len)) {
-		goto err_exit;
-	}
-
-	if (unlikely(strlcat(rp->records,
-						 ", ",
-						 orig_len) >= orig_len)) {
-		goto err_exit;
-	}
-
-	if (unlikely(strlcat(rp->records,
-						 parent->id,
-						 orig_len) >= orig_len)) {
-		goto err_exit;
-	}
-
-	if (unlikely(strlcat(rp->records,
-						 ", ",
-						 orig_len) >= orig_len)) {
-		goto err_exit;
-	}
-
-	/**
-	 * get a pointer to the terminating null, calculate the
-	 * remaining length, and then snprintf to that pointer.
-	 **/
-
-	cursor = rp->records + cur_len;
-	remaining = orig_len - cur_len;
-
 
 	/**
 	 * build the record json object(s)
 	 **/
-	cur_len += snprintf(rp->records,
-						remaining,
-						"%s %d %s %d %d %llx ] }\n",
+	cur_len = scnprintf(rp->records,
+						rp->records_len - 1,
+						"%s %s, %s, %s %d %s %d %d %llx ]}\n",
+						r_header, rr->json_msg->s->nonce, parent->id,
 						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
 						kpsd_p->user_id.val, rr->nonce);
-
-	if (cur_len >= orig_len) {
-		cur_len = orig_len;
-	}
+	rp->index = rr->index;
 
 	if (kpsd_p && rr->clear) {
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
 
+record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
-	rp->index = rr->index;
 	rp->range = rr->range;
 	return 0;
-err_exit:
-	return -ENOMEM;
 }
 
 
@@ -172,9 +139,9 @@ err_exit:
 
 int
 print_kernel_ps(struct kernel_ps_probe *parent,
-						   uint8_t *tag,
-						   uint64_t nonce,
-						   int count)
+				uint8_t *tag,
+				uint64_t nonce,
+				int count)
 {
 	int index;
 	struct kernel_ps_data *kpsd_p;

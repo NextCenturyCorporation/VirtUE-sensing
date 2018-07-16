@@ -24,6 +24,11 @@
 #ifndef _CONTROLLER_FLAGS_H
 #define _CONTROLLER_FLAGS_H
 
+/**
+ * TODO:  https://lwn.net/Articles/588444/
+ * checking for unused flags
+ **/
+
 #define __SET_FLAG(flag, bits) ((flag) |= (bits))
 #define __CLEAR_FLAG(flag, bits) ((flag) &= ~(bits))
 #define __FLAG_IS_SET(flag, bits) ((flag) & (bits) ? 1 : 0)

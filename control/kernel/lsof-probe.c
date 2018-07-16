@@ -28,7 +28,25 @@
 #include "import-header.h"
 
 
-/* default lsof filter */
+
+
+
+/**
+ * probe is LOCKED upon entry
+ **/
+static int
+lsof_message(struct probe *probe, struct probe_msg *msg)
+{
+	switch(msg->id) {
+	case RECORDS: {
+		return kernel_lsof_get_record((struct kernel_lsof_probe *)probe,
+									  msg,
+									  "kernel-lsof");
+	}
+	default:
+		return -EINVAL;
+	}
+}
 
 /**
  * default, dummy filter, for development and test
@@ -67,11 +85,110 @@ lsof_all_files(struct kernel_lsof_probe *p,
 	return 1;
 }
 
+/**
+ * @brief copy one record of the kernel_lsof list to a memory buffer
+ * to be called by the record message handler to build a single
+ * record response message
+ *
+ * @param parent - the kernel ps probe instance
+ * @param msg - a struct probe_msg that contains input and
+ *        output parameters.
+ * @param tag - expected to be the probe id string
+ * @return error code or zero
+ *
+ * Optionally runs the lsof probe to re-populate the flex array
+ * with new lsof records.
+ * Note: the parent probe is LOCKED by the caller
+ **/
+int
+kernel_lsof_get_record(struct kernel_lsof_probe *parent,
+					   struct probe_msg *msg,
+					   uint8_t *tag)
+{
+	struct kernel_lsof_data *klsof_p;
+	int ccode = 0;
+	ssize_t cur_len = 0;
+	struct records_request *rr = (struct records_request *)msg->input;
+	struct records_reply *rp = (struct records_reply *)msg->output;
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+
+	assert(parent);
+	assert(msg);
+	assert(tag);
+	assert(rr);
+	assert(rp);
+	assert(msg->input_len == (sizeof(struct records_request)));
+	assert(msg->output_len == (sizeof(struct records_reply)));
+	assert(rr->index >= 0 && rr->index < LSOF_ARRAY_SIZE);
+
+	if (rr->run_probe) {
+		/**
+		 * refresh all the ps records in the flex array
+		 **/
+		ccode = kernel_lsof_unlocked(parent, rr->nonce);
+		if (ccode < 0) {
+			return ccode;
+		}
+	}
+
+	klsof_p = flex_array_get(parent->klsof_data_flex_array, rr->index);
+	if (!klsof_p || klsof_p->clear == FLEX_ARRAY_FREE) {
+   /**
+	* when there is no entry, or the entry is clear, return an
+	* empty record response. per the protocol control/kernel/messages.md
+	**/
+		cur_len = scnprintf(rp->records,
+							rp->records_len - 1,
+							"%s %s, %s]}\n",
+							r_header,
+							rr->json_msg->s->nonce,
+							parent->id);
+		rp->index = -ENOENT;
+		goto record_created;
+	}
+
+	if (rr->nonce && klsof_p->nonce != rr->nonce) {
+		return -EINVAL;
+	}
+
+	if (!rp->records || rp->records_len <=0) {
+		return -ENOMEM;
+	}
+	/**
+	 * build the record json object(s)
+	 **/
+
+	cur_len = scnprintf(rp->records,
+						rp->records_len - 1,
+						"%s %s, %s, %s uid: %d pid: %d flags: %x "
+						"mode: %x count: %lx %s]}\n",
+						r_header,
+						rr->json_msg->s->nonce,
+						parent->id,
+						tag,
+						klsof_p->user_id.val,
+						klsof_p->pid_nr,
+						klsof_p->flags,
+						klsof_p->mode,
+						atomic64_read(&klsof_p->count),
+						klsof_p->dpath + klsof_p->dp_offset);
+	rp->index = rr->index;
+	if (klsof_p && rr->clear) {
+		flex_array_clear(parent->klsof_data_flex_array, rr->index);
+	}
+
+record_created:
+	rp->records_len = cur_len;
+	rp->records[cur_len] = 0x00;
+	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
+	rp->range = rr->range;
+	return 0;
+}
+
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
 				  uint8_t *tag,
-				  uint64_t nonce,
-				  int count)
+				  uint64_t nonce)
 {
 
 	int index;
@@ -177,16 +294,18 @@ lsof_get_files_struct(struct kernel_lsof_probe *p,
 STACK_FRAME_NON_STANDARD(lsof_get_files_struct);
 
 
+/**
+ * Assumes: caller holds p->lock
+ **/
+
 int
-lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
+lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
+						   uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
 	struct lsof_pid_el *pid_el_p;
 
-	if (!spin_trylock(&p->lock)) {
-		return -EAGAIN;
-	}
 	for (index = 0; index < PID_EL_ARRAY_SIZE; index++)  {
 		pid_el_p = flex_array_get(p->klsof_pid_flex_array, index);
 		if (pid_el_p) {
@@ -203,30 +322,38 @@ lsof_for_each_pid(struct kernel_lsof_probe *p, int count, uint64_t nonce)
 			}
 		} else {
 			printk(KERN_INFO "array indexing error in lsof_for_each_pid\n");
-			spin_unlock(&p->lock);
 			return -ENOMEM;
 		}
 	}
-	spin_unlock(&p->lock);
 	return file_index;
 }
-STACK_FRAME_NON_STANDARD(lsof_for_each_pid);
-
-
 
 int
-lsof_build_pid_index(struct kernel_lsof_probe *p, uint64_t nonce)
+kernel_lsof_unlocked(struct kernel_lsof_probe *p,
+					 uint64_t nonce)
 {
-	return build_pid_index((struct probe *)p, p->klsof_pid_flex_array, nonce);
+	int count;
+	count = build_pid_index_unlocked((struct probe *)p,
+									 p->klsof_pid_flex_array,
+									 nonce);
+	count = lsof_for_each_pid_unlocked(p, nonce);
+	return count;
 }
 
 
 int
-kernel_lsof(struct kernel_lsof_probe *p, int c, uint64_t nonce)
+kernel_lsof(struct kernel_lsof_probe *p, uint64_t nonce)
 {
 	int count;
-	count = lsof_build_pid_index(p, nonce);
-	count = lsof_for_each_pid(p, count, nonce);
+
+	if (!spin_trylock(&p->lock)) {
+		return -EAGAIN;
+	}
+	count = build_pid_index_unlocked((struct probe *)p,
+									 p->klsof_pid_flex_array,
+									 nonce);
+	count = lsof_for_each_pid_unlocked(p, nonce);
+	spin_unlock(&p->lock);
 	return count;
 }
 
@@ -236,17 +363,15 @@ run_klsof_probe(struct kthread_work *work)
 	struct kthread_worker *co_worker = work->worker;
 	struct kernel_lsof_probe *probe_struct =
 		container_of(work, struct kernel_lsof_probe, work);
-	int count = 0;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
-
-	probe_struct->lsof(probe_struct, count, nonce);
+	probe_struct->lsof(probe_struct, nonce);
 
 /**
  *  call print by default. But, in the future there will be other
  *  options, notably outputting in json format to a socket
  **/
-	probe_struct->print(probe_struct, "kernel-lsof", nonce, ++count);
+	probe_struct->print(probe_struct, "kernel-lsof", nonce);
 	probe_struct->repeat--;
 	if (probe_struct->repeat > 0 &&  (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		int i;
@@ -289,7 +414,7 @@ struct kernel_lsof_probe *
 init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 					   uint8_t *id, int id_len,
 					   int (*print)(struct kernel_lsof_probe *,
-									uint8_t *, uint64_t, int),
+									uint8_t *, uint64_t),
 					   int (*filter)(struct kernel_lsof_probe *,
 									 struct kernel_lsof_data *,
 									 void *))
@@ -323,6 +448,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 
 	lsof_p->_init = init_kernel_lsof_probe;
 	lsof_p->_destroy = destroy_kernel_lsof_probe;
+	lsof_p->message = lsof_message;
 	if (print) {
 		lsof_p->print = print;
 	} else {

@@ -32,6 +32,10 @@ EXPORT_SYMBOL(k_sensor);
 atomic64_t SHOULD_SHUTDOWN = ATOMIC64_INIT(0);
 EXPORT_SYMBOL(SHOULD_SHUTDOWN);
 
+/**
+ * TODO:  https://lwn.net/Articles/588444/
+ * checking for unused flags
+ **/
 
 struct kernel_ps_probe kps_probe;
 struct kernel_lsof_probe klsof_probe;
@@ -216,18 +220,17 @@ get_task_by_pid_number(pid_t pid)
 	return ts;
 }
 
-
+/**
+ * Assumes: caller holds p->lock
+ **/
 int
-build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
+build_pid_index_unlocked(struct probe *p,
+						 struct flex_array *a,
+						 uint64_t nonce)
 {
 	int index = 0;
 	struct task_struct *task;
-	unsigned long flags;
 	static pid_el pel;
-
-	if (!spin_trylock_irqsave(&p->lock, flags)) {
-		return -EAGAIN;
-	}
 
 	rcu_read_lock();
 	for_each_process(task) {
@@ -242,21 +245,31 @@ build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
 						   GFP_ATOMIC);
 			index++;
 		} else {
-			printk(KERN_INFO "kernel pid index array over-run\n");
-			index = -ENOMEM;
-			goto unlock_out;
+			printk(KERN_DEBUG "kernel pid index array over-run\n");
+			return -ENOMEM;
 		}
 	}
-	rcu_read_unlock();
-
-unlock_out:
-	spin_unlock_irqrestore(&p->lock, flags);
-
 	return index;
+}
 
+
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce)
+{
+	int index = 0;
+
+	if (!spin_trylock(&p->lock)) {
+		return -EAGAIN;
+	}
+	index = build_pid_index_unlocked(p, a, nonce);
+	spin_unlock(&p->lock);
+	return index;
 }
 STACK_FRAME_NON_STANDARD(build_pid_index);
 
+/**
+ * TODO: convert get_probe to use the probe->uuid field
+ **/
 /**
  *  probe is LOCKED upon return
  **/
@@ -271,9 +284,10 @@ get_probe(uint8_t *probe_id, struct probe **p)
 	*p = NULL;
 	rcu_read_lock();
 	list_for_each_entry_rcu(probe_p, &k_sensor.probes, l_node) {
-		if (! strncmp(probe_p->id, probe_id, strlen(probe_id))) {
+		if (! strncmp(probe_p->id, probe_id, strlen(probe_p->id))) {
 			if(!spin_trylock(&probe_p->lock)) {
 				ccode =  -EAGAIN;
+				goto exit;
 			} else {
 				*p = probe_p;
 				ccode = 0;
@@ -658,7 +672,8 @@ struct probe *init_probe(struct probe *probe,
  **/
 		memcpy(probe->id, id, id_size - 1);
 	}
-
+	/* generate the probe uuid */
+	generate_random_uuid(probe->uuid);
 	probe->lock=__SPIN_LOCK_UNLOCKED("probe");
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */

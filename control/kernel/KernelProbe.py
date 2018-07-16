@@ -1,25 +1,73 @@
 #!/usr/bin/python
-import socket, sys, os, subprocess, uuid
+import socket, sys, os, subprocess, uuid, io, json
 
 class KernelProbe:
 # TODO: self.connect_string is currently unused
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
-
-    def __init__(self, socket_name, target_probe):
-        self.socket_name = socket_name
+    def __init__(self,
+                 socket_name = '/var/run/kernel_sensor',
+                 target_probe = '"Kernel PS Probe"',
+                 out_file = '-'):
+        self.sock = 0
+        self.out_file = 0
+        self.in_file = 0
         self.target_probe = target_probe
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        print >> sys.stderr, 'connecting to %s' % self.socket_name
-        try:
-            self.sock.connect(self.socket_name)
-        except socket.error, msg:
-            print >>sys.stderr, msg
+        self.set_socket(socket_name)
+        self.set_out_file(out_file)
 
-    def set_socket(self, socket):
-        self.socket_name = socket
+    def set_socket(self, socket_name):
+        if self.sock:
+            self.sock.close()
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        print >> sys.stderr, 'connecting to %s' % socket_name
+        try:
+            self.sock.connect(socket_name)
+        except socket.error:
+            print >> sys.stderr, "error connecting to socket %s" % socket_name
+
+    def set_out_file(self, out):
+        print >> sys.stderr, "attempting to open %s as output file" % out
+        if self.out_file and self.out_file != sys.stdout:
+            self.out_file.close()
+        if out and out != '-':
+            self.out_file = open(out, "w+")
+        else:
+            self.out_file = sys.stdout
+
+    def set_in_file(self, in_file):
+        print >> sys.stderr, "attempting to open %s as input file" % in_file
+        if self.in_file and self.in_file != sys.stdin:
+            self.in_file.close()
+        if in_file:
+            self.in_file = open(in_file, "r")
+        else:
+            self.in_file = sys.stdin
 
     def set_target_probe(self, probe):
         self.target_probe = probe
+
+    def run_input_file(self):
+        # each line in the file is expected to be a json object that contains
+        # a request message
+        for line in self.in_file:
+            try:
+                request = json.loads(line)
+                try:
+                    self.sock.sendall(json.dumps(request))
+                    self.sock.settimeout(0.5)
+                    amount_received = 0
+                    max_amount = 0x400
+                    data = self.sock.recv(max_amount)
+                    while len(data):
+                        self.out_file.write("%s" %(data))
+                        data = self.sock.recv(max_amount)
+                        self.out_file.write("%s" %(data))
+
+                except:
+                    print >> sys.stderr, "run_input_file: closing socket"
+                    self.sock.close()
+            except:
+                print >> sys.stderr, "Not a valid JSON object %s" %(line)
 
     def json_connect(self):
         try:
@@ -92,11 +140,11 @@ class KernelProbe:
            max_amount = 0x400
            data = self.sock.recv(max_amount)
            amount_received = len(data)
-           print >>sys.stderr, 'discovery test received "%s"' % data
+           self.out_file.write("%s" %(data))
 
        except:
-            print >>sys.stderr, 'send_discovery_message: closing socket'
-            self.sock.close()
+           print >>sys.stderr, 'send_discovery_message: closing socket'
+           self.sock.close()
 
     def send_records_message(self):
         try:
@@ -111,11 +159,13 @@ class KernelProbe:
                               %(message_header, message_nonce, message_command, \
                                 self.target_probe, message_footer))
 
+            self.sock.settimeout(0.5)
             amount_received = 0
             max_amount = 0x400
             data = self.sock.recv(max_amount)
-            amount_received = len(data)
-            print >>sys.stderr, 'records response received "%s"' % data
+            while len(data):
+                self.out_file.write("%s" %(data))
+                data = self.sock.recv(max_amount)
 
         except:
             print >>sys.stderr, 'send_records_message: closing socket'
@@ -126,34 +176,41 @@ def client_main(args):
     usage_string = """usage: %s [--connect] [--discover] [--echo]
                              [--socket <path>]""" % sys.argv[0]
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
-    socket_name = '/var/run/kernel_sensor'
-    target_probe = '"Kernel PS Probe"'
     parser = argparse.ArgumentParser(description=usage_string)
     parser.add_argument("-s", "--socket",
-                        default=socket_name,
-                        help="path to domain socket")
+                        help = "path to domain socket")
     parser.add_argument("-c", "--connect",
-                        action="store_true",
-                        help="issue a JSON connect message")
+                        action = "store_true",
+                        help = "issue a JSON connect message")
     parser.add_argument("-d", "--discover",
-                        action='store_true',
-                        help="retrieve a JSON array of loaded probes (not a full json exchange)")
+                        action = 'store_true',
+                        help = "retrieve a JSON array of loaded probes (not a full json exchange)")
     parser.add_argument("-e", "--echo",
-                        action='store_true',
-                        help="test the controller's echo server")
+                        action = 'store_true',
+                        help = "test the controller's echo server")
     parser.add_argument("-r", "--records",
                         action = 'store_true',
                         help="test the controller's echo server")
-    parser.add_argument("--probe",
-                        default=target_probe,
-                        help="target probe for message")
+    parser.add_argument("-p", "--probe",
+                        help = "target probe for message")
+    parser.add_argument("-f", "--file",
+                        help = "output data to this file")
+    parser.add_argument("-i", "--input",
+                        help = "read input commands from this file")
 
     args = parser.parse_args()
+    probe = KernelProbe()
 
-    socket_name = args.socket
-    target_probe = args.probe
-
-    probe = KernelProbe(socket_name, target_probe)
+    if args.socket:
+        probe.set_socket(args.socket)
+    if args.probe:
+        probe.set_target_probe(args.probe)
+    if args.file:
+        probe.set_out_file(args.file)
+    if args.input:
+        probe.set_in_file(args.input)
+        probe.run_input_file()
+        sys.exit(0)
 
     if args.records:
         probe.send_records_message()

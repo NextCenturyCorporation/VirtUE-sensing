@@ -64,6 +64,7 @@ typedef enum message_command command;
 #define MAX_NONCE_SIZE 32
 #define MAX_CMD_SIZE 128
 #define MAX_ID_SIZE MAX_CMD_SIZE
+#define MAX_NAME_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
 struct jsmn_message;
 struct jsmn_session;
@@ -114,8 +115,12 @@ struct jsmn_session
 	struct jsmn_message *req;
 	struct list_head h_replies;
 	uint8_t cmd[MAX_CMD_SIZE];
-	uint8_t probe_id[MAX_ID_SIZE];
-
+	/**
+	 * reminder: converting probe_id to probe_name be be aligned with
+	 * user-space sensor wrapper
+	 **/
+	uint8_t probe_id[MAX_NAME_SIZE];
+	uint8_t probe_uuid[16];
 };
 
 
@@ -171,6 +176,8 @@ struct state_request
 struct state_reply
 {
 	command cmd; /* enum message_command */
+	uint8_t name[MAX_NAME_SIZE];
+	uint8_t uuid[16];
 	uint64_t flags, state;
 	int timeout, repeat;
 	bool clear;    /* clear records? */
@@ -369,7 +376,9 @@ struct probe {
 		spinlock_t lock;
 		struct semaphore s_lock;
 	};
+	/** TODO: rename id to name **/
 	uint8_t *id;
+	uint8_t uuid[16];
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);
 	int (*message)(struct probe *, struct probe_msg *);
@@ -634,19 +643,14 @@ struct lsof_pid_el
 };
 
 typedef struct lsof_pid_el pid_el;
-
 /**
- * following two were generalized and hoised out of lsof-probe.c
+ * following two were generalized and hoisted out of lsof-probe.c
  * controller-common.c
  *
  **/
 
 struct task_struct *
 get_task_by_pid_number(pid_t pid);
-
-int
-build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonc);
-
 
 /**
  * see include/linux/flex_array.h for the definitions of
@@ -662,6 +666,8 @@ build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonc);
 
 #define MAX_DENTRY_LEN 0x100
 struct kernel_lsof_data {
+	uint8_t clear;
+	uint8_t pad[7];
 	uint64_t nonce;
 	int index;
 	kuid_t user_id;
@@ -697,12 +703,12 @@ struct kernel_lsof_probe {
 	int (*filter)(struct kernel_lsof_probe *,
 				  struct kernel_lsof_data *,
 				  void *);
-	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t, int);
-	int (*lsof)(struct kernel_lsof_probe *, int, uint64_t);
+	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t);
+	int (*lsof)(struct kernel_lsof_probe *, uint64_t);
 	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
 									   uint8_t *, int,
 									   int (*print)(struct kernel_lsof_probe *,
-													uint8_t *, uint64_t, int),
+													uint8_t *, uint64_t),
 									   int (*filter)(struct kernel_lsof_probe *,
 													 struct kernel_lsof_data *,
 													 void *));
@@ -713,6 +719,22 @@ extern struct kernel_lsof_probe klsof_probe;
 extern int lsof_repeat;
 extern int lsof_timeout;
 extern int lsof_level;
+
+int
+build_pid_index_unlocked(struct probe *p,
+						 struct flex_array *a,
+						 uint64_t nonce);
+int
+build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce);
+
+int
+kernel_lsof_get_record(struct kernel_lsof_probe *parent,
+					   struct probe_msg *msg,
+					   uint8_t *tag);
+
+int
+lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
+						   uint64_t nonce);
 
 int lsof_pid_filter(struct kernel_lsof_probe *p,
 					struct kernel_lsof_data *d,
@@ -733,11 +755,14 @@ lsof_uid_filter(struct kernel_lsof_probe *p,
 int
 print_kernel_lsof(struct kernel_lsof_probe *parent,
 				  uint8_t *tag,
-				  uint64_t nonce,
-				  int count);
+				  uint64_t nonce);
 
 int
-kernel_lsof(struct kernel_lsof_probe *parent, int count, uint64_t nonce);
+kernel_lsof_unlocked(struct kernel_lsof_probe *p,
+					 uint64_t nonce);
+
+int
+kernel_lsof(struct kernel_lsof_probe *parent, uint64_t nonce);
 
 void
 run_klsof_probe(struct kthread_work *work);
@@ -746,7 +771,7 @@ struct kernel_lsof_probe *
 init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 					   uint8_t *id, int id_len,
 					   int (*print)(struct kernel_lsof_probe *,
-									uint8_t *, uint64_t, int),
+									uint8_t *, uint64_t),
 					   int (*filter)(struct kernel_lsof_probe *,
 									 struct kernel_lsof_data *,
 									 void *));
@@ -766,6 +791,8 @@ extern int sysfs_timeout;
 extern int sysfs_level;
 
 struct kernel_sysfs_data {
+	uint8_t clear;
+	uint8_t pad[7];
 	uint64_t nonce;
 	int index;
 	pid_t pid;
@@ -834,6 +861,9 @@ int
 filter_sysfs_data(struct kernel_sysfs_probe *,
 				  struct kernel_sysfs_data *,
 				  void *);
+int
+kernel_sysfs_unlocked(struct kernel_sysfs_probe *, uint64_t);
+
 int
 kernel_sysfs(struct kernel_sysfs_probe *, int, uint64_t);
 

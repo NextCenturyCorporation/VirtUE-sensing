@@ -69,6 +69,7 @@ pretty:
 trim:
 	find ./ -name "*.c" | xargs ./ttws.sh
 	find ./ -name "*.h" | xargs ./ttws.sh
+	find ./ -name "*.py" | xargs ./ttws.sh
 	find ./ -name "Makefile" | xargs ./ttws.sh
 
 .PHONY: disassemble

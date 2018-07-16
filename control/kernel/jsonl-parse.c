@@ -43,7 +43,7 @@ typedef int spinlock_t;
  * so emacs c-mode indentation doesn't get confused.
  **/
 SLIST_HEAD(session_head, jsmn_session) \
-h_sessions;
+	h_sessions;
 
 #else
 spinlock_t sessions_lock;
@@ -338,6 +338,7 @@ allocate_reply_message(struct jsmn_message *request, bool alloc_buffer)
 		if (!rply->line) {
 			goto err_out_rply;
 		}
+		rply->len = CONNECTION_MAX_HEADER;
 	}
 
 	/**
@@ -402,7 +403,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		.clear = 1,
 		.nonce = 0L,
 		.index = 0,
-		.range = 1
+		.range = -1
 	};
 
 	struct records_reply rp = {0};
@@ -419,6 +420,16 @@ process_records_request(struct jsmn_message *msg, int index)
 	do {
 		ccode = get_probe(msg->s->probe_id, &probe_p);
 	} while (ccode == -EAGAIN);
+
+	if (ccode < 0) {
+		/**
+		 * TODO: return an empty discovery response or some json object
+		 * that tells the client the target probe was not found.
+		 **/
+		printk(KERN_DEBUG "could not find a matching probe, exiting %d\n",
+			   ccode);
+		return ccode;
+	}
 
 	if (!ccode && probe_p != NULL) {
         /* send this probe a records request */
@@ -457,12 +468,9 @@ process_records_request(struct jsmn_message *msg, int index)
 			/**
 			 * re-initialize the request struct to reflect where we are in the loop
 			 **/
-			rr.range--;
-			if (rr.range > 0) {
-				rr.run_probe = 0;
-				rr.index++;
-			}
-		} while(!ccode && rr.range > 0);
+			rr.run_probe = 0;
+			rr.index++;
+		} while(!ccode && rp.index != -ENOENT);
 		spin_unlock(&probe_p->lock);
 		probe_p = NULL;
 	}
@@ -1117,7 +1125,7 @@ uint8_t *escape_newlines(uint8_t *in, int len)
 		p = c;
 		while (*p && count) {
 			if (*p != 0x0a && *p != 0x0d) {
-				*c++ = *p++;
+				c++; p++;
 			} else {
 				*(p + 1) = *p;
 				p += 2;
