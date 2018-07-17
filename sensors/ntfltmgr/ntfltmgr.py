@@ -1551,8 +1551,9 @@ def OneShotKill(hFltComms, pid):
     '''
     Kill a specific Process
     '''
-    pid_str = ("{0}".format(pid,))
-    length = len(pid_str) - sizeof(BYTE)
+    import pdb;pdb.set_trace()
+    pid_str = ("{0}".format(str(pid),)).encode()
+    length = len(pid_str)
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
@@ -1614,7 +1615,6 @@ def main(argv):
     '''
     let's test some stuff
     '''
-    import pdb;pdb.set_trace()
     if len(argv) == 2:
         (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
         try:        
