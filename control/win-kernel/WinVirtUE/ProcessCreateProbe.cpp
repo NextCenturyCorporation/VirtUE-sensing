@@ -177,8 +177,9 @@ NTSTATUS ProcessCreateProbe::Mitigate(
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable to retrieve EProcess from PID 0x%08x - returned 0x%08x!\n", pid, Status);
 		goto ErrorExit;
 	}
+	UNREFERENCED_PARAMETER(EProcess);
 
-	client_id = { EProcess, (HANDLE)0 };
+	client_id = { (HANDLE)pid, (HANDLE)0 };
 	InitializeObjectAttributes(&ObjectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	Status = ZwOpenProcess(&ProcessHandle, mask, &ObjectAttributes, &client_id);			
 	if (FALSE == NT_SUCCESS(Status))
