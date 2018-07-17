@@ -959,25 +959,25 @@ def _build_filter_instance_info(buf):
     offset = info.contents.InstanceNameBufferOffset
     array_of_info = memoryview(sb)[offset:length+offset]
     slc = (BYTE * length).from_buffer(array_of_info)
-    InstanceName = "".join(map(chr, slc[::2]))
+    InstanceName = bytes(slc).decode('utf-16')
 
     length = info.contents.AltitudeLength
     offset = info.contents.AltitudeBufferOffset
     array_of_info = memoryview(sb)[offset:length+offset]
     slc = (BYTE * length).from_buffer(array_of_info)
-    Altitude = "".join(map(chr, slc[::2]))
+    Altitude = bytes(slc).decode('utf-16')
 
     length = info.contents.VolumeNameLength
     offset = info.contents.VolumeNameBufferOffset
     array_of_info = memoryview(sb)[offset:length+offset]
     slc = (BYTE * length).from_buffer(array_of_info)
-    VolumeName = "".join(map(chr, slc[::2]))
+    VolumeName = bytes(slc).decode('utf-16')
 
     length = info.contents.FilterNameLength
     offset = info.contents.FilterNameBufferOffset
     array_of_info = memoryview(sb)[offset:length+offset]
     slc = (BYTE * length).from_buffer(array_of_info)
-    FilterName = "".join(map(chr, slc[::2]))
+    FilterName = bytes(slc).decode('utf-16')
 
     fii = FilterInstanceInformation(InstanceName, Altitude, VolumeName, FilterName)
 
@@ -1273,6 +1273,7 @@ class WVU_COMMAND(CtypesEnum):
     DisableUnload = 0x4
     EnumerateProbes = 0x5
     ConfigureProbe = 0x6
+    OneShotKill = 0x7   
     
 class WVU_RESPONSE(CtypesEnum):
     '''
@@ -1545,6 +1546,29 @@ def DisableUnload(hFltComms):
 
     return res, rsp_msg
 
+    
+def OneShotKill(hFltComms, pid):
+    '''
+    Kill a specific Process
+    '''
+    pid_str = ("{0}".format(pid,))
+    length = len(pid_str) - sizeof(BYTE)
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
+    
+    cmd_msg.contents.Command = WVU_COMMAND.OneShotKill
+    cmd_msg.contents.DataSz = length
+
+    offset = type(cmd_msg.contents).Data.offset 
+    ary = memoryview(cmd_buf)[offset:offset + len(pid_str)]
+    slc = (BYTE * len(pid_str)).from_buffer(ary)            
+    fit = min(len(pid_str), len(slc))
+    memmove(slc, pid_str, fit)
+    
+    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
+
+    return res, rsp_msg
 
 def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     '''
@@ -1586,10 +1610,18 @@ def test_command_response():
     finally:
         CloseHandle(hFltComms)    
       
-def main():
+def main(argv):
     '''
     let's test some stuff
     '''
+    if len(argv) == 1:
+        (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+        try:        
+            (res, resp_msg,) = OneShotKill(hFltComms, argv[0])
+            print("_res={0},resp_msg={1}\n".format(res,resp_msg,))
+        finally:
+            CloseHandle(hFltComms)                
+    
     test_command_response()
     
     test_packet_decode()  
@@ -1599,5 +1631,5 @@ def main():
     
 
 if __name__ == '__main__':        
-    main()
+    main(sys.argv)
 
