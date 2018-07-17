@@ -1578,7 +1578,7 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
         raise ValueError("Parameter cfgdata is invalid!")
         
-    length = len(cfgdata) - sizeof(BYTE)
+    length = len(cfgdata)
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
@@ -1586,10 +1586,10 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
             sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
-    ary = memoryview(cmd_buf)[offset:offset + len(cfgdata)]
-    slc = (BYTE * len(cfgdata)).from_buffer(ary)        
+    ary = memoryview(cmd_buf)[offset:offset + length]
+    slc = (BYTE * length).from_buffer(ary)        
     data = cfgdata.encode('utf-8')
-    fit = min(len(cfgdata), len(slc))
+    fit = min(length, len(slc))
     memmove(slc, data, fit)
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))

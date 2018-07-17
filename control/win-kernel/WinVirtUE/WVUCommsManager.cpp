@@ -492,7 +492,7 @@ WVUCommsManager::OnOneShotKill(
 		goto ErrorExit;
 	}
 
-	Status = pProbeInfo->Probe->Mitigate(1, mitigation_data);
+	Status = pProbeInfo->Probe->Mitigate(NUMBER_OF(mitigation_data), mitigation_data);
 
 ErrorExit:
 
