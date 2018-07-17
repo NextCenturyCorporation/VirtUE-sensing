@@ -9,6 +9,7 @@
 #define COMMON_POOL_TAG WVU_PROCESSCTORDTORPROBE_POOL_TAG
 
 static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ProcessCreate");
+const ANSI_STRING OneShotKill = RTL_CONSTANT_STRING("one-shot-kill");
 
 /**
 * @brief construct an instance of this probe 
@@ -124,8 +125,8 @@ BOOLEAN ProcessCreateProbe::IsEnabled()
 */
 _Use_decl_annotations_
 NTSTATUS ProcessCreateProbe::Mitigate(
-	ANSI_STRING argv[],
-	UINT32 argc)
+	UINT32 argc,
+	ANSI_STRING argv[])
 {	
 	jsmntok_t tokens[32];
 	INT parsed = 0;
@@ -135,17 +136,17 @@ NTSTATUS ProcessCreateProbe::Mitigate(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	UNICODE_STRING ucvalue = { 0,0, NULL };
 	ULONG pid = 0L;
-	PEPROCESS EProcess = nullptr;
-	ANSI_STRING OneShotKill = RTL_CONSTANT_STRING("one-shot-kill");
+	PEPROCESS EProcess = nullptr;	
 	ANSI_STRING& mitigation_command = argv[0];
 	HANDLE ProcessHandle = INVALID_HANDLE_VALUE;
 	ACCESS_MASK mask = (DELETE | SYNCHRONIZE | GENERIC_ALL);
 	OBJECT_ATTRIBUTES ObjectAttributes = { 0,0,0,0,0,0 };
 	CLIENT_ID client_id = { 0,0 };
 
-	if (argc != 1 || argv[0].Length < 1
-		|| argv[0].MaximumLength < 1
-		|| nullptr == argv[0].Buffer)
+	if (argc != 2 || RtlCompareString(&OneShotKill, &argv[0], TRUE)
+		|| argv[1].Length < 1
+		|| argv[1].MaximumLength < 1
+		|| nullptr == argv[1].Buffer)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Invalid Mitigation Data!\n");
 		goto ErrorExit;

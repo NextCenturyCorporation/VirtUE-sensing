@@ -835,8 +835,8 @@ BOOLEAN RegistryModificationProbe::IsEnabled()
 */
 _Use_decl_annotations_
 NTSTATUS RegistryModificationProbe::Mitigate(
-	ANSI_STRING argv[],
-	UINT32 argc)
+	UINT32 argc,
+	ANSI_STRING argv[])
 {
 	UNREFERENCED_PARAMETER(argv);
 	UNREFERENCED_PARAMETER(argc);

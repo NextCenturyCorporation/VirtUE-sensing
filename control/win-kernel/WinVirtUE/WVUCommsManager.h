@@ -66,6 +66,12 @@ private:
 
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_
+		static
+		NTSTATUS OnOneShotKill(
+			_In_ PCOMMAND_MESSAGE pCmdMsg);
+	
+	_IRQL_requires_(PASSIVE_LEVEL)
+		_IRQL_requires_same_
 		static 
 		VOID CreateStandardResponse(
 			_In_ NTSTATUS Status,
