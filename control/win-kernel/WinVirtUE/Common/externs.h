@@ -25,6 +25,7 @@ extern class ImageLoadProbe *pILP;
 extern class ProcessCreateProbe *pPCP;
 extern class ProcessListValidationProbe *pPLVP;
 extern class RegistryModificationProbe *pRMP;
+extern class ThreadCreateProbe *pTCP;
 
 extern const UUID ZEROGUID;
 

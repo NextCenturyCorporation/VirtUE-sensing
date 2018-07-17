@@ -146,10 +146,6 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	HANDLE ProcessId,
 	PIMAGE_INFO pImageInfo)
 {
-	UNREFERENCED_PARAMETER(FullImageName);
-	UNREFERENCED_PARAMETER(ProcessId);
-	UNREFERENCED_PARAMETER(pImageInfo);
-
 	PEPROCESS  pProcess = NULL;
 
 	// Take a rundown reference 

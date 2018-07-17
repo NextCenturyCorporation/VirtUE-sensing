@@ -248,6 +248,16 @@ typedef struct _ProcessListValidationFailed
 	_In_ PEPROCESS  EProcess;     // the eprocess that was NOT found in the process list
 } ProcessListValidationFailed, *PProcessListValidationFailed;
 
+
+typedef struct _ThreadCreateInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ProcessId;
+	_In_ PEPROCESS  EProcess;
+	_In_ BOOLEAN Create;
+} ThreadCreateInfo, *PThreadCreateInfo;
+
+
 typedef struct _LoadedImageInfo
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;
