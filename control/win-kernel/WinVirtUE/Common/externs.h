@@ -26,7 +26,7 @@ extern class ProcessCreateProbe *pPCP;
 extern class ProcessListValidationProbe *pPLVP;
 extern class RegistryModificationProbe *pRMP;
 
-extern const ANSI_STRING OneShotKill;
+extern const ANSI_STRING one_shot_kill;
 extern const UUID ZEROGUID;
 
 
