@@ -112,7 +112,7 @@ BOOLEAN ImageLoadProbe::IsEnabled()
 */
 _Use_decl_annotations_
 NTSTATUS ImageLoadProbe::Mitigate(
-	PCHAR argv[], 
+	ANSI_STRING argv[],
 	UINT32 argc)
 {
 	UNREFERENCED_PARAMETER(argv);

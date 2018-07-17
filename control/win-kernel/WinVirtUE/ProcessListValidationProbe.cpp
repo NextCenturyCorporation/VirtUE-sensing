@@ -141,7 +141,7 @@ BOOLEAN ProcessListValidationProbe::IsEnabled()
 */
 _Use_decl_annotations_
 NTSTATUS ProcessListValidationProbe::Mitigate(
-	PCHAR argv[],
+	ANSI_STRING argv[],
 	UINT32 argc)
 {
 	UNREFERENCED_PARAMETER(argv);

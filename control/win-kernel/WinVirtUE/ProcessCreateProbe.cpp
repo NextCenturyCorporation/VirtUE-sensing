@@ -124,12 +124,118 @@ BOOLEAN ProcessCreateProbe::IsEnabled()
 */
 _Use_decl_annotations_
 NTSTATUS ProcessCreateProbe::Mitigate(
-	PCHAR argv[], 
+	ANSI_STRING argv[],
 	UINT32 argc)
-{
-	UNREFERENCED_PARAMETER(argv);
-	UNREFERENCED_PARAMETER(argc);
-	return NTSTATUS();
+{	
+	jsmntok_t tokens[32];
+	INT parsed = 0;
+	INT value_width = 0;
+	PCHAR pbuf = NULL;
+	jsmn_parser parser;
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	UNICODE_STRING ucvalue = { 0,0, NULL };
+	ULONG pid = 0L;
+	PEPROCESS EProcess = nullptr;
+	ANSI_STRING OneShotKill = RTL_CONSTANT_STRING("one-shot-kill");
+	ANSI_STRING& mitigation_command = argv[0];
+	HANDLE ProcessHandle = INVALID_HANDLE_VALUE;
+	ACCESS_MASK mask = (DELETE | SYNCHRONIZE | GENERIC_ALL);
+	OBJECT_ATTRIBUTES ObjectAttributes = { 0,0,0,0,0,0 };
+	CLIENT_ID client_id = { 0,0 };
+
+	if (argc != 1 || argv[0].Length < 1
+		|| argv[0].MaximumLength < 1
+		|| nullptr == argv[0].Buffer)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Invalid Mitigation Data!\n");
+		goto ErrorExit;
+	}
+
+	jsmn_init(&parser);
+
+	parsed = jsmn_parse(&parser, mitigation_command.Buffer, mitigation_command.Length, tokens, NUMBER_OF(tokens));
+	if (parsed < 0)  // we'll take partial packets, no prob!
+	{
+		Status = STATUS_NOT_FOUND;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Failed to parse JSON: %d\n", parsed);
+		goto ErrorExit;
+	}
+
+	if (parsed < 1 || tokens[0].type != JSMN_OBJECT)
+	{
+		Status = STATUS_NOT_FOUND;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "JSON Object Expected!\n");
+		goto ErrorExit;
+	}
+
+	for (int ndx = 0; ndx < parsed; ndx++)
+	{
+		if (0 == jsoneq(mitigation_command, &tokens[ndx], OneShotKill))
+		{
+			value_width = tokens[ndx + 1].end - tokens[ndx + 1].start;
+			pbuf = mitigation_command.Buffer + tokens[ndx + 1].start;
+			ANSI_STRING value = { (USHORT)value_width, (USHORT)value_width, pbuf };
+			Status = RtlAnsiStringToUnicodeString(&ucvalue, &value, TRUE);
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+					"Failed to allocate memory for ansi to unicode conversion for %w - error: 0x%08x\n", value, Status);
+				goto ErrorExit;
+			}
+			__try
+			{
+				Status = RtlUnicodeStringToInteger(&ucvalue, 0, &pid);
+				if (FALSE == NT_SUCCESS(Status))
+				{
+					WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+						"Failed to convert from string %wZ to native ulong format - error: 0x%08x\n", ucvalue, Status);
+					__leave;
+				}
+			}
+			__finally { RtlFreeUnicodeString(&ucvalue); }
+
+			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Mitigation Applied JSON name: %w value: %w\n", OneShotKill, value);
+
+			Status = PsLookupProcessByProcessId((HANDLE)pid, &EProcess);
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable to retrieve EProcess from PID 0x%08x - returned 0x%08x!\n", pid, Status);
+				goto ErrorExit;
+			}
+
+			client_id = { EProcess, (HANDLE)0 };
+			InitializeObjectAttributes(&ObjectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+			Status = ZwOpenProcess(&ProcessHandle, mask, &ObjectAttributes, &client_id);			
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Call to ZwOpenProcess failed with Status 0x%08x!\n", Status);
+				goto DerefAndExit;
+			}
+
+			Status = ZwTerminateProcess(ProcessHandle, STATUS_UNSUCCESSFUL);
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable ZwTerminate 0x%08x - returned 0x%08x!\n", ProcessHandle, Status);
+				goto DerefAndExit;
+			}
+			Status = ZwClose(ProcessHandle);
+			if (FALSE == NT_SUCCESS(Status))
+			{
+				WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable Cloase 0x%08x - returned 0x%08x!\n", ProcessHandle, Status);
+			}
+			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully terminated EProcess 0x%p, PID 0x%08x with Status = STATUS_UNSUCCESSFUL\n", EProcess, pid);			
+		}
+	}
+
+	Status = STATUS_SUCCESS;
+
+DerefAndExit:
+
+	ObDereferenceObject(EProcess);
+
+ErrorExit:
+
+	return Status;
 }
 
 /**
