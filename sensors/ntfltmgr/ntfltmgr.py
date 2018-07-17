@@ -1614,10 +1614,11 @@ def main(argv):
     '''
     let's test some stuff
     '''
-    if len(argv) == 1:
+    import pdb;pdb.set_trace()
+    if len(argv) == 2:
         (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
         try:        
-            (res, resp_msg,) = OneShotKill(hFltComms, argv[0])
+            (res, resp_msg,) = OneShotKill(hFltComms, int(argv[1]))
             print("_res={0},resp_msg={1}\n".format(res,resp_msg,))
         finally:
             CloseHandle(hFltComms)                
