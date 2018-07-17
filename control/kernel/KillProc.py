@@ -30,32 +30,49 @@ class KillProc:
         self.name = args.name
         self.pid = args.pid
         self.sig = args.sig
+        self.user = args.user
+        self.parent = args.parent
 
         if self.pid:
             self.kill_proc_pid()
+        elif self.user:
+            self.kill_proc_user()
+        elif self.parent:
+            self.kill_proc_children()
         else:
             self.kill_proc_name()
 
     def kill_proc_name(self):
-        proc = subprocess.Popen(['pgrep', self.name],
-                                stdout=subprocess.PIPE)
-        for pid in proc.stdout:
-            try:
-                os.kill(int(pid), int(self.sig))
-            except:
-                continue
+        try:
+            proc = subprocess.Popen(['pkill', '--signal', self.sig, self.name])
+        except OSError:
+            pass
 
     def kill_proc_pid(self):
         try:
             os.kill(int(self.pid), int(self.sig))
-        except:
-            continue
+        except OSError:
+            pass
+
+    def kill_proc_user(self):
+        try:
+            proc = subprocess.Popen(['pkill', '-u', self.user, '--signal', self.sig])
+        except OSError:
+            pass
+
+    def kill_proc_children(self):
+        try:
+            proc = subprocess.Popen(['pkill', '-P', self.parent, '--signal', self.sig])
+        except OSError:
+            pass
 
 def client_main(args):
     examples = """examples:
-        ./KillProc.py -n emacs             # kill all processes named emacs with SIGTERM
-        ./KillProc.py -p 1094              # kill pid 1094
-        ./KillProc.py -p 1094 -s 4         # kill pid 1094 with SIGKILL
+        KillProc.py -n emacs             # kill all processes named emacs with SIGTERM
+        KillProc.py -p 1094              # kill pid 1094
+        KillProc.py -p 1094 -s 4         # kill pid 1094 with SIGKILL
+        KillProc.py -u root              # kill processes owned by user root
+        KillProc.py --parent 1           # kill children of init
     """
 
     parser = argparse.ArgumentParser(
@@ -63,8 +80,10 @@ def client_main(args):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=examples)
     parser.add_argument("-n", "--name", help = "process name")
+    parser.add_argument("-u", "--user", help = "user name or id")
     parser.add_argument("-p", "--pid", help = "process id")
-    parser.add_argument("-s", "--sig", nargs = '?', default = signal.SIGTERM,
+    parser.add_argument("--parent", help = "kill children of parent pid")
+    parser.add_argument("-s", "--sig", nargs = '?', default = "SIGTERM",
                         help = "signal to send")
     args = parser.parse_args()
     response = KillProc(args)
