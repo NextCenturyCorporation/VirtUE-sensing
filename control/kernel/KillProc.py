@@ -19,7 +19,6 @@
 
 ###
 ### TODO: add a wildcard capability to the pgrep filter
-### TODO: rationalize exception handling to be smarter
 ###
 import subprocess
 import signal
@@ -32,9 +31,12 @@ class KillProc:
         self.sig = args.sig
         self.user = args.user
         self.parent = args.parent
+        self.cmd = args.cmd
 
         if self.pid:
             self.kill_proc_pid()
+        elif self.cmdline:
+            self.kill_proc_cmd()
         elif self.user:
             self.kill_proc_user()
         elif self.parent:
@@ -66,6 +68,12 @@ class KillProc:
         except OSError:
             pass
 
+    def kill_proc_cmd(self):
+        try:
+            proc = subprocess.Popen(['pkill', '-f', self.cmd, '--signal', self.sig])
+        except OSError:
+            pass
+
 def client_main(args):
     examples = """examples:
         KillProc.py -n emacs             # kill all processes named emacs with SIGTERM
@@ -73,6 +81,7 @@ def client_main(args):
         KillProc.py -p 1094 -s 4         # kill pid 1094 with SIGKILL
         KillProc.py -u root              # kill processes owned by user root
         KillProc.py --parent 1           # kill children of init
+        KillProc.py --cmd "/home/user/bin/" # kill matching command lines
     """
 
     parser = argparse.ArgumentParser(
@@ -83,6 +92,7 @@ def client_main(args):
     parser.add_argument("-u", "--user", help = "user name or id")
     parser.add_argument("-p", "--pid", help = "process id")
     parser.add_argument("--parent", help = "kill children of parent pid")
+    parser.add_argument("--cmd", help = "kill command lines matching pattern")
     parser.add_argument("-s", "--sig", nargs = '?', default = "SIGTERM",
                         help = "signal to send")
     args = parser.parse_args()
