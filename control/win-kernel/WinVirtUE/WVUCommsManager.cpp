@@ -482,7 +482,7 @@ WVUCommsManager::OnOneShotKill(
 	WVUQueueManager::ProbeInfo* pProbeInfo = nullptr;
 	ANSI_STRING pid_data = { (USHORT)pCmdMsg->DataSz, (USHORT)pCmdMsg->DataSz, (PCHAR)&pCmdMsg->Data[0] };
 	const ANSI_STRING ProcCreate = RTL_CONSTANT_STRING("ProcessCreate");
-	ANSI_STRING mitigation_data[] = { one_shot_kill, pid_data };
+	ANSI_STRING MitigationData[] = { one_shot_kill, pid_data };
 
 	pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(ProcCreate);
 	FLT_ASSERTMSG("Unable to find the ProcessCreate Probe!", pProbeInfo != NULL);
@@ -492,7 +492,7 @@ WVUCommsManager::OnOneShotKill(
 		goto ErrorExit;
 	}
 
-	Status = pProbeInfo->Probe->Mitigate(NUMBER_OF(mitigation_data), mitigation_data);
+	Status = pProbeInfo->Probe->Mitigate(NUMBER_OF(MitigationData), MitigationData);
 
 ErrorExit:
 

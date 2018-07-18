@@ -68,8 +68,8 @@ public:
 	_Must_inspect_result_ 
 	_Success_(TRUE==NT_SUCCESS(return))
 	virtual NTSTATUS Mitigate(		
-		_In_ UINT32 argc,
-		_In_count_(argc) ANSI_STRING argv[]) = 0;
+		_In_ UINT32 ArgC,
+		_In_count_(ArgC) ANSI_STRING ArgV[]) = 0;
 	/* construct a new instance of this probe class */
 	_Must_inspect_impl_
 	PVOID operator new(_In_ size_t size);

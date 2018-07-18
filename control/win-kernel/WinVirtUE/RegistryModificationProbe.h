@@ -40,8 +40,8 @@ public:
 	_Must_inspect_result_
 		_Success_(TRUE == NT_SUCCESS(return))
 		NTSTATUS Mitigate(
-			_In_ UINT32 argc,
-			_In_count_(argc) ANSI_STRING argv[]);
+			_In_ UINT32 ArgC,
+			_In_count_(ArgC) ANSI_STRING ArgV[]);
 	_Must_inspect_result_
 		NTSTATUS OnRun();
 	_Must_inspect_result_

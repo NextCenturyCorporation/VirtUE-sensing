@@ -119,43 +119,43 @@ BOOLEAN ProcessCreateProbe::IsEnabled()
 /**
 * @brief Mitigate known issues that this probe discovers
 * @note Mitigation is not being called as of June 2018
-* @param argv array of arguments
-* @param argc argument count
+* @param ArgV array of arguments
+* @param ArgC argument count
 * @returns Status returns operational status
 */
 _Use_decl_annotations_
 NTSTATUS ProcessCreateProbe::Mitigate(
-	UINT32 argc,
-	ANSI_STRING argv[])
+	UINT32 ArgC,
+	ANSI_STRING ArgV[])
 {	
 
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	UNICODE_STRING ucvalue = { 0,0, NULL };
 	ULONG pid = 0L;
 	PEPROCESS EProcess = nullptr;
-	ANSI_STRING mitigation_command = { 0,0,0 };
-	ANSI_STRING mitigation_data = { 0,0,0 };
+	ANSI_STRING MitigationCommand = { 0,0,0 };
+	ANSI_STRING MitigationData = { 0,0,0 };
 	HANDLE ProcessHandle = INVALID_HANDLE_VALUE;
-	ACCESS_MASK mask = (DELETE | SYNCHRONIZE | GENERIC_ALL);
+	ACCESS_MASK AccessMask = (DELETE | SYNCHRONIZE | GENERIC_ALL);
 	OBJECT_ATTRIBUTES ObjectAttributes = { 0,0,0,0,0,0 };
-	CLIENT_ID client_id = { 0,0 };
+	CLIENT_ID ClientId = { 0,0 };
 
-	if (argc != 2 || 0 != RtlCompareString(&one_shot_kill, &argv[0], TRUE)
-		|| argv[1].Length < 1
-		|| argv[1].MaximumLength < 1
-		|| nullptr == argv[1].Buffer)
+	if (ArgC != 2 || 0 != RtlCompareString(&one_shot_kill, &ArgV[0], TRUE)
+		|| ArgV[1].Length < 1
+		|| ArgV[1].MaximumLength < 1
+		|| nullptr == ArgV[1].Buffer)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Invalid Mitigation Data!\n");
 		goto ErrorExit;
 	}
-	mitigation_command = argv[0];
-	mitigation_data = { argv[1].Length, argv[1].MaximumLength, argv[1].Buffer };
+	MitigationCommand = ArgV[0];
+	MitigationData = { ArgV[1].Length, ArgV[1].MaximumLength, ArgV[1].Buffer };
 
-	Status = RtlAnsiStringToUnicodeString(&ucvalue, &mitigation_data, TRUE);
+	Status = RtlAnsiStringToUnicodeString(&ucvalue, &MitigationData, TRUE);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
-			"Failed to allocate memory for ansi to unicode conversion for %w - error: 0x%08x\n", mitigation_data, Status);
+			"Failed to allocate memory for ansi to unicode conversion for %w - error: 0x%08x\n", MitigationData, Status);
 		goto ErrorExit;
 	}
 
@@ -179,9 +179,9 @@ NTSTATUS ProcessCreateProbe::Mitigate(
 	}
 	UNREFERENCED_PARAMETER(EProcess);
 
-	client_id = { (HANDLE)pid, (HANDLE)0 };
+	ClientId = { (HANDLE)pid, (HANDLE)0 };
 	InitializeObjectAttributes(&ObjectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
-	Status = ZwOpenProcess(&ProcessHandle, mask, &ObjectAttributes, &client_id);			
+	Status = ZwOpenProcess(&ProcessHandle, AccessMask, &ObjectAttributes, &ClientId);			
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Call to ZwOpenProcess failed with Status 0x%08x!\n", Status);

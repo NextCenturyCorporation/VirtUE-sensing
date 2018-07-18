@@ -1551,7 +1551,6 @@ def OneShotKill(hFltComms, pid):
     '''
     Kill a specific Process
     '''
-    import pdb;pdb.set_trace()
     pid_str = ("{0}".format(str(pid),)).encode()
     length = len(pid_str)
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)
