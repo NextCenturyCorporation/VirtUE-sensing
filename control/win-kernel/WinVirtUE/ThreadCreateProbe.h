@@ -24,7 +24,7 @@ private:
 	
 public:
 	ThreadCreateProbe();
-	~ThreadCreateProbe();
+	~ThreadCreateProbe() = default;
 	_Success_(TRUE == return)
 		BOOLEAN Start();
 	_Success_(TRUE == return)
@@ -34,8 +34,8 @@ public:
 	_Must_inspect_result_
 		_Success_(TRUE == NT_SUCCESS(return))
 		NTSTATUS Mitigate(
-			_In_opt_count_(argc) PCHAR argv[],
-			_In_ UINT32 argc);
+			_In_ UINT32 Argc,
+			_In_opt_count_(Argc) ANSI_STRING Argv[]);
 	_Must_inspect_result_
 		NTSTATUS OnRun();
 };

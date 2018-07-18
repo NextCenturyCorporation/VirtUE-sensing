@@ -3,15 +3,14 @@
 
 static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ThreadCreate");
 
+/**
+* @brief construct an instance of this probe
+*/
 ThreadCreateProbe::ThreadCreateProbe() : AbstractVirtueProbe(probe_name)
 {
 	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
 
-
-ThreadCreateProbe::~ThreadCreateProbe()
-{
-}
 
 /**
 * @brief Start the ThreadCreateProbe by setting the notification callback
@@ -67,19 +66,20 @@ BOOLEAN ThreadCreateProbe::IsEnabled()
 /**
 * @brief Mitigate known issues that this probe discovers
 * @note Mitigation is not being called as of June 2018
-* @param argv array of arguments
-* @param argc argument count
+* @param ArgV array of arguments
+* @param ArgC argument count
 * @returns Status returns operational status
 */
 _Use_decl_annotations_
 NTSTATUS ThreadCreateProbe::Mitigate(
-	PCHAR argv[],
-	UINT32 argc)
+	UINT32 ArgC,
+	ANSI_STRING ArgV[])
 {
-	UNREFERENCED_PARAMETER(argv);
-	UNREFERENCED_PARAMETER(argc);
+	UNREFERENCED_PARAMETER(ArgV);
+	UNREFERENCED_PARAMETER(ArgC);
 	return NTSTATUS();
 }
+
 
 /**
 * @brief called by system thread if polled thread has expired
