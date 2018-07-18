@@ -28,10 +28,10 @@ public:
 	_Must_inspect_result_
 	BOOLEAN IsEnabled();
 	_Must_inspect_result_
-	_Success_(TRUE == NT_SUCCESS(return))
-	NTSTATUS Mitigate(
-		_In_opt_count_(argc) PCHAR argv[],
-		_In_ UINT32 argc);
+		_Success_(TRUE == NT_SUCCESS(return))
+		NTSTATUS Mitigate(
+			_In_ UINT32 ArgC,
+			_In_count_(ArgC) ANSI_STRING ArgV[]);
 	_Must_inspect_result_
 		NTSTATUS OnRun();
 };

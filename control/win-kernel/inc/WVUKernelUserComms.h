@@ -26,6 +26,7 @@ typedef enum _WVU_COMMAND : ULONG
 	DisableUnload = 4,
 	EnumerateProbes = 5,
 	ConfigureProbe = 6,
+	OneShotKill = 7,
 	MAXCMDS
 } WVU_COMMAND;
 
