@@ -108,33 +108,111 @@ ThreadCreateProbe::ThreadCreateCallback(
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PVOID StartAddress = nullptr;
+	PVOID Win32StartAddress = nullptr;
+	ThreadBehavior ThdBeh = (ThreadBehavior)0;
 	PETHREAD pThread = nullptr;
 
 	UNREFERENCED_PARAMETER(ProcessId);
-	UNREFERENCED_PARAMETER(ThreadId);
-	UNREFERENCED_PARAMETER(Create);
+	
+	// Take a rundown reference 
+	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
-	Status = PsLookupThreadByThreadId(ThreadId, &pThread);
-	if (FALSE == NT_SUCCESS(Status))
+	const USHORT bufsz = sizeof(ThreadCreateInfo);
+#pragma warning(suppress: 6014)  // we allocate memory, put stuff into, enqueue it and return we do leak!
+	const auto buf = new UCHAR[bufsz];
+	if (NULL == buf)
 	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
-			"Failed to grab thread reference, Status=0x%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for ThreadCreate Data!\n");
 		goto ErrorExit;
-	}	
-	__try
-	{
-		/** TODO: always retrieve the correct offset per version: Version 1807 */
-		StartAddress = Add2Ptr(pThread, 0x610);
 	}
-	__finally
+
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+	if (NULL == pProbeInfo)
 	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, TRACE_LEVEL_ID,
-			"Process Id 0x%08 Thread Id 0x%08 at EProcess 0x%p was %s to run at start address 0x%p\n",
-			pThread, ProcessId, Create ? "Created" : "Terminated", StartAddress);
-		ObDereferenceObject(pThread);
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+			"***** Unable to find probe info on probe %w!\n", &probe_name);
+		goto ErrorExit;
 	}
+	const PThreadCreateInfo pThreadCreateInfo = (PThreadCreateInfo)buf;
+	RtlSecureZeroMemory(buf, bufsz);
+	pThreadCreateInfo->ProbeDataHeader.probe_type = ProbeType::ThreadCreate;
+	pThreadCreateInfo->ProbeDataHeader.data_sz = bufsz;
+	pThreadCreateInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+	KeQuerySystemTimePrecise(&pThreadCreateInfo->ProbeDataHeader.current_gmt);
+	pThreadCreateInfo->Create = Create;
+	pThreadCreateInfo->ProcessId = ProcessId;
+	pThreadCreateInfo->ThreadId = ThreadId;
+	
+	if (TRUE == Create)
+	{
+		Status = PsLookupThreadByThreadId(ThreadId, &pThread);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
+				"Failed to grab thread reference for ProcessId 0x%08 ThreadId 0x%08 - Status=0x%08x\n", Status);
+			goto ErrorExit;
+		}
+		__try
+		{
+			switch (Globals.lpVersionInformation.dwBuildNumber)
+			{
+			case 14393:
+				StartAddress = (PVOID)Add2Ptr(pThread, 0x608);
+				Win32StartAddress = (PVOID)Add2Ptr(pThread, 0x688);
+				ThdBeh = (ThreadBehavior)*((PBYTE)Add2Ptr(pThread, 0x6c8));
+				__leave;
+			case 16299:
+				StartAddress = (PVOID)Add2Ptr(pThread, 0x610);
+				Win32StartAddress = (PVOID)Add2Ptr(pThread, 0x690);
+				ThdBeh = (ThreadBehavior)*((PBYTE)Add2Ptr(pThread, 0x6d8));
+				__leave;
+			default:
+				StartAddress = nullptr;
+				Win32StartAddress = nullptr;
+				ThdBeh = (ThreadBehavior)0;
+				WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
+					"Failed to retrieve Thread Data for Version 0x%08 - Status=0x%08x\n",
+					Globals.lpVersionInformation.dwBuildNumber, Status);
+				goto ErrorExit;
+			}
+		}
+		__finally
+		{
+			if (FALSE == AbnormalTermination())
+			{
+				WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, TRACE_LEVEL_ID,
+					"Process Id 0x%08 Thread Id 0x%08 at EProcess 0x%p was %s to run at start address 0x%p\n",
+					pThread, ProcessId, Create ? "Created" : "Terminated", StartAddress);
+			}
+			ObDereferenceObject(pThread);
+		}
+
+		pThreadCreateInfo->EntryPoint =
+			((ThdBeh & ThreadBehavior::StartAddressInvalid) == ThreadBehavior::StartAddressInvalid)
+			? Win32StartAddress
+			: StartAddress;
+	}
+
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pThreadCreateInfo->ProbeDataHeader.ListEntry))
+	{
+#pragma warning(suppress: 26407)
+		delete[] buf;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
+			"***** Thread Create Enqueue Operation Failed: ProcessId 0x%08 ThreadId 0x%08 was %s to running address 0x%p\n",
+			ProcessId, ThreadId, Create ? "Created" : "Terminated", pThreadCreateInfo->EntryPoint);
+	}
+
+	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
+	{
+		pProbeInfo->Probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime());
+	}
+	Status = STATUS_SUCCESS;
 
 ErrorExit:
+
+	// Drop a rundown reference 
+	ExReleaseRundownProtection(&Globals.RunDownRef);
 
 	return;
 }

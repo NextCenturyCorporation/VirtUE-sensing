@@ -95,20 +95,29 @@ WVUQueueManager::dtor_exc_filter(
 */
 WVUQueueManager::~WVUQueueManager()
 {	
-	while (FALSE == IsListEmpty(&this->ProbeList))
-	{		
-		PLIST_ENTRY pListEntry = RemoveHeadList(&this->ProbeList);
-		ProbeInfo* pProbeInfo = CONTAINING_RECORD(pListEntry, ProbeInfo, ListEntry);
-		delete pProbeInfo;
-	}
-
-	while (FALSE == IsListEmpty(&this->PDQueue))
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
+	__try
 	{
-		PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
-		PPROBE_DATA_HEADER pProbeInfo = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		delete[](PBYTE)pProbeInfo;
-	}
+		while (FALSE == IsListEmpty(&this->ProbeList))
+		{
+			PLIST_ENTRY pListEntry = RemoveHeadList(&this->ProbeList);
+			ProbeInfo* pProbeInfo = CONTAINING_RECORD(pListEntry, ProbeInfo, ListEntry);
+			delete pProbeInfo;
+		}
 
+		while (FALSE == IsListEmpty(&this->PDQueue))
+		{
+			PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
+			PPROBE_DATA_HEADER pProbeInfo = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+			delete[](PBYTE)pProbeInfo;
+		}
+	}
+	__finally
+	{
+		KeReleaseInStackQueuedSpinLock(&LockHandle);
+	}
+	
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])
 	{
 		FREE_POOL(this->PDQEvents[ProbeDataEvtConnect]);

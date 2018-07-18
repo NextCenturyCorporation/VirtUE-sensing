@@ -118,6 +118,18 @@ WVUProbeManager::~WVUProbeManager()
 		delete pILP;
 	}
 
+	if (NULL != pTCP)
+	{
+		NT_ASSERTMSG("Failed to stop the Thread Create probe!", TRUE == pTCP->Stop());
+		delete pTCP;
+	}
+
+	if (NULL != pRMP)
+	{
+		NT_ASSERTMSG("Failed to stop the registry modification probe!", TRUE == pRMP->Stop());
+		delete pRMP;
+	}
+
 	WVUCommsManager::GetInstance().Stop();
 
 	if (NULL != pPDQ)

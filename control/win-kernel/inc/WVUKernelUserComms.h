@@ -254,10 +254,10 @@ typedef struct _ThreadCreateInfo
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;
 	_In_ HANDLE ProcessId;
-	_In_ PEPROCESS  EProcess;
+	_In_ HANDLE ThreadId;
+	_In_ PVOID EntryPoint;
 	_In_ BOOLEAN Create;
 } ThreadCreateInfo, *PThreadCreateInfo;
-
 
 typedef struct _LoadedImageInfo
 {
@@ -286,7 +286,6 @@ typedef struct _ProcessCreateInfo
 	_In_ USHORT CommandLineSz;
 	_In_ UCHAR CommandLine[1];
 } ProcessCreateInfo, *PProcessCreateInfo;
-
 
 typedef struct _ProcessDestroyInfo
 {

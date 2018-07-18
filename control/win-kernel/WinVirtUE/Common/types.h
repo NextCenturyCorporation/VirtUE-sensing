@@ -40,6 +40,19 @@ typedef struct _WVUDeviceExtension
     BOOLEAN createdSymLink;                         // True if symlink created, else false
 } WVUDeviceExtension, *PWVUDeviceExtension;
 
+// Thread Behavior Flags in _ETHREADS
+typedef enum _Enum_is_bitflag_ _ThreadBehavior : BYTE
+{
+	OwnsProcessAddressSpaceExclusive = 1 << 0, 
+	OwnsProcessAddressSpaceShared = 1 << 1,
+	HardFaultBehavior = 1 << 2,
+	StartAddressInvalid = 1 << 3,
+	EtwCalloutActive = 1 << 4,
+	SuppressSymbolLoad = 1 << 5,
+	Prefetching = 1 << 6,
+	OwnsVadExclusive = 1 << 7
+} _Enum_is_bitflag_ ThreadBehavior;
+
 // Instance Flags
 typedef enum _Enum_is_bitflag_ _InstanceFlags : LONG
 {
