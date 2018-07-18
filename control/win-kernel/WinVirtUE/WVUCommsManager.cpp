@@ -469,7 +469,39 @@ ErrorExit:
 }
 
 /**
-* @brief Changes the Unload State
+* @brief Sends the OneShot Kill Command
+* @param command specific command to change the state
+* @retval Returned Status
+*/
+_Use_decl_annotations_
+NTSTATUS
+WVUCommsManager::OnOneShotKill(
+	PCOMMAND_MESSAGE pCmdMsg)
+{
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	WVUQueueManager::ProbeInfo* pProbeInfo = nullptr;
+	ANSI_STRING pid_data = { (USHORT)pCmdMsg->DataSz, (USHORT)pCmdMsg->DataSz, (PCHAR)&pCmdMsg->Data[0] };
+	const ANSI_STRING ProcCreate = RTL_CONSTANT_STRING("ProcessCreate");
+	ANSI_STRING MitigationData[] = { one_shot_kill, pid_data };
+
+	pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(ProcCreate);
+	FLT_ASSERTMSG("Unable to find the ProcessCreate Probe!", pProbeInfo != NULL);
+	if (NULL == pProbeInfo)
+	{
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Unable to find the ProcessCreate Probe!!\n");
+		goto ErrorExit;
+	}
+
+	Status = pProbeInfo->Probe->Mitigate(NUMBER_OF(MitigationData), MitigationData);
+
+ErrorExit:
+
+	return Status;
+}
+
+
+/**
+* @brief Configures Probes
 * @param command specific command to change the state
 * @retval Returned Status
 */
@@ -477,8 +509,7 @@ _Use_decl_annotations_
 NTSTATUS
 WVUCommsManager::OnConfigureProbe(
 	PCOMMAND_MESSAGE pCmdMsg)
-{
-	UNREFERENCED_PARAMETER(pCmdMsg);
+{	
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	WVUQueueManager::ProbeInfo* pProbeInfo = nullptr;
 	ANSI_STRING config_data = { (USHORT)pCmdMsg->DataSz, (USHORT)pCmdMsg->DataSz, (PCHAR)&pCmdMsg->Data[0] };
@@ -606,6 +637,10 @@ WVUCommsManager::OnCommandMessage(
 		break;
 	case WVU_COMMAND::ConfigureProbe:
 		Status = OnConfigureProbe(pCmdMsg);
+		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
+		break;
+	case WVU_COMMAND::OneShotKill:
+		Status = OnOneShotKill(pCmdMsg);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
 	case WVU_COMMAND::Echo:

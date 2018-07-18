@@ -9,6 +9,7 @@
 #define COMMON_POOL_TAG WVU_PROCESSCTORDTORPROBE_POOL_TAG
 
 static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ProcessCreate");
+const ANSI_STRING one_shot_kill = RTL_CONSTANT_STRING("one-shot-kill");
 
 /**
 * @brief construct an instance of this probe 
@@ -118,18 +119,97 @@ BOOLEAN ProcessCreateProbe::IsEnabled()
 /**
 * @brief Mitigate known issues that this probe discovers
 * @note Mitigation is not being called as of June 2018
-* @param argv array of arguments
-* @param argc argument count
+* @param ArgV array of arguments
+* @param ArgC argument count
 * @returns Status returns operational status
 */
 _Use_decl_annotations_
 NTSTATUS ProcessCreateProbe::Mitigate(
-	PCHAR argv[], 
-	UINT32 argc)
-{
-	UNREFERENCED_PARAMETER(argv);
-	UNREFERENCED_PARAMETER(argc);
-	return NTSTATUS();
+	UINT32 ArgC,
+	ANSI_STRING ArgV[])
+{	
+
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	UNICODE_STRING ucvalue = { 0,0, NULL };
+	ULONG pid = 0L;
+	PEPROCESS EProcess = nullptr;
+	ANSI_STRING MitigationCommand = { 0,0,0 };
+	ANSI_STRING MitigationData = { 0,0,0 };
+	HANDLE ProcessHandle = INVALID_HANDLE_VALUE;
+	ACCESS_MASK AccessMask = (DELETE | SYNCHRONIZE | GENERIC_ALL);
+	OBJECT_ATTRIBUTES ObjectAttributes = { 0,0,0,0,0,0 };
+	CLIENT_ID ClientId = { 0,0 };
+
+	if (ArgC != 2 || 0 != RtlCompareString(&one_shot_kill, &ArgV[0], TRUE)
+		|| ArgV[1].Length < 1
+		|| ArgV[1].MaximumLength < 1
+		|| nullptr == ArgV[1].Buffer)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Invalid Mitigation Data!\n");
+		goto ErrorExit;
+	}
+	MitigationCommand = ArgV[0];
+	MitigationData = { ArgV[1].Length, ArgV[1].MaximumLength, ArgV[1].Buffer };
+
+	Status = RtlAnsiStringToUnicodeString(&ucvalue, &MitigationData, TRUE);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+			"Failed to allocate memory for ansi to unicode conversion for %w - error: 0x%08x\n", MitigationData, Status);
+		goto ErrorExit;
+	}
+
+	__try
+	{
+		Status = RtlUnicodeStringToInteger(&ucvalue, 0, &pid);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+				"Failed to convert from string %wZ to native ulong format - error: 0x%08x\n", ucvalue, Status);
+			__leave;
+		}
+	}
+	__finally { RtlFreeUnicodeString(&ucvalue); }			
+
+	Status = PsLookupProcessByProcessId((HANDLE)pid, &EProcess);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable to retrieve EProcess from PID 0x%08x - returned 0x%08x!\n", pid, Status);
+		goto ErrorExit;
+	}
+	UNREFERENCED_PARAMETER(EProcess);
+
+	ClientId = { (HANDLE)pid, (HANDLE)0 };
+	InitializeObjectAttributes(&ObjectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+	Status = ZwOpenProcess(&ProcessHandle, AccessMask, &ObjectAttributes, &ClientId);			
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Call to ZwOpenProcess failed with Status 0x%08x!\n", Status);
+		goto DerefAndExit;
+	}
+
+	Status = ZwTerminateProcess(ProcessHandle, STATUS_UNSUCCESSFUL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable ZwTerminate 0x%08x - returned 0x%08x!\n", ProcessHandle, Status);
+		goto DerefAndExit;
+	}
+	Status = ZwClose(ProcessHandle);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable Cloase 0x%08x - returned 0x%08x!\n", ProcessHandle, Status);
+	}
+	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully terminated EProcess 0x%p, PID 0x%08x with Status = STATUS_UNSUCCESSFUL\n", EProcess, pid);			
+
+	Status = STATUS_SUCCESS;
+
+DerefAndExit:
+
+	ObDereferenceObject(EProcess);
+
+ErrorExit:
+
+	return Status;
 }
 
 /**
