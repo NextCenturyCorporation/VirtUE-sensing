@@ -149,15 +149,15 @@ ThreadCreateProbe::ThreadCreateCallback(
 			switch (Globals.lpVersionInformation.dwBuildNumber)
 			{
 			case 14393:
-				StartAddress = (PVOID)Add2Ptr(pThread, 0x608);
-				Win32StartAddress = (PVOID)Add2Ptr(pThread, 0x688);
+				StartAddress = (PVOID)*((PULONG_PTR)Add2Ptr(pThread, 0x608));
+				Win32StartAddress = (PVOID)*((PULONG_PTR)Add2Ptr(pThread, 0x688));
 				ThdBeh = (ThreadBehavior)*((PBYTE)Add2Ptr(pThread, 0x6c8));
-				__leave;
+				break;
 			case 16299:
-				StartAddress = (PVOID)Add2Ptr(pThread, 0x610);
-				Win32StartAddress = (PVOID)Add2Ptr(pThread, 0x690);
+				StartAddress = (PVOID)*((PULONG_PTR)Add2Ptr(pThread, 0x610));
+				Win32StartAddress = (PVOID)*((PULONG_PTR)Add2Ptr(pThread, 0x690));
 				ThdBeh = (ThreadBehavior)*((PBYTE)Add2Ptr(pThread, 0x6d8));
-				__leave;
+				break;
 			default:
 				StartAddress = nullptr;
 				Win32StartAddress = nullptr;
