@@ -206,6 +206,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 		pProbeInfo->Probe->IncrementOperationCount();
 		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime());
 	}
+
 ErrorExit:
 
 	// Drop a rundown reference 

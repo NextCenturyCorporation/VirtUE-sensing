@@ -117,14 +117,15 @@ ThreadCreateProbe::ThreadCreateCallback(
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
-	const USHORT bufsz = sizeof(ThreadCreateInfo);
+	const USHORT bufsz = TRUE == Create ? sizeof(ThreadCreateInfo) : sizeof(ThreadDestroyInfo);
 #pragma warning(suppress: 6014)  // we allocate memory, put stuff into, enqueue it and return we do leak!
 	const auto buf = new UCHAR[bufsz];
 	if (NULL == buf)
 	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for ThreadCreate Data!\n");
+		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID, "***** Unable to allocate memory via new() for Thread State Data!\n");
 		goto ErrorExit;
 	}
+	RtlSecureZeroMemory(buf, bufsz);
 
 	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
 	if (NULL == pProbeInfo)
@@ -133,15 +134,6 @@ ThreadCreateProbe::ThreadCreateCallback(
 			"***** Unable to find probe info on probe %w!\n", &probe_name);
 		goto ErrorExit;
 	}
-	const PThreadCreateInfo pThreadCreateInfo = (PThreadCreateInfo)buf;
-	RtlSecureZeroMemory(buf, bufsz);
-	pThreadCreateInfo->ProbeDataHeader.probe_type = ProbeType::ThreadCreate;
-	pThreadCreateInfo->ProbeDataHeader.data_sz = bufsz;
-	pThreadCreateInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
-	KeQuerySystemTimePrecise(&pThreadCreateInfo->ProbeDataHeader.current_gmt);
-	pThreadCreateInfo->Create = Create;
-	pThreadCreateInfo->ProcessId = ProcessId;
-	pThreadCreateInfo->ThreadId = ThreadId;
 	
 	if (TRUE == Create)
 	{
@@ -186,20 +178,45 @@ ThreadCreateProbe::ThreadCreateCallback(
 			}
 			ObDereferenceObject(pThread);
 		}
-
+		const PThreadCreateInfo pThreadCreateInfo = (PThreadCreateInfo)buf;
+		pThreadCreateInfo->ProbeDataHeader.probe_type = ProbeType::ThreadCreate;
+		pThreadCreateInfo->ProbeDataHeader.data_sz = bufsz;
+		pThreadCreateInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		KeQuerySystemTimePrecise(&pThreadCreateInfo->ProbeDataHeader.current_gmt);
+		pThreadCreateInfo->ProcessId = ProcessId;
+		pThreadCreateInfo->ThreadId = ThreadId;
 		pThreadCreateInfo->EntryPoint =
 			((ThdBeh & ThreadBehavior::StartAddressInvalid) == ThreadBehavior::StartAddressInvalid)
 			? Win32StartAddress
 			: StartAddress;
-	}
 
-	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pThreadCreateInfo->ProbeDataHeader.ListEntry))
-	{
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pThreadCreateInfo->ProbeDataHeader.ListEntry))
+		{
 #pragma warning(suppress: 26407)
-		delete[] buf;
-		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
-			"***** Thread Create Enqueue Operation Failed: ProcessId 0x%08 ThreadId 0x%08 was %s to running address 0x%p\n",
-			ProcessId, ThreadId, Create ? "Created" : "Terminated", pThreadCreateInfo->EntryPoint);
+			delete[] buf;
+			WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
+				"***** Thread Create Enqueue Operation Failed: ProcessId 0x%08 ThreadId 0x%08 was Created to execute on address 0x%p\n",
+				ProcessId, ThreadId, pThreadCreateInfo->EntryPoint);
+		}
+	}
+	else
+	{
+		const PThreadDestroyInfo pThreadDestroyInfo = (PThreadDestroyInfo)buf;
+		pThreadDestroyInfo->ProbeDataHeader.probe_type = ProbeType::ThreadCreate;
+		pThreadDestroyInfo->ProbeDataHeader.data_sz = bufsz;
+		pThreadDestroyInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		KeQuerySystemTimePrecise(&pThreadDestroyInfo->ProbeDataHeader.current_gmt);
+		pThreadDestroyInfo->ProcessId = ProcessId;
+		pThreadDestroyInfo->ThreadId = ThreadId;
+
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pThreadDestroyInfo->ProbeDataHeader.ListEntry))
+		{
+#pragma warning(suppress: 26407)
+			delete[] buf;
+			WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
+				"***** Thread Destroy Enqueue Operation Failed: ProcessId 0x%08 ThreadId 0x%08\n",
+				ProcessId, ThreadId);
+		}
 	}
 
 	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
