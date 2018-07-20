@@ -185,18 +185,22 @@ ThreadCreateProbe::ThreadCreateCallback(
 		KeQuerySystemTimePrecise(&pThreadCreateInfo->ProbeDataHeader.current_gmt);
 		pThreadCreateInfo->ProcessId = ProcessId;
 		pThreadCreateInfo->ThreadId = ThreadId;
-		pThreadCreateInfo->EntryPoint =
+		pThreadCreateInfo->StartAddress = StartAddress;
+		pThreadCreateInfo->Win32StartAddress = Win32StartAddress;
+		pThreadCreateInfo->IsStartAddressValid =
 			((ThdBeh & ThreadBehavior::StartAddressInvalid) == ThreadBehavior::StartAddressInvalid)
-			? Win32StartAddress
-			: StartAddress;
+			? TRUE
+			: FALSE;
 
 		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pThreadCreateInfo->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] buf;
 			WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
-				"***** Thread Create Enqueue Operation Failed: ProcessId 0x%08 ThreadId 0x%08 was Created to execute on address 0x%p\n",
-				ProcessId, ThreadId, pThreadCreateInfo->EntryPoint);
+				"***** Thread Create Enqueue Operation Failed: ProcessId 0x%08 ThreadId 0x%08 was Created "
+				"to execute on StartAddress 0x%p, Win32StartAddress = %p w/Valid Start Address = %s\n",
+				ProcessId, ThreadId, pThreadCreateInfo->StartAddress, pThreadCreateInfo->Win32StartAddress,
+				pThreadCreateInfo->IsStartAddressValid ? "TRUE" : "FALSE");
 		}
 	}
 	else

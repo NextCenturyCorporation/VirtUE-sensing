@@ -768,7 +768,7 @@ class ImageLoadInfo(SaviorStruct):
     
 GetThreadCreateInfo = namedtuple('GetThreadCreateInfo',  
                                   ['probe_id', 'probe_type', 'CurrentGMT', 
-         'ProcessId', 'ThreadId', 'EntryPoint', 'Create'])
+         'ProcessId', 'ThreadId', 'Win32StartAddress', 'StartAddress','IsStartAddressValid'])
 class ThreadCreateInfo(SaviorStruct ):
     '''
     ThreadCreateInfoInfo Definition
@@ -777,7 +777,9 @@ class ThreadCreateInfo(SaviorStruct ):
         ("Header", ProbeDataHeader),
         ("ProcessId", LONGLONG),
         ("ThreadId", LONGLONG),
-        ("EntryPoint", LONGLONG)
+        ("Win32StartAddress", LONGLONG),
+        ("StartAddress", LONGLONG),
+        ("IsStartAddressValid", BOOLEAN) 
     ]
 
     @classmethod
@@ -794,7 +796,9 @@ class ThreadCreateInfo(SaviorStruct ):
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             info.contents.ThreadId,
-            cls.LongLongToHex(info.contents.EntryPoint))
+            cls.LongLongToHex(info.contents.Win32StartAddress),
+            cls.LongLongToHex(info.contents.StartAddress),
+            info.context.IsStartAddressValid)
         return create_info
     
 GetThreadDestroyInfo = namedtuple('GetThreadDestroyInfo',  

@@ -254,7 +254,9 @@ typedef struct _ThreadCreateInfo
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;
 	_In_ HANDLE ProcessId;
 	_In_ HANDLE ThreadId;
-	_In_ PVOID EntryPoint;
+	_In_ PVOID Win32StartAddress;
+	_In_ PVOID StartAddress;
+	_In_ BOOLEAN IsStartAddressValid;
 } ThreadCreateInfo, *PThreadCreateInfo;
 
 typedef struct _ThreadDestroyInfo
