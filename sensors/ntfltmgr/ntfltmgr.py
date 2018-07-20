@@ -798,7 +798,7 @@ class ThreadCreateInfo(SaviorStruct ):
             info.contents.ThreadId,
             cls.LongLongToHex(info.contents.Win32StartAddress),
             cls.LongLongToHex(info.contents.StartAddress),
-            info.context.IsStartAddressValid)
+            info.contents.IsStartAddressValid)
         return create_info
     
 GetThreadDestroyInfo = namedtuple('GetThreadDestroyInfo',  
