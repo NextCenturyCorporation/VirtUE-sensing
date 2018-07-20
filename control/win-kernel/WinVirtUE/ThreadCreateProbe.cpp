@@ -189,8 +189,8 @@ ThreadCreateProbe::ThreadCreateCallback(
 		pThreadCreateInfo->Win32StartAddress = Win32StartAddress;
 		pThreadCreateInfo->IsStartAddressValid =
 			((ThdBeh & ThreadBehavior::StartAddressInvalid) == ThreadBehavior::StartAddressInvalid)
-			? TRUE
-			: FALSE;
+			? FALSE
+			: TRUE;
 
 		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pThreadCreateInfo->ProbeDataHeader.ListEntry))
 		{
