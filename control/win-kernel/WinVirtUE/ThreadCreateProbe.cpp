@@ -206,7 +206,7 @@ ThreadCreateProbe::ThreadCreateCallback(
 	else
 	{
 		const PThreadDestroyInfo pThreadDestroyInfo = (PThreadDestroyInfo)buf;
-		pThreadDestroyInfo->ProbeDataHeader.probe_type = ProbeType::ThreadCreate;
+		pThreadDestroyInfo->ProbeDataHeader.probe_type = ProbeType::ThreadDestroy;
 		pThreadDestroyInfo->ProbeDataHeader.data_sz = bufsz;
 		pThreadDestroyInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
 		KeQuerySystemTimePrecise(&pThreadDestroyInfo->ProbeDataHeader.current_gmt);
