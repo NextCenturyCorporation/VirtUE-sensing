@@ -58,6 +58,13 @@ class WinVirtueCmd(cmd.Cmd):
         @param sensor_name the sensors name that we will attempt to disable
         '''
         probe = None
+        if sensor_name == "All":
+            (res, _rspmsg,) = ntfltmgr.DisableProtection(0)
+            logger.log(logging.info if res == 0 else logging.warning,
+                               "All Probes have %sbeen Disabled",
+                               "" if res == 0 else "not")
+            return
+            
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
             (res, _rspmsg,) = ntfltmgr.DisableProtection(probe.SensorId)
@@ -74,6 +81,7 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         if not text:
             completions = [ p.SensorName for p in self._probes]
+            completions.insert(0, "All")
         else:
             completions = [ p.SensorName
                             for p in self._probes
@@ -87,6 +95,13 @@ class WinVirtueCmd(cmd.Cmd):
         @param sensor_name the sensors name that we will attempt to disable
         '''
         probe = None
+        if sensor_name == "All":
+            (res, _rspmsg,) = ntfltmgr.EnableProtection(0)
+            logger.log(logging.info if res == 0 else logging.warning,
+                               "All Probes have %sbeen Enabled",
+                                       "" if res == 0 else "not")
+            return
+        
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
             (res, _rspmsg,) = ntfltmgr.EnableProtection(probe.SensorId)                           
@@ -103,6 +118,7 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         if not text:
             completions = [ p.SensorName for p in self._probes]
+            completions.insert(0, "All")
         else:
             completions = [ p.SensorName
                             for p in self._probes
