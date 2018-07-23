@@ -296,74 +296,97 @@ WVUCommsManager::WVUCommandDisconnect(
 
 /**
 * @brief Changes the Protection State
-* @param command specific command to change the state
+* @param pProbeInfo ProbeInfo pointer
+* @param Command The probe state to be changed to
+* @return TRUE if probe state change successful else FALSE
+*/
+_Use_decl_annotations_
+BOOLEAN
+WVUCommsManager::ChangeProbeState(
+	WVUQueueManager::ProbeInfo* pProbeInfo,
+	WVU_COMMAND Command)
+{
+	BOOLEAN success = FALSE;
+
+	/** if we are disabling, and the probe is enabled; then stop the probe */
+	if (WVU_COMMAND::DisableProtection == Command
+		&& TRUE == pProbeInfo->Probe->IsEnabled())
+	{
+		success = pProbeInfo->Probe->Stop();
+	}
+	/** If we are enabling probes, the probe is disabled AND it's marked EnableAtStart, then start the probe */
+	else if (WVU_COMMAND::EnableProtection == Command
+		&& FALSE == pProbeInfo->Probe->IsEnabled()
+		&& (pProbeInfo->Probe->GetProbeAttribtes()
+			& AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
+		== AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
+	{
+		success = pProbeInfo->Probe->Start();
+	}
+	return success;
+}
+
+/**
+* @brief Changes the Protection State
+* @param pCmdMsg pointer to the command message buffer
 * @retval Returned Status
 */
 _Use_decl_annotations_
 NTSTATUS 
 WVUCommsManager::OnProtectionStateChange(
-	WVU_COMMAND command)
+	CONST PCOMMAND_MESSAGE pCmdMsg)
 {
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;		
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;				
 
-	switch (command)
+	/** if we receive a zero guid, then send the configure information to all
+	* registered probes, enabled or not
+	*/
+	if (TRUE == IsEqualGUID(pCmdMsg->ProbeId, ZEROGUID))
 	{
-	case WVU_COMMAND::DisableProtection:		
-		Globals.IsProtectionEnabled = FALSE; 
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Disabled!\n");
-		break;
-	case WVU_COMMAND::EnableProtection:
-		Globals.IsProtectionEnabled = TRUE;
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Windows VirtUE Protection Has Been Enabled!\n");
-		break;
-	default:
-		Status = STATUS_INVALID_PARAMETER_1;
-		FLT_ASSERTMSG("Invalid Protection Change State!", FALSE);
-		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Invalid Protection Change State %d!\n", (signed)command);
-		goto ExitError;
-		break;
+		/** enable/disasble each probe */
+		LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
+		{
+			FLT_ASSERTMSG("Failed to Change Probe State!", TRUE == ChangeProbeState(pProbeInfo, pCmdMsg->Command));
+		}	
+		goto Exit;
 	}
+
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeById(pCmdMsg->ProbeId);
+	if (NULL == pProbeInfo || NULL ==  pProbeInfo->Probe)
+	{
+		Status = STATUS_NOT_FOUND;
+		FLT_ASSERTMSG("Unable to convert a GUID to a string representation!", NT_SUCCESS(Status));
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Probe %w Not Found!\n", pProbeInfo->Probe->GetProbeName());		
+		}		
+		goto ErrorExit;
+	}
+
+	FLT_ASSERTMSG("Failed to Change Probe State!", TRUE == ChangeProbeState(pProbeInfo, pCmdMsg->Command));
 	
-	/** enable/disasble each probe */
-	LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
-	{
-		/** if we are disabling, and the probe is enabled; then stop the probe */
-		if (WVU_COMMAND::DisableProtection == command
-			&& TRUE == pProbeInfo->Probe->IsEnabled())
-		{
-			pProbeInfo->Probe->Stop();
-		}
-		/** If we are enabling probes, the probe is disabled AND it's marked EnableAtStart, then start the probe */
-		else if (WVU_COMMAND::EnableProtection == command
-			&& FALSE == pProbeInfo->Probe->IsEnabled()
-			&& (pProbeInfo->Probe->GetProbeAttribtes() 
-				& AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
-			== AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
-		{
-			pProbeInfo->Probe->Start();
-		}
-	}
+Exit:
 
-ExitError:
+	Status = STATUS_SUCCESS;
+
+ErrorExit:
 
 	return Status;
 }
 
 /**
 * @brief Changes the Unload State
-* @param command specific command to change the state
+* @param pCmdMsg pointer to a command message buffer
 * @retval Returned Status
 */
 _Use_decl_annotations_
 NTSTATUS 
 WVUCommsManager::OnUnloadStateChange(
-	WVU_COMMAND command)
+	CONST PCOMMAND_MESSAGE pCmdMsg)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
-	switch (command)
+	switch (pCmdMsg->Command)
 	{
 	case WVU_COMMAND::DisableUnload:
 #pragma warning(suppress: 28175)
@@ -382,7 +405,7 @@ WVUCommsManager::OnUnloadStateChange(
 	default:
 		Status = STATUS_INVALID_PARAMETER_1;
 		FLT_ASSERTMSG("Invalid OnUnload State Change State!", FALSE);
-		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Invalid OnUnload State Change State %d!\n", (signed)command);
+		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "Invalid OnUnload State Change State %d!\n", (signed)pCmdMsg->Command);
 		break;
 	}
 
@@ -611,25 +634,24 @@ WVUCommsManager::OnCommandMessage(
 	PULONG ReturnOutputBufferLength)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	PCOMMAND_MESSAGE pCmdMsg = NULL;
+	CONST PCOMMAND_MESSAGE pCmdMsg = (PCOMMAND_MESSAGE)InputBuffer;
 
 	if (0 >= InputBufferLength && NULL == InputBuffer)
 	{
 		Status = STATUS_INVALID_PARAMETER;
 		return Status;
 	}
-
-	pCmdMsg = (PCOMMAND_MESSAGE)InputBuffer;
+	
 	switch (pCmdMsg->Command)
 	{
 	case WVU_COMMAND::EnableUnload:
 	case WVU_COMMAND::DisableUnload:
-		Status = OnUnloadStateChange(pCmdMsg->Command);
+		Status = OnUnloadStateChange(pCmdMsg);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
 	case WVU_COMMAND::EnableProtection:
 	case WVU_COMMAND::DisableProtection:
-		Status = OnProtectionStateChange(pCmdMsg->Command);
+		Status = OnProtectionStateChange(pCmdMsg);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
 	case WVU_COMMAND::EnumerateProbes:

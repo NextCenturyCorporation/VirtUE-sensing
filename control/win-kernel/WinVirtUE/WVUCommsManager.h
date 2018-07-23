@@ -41,13 +41,13 @@ private:
 		_IRQL_requires_same_
 		static
 		NTSTATUS OnProtectionStateChange(
-			_In_ WVU_COMMAND command);
+			_In_ CONST PCOMMAND_MESSAGE pCmdMsg);
 
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_
 		static
 		NTSTATUS OnUnloadStateChange(
-			_In_ WVU_COMMAND command);
+			_In_ CONST PCOMMAND_MESSAGE pCmdMsg);
 
 	_IRQL_requires_(PASSIVE_LEVEL)
 	_IRQL_requires_same_
@@ -120,6 +120,13 @@ private:
 		static
 		VOID FLTAPI WVUCommandDisconnect(
 			_In_opt_ PVOID ConnectionCookie);
+
+	_IRQL_requires_(PASSIVE_LEVEL)
+		_IRQL_requires_same_
+		static
+		BOOLEAN ChangeProbeState(
+		_In_ WVUQueueManager::ProbeInfo * pProbeInfo, 
+		_In_ WVU_COMMAND Command);
 
 	_IRQL_requires_(PASSIVE_LEVEL)
 		_IRQL_requires_same_		
