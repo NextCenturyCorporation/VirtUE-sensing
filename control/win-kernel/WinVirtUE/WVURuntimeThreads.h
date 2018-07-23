@@ -6,7 +6,6 @@
 */
 #pragma once
 #include "common.h"
-#include "ObjectCreateNotifyCB.h"
 #include "externs.h"
 
 KSTART_ROUTINE WVUMainInitThread;

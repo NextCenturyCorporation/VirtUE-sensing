@@ -14,6 +14,7 @@
 #include "ProcessListValidationProbe.h"
 #include "ProcessCreateProbe.h"
 #include "RegistryModificationProbe.h"
+#include "ThreadCreateProbe.h"
 
 class WVUProbeManager
 {

@@ -330,7 +330,7 @@ class ProbeType(CtypesEnum):
     RegSetValueKeyInfo = 0x0009
     RegOpenKeyInfo = 0x000A
     RegDeleteValueKeyInfo = 0x000B
-    RegRenameKeyInfo = 0x000C    
+    RegRenameKeyInfo = 0x000C        
     RegPostOperationInfo = 0x1001     # post operation handlers start at 0x1001
     
 class ProbeAttributeFlags(Flag):
@@ -765,7 +765,70 @@ class ImageLoadInfo(SaviorStruct):
             info.contents.ImageSize,
             ModuleName)
         return img_nfo
+    
+GetThreadCreateInfo = namedtuple('GetThreadCreateInfo',  
+                                  ['probe_id', 'probe_type', 'CurrentGMT', 
+         'ProcessId', 'ThreadId', 'Win32StartAddress', 'StartAddress','IsStartAddressValid'])
+class ThreadCreateInfo(SaviorStruct ):
+    '''
+    ThreadCreateInfoInfo Definition
+    '''
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("ThreadId", LONGLONG),
+        ("Win32StartAddress", LONGLONG),
+        ("StartAddress", LONGLONG),
+        ("IsStartAddressValid", BOOLEAN) 
+    ]
 
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        create_info = GetThreadCreateInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            info.contents.ThreadId,
+            cls.LongLongToHex(info.contents.Win32StartAddress),
+            cls.LongLongToHex(info.contents.StartAddress),
+            info.contents.IsStartAddressValid)
+        return create_info
+    
+GetThreadDestroyInfo = namedtuple('GetThreadDestroyInfo',  
+                                     ['probe_id', 'probe_type', 'CurrentGMT', 
+                                   'ProcessId', 'ThreadId'])
+class ThreadDestroyInfo(SaviorStruct ):
+    '''
+    ThreadDestroyInfoInfo Definition
+    '''
+    _fields_ = [
+        ("Header", ProbeDataHeader),
+        ("ProcessId", LONGLONG),
+        ("ThreadId", LONGLONG),             
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        create_info = GetThreadDestroyInfo(
+            str(probe_id),
+            ProbeType(info.contents.Header.probe_type).name,
+            info.contents.Header.CurrentGMT,
+            info.contents.ProcessId,
+            info.contents.ThreadId,)
+        return create_info
 
 GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  
         ['probe_id', 'probe_type', 'CurrentGMT', 
@@ -1255,6 +1318,10 @@ def test_packet_decode():
             msg_data = RegRenameKeyInfo.build(pdh)            
         elif pdh.probe_type == ProbeType.RegPostOperationInfo:
             msg_data = RegPostOperationInfo.build(pdh)                        
+        elif pdh.probe_type == ProbeType.ThreadCreate:
+            msg_data = ThreadCreateInfo.build(pdh)
+        elif pdh.probe_type == ProbeType.ThreadDestroy:
+            msg_data = ThreadDestroyInfo.build(pdh)            
         else:
             print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
             continue

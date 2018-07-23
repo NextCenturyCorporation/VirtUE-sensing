@@ -46,6 +46,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="jsmn.cpp" />
+    <ClCompile Include="ThreadCreateProbe.cpp" />
     <ClCompile Include="Utility.cpp" />
     <ClCompile Include="RegistryModificationProbe.cpp" />
     <ClCompile Include="WVUCommsManager.cpp" />
@@ -57,7 +58,6 @@
     <ClCompile Include="Driver.cpp" />
     <ClCompile Include="FltMgrCallbacks.cpp" />
     <ClCompile Include="FltMgrCtxReg.cpp" />
-    <ClCompile Include="ObjectCreateNotifyCB.cpp" />
     <ClCompile Include="WVURuntimeThreads.cpp">
       <DeploymentContent>false</DeploymentContent>
       <FileType>CppCode</FileType>
@@ -281,10 +281,10 @@
     <ClInclude Include="FltMgrCtxReg.h" />
     <ClInclude Include="jsmn.h" />
     <ClInclude Include="RegistryModificationProbe.h" />
+    <ClInclude Include="ThreadCreateProbe.h" />
     <ClInclude Include="Utility.h" />
     <ClInclude Include="WVUCommsManager.h" />
     <ClInclude Include="ImageLoadProbe.h" />
-    <ClInclude Include="ObjectCreateNotifyCB.h" />
     <ClInclude Include="WVUQueueManager.h" />
     <ClInclude Include="ProcessCreateProbe.h" />
     <ClInclude Include="ProcessListValidationProbe.h" />

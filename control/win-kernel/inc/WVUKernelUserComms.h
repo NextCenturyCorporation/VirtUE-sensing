@@ -249,6 +249,23 @@ typedef struct _ProcessListValidationFailed
 	_In_ PEPROCESS  EProcess;     // the eprocess that was NOT found in the process list
 } ProcessListValidationFailed, *PProcessListValidationFailed;
 
+typedef struct _ThreadCreateInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ProcessId;
+	_In_ HANDLE ThreadId;
+	_In_ PVOID Win32StartAddress;
+	_In_ PVOID StartAddress;
+	_In_ BOOLEAN IsStartAddressValid;
+} ThreadCreateInfo, *PThreadCreateInfo;
+
+typedef struct _ThreadDestroyInfo
+{
+	_In_ PROBE_DATA_HEADER ProbeDataHeader;
+	_In_ HANDLE ProcessId;
+	_In_ HANDLE ThreadId;
+} ThreadDestroyInfo, *PThreadDestroyInfo;
+
 typedef struct _LoadedImageInfo
 {
 	_In_ PROBE_DATA_HEADER ProbeDataHeader;
@@ -276,7 +293,6 @@ typedef struct _ProcessCreateInfo
 	_In_ USHORT CommandLineSz;
 	_In_ UCHAR CommandLine[1];
 } ProcessCreateInfo, *PProcessCreateInfo;
-
 
 typedef struct _ProcessDestroyInfo
 {

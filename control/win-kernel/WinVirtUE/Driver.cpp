@@ -37,7 +37,7 @@ static NTSTATUS GetOsVersion()
 	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "******************************\n");
 	// TODO:  Generate a proper version number
 	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** WinVirtUE.sys Version %d.%d.%d\n", 0, 1, 0);
-	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Windows Version %u.%u.%u Service Pack %u.%u\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Windows Version %u.%u.%u Service Pack %u.%u\n",		
 		Globals.lpVersionInformation.dwMajorVersion, Globals.lpVersionInformation.dwMinorVersion, Globals.lpVersionInformation.dwBuildNumber,
 		Globals.lpVersionInformation.wServicePackMajor, Globals.lpVersionInformation.wServicePackMinor);
 

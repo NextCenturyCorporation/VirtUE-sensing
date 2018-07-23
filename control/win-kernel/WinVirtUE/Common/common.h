@@ -44,6 +44,9 @@
 #define NUMBER_OF(x) ( sizeof(x) / sizeof(x[0]) )
 #endif
 
+/** if it's a kernel address the high 16 bits are set? */
+#define IS_KERNEL_ADDRESS(addr) (0xFFFF000000000000 == (0xFFFF000000000000 & addr))
+
 #define ABS(N) ((N<0)?(-N):(N))
 
 /* Wait / Time macros */

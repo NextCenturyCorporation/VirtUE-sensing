@@ -31,3 +31,4 @@
 #define WVU_PROBEINFO_POOL_TAG              'borp'
 #define WVU_WVUMGR_POOL_TAG					'muvw'
 #define WVU_PROCESSENTRY_POOL_TAG			'tnep'
+#define WVU_THREADCREATEPROBE_POOL_TAG      'bpct'

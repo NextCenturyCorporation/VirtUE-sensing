@@ -146,19 +146,19 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	HANDLE ProcessId,
 	PIMAGE_INFO pImageInfo)
 {
-	UNREFERENCED_PARAMETER(FullImageName);
-	UNREFERENCED_PARAMETER(ProcessId);
-	UNREFERENCED_PARAMETER(pImageInfo);
-
 	PEPROCESS  pProcess = NULL;
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
-
-	const NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
-	if (FALSE == NT_SUCCESS(Status))
+	// if this isnt' a driver module load, then look up the process
+	if (0 != ProcessId)
 	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
+		const NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
+		}
+		ObDereferenceObject(pProcess);
 	}
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "FullImageName=%wZ,"
@@ -210,6 +210,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 		pProbeInfo->Probe->IncrementOperationCount();
 		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime());
 	}
+
 ErrorExit:
 
 	// Drop a rundown reference 

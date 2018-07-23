@@ -67,7 +67,6 @@ WVUMainInitThread(PVOID StartContext)
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
 
-
 	InitializeObjectAttributes(&PollThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create poll thread
 	Status = PsCreateSystemThread(&PollThreadHandle, GENERIC_ALL, &PollThdObjAttr, NULL, &PollClientId, WVUTemporalProbeThread, NULL);
@@ -86,21 +85,6 @@ WVUMainInitThread(PVOID StartContext)
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Poll thread %p process %p thread id %p\n",
 		PollThreadHandle, PollClientId.UniqueProcess, PollClientId.UniqueThread);
-
-	/**
-	* To ensure that we don't cause verifier faults during unload, do not include the thread notification
-	* routines.  Verifier will fault because we don't undo what we've done.
-	*/
-#if defined(MFSCOMMENTEDCODE)
-	Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateThreadNotifyRoutine(ThreadCreateCallback) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-
-#endif
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
 #pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh

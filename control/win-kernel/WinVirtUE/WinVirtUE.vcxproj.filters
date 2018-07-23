@@ -101,9 +101,6 @@
     <ClCompile Include="FltMgrCtxReg.cpp">
       <Filter>Source Files\MiniPortFilter</Filter>
     </ClCompile>
-    <ClCompile Include="ObjectCreateNotifyCB.cpp">
-      <Filter>Source Files\Probes</Filter>
-    </ClCompile>
     <ClCompile Include="WVUProbeManager.cpp">
       <Filter>Source Files\Managers</Filter>
     </ClCompile>
@@ -127,6 +124,9 @@
     </ClCompile>
     <ClCompile Include="Utility.cpp">
       <Filter>Source Files\Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="ThreadCreateProbe.cpp">
+      <Filter>Source Files\Probes</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -178,9 +178,6 @@
     <ClInclude Include="FltMgrCtxReg.h">
       <Filter>Header Files\MiniPortFilter</Filter>
     </ClInclude>
-    <ClInclude Include="ObjectCreateNotifyCB.h">
-      <Filter>Header Files\Probes</Filter>
-    </ClInclude>
     <ClInclude Include="config.h">
       <Filter>Header Files\Misc</Filter>
     </ClInclude>
@@ -213,6 +210,9 @@
     </ClInclude>
     <ClInclude Include="Utility.h">
       <Filter>Header Files\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadCreateProbe.h">
+      <Filter>Header Files\Probes</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
