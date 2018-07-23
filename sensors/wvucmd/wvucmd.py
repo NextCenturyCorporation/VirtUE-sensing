@@ -5,7 +5,12 @@ wvucmd.py
 import cmd
 import logging
 import ntfltmgr
-from ntfltmgr import FilterConnectCommunicationPort, EnumerateProbes, CloseHandle
+import readline
+import colorama
+from ntfltmgr import FilterConnectCommunicationPort, EnumerateProbes
+from ntfltmgr import CloseHandle
+
+colorama.init()
 
 logger = logging.getLogger("wvucmd")
 logger.addHandler(logging.NullHandler())
@@ -39,13 +44,13 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         pass
     
-    def do_disable_unload(self):
+    def do_disable_unload(self, _line):
         '''
         @brief Not Implemented
         '''
         pass
     
-    def do_enable_unload(self):
+    def do_enable_unload(self, _line):
         '''
         
         @brief Not Implemented
@@ -60,20 +65,21 @@ class WinVirtueCmd(cmd.Cmd):
         probe = None
         if sensor_name == "All":
             (res, _rspmsg,) = ntfltmgr.DisableProtection(0)
-            logger.log(logging.info if res == 0 else logging.warning,
+            logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Disabled",
                                "" if res == 0 else "not")
             return
             
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
-            (res, _rspmsg,) = ntfltmgr.DisableProtection(probe.SensorId)
-            logger.log(logging.info if res == 0 else logging.warning,
+            (res, _rspmsg,) = ntfltmgr.DisableProtection(self._hFltComms, 
+                    probe.SensorId)
+            logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Disabled",
                        probe.SensorName, probe.SensorId,
                        "" if res == 0 else "not")
         else:
-            logger.warning("Attempting to disable a non-existant probe!")
+            logger.WARNING("Attempting to disable a non-existant probe!")
             
     def complete_disable_probe(self, text, _line, _begidx, _endidx):
         '''
@@ -85,7 +91,7 @@ class WinVirtueCmd(cmd.Cmd):
         else:
             completions = [ p.SensorName
                             for p in self._probes
-                            if p.startswith(text)
+                            if p.SensorName.startswith(text)
                             ]
         return completions    
     
@@ -97,20 +103,21 @@ class WinVirtueCmd(cmd.Cmd):
         probe = None
         if sensor_name == "All":
             (res, _rspmsg,) = ntfltmgr.EnableProtection(0)
-            logger.log(logging.info if res == 0 else logging.warning,
+            logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Enabled",
                                        "" if res == 0 else "not")
             return
         
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
-            (res, _rspmsg,) = ntfltmgr.EnableProtection(probe.SensorId)                           
-            logger.log(logging.info if res == 0 else logging.warning,
+            (res, _rspmsg,) = ntfltmgr.EnableProtection(self._hFltComms, 
+                    probe.SensorId)
+            logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Enabled",
                        probe.SensorName, probe.SensorId,
                        "" if res == 0 else "not")
         else:
-            logger.warning("Attempting to enable a non-existant probe!")
+            logger.WARNING("Attempting to enable a non-existant probe!")
                            
     def complete_enable_probe(self, text, _line, _begidx, _endidx):
         '''
@@ -122,11 +129,11 @@ class WinVirtueCmd(cmd.Cmd):
         else:
             completions = [ p.SensorName
                             for p in self._probes
-                            if p.startswith(text)
+                            if p.SensorName.startswith(text)
                             ]
         return completions    
     
-    def do_disconnect(self):
+    def do_disconnect(self, _line):
         '''
         @brief Disconnect from the Windows Virtue Driver Command Port
         '''
@@ -134,14 +141,14 @@ class WinVirtueCmd(cmd.Cmd):
             CloseHandle(self._hFltComms)
             self._hFltComms = None
     
-    def do_list(self):
+    def do_list(self, _line):
         '''
         Output a list of probes
         '''        
         for probe in self._probes:
             print("{0}".format(probe.SensorName,))
         
-    def do_connect(self):
+    def do_connect(self, _line):
         '''
         @brief Connect to the Windows Virtue Command Port
         '''
