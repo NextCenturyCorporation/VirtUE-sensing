@@ -189,4 +189,4 @@ class WinVirtueCmd(cmd.Cmd):
     
 
 if __name__ == '__main__':
-    WinVirtueCmd().cmdloop()
+    WinVirtueCmd().cmdloop('Windows Virtue Driver Interface')
