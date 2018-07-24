@@ -31,6 +31,7 @@ class WinVirtueCmd(cmd.Cmd):
     OneShotKill = 0x7        
     '''
     CommandPort = "\\WVUCommand"
+    EventPort = "\\WVUPort"
     
     def do_kill(self, pid):
         '''
@@ -84,7 +85,6 @@ class WinVirtueCmd(cmd.Cmd):
             
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
-            import pdb;pdb.set_trace()
             (res, _rspms,) = ntfltmgr.DisableProbe(self._hFltComms, 
                     probe.SensorId)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
@@ -187,7 +187,27 @@ class WinVirtueCmd(cmd.Cmd):
         self._connected = True
         self.prompt = "wvucmd [connected]: "
             
-    
+    def do_dump(self, outfile):
+        '''
+        @brief dump the event queue from the driver to a file
+        @param outfile name of output file default is 'outfile.txt', will overwrite
+        file of same name.
+        '''
+        if not outfile:
+            outfile='outfile.txt'
+
+        (_res, hFltComms,) = FilterConnectCommunicationPort(WinVirtueCmd.EventPort)
+        import pdb;pdb.set_trace()
+        try:
+            with open(outfile,"w") as of:
+                for pkt in packet_decode():
+                    of.write(pkt)
+        except (KeyboardInterrupt, SystemExit) as _err:
+            logger.exception("do_dump terminated by error {0}, _err")
+            pass
+        finally:
+            CloseHandle(hFltComms) 
+
     def __init__(self):
         '''
         construct an instance of this object
