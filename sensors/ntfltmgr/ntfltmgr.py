@@ -1334,8 +1334,8 @@ class WVU_COMMAND(CtypesEnum):
     Winvirtue Commands
     '''
     Echo = 0x0
-    EnableProtection  = 0x1
-    DisableProtection = 0x2        
+    EnableProbe  = 0x1
+    DisableProbe = 0x2        
     EnableUnload = 0x3
     DisableUnload = 0x4
     EnumerateProbes = 0x5
@@ -1428,7 +1428,7 @@ class ProbeStatusHeader(SaviorStruct):
 
 GetProbeStatus = namedtuple('GetProbeStatus',  
         ['SensorId', 'LastRunTime', 'RunInterval', 
-            'OperationCount', 'Attributes', 'SensorName'])
+            'OperationCount', 'Attributes', 'Enabled', 'SensorName'])
 class ProbeStatus(SaviorStruct):
     '''
     The ProbeStatus message
@@ -1442,6 +1442,8 @@ class ProbeStatus(SaviorStruct):
         ("Enabled", BOOLEAN),
         ("SensorName", BYTE * MAXPROBENAMESZ),
     ]
+
+    paf_name = "ProbeAttributeFlags."
 
     @classmethod
     def build(cls, msg_pkt):
@@ -1458,12 +1460,18 @@ class ProbeStatus(SaviorStruct):
         lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
+        attrib_flags = str(ProbeAttributeFlags(info.contents.Attributes))
+        ndx = attrib_flags.find(cls.paf_name)
+        if ndx == 0:
+            attrib_flags = attrib_flags[len(cls.paf_name):]
+
         probe_status = GetProbeStatus(            
-            sensor_id.urn[9:],
+            sensor_id,
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
-            ProbeAttributeFlags(info.contents.Attributes), 
+            attrib_flags,
+            str(bool(info.contents.Enabled)),
             SensorName)
         return probe_status
     
@@ -1547,14 +1555,14 @@ def Echo(hFltComms):
 
     return res, rsp_msg
 
-def EnableProtection(hFltComms, sensor_id=0):
+def EnableProbe(hFltComms, sensor_id=0):
     '''
-    Enable Full Protection
+    Enable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
-    cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
+    cmd_msg.contents.Command = WVU_COMMAND.EnableProbe
     cmd_msg.contents.DataSz = 0
     memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
             len(cmd_msg.contents.SensorId.Data))
@@ -1564,14 +1572,14 @@ def EnableProtection(hFltComms, sensor_id=0):
 
     return res, rsp_msg
     
-def DisableProtection(hFltComms, sensor_id=0):
+def DisableProbe(hFltComms, sensor_id=0):
     '''
-    Disable Full Protection
+    Disable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
-    cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
+    cmd_msg.contents.Command = WVU_COMMAND.DisableProbe
     cmd_msg.contents.DataSz = 0
     memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
             len(cmd_msg.contents.SensorId.Data))

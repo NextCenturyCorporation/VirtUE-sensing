@@ -22,8 +22,8 @@ class WinVirtueCmd(cmd.Cmd):
     Windows Virtue Command Line Program
     @brief A command line python program control and manage the Windows Virtue Driver    
     Echo = 0x0
-    EnableProtection  = 0x1
-    DisableProtection = 0x2        
+    EnableProbe  = 0x1
+    DisableProbe = 0x2        
     EnableUnload = 0x3
     DisableUnload = 0x4
     EnumerateProbes = 0x5
@@ -76,7 +76,7 @@ class WinVirtueCmd(cmd.Cmd):
 
         probe = None
         if sensor_name == "All":
-            (res, _rspmsg,) = ntfltmgr.DisableProtection(0)
+            (res, _rspmsg,) = ntfltmgr.DisableProbe(0)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Disabled",
                                "" if res == 0 else "not")
@@ -84,14 +84,15 @@ class WinVirtueCmd(cmd.Cmd):
             
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
-            (res, _rspmsg,) = ntfltmgr.DisableProtection(self._hFltComms, 
+            import pdb;pdb.set_trace()
+            (res, _rspms,) = ntfltmgr.DisableProbe(self._hFltComms, 
                     probe.SensorId)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Disabled",
                        probe.SensorName, probe.SensorId,
                        "" if res == 0 else "not")
         else:
-            logger.WARNING("Attempting to disable a non-existant probe!")
+            logger.warning("Attempting to disable a non-existant probe!")
             
     def complete_disable_probe(self, text, _line, _begidx, _endidx):
         '''
@@ -118,7 +119,7 @@ class WinVirtueCmd(cmd.Cmd):
 
         probe = None
         if sensor_name == "All":
-            (res, _rspmsg,) = ntfltmgr.EnableProtection(0)
+            (res, _rspmsg,) = ntfltmgr.EnableProbe(0)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Enabled",
                                        "" if res == 0 else "not")
@@ -126,14 +127,14 @@ class WinVirtueCmd(cmd.Cmd):
         
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
-            (res, _rspmsg,) = ntfltmgr.EnableProtection(self._hFltComms, 
+            (res, _rspmsg,) = ntfltmgr.EnableProbe(self._hFltComms, 
                     probe.SensorId)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Enabled",
                        probe.SensorName, probe.SensorId,
                        "" if res == 0 else "not")
         else:
-            logger.WARNING("Attempting to enable a non-existant probe!")
+            logger.warning("Attempting to enable a non-existant probe!")
                            
     def complete_enable_probe(self, text, _line, _begidx, _endidx):
         '''
@@ -166,9 +167,11 @@ class WinVirtueCmd(cmd.Cmd):
         if self._connected == False:
             logger.warning("Not Connected!")
             return
-
-        field_list = ['SensorId', 'Enabled', 'LastRunTime', 'RunInterval',  'OperationCount', 'Attributes', 'SensorName']
-        row_format ="{:<15}{:<4}{:<26}{:<15}{:<13}{:<15}{:^32}{:<15}"
+        (_res, self._probes,) = EnumerateProbes(self._hFltComms)
+        for probe in self._probes:
+            self._probedict[probe.SensorName] = probe
+        field_list = ['SensorId', 'LastRunTime', 'RunInterval',  'OperationCount', 'Attributes', 'Enabled', 'SensorName']
+        row_format ="{:<15}{:<26}{:<15}{:<13}{:<15}{:^32}{:<4}{:<15}"
         print(row_format.format("", *field_list))
         for row in self._probes:
             print(*row)
