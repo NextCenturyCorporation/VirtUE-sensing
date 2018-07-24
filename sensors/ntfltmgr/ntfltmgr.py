@@ -14,7 +14,9 @@ from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN, C
 from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG, UINT
 
 S_OK = 0
+MAXPKTSZ = 0x10000  # max packet size
 MAXPROBENAMESZ = 64
+EventPort = "\\WVUPort"
 SIZE_T = c_ulonglong
 NTSTATUS = DWORD
 PVOID = c_void_p
@@ -1283,59 +1285,67 @@ def CloseHandle(handle):
     success = _CloseHandle(handle)
     return success
 
+def packet_decode():
+    '''
+    packet decode iterator
+    '''
+    (_res, hFltComms,) = FilterConnectCommunicationPort(EventPort)
+    try:
+        while True:
+            (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
+            response = ("Response to Message Id {0}\n"
+                    .format(msg_pkt.MessageId,))
+            FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, 
+                    response, msg_pkt.ReplyLength)
+            pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
+            if pdh.probe_type == ProbeType.ImageLoad:            
+                msg_data = ImageLoadInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.ProcessCreate:
+                msg_data = ProcessCreateInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.ProcessDestroy:
+                msg_data = ProcessDestroyInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.ProcessListValidationFailed:
+                msg_data = ProcessListValidationFailed.build(pdh)
+            elif pdh.probe_type == ProbeType.RegQueryValueKeyInfo:
+                msg_data = RegQueryValueKeyInfo.build(pdh)            
+            elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
+                msg_data = RegCreateKeyInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
+                msg_data = RegSetValueKeyInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.RegOpenKeyInfo:
+                msg_data = RegCreateKeyInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.RegDeleteValueKeyInfo:
+                msg_data = RegDeleteValueKeyInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.RegRenameKeyInfo:
+                msg_data = RegRenameKeyInfo.build(pdh)            
+            elif pdh.probe_type == ProbeType.RegPostOperationInfo:
+                msg_data = RegPostOperationInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.ThreadCreate:
+                msg_data = ThreadCreateInfo.build(pdh)
+            elif pdh.probe_type == ProbeType.ThreadDestroy:
+                msg_data = ThreadDestroyInfo.build(pdh)
+            else:
+                continue
+            yield json.dumps(msg_data._asdict(), indent=4)
+    except (SystemExit, KeyboardInterrupt) as _err:
+        CloseHandle(hFltComms)
+        logger.exception("packet_decode halted by exception {0}", _err)
+        raise
 
 def test_packet_decode():
     '''
     Test WinVirtUE packet decode
     '''
-    MAXPKTSZ = 0x10000  # max packet size
-    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
-    while True:
-        (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
-        response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
-        print(response)
-        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
-        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
-        if pdh.probe_type == ProbeType.ImageLoad:            
-            msg_data = ImageLoadInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ProcessCreate:
-            msg_data = ProcessCreateInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ProcessDestroy:
-            msg_data = ProcessDestroyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ProcessListValidationFailed:
-            msg_data = ProcessListValidationFailed.build(pdh)
-        elif pdh.probe_type == ProbeType.RegQueryValueKeyInfo:
-            msg_data = RegQueryValueKeyInfo.build(pdh)            
-        elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
-            msg_data = RegCreateKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
-            msg_data = RegSetValueKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegOpenKeyInfo:
-            msg_data = RegCreateKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegDeleteValueKeyInfo:
-            msg_data = RegDeleteValueKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegRenameKeyInfo:
-            msg_data = RegRenameKeyInfo.build(pdh)            
-        elif pdh.probe_type == ProbeType.RegPostOperationInfo:
-            msg_data = RegPostOperationInfo.build(pdh)                        
-        elif pdh.probe_type == ProbeType.ThreadCreate:
-            msg_data = ThreadCreateInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ThreadDestroy:
-            msg_data = ThreadDestroyInfo.build(pdh)            
-        else:
-            print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
-            continue
-        print(json.dumps(msg_data._asdict(), indent=4))
+    for elem in packet_decode():
+        print(elem)
 
-    CloseHandle(hFltComms)
-  
 class WVU_COMMAND(CtypesEnum):
     '''
     Winvirtue Commands
     '''
     Echo = 0x0
-    EnableProtection  = 0x1
-    DisableProtection = 0x2        
+    EnableProbe  = 0x1
+    DisableProbe = 0x2        
     EnableUnload = 0x3
     DisableUnload = 0x4
     EnumerateProbes = 0x5
@@ -1428,7 +1438,7 @@ class ProbeStatusHeader(SaviorStruct):
 
 GetProbeStatus = namedtuple('GetProbeStatus',  
         ['SensorId', 'LastRunTime', 'RunInterval', 
-            'OperationCount', 'Attributes', 'SensorName'])
+            'OperationCount', 'Attributes', 'Enabled', 'SensorName'])
 class ProbeStatus(SaviorStruct):
     '''
     The ProbeStatus message
@@ -1442,6 +1452,8 @@ class ProbeStatus(SaviorStruct):
         ("Enabled", BOOLEAN),
         ("SensorName", BYTE * MAXPROBENAMESZ),
     ]
+
+    paf_name = "ProbeAttributeFlags."
 
     @classmethod
     def build(cls, msg_pkt):
@@ -1458,12 +1470,18 @@ class ProbeStatus(SaviorStruct):
         lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
+        attrib_flags = str(ProbeAttributeFlags(info.contents.Attributes))
+        ndx = attrib_flags.find(cls.paf_name)
+        if ndx == 0:
+            attrib_flags = attrib_flags[len(cls.paf_name):]
+
         probe_status = GetProbeStatus(            
             sensor_id,
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
-            ProbeAttributeFlags(info.contents.Attributes), 
+            attrib_flags,
+            str(bool(info.contents.Enabled)),
             SensorName)
         return probe_status
     
@@ -1547,14 +1565,14 @@ def Echo(hFltComms):
 
     return res, rsp_msg
 
-def EnableProtection(hFltComms, sensor_id=0):
+def EnableProbe(hFltComms, sensor_id=0):
     '''
-    Enable Full Protection
+    Enable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
-    cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
+    cmd_msg.contents.Command = WVU_COMMAND.EnableProbe
     cmd_msg.contents.DataSz = 0
     memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
             len(cmd_msg.contents.SensorId.Data))
@@ -1564,14 +1582,14 @@ def EnableProtection(hFltComms, sensor_id=0):
 
     return res, rsp_msg
     
-def DisableProtection(hFltComms, sensor_id=0):
+def DisableProbe(hFltComms, sensor_id=0):
     '''
-    Disable Full Protection
+    Disable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
-    cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
+    cmd_msg.contents.Command = WVU_COMMAND.DisableProbe
     cmd_msg.contents.DataSz = 0
     memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
             len(cmd_msg.contents.SensorId.Data))
@@ -1683,7 +1701,7 @@ def main(argv):
     '''
     if len(argv) == 2:
         (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
-        try:        
+        try:       
             (res, resp_msg,) = OneShotKill(hFltComms, int(argv[1]))
             print("_res={0},resp_msg={1}\n".format(res,resp_msg,))
         finally:

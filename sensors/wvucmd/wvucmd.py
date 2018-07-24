@@ -3,12 +3,13 @@ wvucmd.py
 @brief command line interface used to test and interact with the Windows Virtue Device Driver
 '''
 import cmd
+import sys
 import logging
 import ntfltmgr
 import readline
 import colorama
 from ntfltmgr import FilterConnectCommunicationPort, EnumerateProbes
-from ntfltmgr import CloseHandle
+from ntfltmgr import CloseHandle, packet_decode
 
 colorama.init()
 
@@ -21,50 +22,62 @@ class WinVirtueCmd(cmd.Cmd):
     Windows Virtue Command Line Program
     @brief A command line python program control and manage the Windows Virtue Driver    
     Echo = 0x0
-    EnableProtection  = 0x1
-    DisableProtection = 0x2        
+    EnableProbe  = 0x1
+    DisableProbe = 0x2        
     EnableUnload = 0x3
     DisableUnload = 0x4
     EnumerateProbes = 0x5
     ConfigureProbe = 0x6
     OneShotKill = 0x7        
-    ['SensorId', 'LastRunTime', 'RunInterval',  'OperationCount', 'Attributes', 'SensorName'])
     '''
     CommandPort = "\\WVUCommand"
+    EventPort = "\\WVUPort"
     
     def do_kill(self, pid):
         '''
         @brief Not Implemented
         '''
-        pass
+        if self._connected == False:
+            logger.warning("Not Connected!")
+            return
 
     def do_configure(self, probe_id, cfgstr):
         '''
         @brief Not Implemented
         '''
-        pass
+        if self._connected == False:
+            logger.warning("Not Connected!")
+            return
     
     def do_disable_unload(self, _line):
         '''
         @brief Not Implemented
         '''
-        pass
+        if self._connected == False:
+            logger.warning("Not Connected!")
+            return
     
     def do_enable_unload(self, _line):
         '''
         
         @brief Not Implemented
         '''
-        pass
+        if self._connected == False:
+            logger.warning("Not Connected!")
+            return
     
     def do_disable_probe(self, sensor_name):
         '''
         @brief attempt to disable a registered probe
         @param sensor_name the sensors name that we will attempt to disable
         '''
+        if self._connected == False:
+            logger.warning("Not Connected!")
+            return
+
         probe = None
         if sensor_name == "All":
-            (res, _rspmsg,) = ntfltmgr.DisableProtection(0)
+            (res, _rspmsg,) = ntfltmgr.DisableProbe(0)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Disabled",
                                "" if res == 0 else "not")
@@ -72,14 +85,14 @@ class WinVirtueCmd(cmd.Cmd):
             
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
-            (res, _rspmsg,) = ntfltmgr.DisableProtection(self._hFltComms, 
+            (res, _rspms,) = ntfltmgr.DisableProbe(self._hFltComms, 
                     probe.SensorId)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Disabled",
                        probe.SensorName, probe.SensorId,
                        "" if res == 0 else "not")
         else:
-            logger.WARNING("Attempting to disable a non-existant probe!")
+            logger.warning("Attempting to disable a non-existant probe!")
             
     def complete_disable_probe(self, text, _line, _begidx, _endidx):
         '''
@@ -100,9 +113,13 @@ class WinVirtueCmd(cmd.Cmd):
         @brief attempt to enable a registered probe
         @param sensor_name the sensors name that we will attempt to disable
         '''
+        if self._connected == False:
+            logger.warning("Not Connected!")
+            return
+
         probe = None
         if sensor_name == "All":
-            (res, _rspmsg,) = ntfltmgr.EnableProtection(0)
+            (res, _rspmsg,) = ntfltmgr.EnableProbe(0)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Enabled",
                                        "" if res == 0 else "not")
@@ -110,14 +127,14 @@ class WinVirtueCmd(cmd.Cmd):
         
         if sensor_name in self._probedict:
             probe = self._probedict[sensor_name]
-            (res, _rspmsg,) = ntfltmgr.EnableProtection(self._hFltComms, 
+            (res, _rspmsg,) = ntfltmgr.EnableProbe(self._hFltComms, 
                     probe.SensorId)
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Enabled",
                        probe.SensorName, probe.SensorId,
                        "" if res == 0 else "not")
         else:
-            logger.WARNING("Attempting to enable a non-existant probe!")
+            logger.warning("Attempting to enable a non-existant probe!")
                            
     def complete_enable_probe(self, text, _line, _begidx, _endidx):
         '''
@@ -137,6 +154,8 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         @brief Disconnect from the Windows Virtue Driver Command Port
         '''
+        self._connected = False
+        self.prompt = "wvucmd [disconnected]: "
         if self._hFltComms:
             CloseHandle(self._hFltComms)
             self._hFltComms = None
@@ -145,10 +164,19 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         Output a list of probes
         '''        
+        if self._connected == False:
+            logger.warning("Not Connected!")
+            return
+        (_res, self._probes,) = EnumerateProbes(self._hFltComms)
         for probe in self._probes:
-            print("{0}".format(probe.SensorName,))
+            self._probedict[probe.SensorName] = probe
+        field_list = ['SensorId', 'LastRunTime', 'RunInterval',  'OperationCount', 'Attributes', 'Enabled', 'SensorName']
+        row_format ="{:<15}{:<26}{:<15}{:<13}{:<15}{:^32}{:<4}{:<15}"
+        print(row_format.format("", *field_list))
+        for row in self._probes:
+            print(*row)
         
-    def do_connect(self, _line):
+    def do_connect(self, _like):
         '''
         @brief Connect to the Windows Virtue Command Port
         '''
@@ -156,8 +184,29 @@ class WinVirtueCmd(cmd.Cmd):
         (_res, self._probes,) = EnumerateProbes(self._hFltComms)
         for probe in self._probes:
             self._probedict[probe.SensorName] = probe
+        self._connected = True
+        self.prompt = "wvucmd [connected]: "
             
-    
+    def do_dump(self, outfile):
+        '''
+        @brief dump the event queue from the driver to a file
+        @param outfile name of output file default is 'outfile.txt', will overwrite
+        file of same name.
+        '''
+        if not outfile:
+            outfile='outfile.txt'
+
+        (_res, hFltComms,) = FilterConnectCommunicationPort(WinVirtueCmd.EventPort)
+        try:
+            with open(outfile,"w") as of:
+                for pkt in packet_decode():
+                    of.write(pkt)
+        except (KeyboardInterrupt, SystemExit) as _err:
+            logger.exception("do_dump terminated by error {0}, _err")
+            pass
+        finally:
+            CloseHandle(hFltComms) 
+
     def __init__(self):
         '''
         construct an instance of this object
@@ -166,49 +215,23 @@ class WinVirtueCmd(cmd.Cmd):
         self._hFltComms = None
         self._probes = None
         self._probedict = {}
-        
-    def cmdloop(self, intro=None):
-        print( 'cmdloop(%s)' % intro)
-        return super().cmdloop(intro)
-    
-    def preloop(self):
-        print ('preloop()')
-    
-    def postloop(self):
-        print ('postloop()')
-        
-    def parseline(self, line):
-        print ('parseline(%s) =>' % line,)
-        ret = super().parseline(line)
-        print (ret)
-        return ret
-    
-    def onecmd(self, line):
-        print ('onecmd(%s)' % line)
-        ret = super().onecmd(line)
-        return ret
+        self._connected = False
+        self.prompt = "wvucmd [disconnected]: "
 
-    def emptyline(self):
-        print ('emptyline()')
-        return super().emptyline()
-    
-    def default(self, line):
-        print ('default(%s)' % line)
-        return super().default(line)
-    
-    def precmd(self, line):
-        print ('precmd(%s)' % line)
-        return super().precmd(line)
-    
-    def postcmd(self, stop, line):
-        print ('postcmd(%s, %s)' % (stop, line))
-        return super().postcmd(stop, line)
-    
     def do_EOF(self, _line):
         '''
         Exit from a CTRL-D
         '''
         return True
+    
+    def do_quit(self, _line):
+        '''
+        Exit 
+        '''
+        if (self._connected == True and self._hFltComms):
+            CloseHandle(self._hFltComms)
+        sys.exit(0)
+    do_exit = do_quit
     
 
 if __name__ == '__main__':
