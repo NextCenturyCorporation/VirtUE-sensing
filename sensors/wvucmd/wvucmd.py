@@ -9,7 +9,7 @@ import ntfltmgr
 import readline
 import colorama
 from ntfltmgr import FilterConnectCommunicationPort, EnumerateProbes
-from ntfltmgr import CloseHandle
+from ntfltmgr import CloseHandle, packet_decode
 
 colorama.init()
 
@@ -197,7 +197,6 @@ class WinVirtueCmd(cmd.Cmd):
             outfile='outfile.txt'
 
         (_res, hFltComms,) = FilterConnectCommunicationPort(WinVirtueCmd.EventPort)
-        import pdb;pdb.set_trace()
         try:
             with open(outfile,"w") as of:
                 for pkt in packet_decode():
