@@ -5,9 +5,10 @@ wvucmd.py
 import cmd
 import sys
 import logging
-import ntfltmgr
 import readline
 import colorama
+import ntfltmgr
+
 from ntfltmgr import FilterConnectCommunicationPort, EnumerateProbes
 from ntfltmgr import CloseHandle, packet_decode
 
@@ -33,19 +34,19 @@ class WinVirtueCmd(cmd.Cmd):
     CommandPort = "\\WVUCommand"
     EventPort = "\\WVUPort"
     
-    def do_kill(self, pid):
+    def do_kill(self, _pid):
         '''
         @brief Not Implemented
         '''
-        if self._connected == False:
+        if self._connected is False:
             logger.warning("Not Connected!")
             return
 
-    def do_configure(self, probe_id, cfgstr):
+    def do_configure(self, _probe_id, _cfgstr):
         '''
         @brief Not Implemented
         '''
-        if self._connected == False:
+        if self._connected is False:
             logger.warning("Not Connected!")
             return
     
@@ -53,7 +54,7 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         @brief Not Implemented
         '''
-        if self._connected == False:
+        if self._connected is False:
             logger.warning("Not Connected!")
             return
     
@@ -62,7 +63,7 @@ class WinVirtueCmd(cmd.Cmd):
         
         @brief Not Implemented
         '''
-        if self._connected == False:
+        if self._connected is False:
             logger.warning("Not Connected!")
             return
     
@@ -71,16 +72,16 @@ class WinVirtueCmd(cmd.Cmd):
         @brief attempt to disable a registered probe
         @param sensor_name the sensors name that we will attempt to disable
         '''
-        if self._connected == False:
+        if self._connected is False:
             logger.warning("Not Connected!")
             return
 
         probe = None
         if sensor_name == "All":
-            (res, _rspmsg,) = ntfltmgr.DisableProbe(0)
+            (res, _rspmsg,) = ntfltmgr.DisableProbe(self._hFltComms, "All")
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Disabled",
-                               "" if res == 0 else "not")
+                               "" if res == 0 else " not")
             return
             
         if sensor_name in self._probedict:
@@ -90,7 +91,7 @@ class WinVirtueCmd(cmd.Cmd):
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Disabled",
                        probe.SensorName, probe.SensorId,
-                       "" if res == 0 else "not")
+                       "" if res == 0 else "not ")
         else:
             logger.warning("Attempting to disable a non-existant probe!")
             
@@ -113,16 +114,16 @@ class WinVirtueCmd(cmd.Cmd):
         @brief attempt to enable a registered probe
         @param sensor_name the sensors name that we will attempt to disable
         '''
-        if self._connected == False:
+        if self._connected is False:
             logger.warning("Not Connected!")
             return
 
         probe = None
         if sensor_name == "All":
-            (res, _rspmsg,) = ntfltmgr.EnableProbe(0)
+            (res, _rspmsg,) = ntfltmgr.EnableProbe(self._hFltComms, "All")
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                                "All Probes have %sbeen Enabled",
-                                       "" if res == 0 else "not")
+                                       "" if res == 0 else " not")
             return
         
         if sensor_name in self._probedict:
@@ -132,7 +133,7 @@ class WinVirtueCmd(cmd.Cmd):
             logger.log(logging.INFO if res == 0 else logging.WARNING,
                        "Probe %s id %s has %sbeen Enabled",
                        probe.SensorName, probe.SensorId,
-                       "" if res == 0 else "not")
+                       "" if res == 0 else " not")
         else:
             logger.warning("Attempting to enable a non-existant probe!")
                            
@@ -164,7 +165,7 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         Output a list of probes
         '''        
-        if self._connected == False:
+        if self._connected is False:
             logger.warning("Not Connected!")
             return
         (_res, self._probes,) = EnumerateProbes(self._hFltComms)
@@ -203,7 +204,6 @@ class WinVirtueCmd(cmd.Cmd):
                     of.write(pkt)
         except (KeyboardInterrupt, SystemExit) as _err:
             logger.exception("do_dump terminated by error {0}, _err")
-            pass
         finally:
             CloseHandle(hFltComms) 
 
@@ -228,7 +228,7 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         Exit 
         '''
-        if (self._connected == True and self._hFltComms):
+        if (self._connected is True and self._hFltComms):
             CloseHandle(self._hFltComms)
         sys.exit(0)
     do_exit = do_quit
