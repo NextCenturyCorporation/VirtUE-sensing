@@ -309,13 +309,13 @@ WVUCommsManager::ChangeProbeState(
 	BOOLEAN success = FALSE;
 
 	/** if we are disabling, and the probe is enabled; then stop the probe */
-	if (WVU_COMMAND::DisableProtection == Command
+	if (WVU_COMMAND::DisableProbe == Command
 		&& TRUE == pProbeInfo->Probe->IsEnabled())
 	{
 		success = pProbeInfo->Probe->Stop();
 	}
 	/** If we are enabling probes, the probe is disabled AND it's marked EnableAtStart, then start the probe */
-	else if (WVU_COMMAND::EnableProtection == Command
+	else if (WVU_COMMAND::EnableProbe == Command
 		&& FALSE == pProbeInfo->Probe->IsEnabled()
 		&& (pProbeInfo->Probe->GetProbeAttribtes()
 			& AbstractVirtueProbe::ProbeAttributes::EnabledAtStart)
@@ -649,8 +649,8 @@ WVUCommsManager::OnCommandMessage(
 		Status = OnUnloadStateChange(pCmdMsg);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
-	case WVU_COMMAND::EnableProtection:
-	case WVU_COMMAND::DisableProtection:
+	case WVU_COMMAND::EnableProbe:
+	case WVU_COMMAND::DisableProbe:
 		Status = OnProtectionStateChange(pCmdMsg);
 		CreateStandardResponse(Status, OutputBuffer, OutputBufferLength, ReturnOutputBufferLength);
 		break;
