@@ -281,6 +281,8 @@ WVUUnload(
     if (FLTFL_FILTER_UNLOAD_MANDATORY == (FLTFL_FILTER_UNLOAD_MANDATORY & Flags))
     {
         WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "---===> *Mandatory* Windows VirtUE File System Filter Unload In Progress!!!\n");
+		Status = STATUS_SUCCESS;  // 2nd time through we're done
+		goto Error;
     }
     else if (FALSE == Globals.AllowFilterUnload)       
     {
@@ -315,10 +317,7 @@ WVUUnload(
 
 	// wait for all of that to end
 	ExWaitForRundownProtectionRelease(&Globals.RunDownRef);
-	if (NULL != pWVUMgr)
-	{
-		delete pWVUMgr;
-	}
+
 	// we've made, all is well
 	Status = STATUS_SUCCESS;
 

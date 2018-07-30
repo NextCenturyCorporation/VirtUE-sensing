@@ -7,7 +7,7 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROBEDATAQUEUE_POOL_TAG
 
-CONST INT WVUQueueManager::PROBEDATAQUEUESZ = 0x4000;
+CONST INT WVUQueueManager::PROBEDATAQUEUESZ = 0x40000; // 256K max entries
 
 /**
 * @brief construct an instance of the WVUQueueManager.  The WVUQueueManager constructs a 
@@ -20,12 +20,7 @@ NumberOfQueueEntries(0LL), NumberOfRegisteredProbes(0L)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	wfso_timeout.QuadPart = 0LL;
-	timeout.QuadPart =
-#if defined(WVU_DEBUG)
-		RELATIVE(SECONDS(300));
-#else
-		RELATRIVE(SECONDS(1));
-#endif
+	timeout.QuadPart = RELATIVE(SECONDS(220752000));  // yup, wait a year . . .
 
 	// initialize the queue entry count semaphore such that processing halts when there are no
 	// more entries in the queue
@@ -100,20 +95,29 @@ WVUQueueManager::dtor_exc_filter(
 */
 WVUQueueManager::~WVUQueueManager()
 {	
-	while (FALSE == IsListEmpty(&this->ProbeList))
-	{		
-		PLIST_ENTRY pListEntry = RemoveHeadList(&this->ProbeList);
-		ProbeInfo* pProbeInfo = CONTAINING_RECORD(pListEntry, ProbeInfo, ListEntry);
-		delete pProbeInfo;
-	}
-
-	while (FALSE == IsListEmpty(&this->PDQueue))
+	KLOCK_QUEUE_HANDLE LockHandle = { { NULL,NULL },0 };
+	KeAcquireInStackQueuedSpinLock(&this->PDQueueSpinLock, &LockHandle);
+	__try
 	{
-		PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
-		PPROBE_DATA_HEADER pProbeInfo = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		delete[](PBYTE)pProbeInfo;
-	}
+		while (FALSE == IsListEmpty(&this->ProbeList))
+		{
+			PLIST_ENTRY pListEntry = RemoveHeadList(&this->ProbeList);
+			ProbeInfo* pProbeInfo = CONTAINING_RECORD(pListEntry, ProbeInfo, ListEntry);
+			delete pProbeInfo;
+		}
 
+		while (FALSE == IsListEmpty(&this->PDQueue))
+		{
+			PLIST_ENTRY pListEntry = RemoveHeadList(&this->PDQueue);
+			PPROBE_DATA_HEADER pProbeInfo = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
+			delete[](PBYTE)pProbeInfo;
+		}
+	}
+	__finally
+	{
+		KeReleaseInStackQueuedSpinLock(&LockHandle);
+	}
+	
 	if (NULL != this->PDQEvents[ProbeDataEvtConnect])
 	{
 		FREE_POOL(this->PDQEvents[ProbeDataEvtConnect]);
@@ -170,7 +174,7 @@ WVUQueueManager::update_counters(
 	PLIST_ENTRY pListEntry)
 {
 	PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->DataSz);
+	InterlockedAdd64(&this->SizeOfDataInQueue, pPDH->data_sz);
 	WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 		this->SizeOfDataInQueue, this->Count());
 }
@@ -186,7 +190,7 @@ WVUQueueManager::TrimProbeDataQueue()
 		const PLIST_ENTRY pDequedEntry = RemoveHeadList(&this->PDQueue);  // cause the WaitForSingleObject to drop the semaphore count
 		this->NumberOfQueueEntries = this->Count();
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pDequedEntry, PROBE_DATA_HEADER, ListEntry);
-		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->data_sz)));
 		delete[] pPDH;
 		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Trimmed WVUQueueManager\n");
 		this->AcquireQueueSempahore();  // cause the semaphore count to be decremented by one
@@ -302,7 +306,7 @@ WVUQueueManager::Dequeue()
 			__leave;
 		}
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
-		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->DataSz)));
+		InterlockedAdd64(&this->SizeOfDataInQueue, (-(pPDH->data_sz)));
 		this->NumberOfQueueEntries = this->Count();
 		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, TRACE_LEVEL_ID, "**** Queue Status: Data Size %lld, Entry Count: %ld\n",
 			this->SizeOfDataInQueue, this->Count());
@@ -343,7 +347,7 @@ WVUQueueManager::Register(AbstractVirtueProbe& probe)
 	KeAcquireInStackQueuedSpinLock(&this->ProbeListSpinLock, &LockHandle);
 	__try
 	{
-		if (NULL == FindProbeByName(((AbstractVirtueProbe&)probe).GetProbeName()))
+		if (NULL == FindProbeByName(probe.GetProbeName()))
 		{
 			ProbeInfo* pProbeInfo = new ProbeInfo;
 			pProbeInfo->Probe = &probe;
@@ -383,24 +387,60 @@ WVUQueueManager::Unregister(AbstractVirtueProbe& probe)
 }
 
 /**
-* @brief unregisters a Virtue Probe
+* @brief Finds a probe by name ignoring case
+* @note the case lowering shenanigans are because we operate under IRQL restrictions
 * @param probe The probe to unregister
 * @return TRUE if the registration list is empty else FALSE
 */
 _Use_decl_annotations_
-WVUQueueManager::ProbeInfo *
-WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found)
+WVUQueueManager::ProbeInfo* 
+WVUQueueManager::FindProbeById(const UUID & probeid_to_be_found)
 {
 	ProbeInfo* pProbeInfo = nullptr;
+	if (TRUE == IsEqualGUID(probeid_to_be_found, ZEROGUID))
+	{
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Invalid Zero GUID Value!\n");
+		goto ErrorExit;
+	}
+
+	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
+	{		
+		if (TRUE == IsEqualGUID(probeid_to_be_found, probe->Probe->GetProbeId()))
+		{
+			pProbeInfo = probe;
+			break;
+		}
+	}
+
+ErrorExit:
+
+	return pProbeInfo;
+}
+
+/**
+* @brief Finds a probe by name ignoring case
+* @note the case lowering shenanigans are because we operate under IRQL restrictions
+* @param probe The probe to unregister
+* @param IgnoreCase If TRUE then case ignored else not ignored
+* @return ProbeInfo instance else nullptr if not found
+*/
+_Use_decl_annotations_
+WVUQueueManager::ProbeInfo *
+WVUQueueManager::FindProbeByName(const ANSI_STRING& probe_to_be_found, BOOLEAN IgnoreCase)
+{
+	ProbeInfo* pProbeInfo = nullptr;
+
 	LIST_FOR_EACH(probe, this->ProbeList, ProbeInfo)
 	{
-		CONST ANSI_STRING& probe_name = probe->Probe->GetProbeName();
-		if (probe_name.Length != probe_to_be_found.Length)
+		if (NULL == probe
+			|| NULL == probe->Probe
+			|| NULL == probe->Probe->GetProbeName().Buffer)
 		{
-			continue; // keep looking for the next one
+			FLT_ASSERTMSG("Something is dramatically wrong with the probe data!", FALSE);
+			continue;  // nope, we don't have a name?
 		}
-		if(probe_name.Length 
-			== RtlCompareMemory(probe_name.Buffer, probe_to_be_found.Buffer, probe_name.Length))
+
+		if (0 == CompareAnsiString(probe->Probe->GetProbeName(), probe_to_be_found, IgnoreCase))
 		{
 			pProbeInfo = probe;
 			break;

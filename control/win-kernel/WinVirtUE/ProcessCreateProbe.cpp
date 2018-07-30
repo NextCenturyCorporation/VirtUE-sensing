@@ -8,22 +8,21 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_PROCESSCTORDTORPROBE_POOL_TAG
 
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ProcessCreate");
+const ANSI_STRING one_shot_kill = RTL_CONSTANT_STRING("one-shot-kill");
+
 /**
 * @brief construct an instance of this probe 
 */
 ProcessCreateProbe::ProcessCreateProbe() : 
-	AbstractVirtueProbe(RTL_CONSTANT_STRING("ProcessCreate"))
+	AbstractVirtueProbe(probe_name)
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime); // | ProbeAttributes::EnabledAtStart);
-
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 	// initialize the spinlock that controls access to the Response queue
 	KeInitializeSpinLock(&this->ProcessListSpinLock);
 
 	// initialize the Response Queue TWLL
 	InitializeListHead(&this->ProcessList);
-
-	// we build the queue successfully
-	this->Enabled = TRUE;
 }
 
 
@@ -38,19 +37,6 @@ ProcessCreateProbe::~ProcessCreateProbe()
 		ProcessEntry* pProcessEntry = CONTAINING_RECORD(pListEntry, ProcessEntry, ListEntry);
 		delete pProcessEntry;
 	}
-}
-
-/**
-* @brief called to configure the probe
-* @param NameValuePairs newline terminated with assign operator name value
-* pair configuration information
-*/
-_Use_decl_annotations_
-BOOLEAN 
-ProcessCreateProbe::Configure(_In_ const ANSI_STRING& NameValuePairs)
-{
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
 }
 
 _Use_decl_annotations_
@@ -78,18 +64,26 @@ _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	if (TRUE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %w already enabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
-		Status = STATUS_NOT_SUPPORTED;
+		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z not enabled at start - probe is registered but not active\n",
+			"Probe %w not enabled at start - probe is registered but not active\n",
 			&this->ProbeName);
 		goto ErrorExit;
 	}
 	Status = this->RemoveNotify(FALSE);
+
 ErrorExit:
 	this->Enabled = NT_SUCCESS(Status) ? TRUE : FALSE;
-	return NT_SUCCESS(Status) ? TRUE : FALSE;
+	return this->Enabled;
 }
 
 /**
@@ -102,10 +96,12 @@ BOOLEAN ProcessCreateProbe::Stop()
 	BOOLEAN retval = TRUE;
 	if (FALSE == this->Enabled)
 	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %w already disabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}	
+	this->Enabled = FALSE;
 	retval = NT_SUCCESS(this->RemoveNotify(TRUE));
-	this->Enabled = !retval;
 ErrorExit:
 	return retval;
 }
@@ -123,18 +119,97 @@ BOOLEAN ProcessCreateProbe::IsEnabled()
 /**
 * @brief Mitigate known issues that this probe discovers
 * @note Mitigation is not being called as of June 2018
-* @param argv array of arguments
-* @param argc argument count
+* @param ArgV array of arguments
+* @param ArgC argument count
 * @returns Status returns operational status
 */
 _Use_decl_annotations_
 NTSTATUS ProcessCreateProbe::Mitigate(
-	PCHAR argv[], 
-	UINT32 argc)
-{
-	UNREFERENCED_PARAMETER(argv);
-	UNREFERENCED_PARAMETER(argc);
-	return NTSTATUS();
+	UINT32 ArgC,
+	ANSI_STRING ArgV[])
+{	
+
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+	UNICODE_STRING ucvalue = { 0,0, NULL };
+	ULONG pid = 0L;
+	PEPROCESS EProcess = nullptr;
+	ANSI_STRING MitigationCommand = { 0,0,0 };
+	ANSI_STRING MitigationData = { 0,0,0 };
+	HANDLE ProcessHandle = INVALID_HANDLE_VALUE;
+	ACCESS_MASK AccessMask = (DELETE | SYNCHRONIZE | GENERIC_ALL);
+	OBJECT_ATTRIBUTES ObjectAttributes = { 0,0,0,0,0,0 };
+	CLIENT_ID ClientId = { 0,0 };
+
+	if (ArgC != 2 || 0 != RtlCompareString(&one_shot_kill, &ArgV[0], TRUE)
+		|| ArgV[1].Length < 1
+		|| ArgV[1].MaximumLength < 1
+		|| nullptr == ArgV[1].Buffer)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Invalid Mitigation Data!\n");
+		goto ErrorExit;
+	}
+	MitigationCommand = ArgV[0];
+	MitigationData = { ArgV[1].Length, ArgV[1].MaximumLength, ArgV[1].Buffer };
+
+	Status = RtlAnsiStringToUnicodeString(&ucvalue, &MitigationData, TRUE);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+			"Failed to allocate memory for ansi to unicode conversion for %w - error: 0x%08x\n", MitigationData, Status);
+		goto ErrorExit;
+	}
+
+	__try
+	{
+		Status = RtlUnicodeStringToInteger(&ucvalue, 0, &pid);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID,
+				"Failed to convert from string %wZ to native ulong format - error: 0x%08x\n", ucvalue, Status);
+			__leave;
+		}
+	}
+	__finally { RtlFreeUnicodeString(&ucvalue); }			
+
+	Status = PsLookupProcessByProcessId((HANDLE)pid, &EProcess);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable to retrieve EProcess from PID 0x%08x - returned 0x%08x!\n", pid, Status);
+		goto ErrorExit;
+	}
+	UNREFERENCED_PARAMETER(EProcess);
+
+	ClientId = { (HANDLE)pid, (HANDLE)0 };
+	InitializeObjectAttributes(&ObjectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+	Status = ZwOpenProcess(&ProcessHandle, AccessMask, &ObjectAttributes, &ClientId);			
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Call to ZwOpenProcess failed with Status 0x%08x!\n", Status);
+		goto DerefAndExit;
+	}
+
+	Status = ZwTerminateProcess(ProcessHandle, STATUS_UNSUCCESSFUL);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable ZwTerminate 0x%08x - returned 0x%08x!\n", ProcessHandle, Status);
+		goto DerefAndExit;
+	}
+	Status = ZwClose(ProcessHandle);
+	if (FALSE == NT_SUCCESS(Status))
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "Unable Cloase 0x%08x - returned 0x%08x!\n", ProcessHandle, Status);
+	}
+	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "Successfully terminated EProcess 0x%p, PID 0x%08x with Status = STATUS_UNSUCCESSFUL\n", EProcess, pid);			
+
+	Status = STATUS_SUCCESS;
+
+DerefAndExit:
+
+	ObDereferenceObject(EProcess);
+
+ErrorExit:
+
+	return Status;
 }
 
 /**
@@ -159,6 +234,14 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+	if (NULL == pProbeInfo)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+			"***** Unable to find probe info on probe %w!\n", &probe_name);
+		goto ErrorExit;
+	}
+
 	if (CreateInfo)
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, TRACE_LEVEL_ID,
@@ -175,11 +258,10 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessCreateInfo pPCI = (PProcessCreateInfo)buf;
-		pPCI->ProbeDataHeader.MessageId = 0LL;
-		pPCI->ProbeDataHeader.ReplyLength = 0L;
-		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.CurrentGMT);
-		pPCI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessCreate;
-		pPCI->ProbeDataHeader.DataSz = bufsz;
+		KeQuerySystemTimePrecise(&pPCI->ProbeDataHeader.current_gmt);
+		pPCI->ProbeDataHeader.probe_type = ProbeType::ProcessCreate;
+		pPCI->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		pPCI->ProbeDataHeader.data_sz = bufsz;
 		pPCI->EProcess = Process;
 		pPCI->ProcessId = ProcessId;
 		pPCI->ParentProcessId = CreateInfo->ParentProcessId;
@@ -190,7 +272,7 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		pPCI->CommandLineSz = CreateInfo->CommandLine->Length;
 		RtlMoveMemory(&pPCI->CommandLine[0], CreateInfo->CommandLine->Buffer, pPCI->CommandLineSz);
 		
-		if (FALSE == pPDQ->Enqueue(&pPCI->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPCI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] buf;
@@ -218,15 +300,14 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 		RtlSecureZeroMemory(buf, bufsz);
 		const PProcessDestroyInfo pPDI= (PProcessDestroyInfo)buf;
-		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.CurrentGMT);
-		pPDI->ProbeDataHeader.MessageId = 0LL;
-		pPDI->ProbeDataHeader.ReplyLength = 0L;
-		pPDI->ProbeDataHeader.ProbeId = ProbeIdType::ProcessDestroy;
-		pPDI->ProbeDataHeader.DataSz = bufsz;
+		KeQuerySystemTimePrecise(&pPDI->ProbeDataHeader.current_gmt);
+		pPDI->ProbeDataHeader.probe_type = ProbeType::ProcessDestroy;
+		pPDI->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+		pPDI->ProbeDataHeader.data_sz = bufsz;
 		pPDI->EProcess = Process;
 		pPDI->ProcessId = ProcessId;	
 		
-		if (FALSE == pPDQ->Enqueue(&pPDI->ProbeDataHeader.ListEntry))
+		if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pPDI->ProbeDataHeader.ListEntry))
 		{
 #pragma warning(suppress: 26407)
 			delete[] buf;
@@ -236,7 +317,12 @@ ProcessCreateProbe::ProcessNotifyCallbackEx(
 		}
 	}
 
-	
+	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
+	{
+		pProbeInfo->Probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime()); 
+	}
+
 ErrorExit:
 
 	// Drop a rundown reference 

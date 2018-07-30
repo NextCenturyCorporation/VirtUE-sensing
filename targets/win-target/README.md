@@ -120,5 +120,44 @@ Compress-Archive -Path .\sensor_handlelist\sensor_handlelist.py -DestinationPath
 Compress-Archive -Path .\sensor_processlist\sensor_processlist.py -DestinationPath c:\WinVirtUE\sensors.zip -update
 Compress-Archive -Path .\sensor_kernelprobe\sensor_kernelprobe.py -DestinationPath c:\WinVirtUE\sensors.zip -update
 
+# Sensor Command And Configuration
+Here are the following functions required, from the python/user side to send commands and configuration requests.
 
+* (res, probes,) = EnumerateProbes(hFltComms) - this function returns a status response and a list of enumerate probe objects.  Each list element contains a ProbeStatus class instance which looks like:
+``` python.exe
+class ProbeStatus(SaviorStruct):
+    '''
+    The ProbeStatus message
+    '''
+    _fields_ = [        
+        ("SensorId", UUID),
+        ("LastRunTime", LONGLONG),
+        ("RunInterval", LONGLONG),
+        ("OperationCount", LONG),
+        ("Attributes", USHORT),
+        ("Enabled", BOOLEAN),
+        ("SensorName", BYTE * MAXPROBENAMESZ),
+    ]
+```
+From this ProbeStatus message, a python program can utilize the SensorId UUID to send configuration and other commands to a specific Sensor.  If all sensors are to receive and command/configuration request, Zero must be passed to the SensorId.  All registered sensors will then receive the command.
+* (res, rsp_buf,) = ConfigureProbe(hFltComms,'{"repeat-interval": 60}', probe.SensorId)  - this function reurns a status response and response buffer status.  Calling this function, a use program can configure one or all registered sensors.  There is no enforcement of configuration data formatting except at the driverse configuration engine.  If the targeted probe cannot interpret the configuration data, an error response will be returned.  
 
+* The sample configuration code below opens the Windows Virtue Command Port, and sends an enumeration request.  Utilizing the returned data from that request a Configuration command is sent to each registered probe.
+``` python.exe - Sample configuration code
+    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+    try:        
+        (res, probes,) = EnumerateProbes(hFltComms)
+        print("res = {0}\n".format(res,))        
+        for probe in probes:
+            print("{0}".format(probe,))
+            ConfigureProbe(hFltComms,'{"repeat-interval": 60}', probe.SensorId)
+    finally:
+        CloseHandle(hFltComms)  
+```
+* Here are some additional functions for manipulating probe/sensor states:
+1. Echo(hFltComms) - echo simply probes that a communcations port is open and is accepting commands as expected.
+2. EnableProtection - enables all regisetered sensors (targeted sensor_id not supported yet)
+3. DisableProtection - disables all regisetered sensors (targeted sensor_id not supported yet)
+4. EnableUnload - enables the driver unload from the operating system
+4. DisableUnload - disables the driver load from the operating system
+* Additional commands will be added in the future as required.

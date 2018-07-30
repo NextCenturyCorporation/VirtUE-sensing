@@ -10,18 +10,22 @@
 
 #pragma warning(suppress: 26439)
 
+volatile LONG AbstractVirtueProbe::ProbeCount = 0L;
+
 /**
 * @brief base class constructing an instance of a probe 
 */
 AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
-	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), LastProbeRunTime({ 0LL })
+	Attributes(ProbeAttributes::NoAttributes), Enabled(FALSE), 
+	Registered(FALSE), LastProbeRunTime({ 0LL }), OperationCount(0L)
 {
 	RunInterval.QuadPart = RELATIVE(SECONDS(30));
-	this->ProbeName = ProbeName;
-	if (NULL != pPDQ)
-	{
-		pPDQ->Register(*this);
-	}
+	this->ProbeName = ProbeName;	
+	WVUQueueManager::GetInstance().Register(*this);
+	this->Registered = TRUE;
+	FLT_ASSERTMSG("Unable to create a valid UUID!", 
+		TRUE == NT_SUCCESS(ExUuidCreate(&this->ProbeId)));
+	InterlockedIncrement(&AbstractVirtueProbe::ProbeCount);
 }
 
 /**
@@ -29,10 +33,9 @@ AbstractVirtueProbe::AbstractVirtueProbe(const ANSI_STRING& ProbeName) :
 */
 AbstractVirtueProbe::~AbstractVirtueProbe()
 {
-	if (NULL != pPDQ)
-	{
-		pPDQ->Unregister(*this);
-	}
+	WVUQueueManager::GetInstance().Unregister(*this);
+	this->Registered = FALSE;
+	InterlockedDecrement(&AbstractVirtueProbe::ProbeCount);
 }
 
 /**
@@ -67,13 +70,16 @@ AbstractVirtueProbe::operator delete(PVOID ptr)
 * @brief called by system polling thread to check if elapsed time has expired
 * @return TRUE if time has expired else FALSE
 */
+_Use_decl_annotations_
 BOOLEAN
 AbstractVirtueProbe::OnPoll()
 {
 	BOOLEAN success = FALSE;
 	LARGE_INTEGER CurrentGMT = { 0LL };
 
-	if ((Attributes & ProbeAttributes::Temporal) != ProbeAttributes::Temporal)
+	/** leave if we are not enabled and were not temporal */
+	if (FALSE == this->Enabled
+		|| (Attributes & ProbeAttributes::Temporal) != ProbeAttributes::Temporal)
 	{
 		success = FALSE;
 		goto Exit;
@@ -101,17 +107,21 @@ AbstractVirtueProbe::OnRun()
 {
 	CONST NTSTATUS Status = STATUS_SUCCESS;
 	KeQuerySystemTimePrecise(&this->LastProbeRunTime);  // always call superclasses probe function
+	InterlockedIncrement(&this->OperationCount);
 	return Status;
 }
 
 /**
 * @brief called to configure the probe 
-* @param NameValuePairs newline terminated with assign operator name value 
+* @note Do not create threads that will actively configure this probe, or
+* defer execution during during which the probe is configured else
+* unpredictable and bizzare results could occur.
+* @param config_data newline terminated with assign operator name value 
 * pair configuration information
 */
 _Use_decl_annotations_
-BOOLEAN AbstractVirtueProbe::Configure(const ANSI_STRING & NameValuePairs)
+BOOLEAN AbstractVirtueProbe::Configure(const ANSI_STRING & config_data)
 {
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
+	UNREFERENCED_PARAMETER(config_data);
+	return FALSE;
 }

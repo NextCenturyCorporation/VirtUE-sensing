@@ -69,8 +69,6 @@ private:
 public:
 	ProcessCreateProbe();
 	~ProcessCreateProbe();
-	_Must_inspect_result_
-		BOOLEAN Configure(_In_ const ANSI_STRING& NameValuePairs);
 	_Success_(TRUE == return)
 		BOOLEAN Start();
 	_Success_(TRUE == return)
@@ -80,8 +78,8 @@ public:
 	_Must_inspect_result_
 		_Success_(TRUE == NT_SUCCESS(return))
 		NTSTATUS Mitigate(
-			_In_opt_count_(argc) PCHAR argv[],
-			_In_ UINT32 argc);
+			_In_ UINT32 ArgC,
+			_In_count_(ArgC) ANSI_STRING ArgV[]);
 	_Must_inspect_result_
 	NTSTATUS OnRun();
 	_Has_lock_kind_(_Lock_kind_semaphore_)
@@ -94,13 +92,11 @@ public:
 	ProcessEntry* FindProcessByProcessId(_In_ HANDLE ProcessId);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)	
-	BOOLEAN InsertProcessEntry(PEPROCESS pEProcess, HANDLE ProcessId);
+	BOOLEAN InsertProcessEntry(_In_ PEPROCESS pEProcess, _In_ HANDLE ProcessId);
 	_Has_lock_kind_(_Lock_kind_semaphore_)
 	_Success_(TRUE == return)
-	BOOLEAN RemoveProcessEntry(ProcessEntry* pProcessEntry);
-	_Must_inspect_result_
+	BOOLEAN RemoveProcessEntry(_In_ ProcessEntry* pProcessEntry);
 	KSPIN_LOCK& GetProcessListSpinLock() { return this->ProcessListSpinLock; }
-	_Must_inspect_result_
-	LIST_ENTRY& GetProcessList() { return this->ProcessList; }
+	const LIST_ENTRY& GetProcessList() { return this->ProcessList; }
 };
 

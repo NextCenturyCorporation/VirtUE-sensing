@@ -6,6 +6,7 @@
 */
 #pragma once
 #include "common.h"
+#include "jsmn.h"
 #include "externs.h"
 
 class AbstractVirtueProbe
@@ -24,9 +25,10 @@ public:
 	} ProbeAttributes;
 
 protected:
-
 	/** this probes attributes */
 	ProbeAttributes Attributes;
+	/** True then probe is registered */
+	BOOLEAN Registered;
 	/** True then probe is enabled */
 	BOOLEAN Enabled;
 	/** Probes Name */
@@ -35,6 +37,12 @@ protected:
 	LARGE_INTEGER RunInterval;
 	/** Last Time Probe Executed */
 	LARGE_INTEGER LastProbeRunTime;
+	/** The number of discrete operations since loaded */
+	volatile LONG OperationCount;
+	/** The number of probes */
+	static volatile LONG ProbeCount;
+	/** This probes unique probe number */
+	UUID ProbeId;
 
 public:
 	AbstractVirtueProbe(const ANSI_STRING& ProbeName);
@@ -49,7 +57,7 @@ public:
 	_Must_inspect_result_
 		virtual BOOLEAN IsEnabled() = 0;
 	_Must_inspect_result_
-		virtual BOOLEAN Configure(_In_ const ANSI_STRING& NameValuePairs) = 0;
+		virtual BOOLEAN Configure(_In_ const ANSI_STRING& config_data);
 	/** called by the polling thread to do work */
 	_Must_inspect_result_
 		virtual BOOLEAN OnPoll();
@@ -59,24 +67,30 @@ public:
 	/* Mitigate probed states - currently not utilized */
 	_Must_inspect_result_ 
 	_Success_(TRUE==NT_SUCCESS(return))
-	virtual NTSTATUS Mitigate(
-		_In_count_(argc) PCHAR argv[],
-		_In_ UINT32 argc) = 0;
+	virtual NTSTATUS Mitigate(		
+		_In_ UINT32 ArgC,
+		_In_count_(ArgC) ANSI_STRING ArgV[]) = 0;
 	/* construct a new instance of this probe class */
 	_Must_inspect_impl_
 	PVOID operator new(_In_ size_t size);
 	/* destroy an instance of this probe class */
 	VOID CDECL operator delete(_In_ PVOID ptr);	
 	/* return this probes name */
-	_Must_inspect_result_
-	const ANSI_STRING& GetProbeName() const { return this->ProbeName; }
+	virtual const ANSI_STRING& GetProbeName() const { return this->ProbeName; }
 	/** get the last time the probe ran in GMT */
-	_Must_inspect_result_
-	const LARGE_INTEGER& GetLastProbeRunTime() const { return this->LastProbeRunTime; }
+	virtual LARGE_INTEGER& GetLastProbeRunTime() { return this->LastProbeRunTime; }
 	/** get this probes run interval in absolute time */
-	_Must_inspect_result_
-	const LARGE_INTEGER& GetRunInterval() const { return this->RunInterval; } 
+	virtual const LARGE_INTEGER& GetRunInterval() const { return this->RunInterval; }
 	/** get probe attributes */
-	_Must_inspect_result_
-	const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
+	virtual const ProbeAttributes& GetProbeAttribtes() const { return this->Attributes; }
+	/** get probe operation count */
+	virtual volatile const LONG& GetOperationCount() { return this->OperationCount; }
+	/** bump the operation count in a thread safe manner */
+	void IncrementOperationCount() { InterlockedIncrement(&this->OperationCount); }
+	/** return the number of registered probes */
+	static const volatile LONG& GetProbeCount() { return AbstractVirtueProbe::ProbeCount; }
+	/** retrieve this probes unique probe number */
+	virtual const UUID& GetProbeId() { return this->ProbeId; }
+	/** returns the registration state */
+	virtual const BOOLEAN& GetIsRegistered() { return this->Registered; }	
 };

@@ -37,7 +37,7 @@ static NTSTATUS GetOsVersion()
 	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "******************************\n");
 	// TODO:  Generate a proper version number
 	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** WinVirtUE.sys Version %d.%d.%d\n", 0, 1, 0);
-	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Windows Version %u.%u.%u Service Pack %u.%u\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, INFO_LEVEL_ID, "***** Windows Version %u.%u.%u Service Pack %u.%u\n",		
 		Globals.lpVersionInformation.dwMajorVersion, Globals.lpVersionInformation.dwMinorVersion, Globals.lpVersionInformation.dwBuildNumber,
 		Globals.lpVersionInformation.wServicePackMajor, Globals.lpVersionInformation.wServicePackMinor);
 
@@ -99,8 +99,6 @@ DriverEntry(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	OBJECT_ATTRIBUTES MainThdObjAttr = { 0,0,0,0,0,0 };		
 	CLIENT_ID MainClientId = { (HANDLE)-1,(HANDLE)-1 };
-
-
 	LARGE_INTEGER timeout = { 0LL };
 	timeout.QuadPart =
 #if defined(WVU_DEBUG)
@@ -112,7 +110,8 @@ DriverEntry(
 	WVUDebugBreakPoint();
 	
 	ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
-
+	Globals.IsDataStreamConnected = FALSE;
+	Globals.IsCommandConnected = FALSE;
 	Globals.DriverObject = DriverObject;  // let's save the DO off for future use
 
 	DriverObject->DriverUnload = DriverUnload;  // For now, we unload by default
@@ -196,6 +195,6 @@ ErrorExit:
 
 Exit:
 
-	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting on Error Status 0x%08x!\n");
+	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting on Error Status 0x%08x!\n", Status);
 	return Status;
 }

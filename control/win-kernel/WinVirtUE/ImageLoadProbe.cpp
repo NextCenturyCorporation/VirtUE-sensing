@@ -9,25 +9,14 @@
 #include "WVUQueueManager.h"
 #define COMMON_POOL_TAG WVU_IMAGELOADPROBE_POOL_TAG
 
+static ANSI_STRING probe_name = RTL_CONSTANT_STRING("ImageLoad");
+
 /**
 * @brief construct an instance of this probe
 */
-ImageLoadProbe::ImageLoadProbe() :
-	AbstractVirtueProbe(RTL_CONSTANT_STRING("ImageLoad"))
+ImageLoadProbe::ImageLoadProbe() : AbstractVirtueProbe(probe_name) 
 {
-	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime);// | ProbeAttributes::EnabledAtStart);
-}
-/**
-* @brief called to configure the probe
-* @param NameValuePairs newline terminated with assign operator name value
-* pair configuration information
-*/
-_Use_decl_annotations_
-BOOLEAN 
-ImageLoadProbe::Configure(_In_ const ANSI_STRING& NameValuePairs)
-{
-	UNREFERENCED_PARAMETER(NameValuePairs);
-	return BOOLEAN();
+	Attributes = (ProbeAttributes)(ProbeAttributes::RealTime | ProbeAttributes::EnabledAtStart);
 }
 
 /**
@@ -39,11 +28,19 @@ BOOLEAN ImageLoadProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
+	if (TRUE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, 
+			"Probe %w already enabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
+
 	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
 	{
-		Status = STATUS_NOT_SUPPORTED;
+		Status = STATUS_SUCCESS;
 		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %Z not enabled at start - probe is registered but not active\n", 
+			"Probe %w not enabled at start - probe is registered but not active\n", 
 			&this->ProbeName);			
 		goto ErrorExit;
 	}
@@ -73,6 +70,14 @@ BOOLEAN ImageLoadProbe::Stop()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
+	if (FALSE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %w already disabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
+
 	Status = PsRemoveLoadImageNotifyRoutine(ImageLoadProbe::ImageLoadNotificationRoutine);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -82,7 +87,7 @@ BOOLEAN ImageLoadProbe::Stop()
 	}
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "PsRemoveLoadImageNotifyRoutine(): Successfully Disabled Image Load Sensor\n");
-
+	this->Enabled = FALSE;
 ErrorExit:
 
 	return NT_SUCCESS(Status);
@@ -101,17 +106,17 @@ BOOLEAN ImageLoadProbe::IsEnabled()
 /**
 * @brief Mitigate known issues that this probe discovers
 * @note Mitigation is not being called as of June 2018
-* @param argv array of arguments 
-* @param argc argument count
+* @param ArgV array of arguments 
+* @param ArgC argument count
 * @returns Status returns operational status
 */
 _Use_decl_annotations_
 NTSTATUS ImageLoadProbe::Mitigate(
-	PCHAR argv[], 
-	UINT32 argc)
+	UINT32 ArgC,
+	ANSI_STRING ArgV[])
 {
-	UNREFERENCED_PARAMETER(argv);
-	UNREFERENCED_PARAMETER(argc);
+	UNREFERENCED_PARAMETER(ArgV);
+	UNREFERENCED_PARAMETER(ArgC);
 	return NTSTATUS();
 }
 
@@ -141,19 +146,19 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	HANDLE ProcessId,
 	PIMAGE_INFO pImageInfo)
 {
-	UNREFERENCED_PARAMETER(FullImageName);
-	UNREFERENCED_PARAMETER(ProcessId);
-	UNREFERENCED_PARAMETER(pImageInfo);
-
 	PEPROCESS  pProcess = NULL;
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
-
-	const NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
-	if (FALSE == NT_SUCCESS(Status))
+	// if this isnt' a driver module load, then look up the process
+	if (0 != ProcessId)
 	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
+		const NTSTATUS Status = PsLookupProcessByProcessId(ProcessId, &pProcess);
+		if (FALSE == NT_SUCCESS(Status))
+		{
+			WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID, "***** Failed to retreve a PEPROCESS for Process Id %p!\n", ProcessId);
+		}
+		ObDereferenceObject(pProcess);
 	}
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "FullImageName=%wZ,"
@@ -170,13 +175,19 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 		goto ErrorExit;
 	}
 
+	WVUQueueManager::ProbeInfo* pProbeInfo = WVUQueueManager::GetInstance().FindProbeByName(probe_name);
+	if (NULL == pProbeInfo)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_PROCESS, ERROR_LEVEL_ID,
+			"***** Unable to find probe info on probe %w!\n", &probe_name);
+		goto ErrorExit;
+	}
 	const PLoadedImageInfo pLoadedImageInfo = (PLoadedImageInfo)buf;
 	RtlSecureZeroMemory(buf, bufsz);
-	pLoadedImageInfo->ProbeDataHeader.MessageId = 0LL;
-	pLoadedImageInfo->ProbeDataHeader.ReplyLength = 0L;
-	pLoadedImageInfo->ProbeDataHeader.ProbeId = ProbeIdType::LoadedImage;
-	pLoadedImageInfo->ProbeDataHeader.DataSz = bufsz;
-	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.CurrentGMT);
+	pLoadedImageInfo->ProbeDataHeader.probe_type = ProbeType::ImageLoad;
+	pLoadedImageInfo->ProbeDataHeader.data_sz = bufsz;
+	pLoadedImageInfo->ProbeDataHeader.probe_id = pProbeInfo->Probe->GetProbeId();
+	KeQuerySystemTimePrecise(&pLoadedImageInfo->ProbeDataHeader.current_gmt);
 	pLoadedImageInfo->EProcess = pProcess;
 	pLoadedImageInfo->ProcessId = ProcessId;
 	pLoadedImageInfo->ImageBase = pImageInfo->ImageBase;
@@ -184,7 +195,7 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 	pLoadedImageInfo->FullImageNameSz = FullImageName->Length;
 	RtlMoveMemory(&pLoadedImageInfo->FullImageName[0], FullImageName->Buffer, pLoadedImageInfo->FullImageNameSz);
 
-	if (FALSE == pPDQ->Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
+	if (FALSE == WVUQueueManager::GetInstance().Enqueue(&pLoadedImageInfo->ProbeDataHeader.ListEntry))
 	{
 #pragma warning(suppress: 26407)
 		delete[] buf;
@@ -192,6 +203,12 @@ ImageLoadProbe::ImageLoadNotificationRoutine(
 			"ProcessId=%p,ImageBase=%p,ImageSize=%p,ImageSectionNumber=%ul\n",
 			FullImageName, ProcessId, pImageInfo->ImageBase, (PVOID)pImageInfo->ImageSize,
 			pImageInfo->ImageSectionNumber);
+	}	
+
+	if (NULL != pProbeInfo && NULL != pProbeInfo->Probe)
+	{
+		pProbeInfo->Probe->IncrementOperationCount();
+		KeQuerySystemTimePrecise(&pProbeInfo->Probe->GetLastProbeRunTime());
 	}
 
 ErrorExit:

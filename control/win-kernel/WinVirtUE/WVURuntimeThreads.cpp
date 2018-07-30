@@ -10,7 +10,6 @@
 
 #define COMMON_POOL_TAG WVU_THREAD_POOL_TAG
 
-static const UNICODE_STRING WinVirtUEAltitude = RTL_CONSTANT_STRING(L"360000");
 static LARGE_INTEGER Cookie;
 class WVUProbeManager *pWVUMgr;
 #pragma region Main Initialization Thread
@@ -45,14 +44,10 @@ WVUMainInitThread(PVOID StartContext)
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);	
 	
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "WVUMainInitThread Acquired runndown protection . . .\n");
-	pWVUMgr = new WVUProbeManager();
-	if (NULL == pWVUMgr)
-	{
-		Status = STATUS_MEMORY_NOT_ALLOCATED;
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID,
-			"WVUProbeManager not constructed - Status=%08x\n", Status);
-		goto ErrorExit;
-	}
+
+	WVUProbeManager& instance = WVUProbeManager::GetInstance();  // touch off the probe manager
+	UNREFERENCED_PARAMETER(instance);
+
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create sensor thread
 	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUProbeCommsThread, NULL);
@@ -72,7 +67,6 @@ WVUMainInitThread(PVOID StartContext)
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
 
-
 	InitializeObjectAttributes(&PollThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create poll thread
 	Status = PsCreateSystemThread(&PollThreadHandle, GENERIC_ALL, &PollThdObjAttr, NULL, &PollClientId, WVUTemporalProbeThread, NULL);
@@ -91,28 +85,6 @@ WVUMainInitThread(PVOID StartContext)
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Poll thread %p process %p thread id %p\n",
 		PollThreadHandle, PollClientId.UniqueProcess, PollClientId.UniqueThread);
-
-	/**
-	* To ensure that we don't cause verifier faults during unload, do not include the thread notification
-	* routines.  Verifier will fault because we don't undo what we've done.
-	*/
-#if defined(MFSCOMMENTEDCODE)
-	Status = PsSetCreateThreadNotifyRoutine(ThreadCreateCallback);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "PsSetCreateThreadNotifyRoutine(ThreadCreateCallback) "
-			"Add Failed! Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-	
-	Cookie.QuadPart = (LONGLONG)Globals.DriverObject;
-	Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, NULL, &Cookie, NULL);
-	if (FALSE == NT_SUCCESS(Status))
-	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed with Status=%08x\n", Status);
-		goto ErrorExit;
-	}
-#endif
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
 #pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh
@@ -148,7 +120,7 @@ WVUMainInitThread(PVOID StartContext)
 		}
 	} while (Status == STATUS_ALERTED || Status == STATUS_USER_APC);  // don't bail if we get alerted or APC'd
 
-	pPDQ->TerminateLoop();
+	WVUQueueManager::GetInstance().TerminateLoop();
 	PVOID thd_ary[] = { pSensorThread, pPollThread };
 	KeSetEvent(&Globals.poll_wait_evt, IO_NO_INCREMENT, FALSE);
 	Status = KeWaitForMultipleObjects(NUMBER_OF(thd_ary), thd_ary, WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL);
@@ -185,7 +157,7 @@ WVUProbeCommsThread(PVOID StartContext)
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LARGE_INTEGER send_timeout = { 0LL };
 	send_timeout.QuadPart = RELATIVE(SECONDS(20));
-	ULONG SenderBufferLen = sizeof(SaviorCommandPkt);
+	ULONG SenderBufferLen = 0L;
 	ULONG ReplyBufferLen = REPLYLEN;
 	PUCHAR ReplyBuffer = NULL;
 	PVOID SenderBuffer = NULL;
@@ -207,8 +179,8 @@ WVUProbeCommsThread(PVOID StartContext)
 	
 	do
 	{
-		Status = pPDQ->WaitForQueueAndPortConnect();
-		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", pPDQ->Count());
+		Status = WVUQueueManager::GetInstance().WaitForQueueAndPortConnect();
+		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", WVUQueueManager::GetInstance().Count());
 		if (FALSE == NT_SUCCESS(Status) || TRUE == Globals.ShuttingDown)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "KeWaitForMultipleObjects(Globals.ProbeDataEvents,...) Failed! Status=%08x\n", Status);
@@ -216,7 +188,7 @@ WVUProbeCommsThread(PVOID StartContext)
 		}
 
 		// quickly remove a queued entry
-		PLIST_ENTRY pListEntry = pPDQ->Dequeue();
+		PLIST_ENTRY pListEntry = WVUQueueManager::GetInstance().Dequeue();
 		if (NULL == pListEntry)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, WARNING_LEVEL_ID, "Dequeued an emtpy list entry - continuing!\n");
@@ -229,9 +201,7 @@ WVUProbeCommsThread(PVOID StartContext)
 		PPROBE_DATA_HEADER pPDH = CONTAINING_RECORD(pListEntry, PROBE_DATA_HEADER, ListEntry);
 		SenderBuffer = (PVOID)pPDH;
 #pragma warning(suppress: 28193)  // message id will be inspected in the user space service
-		pPDH->MessageId = pPDQ->GetMessageId();
-		pPDH->ReplyLength = REPLYLEN;
-		SenderBufferLen = pPDH->DataSz;
+		SenderBufferLen = pPDH->data_sz;
 
 		Status = FltSendMessage(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort,
 			SenderBuffer, SenderBufferLen, ReplyBuffer, &ReplyBufferLen, &send_timeout);
@@ -240,16 +210,17 @@ WVUProbeCommsThread(PVOID StartContext)
 		{
 			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "FltSendMessage "
 				"(...) Message Send Failed - putting it back into the queue and waiting!! Status=%08x\n", Status);
-			if (FALSE == pPDQ->PutBack(&pPDH->ListEntry)) // put the dequeued entry back
+			if (FALSE == WVUQueueManager::GetInstance().PutBack(&pPDH->ListEntry)) // put the dequeued entry back
 			{
-				pPDQ->Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
+				WVUQueueManager::GetInstance().Dispose(SenderBuffer);  // failed to re-enqueue, free and move on
+				WVUQueueManager::GetInstance().IncrementDiscardsCount();
 				pListEntry = NULL;
 			}
 		}
 		else if (TRUE == NT_SUCCESS(Status))
 		{
 			WVU_DEBUG_PRINT_BUFFER(LOG_SENSOR_THREAD, ReplyBuffer, ReplyBufferLen);
-			pPDQ->Dispose(SenderBuffer);
+			WVUQueueManager::GetInstance().Dispose(SenderBuffer);
 			pListEntry = NULL;
 		}
 		ReplyBufferLen = REPLYLEN;
@@ -319,10 +290,10 @@ WVUTemporalProbeThread(PVOID StartContext)
 		}
 
 		/** let's not modify the list while we are iterating */
-		KeAcquireInStackQueuedSpinLock(&pPDQ->GetProbeListSpinLock(), &LockHandle);
+		KeAcquireInStackQueuedSpinLock(&WVUQueueManager::GetInstance().GetProbeListSpinLock(), &LockHandle);
 		__try
 		{
-			LIST_FOR_EACH(pProbeInfo, pPDQ->GetProbeList(), WVUQueueManager::ProbeInfo)
+			LIST_FOR_EACH(pProbeInfo, WVUQueueManager::GetInstance().GetProbeList(), WVUQueueManager::ProbeInfo)
 			{
 				AbstractVirtueProbe* avp = pProbeInfo->Probe;
 				if (NULL == avp)
@@ -330,7 +301,7 @@ WVUTemporalProbeThread(PVOID StartContext)
 					continue;
 				}
 
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %Z for work to be done!\n", &avp->GetProbeName());
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %w for work to be done!\n", &avp->GetProbeName());
 				// poll the probe for any required actions on our part
 				if (FALSE == avp->OnPoll())
 				{
@@ -346,7 +317,7 @@ WVUTemporalProbeThread(PVOID StartContext)
 				LARGE_INTEGER local_time;
 				ExSystemTimeToLocalTime(&probe_last_runtime, &local_time);
 				RtlTimeToTimeFields(&local_time, &time_fields);
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %Z successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n",
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Probe %w successfully finished its work at %d/%d/%d %d:%d:%d.%d!\n",
 					avp->GetProbeName(), time_fields.Month, time_fields.Day, time_fields.Year, time_fields.Hour, time_fields.Minute, time_fields.Second, time_fields.Milliseconds);
 			}
 		}

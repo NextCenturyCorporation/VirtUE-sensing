@@ -24,6 +24,7 @@
 
 #pragma warning( pop )
 
+#include "Utility.h"
 #include "config.h"
 #include "trace.h"
 #include "CPPRuntime.h"
@@ -42,6 +43,9 @@
 #ifndef NUMBER_OF
 #define NUMBER_OF(x) ( sizeof(x) / sizeof(x[0]) )
 #endif
+
+/** if it's a kernel address the high 16 bits are set? */
+#define IS_KERNEL_ADDRESS(addr) (0xFFFF000000000000 == (0xFFFF000000000000 & addr))
 
 #define ABS(N) ((N<0)?(-N):(N))
 
@@ -84,4 +88,7 @@ CONST ULONG FILE_ATTRIBUTES_NA = 0;
 
 /** Assume that ListEntry is the list name */
 #define LIST_FOR_EACH(pos, head, T) \
-	LIST_FOR_EACH_ENTRY(pos, head, T, ListEntry)    
+	LIST_FOR_EACH_ENTRY(pos, head, T, ListEntry)
+
+#define TOLOWERCASE(ch) (ch | (1 << 5))
+#define TOUPPERCASE(ch) (ch & ~(1<< 5))
