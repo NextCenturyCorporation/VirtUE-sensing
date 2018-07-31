@@ -128,9 +128,7 @@ write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
 #endif
 	if (ccode < 0) {
 		pr_err("Unable to write file: %p (%ld)", f, ccode);
-		return ccode;
 	}
-
 	return ccode;
 }
 STACK_FRAME_NON_STANDARD(write_file_struct);
@@ -147,9 +145,7 @@ read_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
 #endif
 	if (ccode < 0) {
 		pr_err("Unable to read file: %p (%ld)", f, ccode);
-		return ccode;
 	}
-
 	return ccode;
 }
 STACK_FRAME_NON_STANDARD(read_file_struct);
@@ -168,9 +164,8 @@ write_file(char *name, void *buf, size_t count, loff_t *pos)
 #endif
 		if (ccode < 0) {
 			pr_err("Unable to write file: %s (%ld)", name, ccode);
-			filp_close(f, 0);
-			return ccode;
 		}
+		filp_close(f, 0);
 	} else {
 		ccode = -EBADF;
 		pr_err("Unable to open file: %s (%ld)", name, ccode);
@@ -194,15 +189,12 @@ read_file(char *name, void *buf, size_t count, loff_t *pos)
 #endif
 		if (ccode < 0) {
 			pr_err("Unable to read file: %s (%ld)", name, ccode);
-			filp_close(f, 0);
-			return ccode;
 		}
 		filp_close(f, 0);
 	} else {
 		ccode = -EBADF;
   		pr_err("Unable to open file: %s (%ld)", name, ccode);
 	}
-
 	return ccode;
 }
 STACK_FRAME_NON_STANDARD(read_file);
