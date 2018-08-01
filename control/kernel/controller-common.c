@@ -95,13 +95,14 @@ module_param(socket_name, charp, 0644);
 module_param(print_to_log, int, 0644);
 MODULE_PARM_DESC(print_to_log, "print probe output to messages");
 
+long chunk_size = 0x400;
+module_param(chunk_size, long, 0644);
+MODULE_PARM_DESC(chunk_size, "chunk size for virtual files");
 
-/**
- * Note on /sys and /proc files:
- * on Linux 4.x they stat as having no blocks and zero size,
- * but they do have a blocksize of 0x400. So, by default, we
- * will allocate a buffer the size of one block
- **/
+long max_size = (~0UL >> 1);
+module_param(max_size, long, 0644);
+MODULE_PARM_DESC(max_size, "largest file buffer to allocate");
+
 
 int
 file_getattr(struct file *f, struct kstat *k)
@@ -198,6 +199,81 @@ read_file(char *name, void *buf, size_t count, loff_t *pos)
 	return ccode;
 }
 STACK_FRAME_NON_STANDARD(read_file);
+
+ssize_t
+kernel_read_file_with_name(char *name, void **buf, size_t max_count, loff_t *pos)
+{
+#ifdef MODERN_FILE_API
+	return kernel_read_file_from_path(name,
+									  buf,
+									  pos,
+									  max_count,
+									  READING_UNKNOWN);
+#else
+	return -ENOSYS;
+#endif
+}
+
+
+ssize_t
+vfs_read_file(char *name, void **buf, size_t max_count, loff_t *pos)
+{
+	ssize_t ccode = 0;
+	struct file *f = NULL;
+
+	assert(buf);
+	*buf = NULL;
+	assert(pos);
+	*pos = 0LL;
+
+	f = filp_open(name, O_RDONLY, 0);
+	if (f) {
+		ssize_t chunk = chunk_size, allocated = 0, cursor = 0;
+		*buf = kzalloc(chunk, GFP_KERNEL);
+		if (*buf) {
+			allocated = chunk;
+		} else {
+			ccode =  -ENOMEM;
+			goto out_err;
+		}
+
+		do {
+			/**
+			 * read one chunk at a time
+			 **/
+			cursor = *pos; /* initially zero, then positioned with further reads */
+			ccode = kernel_read(f, *buf + cursor, chunk, pos);
+			if (ccode < 0) {
+				pr_err("Unable to read file chunk: %s (%ld)", name, ccode);
+				goto out_err;
+			}
+			if (ccode > 0) {
+				*buf = krealloc(*buf, allocated + chunk, GFP_KERNEL);
+				if (! *buf) {
+					ccode = -ENOMEM;
+					goto out_err;
+				}
+				allocated += chunk;
+			}
+		} while (ccode && allocated <= max_count);
+		filp_close(f, 0);
+	} else {
+		ccode = -EBADF;
+		pr_err("Unable to open file: %s (%ld)", name, ccode);
+	}
+	return ccode;
+
+out_err:
+	if (f) {
+		filp_close(f, 0);
+	}
+	if  (*buf) {
+		kfree(*buf);
+		*buf = NULL;
+	}
+	return ccode;
+}
+
 
 struct task_struct *
 get_task_by_pid_number(pid_t pid)
