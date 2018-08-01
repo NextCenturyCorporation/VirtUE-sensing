@@ -104,6 +104,8 @@ module_param(max_size, long, 0644);
 MODULE_PARM_DESC(max_size, "largest file buffer to allocate");
 
 
+
+
 int
 file_getattr(struct file *f, struct kstat *k)
 {
@@ -117,7 +119,17 @@ file_getattr(struct file *f, struct kstat *k)
 	return ccode;
 }
 
+int
+is_regular_file(struct file *f)
+{
+	if (!S_ISREG(file_inode(f)->i_mode))
+		return 0;
 
+	if (i_size_read(file_inode(f)) <= 0)
+		return 0;
+
+	return 1;
+}
 ssize_t
 write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
 {

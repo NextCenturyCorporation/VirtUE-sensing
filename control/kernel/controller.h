@@ -842,6 +842,15 @@ extern struct kernel_sysfs_probe ksysfs_probe;
 int
 file_getattr(struct file *f, struct kstat *k);
 
+int
+is_regular_file(struct file *f);
+
+ssize_t
+kernel_read_file_with_name(char *name, void **buf, size_t max_count, loff_t *pos);
+
+ssize_t
+vfs_read_file(char *name, void **buf, size_t max_count, loff_t *pos);
+
 ssize_t
 write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos);
 
