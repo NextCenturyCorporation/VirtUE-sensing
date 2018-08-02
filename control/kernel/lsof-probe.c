@@ -142,7 +142,7 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 							"%s %s, %s]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							parent->id);
+							parent->name);
 		rp->index = -ENOENT;
 		goto record_created;
 	}
@@ -164,7 +164,7 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 						"mode: %x count: %lx %s]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
-						parent->id,
+						parent->name,
 						tag,
 						klsof_p->user_id.val,
 						klsof_p->pid_nr,

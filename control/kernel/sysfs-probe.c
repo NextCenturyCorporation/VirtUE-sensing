@@ -89,7 +89,7 @@ sysfs_get_record(struct kernel_sysfs_probe *p,
 							"%s %s, %s ]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							p->id);
+							p->name);
 
 		rp->index = -ENOENT;
 		goto record_created;
@@ -111,7 +111,7 @@ sysfs_get_record(struct kernel_sysfs_probe *p,
 						"%s %s, %s, %s %d %x %s %s %lx}]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
-						p->id,
+						p->name,
 						tag,
 						rr->index,
 						kfsd_p->pid,

@@ -354,17 +354,17 @@ STACK_FRAME_NON_STANDARD(build_pid_index);
  *  probe is LOCKED upon return
  **/
 int
-get_probe(uint8_t *probe_id, struct probe **p)
+get_probe(uint8_t *probe_name, struct probe **p)
 {
 	struct probe *probe_p = NULL;
 	int ccode = -ENFILE;
-	assert(probe_id);
+	assert(probe_name);
 	assert(p);
 
 	*p = NULL;
 	rcu_read_lock();
 	list_for_each_entry_rcu(probe_p, &k_sensor.probes, l_node) {
-		if (! strncmp(probe_p->id, probe_id, strlen(probe_p->id))) {
+		if (! strncmp(probe_p->name, probe_name, strlen(probe_p->name))) {
 			if(!spin_trylock(&probe_p->lock)) {
 				ccode =  -EAGAIN;
 				goto exit;
@@ -443,13 +443,13 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 	rcu_read_lock();
 	list_for_each_entry_rcu(p_cursor, &k_sensor.probes, l_node) {
 		int id_len;
-		if ((remaining - 5) > (id_len = strlen(p_cursor->id))) {
+		if ((remaining - 5) > (id_len = strlen(p_cursor->name))) {
 			if (count > 0) {
 				*cursor++ = COMMA; remaining--;
 				*cursor++ = SPACE; remaining--;
 				*cursor++ = D_QUOTE; remaining--;
 			}
-			strncpy(cursor, p_cursor->id, remaining - 3);
+			strncpy(cursor, p_cursor->name, remaining - 3);
 			remaining -= id_len;
 			cursor += id_len;
 			*cursor++ = D_QUOTE; remaining--;
@@ -527,11 +527,11 @@ void *destroy_probe(struct probe *probe)
 		controller_destroy_worker(&probe->worker);
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
 	}
-	if (probe->id &&
+	if (probe->name &&
 		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
-		kfree(probe->id);
-		probe->id = NULL;
+		kfree(probe->name);
+		probe->name = NULL;
 	}
 	return probe;
 }
@@ -740,8 +740,8 @@ struct probe *init_probe(struct probe *probe,
 	probe->destroy = destroy_probe;
 	probe->message = default_probe_message;
 	if (id && id_size > 0) {
-		probe->id = kzalloc(id_size, GFP_KERNEL);
-		if (!probe->id) {
+		probe->name = kzalloc(id_size, GFP_KERNEL);
+		if (!probe->name) {
 			return ERR_PTR(-ENOMEM);
 		}
 		__SET_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
@@ -750,7 +750,7 @@ struct probe *init_probe(struct probe *probe,
  * which is already NULL. make sure to call this with
  * stlen(id) + 1 as the length of the id field.
  **/
-		memcpy(probe->id, id, id_size - 1);
+		memcpy(probe->name, id, id_size - 1);
 	}
 	/* generate the probe uuid */
 	generate_random_uuid(probe->uuid);

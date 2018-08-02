@@ -370,6 +370,20 @@ static inline void task_cputime(struct task_struct *t,
    structures.
 **/
 
+/**
+ * TODO:
+ * order of changes:
+ * 1 - rename id field to name
+ * 1.1 - change name of flag PROBE_HAS_ID_FIELD to
+ *                           PROBE_HAS_NAME_FIELD
+ * 1.2 - change parameter names for init_probe
+ * 2 - rename struct probe to struct sensor
+ * 3 - rename specific probes to be specific sensors, e.g.,
+ *     sysfs_probe to sysfs_sensor
+ * 4 - update discovery response message to include uuid field.
+ * 5 - change get_probe to get_sensor, and the key is the uuid instead
+ *     of the name
+ **/
 
 struct probe {
 	union {
@@ -377,7 +391,7 @@ struct probe {
 		struct semaphore s_lock;
 	};
 	/** TODO: rename id to name **/
-	uint8_t *id;
+	uint8_t *name;
 	uint8_t uuid[16];
 	struct probe *(*init)(struct probe *, uint8_t *, int);
 	void *(*destroy)(struct probe *);

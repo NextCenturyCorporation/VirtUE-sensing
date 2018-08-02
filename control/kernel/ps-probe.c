@@ -88,7 +88,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 							"%s %s, %s]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							parent->id);
+							parent->name);
 		rp->index = -ENOENT;
 		goto record_created;
 	}
@@ -104,7 +104,7 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
 						"%s %s, %s, %s %d %s %d %d %llx ]}\n",
-						r_header, rr->json_msg->s->nonce, parent->id,
+						r_header, rr->json_msg->s->nonce, parent->name,
 						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
 						kpsd_p->user_id.val, rr->nonce);
 	rp->index = rr->index;
