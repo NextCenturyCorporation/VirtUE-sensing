@@ -717,7 +717,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 
 
 int
-default_probe_message(struct sensor *sensor, struct probe_msg *msg)
+default_sensor_message(struct sensor *sensor, struct probe_msg *msg)
 {
 	assert(sensor && msg);
 
@@ -738,7 +738,7 @@ struct sensor *init_sensor(struct sensor *sensor,
 	INIT_LIST_HEAD_RCU(&sensor->l_node);
 	sensor->init =  init_sensor;
 	sensor->destroy = destroy_sensor;
-	sensor->message = default_probe_message;
+	sensor->message = default_sensor_message;
 	if (name && name_size > 0) {
 		sensor->name = kzalloc(name_size, GFP_KERNEL);
 		if (!sensor->name) {

@@ -380,7 +380,7 @@ static inline void task_cputime(struct task_struct *t,
  * 2 - rename struct probe to struct sensor - DONE
  * 2.1 rename init_probe to init_sensor - DONE
  * 2.2 rename destroy_probe to destroy_sensor - DONE
- * 2.3 rename default_probe_message to default_sensor_message
+ * 2.3 rename default_probe_message to default_sensor_message - DONE
  * 2.4 rename struct probe_msg struct sensor_msg
  * 3 - rename specific probes to be specific sensors, e.g.,
  *     sysfs_probe to sysfs_sensor
