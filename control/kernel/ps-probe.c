@@ -296,9 +296,9 @@ ps_message(struct probe *probe, struct probe_msg *msg)
 static void *destroy_kernel_ps_probe(struct probe *probe)
 {
 	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)probe;
-	assert(ps_p && __FLAG_IS_SET(ps_p->flags, PROBE_KPS));
+	assert(ps_p && __FLAG_IS_SET(ps_p->flags, SENSOR_KPS));
 
-	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
+	if (__FLAG_IS_SET(probe->flags, SENSOR_INITIALIZED)) {
 		destroy_probe(probe);
 	}
 
@@ -338,7 +338,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	 * they are passed on the command line, or (eventually) read
 	 * from sysfs
 	 **/
-	__SET_FLAG(ps_p->flags, PROBE_KPS);
+	__SET_FLAG(ps_p->flags, SENSOR_KPS);
 
 	ps_p->timeout = ps_timeout;
 	ps_p->repeat = ps_repeat;
@@ -375,7 +375,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 
 /* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&ps_p->work, run_kps_probe);
-	__SET_FLAG(ps_p->flags, PROBE_HAS_WORK);
+	__SET_FLAG(ps_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&ps_p->worker);
 	CONT_QUEUE_WORK(&ps_p->worker,
 					&ps_p->work);

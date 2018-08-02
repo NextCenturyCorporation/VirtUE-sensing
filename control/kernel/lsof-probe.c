@@ -391,9 +391,9 @@ void *
 destroy_kernel_lsof_probe(struct probe *probe)
 {
 	struct kernel_lsof_probe *lsof_p = (struct kernel_lsof_probe *)probe;
-	assert(lsof_p && __FLAG_IS_SET(lsof_p->flags, PROBE_KLSOF));
+	assert(lsof_p && __FLAG_IS_SET(lsof_p->flags, SENSOR_KLSOF));
 
-	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
+	if (__FLAG_IS_SET(probe->flags, SENSOR_INITIALIZED)) {
 		destroy_probe(probe);
 	}
 
@@ -441,7 +441,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	 * they are passed on the command line, or read
 	 * from sysfs
 	 **/
-	__SET_FLAG(lsof_p->flags, PROBE_KLSOF);
+	__SET_FLAG(lsof_p->flags, SENSOR_KLSOF);
 
 	lsof_p->timeout = lsof_timeout;
 	lsof_p->repeat = lsof_repeat;
@@ -497,7 +497,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 
 /* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&lsof_p->work, run_klsof_probe);
-	__SET_FLAG(lsof_p->flags, PROBE_HAS_WORK);
+	__SET_FLAG(lsof_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&lsof_p->worker);
 	CONT_QUEUE_WORK(&lsof_p->worker,
 					&lsof_p->work);

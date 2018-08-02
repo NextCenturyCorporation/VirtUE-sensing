@@ -520,16 +520,16 @@ void *destroy_probe_work(struct kthread_work *work)
  */
 void *destroy_probe(struct probe *probe)
 {
-	assert(probe && __FLAG_IS_SET(probe->flags, PROBE_INITIALIZED));
-	__CLEAR_FLAG(probe->flags, PROBE_INITIALIZED);
+	assert(probe && __FLAG_IS_SET(probe->flags, SENSOR_INITIALIZED));
+	__CLEAR_FLAG(probe->flags, SENSOR_INITIALIZED);
 
-	if (__FLAG_IS_SET(probe->flags, PROBE_HAS_WORK)) {
+	if (__FLAG_IS_SET(probe->flags, SENSOR_HAS_WORK)) {
 		controller_destroy_worker(&probe->worker);
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
+		__CLEAR_FLAG(probe->flags, SENSOR_HAS_WORK);
 	}
 	if (probe->name &&
-		__FLAG_IS_SET(probe->flags, PROBE_HAS_NAME_FIELD)) {
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_NAME_FIELD);
+		__FLAG_IS_SET(probe->flags, SENSOR_HAS_NAME_FIELD)) {
+		__CLEAR_FLAG(probe->flags, SENSOR_HAS_NAME_FIELD);
 		kfree(probe->name);
 		probe->name = NULL;
 	}
@@ -556,11 +556,11 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		list_del_rcu(&probe_p->l_node);
 		spin_unlock(&sensor->lock);
 		synchronize_rcu();
-		if (__FLAG_IS_SET(probe_p->flags, PROBE_KPS)) {
+		if (__FLAG_IS_SET(probe_p->flags, SENSOR_KPS)) {
 			((struct kernel_ps_probe *)probe_p)->_destroy(probe_p);
-		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KLSOF)) {
+		} else if (__FLAG_IS_SET(probe_p->flags, SENSOR_KLSOF)) {
 			((struct kernel_lsof_probe *)probe_p)->_destroy(probe_p);
-		} else if (__FLAG_IS_SET(probe_p->flags, PROBE_KSYSFS)) {
+		} else if (__FLAG_IS_SET(probe_p->flags, SENSOR_KSYSFS)) {
 			((struct kernel_sysfs_probe *)probe_p)->_destroy(probe_p);
 		} else {
 			probe_p->destroy(probe_p);
@@ -586,7 +586,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		list_del_rcu(&conn_c->l_node);
 		spin_unlock(&sensor->lock);
 		synchronize_rcu();
-		if (__FLAG_IS_SET(conn_c->flags, PROBE_LISTEN)) {
+		if (__FLAG_IS_SET(conn_c->flags, SENSOR_LISTEN)) {
 			/**
 			 * the listener is statically allocated, no need to
 			 * free the memory
@@ -611,7 +611,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		spin_lock(&sensor->lock);
         list_del_rcu(&conn_c->l_node);
 	    spin_unlock(&sensor->lock);
-		if (__FLAG_IS_SET(conn_c->flags, PROBE_CONNECT)) {
+		if (__FLAG_IS_SET(conn_c->flags, SENSOR_CONNECT)) {
 			/**
 			 * a connection is dynamically allocated, so
 			 * need to kfree the memory
@@ -729,37 +729,37 @@ default_probe_message(struct probe *probe, struct probe_msg *msg)
 }
 
 
-struct probe *init_probe(struct probe *probe,
-						 uint8_t *id, int id_size)
+struct probe *init_probe(struct probe *sensor,
+						 uint8_t *name, int name_size)
 {
-	if (!probe) {
+	if (!sensor) {
 		return ERR_PTR(-ENOMEM);
 	}
-	INIT_LIST_HEAD_RCU(&probe->l_node);
-	probe->init =  init_probe;
-	probe->destroy = destroy_probe;
-	probe->message = default_probe_message;
-	if (id && id_size > 0) {
-		probe->name = kzalloc(id_size, GFP_KERNEL);
-		if (!probe->name) {
+	INIT_LIST_HEAD_RCU(&sensor->l_node);
+	sensor->init =  init_probe;
+	sensor->destroy = destroy_probe;
+	sensor->message = default_probe_message;
+	if (name && name_size > 0) {
+		sensor->name = kzalloc(name_size, GFP_KERNEL);
+		if (!sensor->name) {
 			return ERR_PTR(-ENOMEM);
 		}
-		__SET_FLAG(probe->flags, PROBE_HAS_NAME_FIELD);
+		__SET_FLAG(sensor->flags, SENSOR_HAS_NAME_FIELD);
 /**
  * memcpy the number of chars minus the null terminator,
  * which is already NULL. make sure to call this with
  * stlen(id) + 1 as the length of the id field.
  **/
-		memcpy(probe->name, id, id_size - 1);
+		memcpy(sensor->name, name, name_size - 1);
 	}
 	/* generate the probe uuid */
-	generate_random_uuid(probe->uuid);
-	probe->lock=__SPIN_LOCK_UNLOCKED("probe");
+	generate_random_uuid(sensor->uuid);
+	sensor->lock=__SPIN_LOCK_UNLOCKED("sensor");
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */
 
-	__SET_FLAG(probe->flags, PROBE_INITIALIZED);
-	return probe;
+	__SET_FLAG(sensor->flags, SENSOR_INITIALIZED);
+	return sensor;
 }
 EXPORT_SYMBOL(init_probe);
 
@@ -853,7 +853,7 @@ static int __init kcontrol_init(void)
 
 err_exit:
 	if (ps_probe != ERR_PTR(-ENOMEM)) {
-		if (__FLAG_IS_SET(ps_probe->flags, PROBE_INITIALIZED)) {
+		if (__FLAG_IS_SET(ps_probe->flags, SENSOR_INITIALIZED)) {
 			ps_probe->_destroy((struct probe *)ps_probe);
 		}
 		kfree(ps_probe);
@@ -861,7 +861,7 @@ err_exit:
 	}
 
 	if (lsof_probe != ERR_PTR(-ENOMEM)) {
-		if (__FLAG_IS_SET(lsof_probe->flags, PROBE_INITIALIZED)) {
+		if (__FLAG_IS_SET(lsof_probe->flags, SENSOR_INITIALIZED)) {
 			lsof_probe->_destroy((struct probe *)lsof_probe);
 		}
 		kfree(lsof_probe);
@@ -870,7 +870,7 @@ err_exit:
 
 	/**
 	if (sysfs_probe != ERR_PTR(-ENOMEM)) {
-		if (__FLAG_IS_SET(sysfs_probe->flags, PROBE_INITIALIZED)) {
+		if (__FLAG_IS_SET(sysfs_probe->flags, SENSOR_INITIALIZED)) {
 			sysfs_probe->_destroy((struct probe *)sysfs_probe);
 		}
 		kfree(sysfs_probe);

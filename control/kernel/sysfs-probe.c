@@ -412,9 +412,9 @@ void *
 destroy_sysfs_probe(struct probe *probe)
 {
 	struct kernel_sysfs_probe *sysfs_p = (struct kernel_sysfs_probe *)probe;
-	assert(sysfs_p && __FLAG_IS_SET(sysfs_p->flags, PROBE_KSYSFS));
+	assert(sysfs_p && __FLAG_IS_SET(sysfs_p->flags, SENSOR_KSYSFS));
 
-	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
+	if (__FLAG_IS_SET(probe->flags, SENSOR_INITIALIZED)) {
 		destroy_probe(probe);
 	}
 
@@ -450,7 +450,7 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 		goto err_exit;
 	}
 
-	__SET_FLAG(sysfs_p->flags, PROBE_KSYSFS);
+	__SET_FLAG(sysfs_p->flags, SENSOR_KSYSFS);
 	sysfs_p->timeout = sysfs_timeout;
 	sysfs_p->repeat = sysfs_repeat;
 
@@ -508,7 +508,7 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 
 	/* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&sysfs_p->work, run_sysfs_probe);
-	__SET_FLAG(sysfs_p->flags, PROBE_HAS_WORK);
+	__SET_FLAG(sysfs_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&sysfs_p->worker);
 	CONT_QUEUE_WORK(&sysfs_p->worker,
 					&sysfs_p->work);

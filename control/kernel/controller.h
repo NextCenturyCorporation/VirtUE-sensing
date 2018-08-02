@@ -375,9 +375,12 @@ static inline void task_cputime(struct task_struct *t,
  * order of changes:
  * 1 - rename id field to name - DONE
  * 1.1 - change name of flag PROBE_HAS_ID_FIELD to
- *                           PROBE_HAS_NAME_FIELD
- * 1.2 - change parameter names for init_probegit l
+ *                           PROBE_HAS_NAME_FIELD - DONE
+ * 1.2 - change parameter names for init_probe
  * 2 - rename struct probe to struct sensor
+ * 2.1 rename init_probe to init_sensor
+ * 2.2 rename destroy_probe to destroy_sensor
+ * 2.3 rename default_probe_message to default_sensor_message
  * 3 - rename specific probes to be specific sensors, e.g.,
  *     sysfs_probe to sysfs_sensor
  * 4 - update discovery response message to include uuid field.
@@ -594,7 +597,7 @@ controller_create_worker(unsigned int flags, const char namefmt[], ...);
 void controller_destroy_worker(struct kthread_worker *worker);
 
 struct probe *init_probe(struct probe *probe,
-						 uint8_t *id,  int id_size);
+						 uint8_t *name,  int name_size);
 void *destroy_probe_work(struct kthread_work *work);
 void *destroy_k_probe(struct probe *probe);
 
