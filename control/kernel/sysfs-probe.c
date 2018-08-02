@@ -415,7 +415,7 @@ destroy_sysfs_probe(struct sensor *sensor)
 	assert(sysfs_p && __FLAG_IS_SET(sysfs_p->flags, SENSOR_KSYSFS));
 
 	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
-		destroy_probe(sensor);
+		destroy_sensor(sensor);
 	}
 
 	if (sysfs_p->ksysfs_pid_flex_array) {

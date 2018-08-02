@@ -299,7 +299,7 @@ static void *destroy_kernel_ps_probe(struct sensor *sensor)
 	assert(ps_p && __FLAG_IS_SET(ps_p->flags, SENSOR_KPS));
 
 	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
-		destroy_probe(sensor);
+		destroy_sensor(sensor);
 	}
 
 	if (ps_p->kps_data_flex_array) {

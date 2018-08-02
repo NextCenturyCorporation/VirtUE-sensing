@@ -518,7 +518,7 @@ void *destroy_probe_work(struct kthread_work *work)
  *   and probe data, destroys a probe work node if it is there,
  *  and returns a zero'ed out memory buffer to the outer call.
  */
-void *destroy_probe(struct sensor *sensor)
+void *destroy_sensor(struct sensor *sensor)
 {
 	assert(sensor && __FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED));
 	__CLEAR_FLAG(sensor->flags, SENSOR_INITIALIZED);
@@ -535,7 +535,7 @@ void *destroy_probe(struct sensor *sensor)
 	}
 	return sensor;
 }
-STACK_FRAME_NON_STANDARD(destroy_probe);
+STACK_FRAME_NON_STANDARD(destroy_sensor);
 
 void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 {
@@ -630,7 +630,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	}
 /* now destroy the sensor's anonymous probe struct */
 	sensor_p = (struct sensor *)sensor;
-	destroy_probe(sensor_p);
+	destroy_sensor(sensor_p);
 	memset(sensor, 0, sizeof(struct kernel_sensor));
 	return sensor;
 }
@@ -737,7 +737,7 @@ struct sensor *init_sensor(struct sensor *sensor,
 	}
 	INIT_LIST_HEAD_RCU(&sensor->l_node);
 	sensor->init =  init_sensor;
-	sensor->destroy = destroy_probe;
+	sensor->destroy = destroy_sensor;
 	sensor->message = default_probe_message;
 	if (name && name_size > 0) {
 		sensor->name = kzalloc(name_size, GFP_KERNEL);

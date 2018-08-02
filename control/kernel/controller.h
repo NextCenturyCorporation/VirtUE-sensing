@@ -378,8 +378,8 @@ static inline void task_cputime(struct task_struct *t,
  *                           PROBE_HAS_NAME_FIELD - DONE
  * 1.2 - change parameter names for init_probe - DONE
  * 2 - rename struct probe to struct sensor - DONE
- * 2.1 rename init_probe to init_sensor
- * 2.2 rename destroy_probe to destroy_sensor
+ * 2.1 rename init_probe to init_sensor - DONE
+ * 2.2 rename destroy_probe to destroy_sensor - DONE
  * 2.3 rename default_probe_message to default_sensor_message
  * 2.4 rename struct probe_msg struct sensor_msg
  * 3 - rename specific probes to be specific sensors, e.g.,
@@ -607,7 +607,7 @@ bool init_and_queue_work(struct kthread_work *work,
 						 void (*function)(struct kthread_work *));
 
 
-void *destroy_probe(struct sensor *sensor);
+void *destroy_sensor(struct sensor *sensor);
 
 /**
  ******************************************************************************

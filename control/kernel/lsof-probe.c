@@ -394,7 +394,7 @@ destroy_kernel_lsof_probe(struct sensor *sensor)
 	assert(lsof_p && __FLAG_IS_SET(lsof_p->flags, SENSOR_KLSOF));
 
 	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
-		destroy_probe(sensor);
+		destroy_sensor(sensor);
 	}
 
 	if (lsof_p->klsof_pid_flex_array) {
