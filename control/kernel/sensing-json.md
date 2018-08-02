@@ -38,7 +38,7 @@ optional arguments:
 Both the kernel module and the sensing client need to agree on the name of the domain socket. The default name is `/var/run/kernel_sensor`.  The client must have root privilege to open the domain socket.
 
 To test the functionality of the domain socket,
-1. load the kernel sending module (see above)
+1. load the kernel sensing module (see above)
 2. run the KernelProbe client with `—echo`
 
 ```shell
