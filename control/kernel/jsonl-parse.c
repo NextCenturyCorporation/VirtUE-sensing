@@ -394,7 +394,7 @@ static int
 process_records_request(struct jsmn_message *msg, int index)
 {
 	int ccode = 0, write_ccode = 0;
-	struct probe *probe_p = NULL;
+	struct sensor *sensor_p = NULL;
 	struct jsmn_message *records_reply = NULL;
 
 	struct records_request rr = {
@@ -418,7 +418,7 @@ process_records_request(struct jsmn_message *msg, int index)
 	};
 
 	do {
-		ccode = get_probe(msg->s->probe_id, &probe_p);
+		ccode = get_probe(msg->s->probe_id, &sensor_p);
 	} while (ccode == -EAGAIN);
 
 	if (ccode < 0) {
@@ -431,7 +431,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		return ccode;
 	}
 
-	if (!ccode && probe_p != NULL) {
+	if (!ccode && sensor_p != NULL) {
         /* send this probe a records request */
 		/* will return 0 or error if no record. */
 		/* each record is encapsulated in a json object and copied into */
@@ -444,7 +444,7 @@ process_records_request(struct jsmn_message *msg, int index)
 				break;
 			}
 
-			ccode = probe_p->message(probe_p, &pm);
+			ccode = sensor_p->message(sensor_p, &pm);
 			/**
 			 * rp.records contains the json record object(s)
 			 * rp.records_len contains the length of the object(s)
@@ -453,7 +453,7 @@ process_records_request(struct jsmn_message *msg, int index)
 				records_reply = allocate_reply_message(msg, 0);
 				if (records_reply) {
 					/**
-					 * response was built in probe_p->message, assign
+					 * response was built in sensor_p->message, assign
 					 * that buffer to this reply, then
 					 * link the reply message to the session
 					 **/
@@ -471,8 +471,8 @@ process_records_request(struct jsmn_message *msg, int index)
 			rr.run_probe = 0;
 			rr.index++;
 		} while(!ccode && rp.index != -ENOENT);
-		spin_unlock(&probe_p->lock);
-		probe_p = NULL;
+		spin_unlock(&sensor_p->lock);
+		sensor_p = NULL;
 	}
 
 	/**

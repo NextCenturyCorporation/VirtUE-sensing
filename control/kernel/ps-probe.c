@@ -280,11 +280,11 @@ void  run_kps_probe(struct kthread_work *work)
  * probe is LOCKED upon entry
  **/
 static int
-ps_message(struct probe *probe, struct probe_msg *msg)
+ps_message(struct sensor *sensor, struct probe_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return kernel_ps_get_record((struct kernel_ps_probe *)probe,
+		return kernel_ps_get_record((struct kernel_ps_probe *)sensor,
 									msg,
 									"kernel-ps");
 	}
@@ -293,13 +293,13 @@ ps_message(struct probe *probe, struct probe_msg *msg)
 	}
 }
 
-static void *destroy_kernel_ps_probe(struct probe *probe)
+static void *destroy_kernel_ps_probe(struct sensor *sensor)
 {
-	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)probe;
+	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)sensor;
 	assert(ps_p && __FLAG_IS_SET(ps_p->flags, SENSOR_KPS));
 
-	if (__FLAG_IS_SET(probe->flags, SENSOR_INITIALIZED)) {
-		destroy_probe(probe);
+	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
+		destroy_probe(sensor);
 	}
 
 	if (ps_p->kps_data_flex_array) {
@@ -317,7 +317,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 														  uint8_t *, uint64_t, int))
 {
 	int ccode = 0;
-	struct probe *tmp;
+	struct sensor *tmp;
 
 	if (!ps_p) {
 		return ERR_PTR(-ENOMEM);
@@ -325,7 +325,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
 	/* init the anonymous struct probe */
 
-	tmp = init_probe((struct probe *)ps_p, id, id_len);
+	tmp = init_probe((struct sensor *)ps_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
 	if (ps_p != (struct kernel_ps_probe *)tmp) {

@@ -652,7 +652,7 @@ static inline void *destroy_connection(struct connection *c)
 		c->connected = NULL;
 	}
 	up(&c->s_lock);
-	c->destroy((struct probe *)c);
+	c->destroy((struct sensor *)c);
 	memset(c, 0x00, sizeof(*c));
 	return c;
 }
@@ -677,7 +677,7 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 			  __FLAG_IS_SET(flags, SENSOR_CONNECT)));
 
 	memset(c, 0x00, sizeof(struct connection));
-	c = (struct connection *)init_probe((struct probe *)c,
+	c = (struct connection *)init_probe((struct sensor *)c,
 										"connection", strlen("connection") + 1);
 	sema_init(&c->s_lock, 1);
 

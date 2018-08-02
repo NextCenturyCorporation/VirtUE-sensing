@@ -35,11 +35,11 @@
  * probe is LOCKED upon entry
  **/
 static int
-lsof_message(struct probe *probe, struct probe_msg *msg)
+lsof_message(struct sensor *sensor, struct probe_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return kernel_lsof_get_record((struct kernel_lsof_probe *)probe,
+		return kernel_lsof_get_record((struct kernel_lsof_probe *)sensor,
 									  msg,
 									  "kernel-lsof");
 	}
@@ -333,7 +333,7 @@ kernel_lsof_unlocked(struct kernel_lsof_probe *p,
 					 uint64_t nonce)
 {
 	int count;
-	count = build_pid_index_unlocked((struct probe *)p,
+	count = build_pid_index_unlocked((struct sensor *)p,
 									 p->klsof_pid_flex_array,
 									 nonce);
 	count = lsof_for_each_pid_unlocked(p, nonce);
@@ -349,7 +349,7 @@ kernel_lsof(struct kernel_lsof_probe *p, uint64_t nonce)
 	if (!spin_trylock(&p->lock)) {
 		return -EAGAIN;
 	}
-	count = build_pid_index_unlocked((struct probe *)p,
+	count = build_pid_index_unlocked((struct sensor *)p,
 									 p->klsof_pid_flex_array,
 									 nonce);
 	count = lsof_for_each_pid_unlocked(p, nonce);
@@ -388,13 +388,13 @@ run_klsof_probe(struct kthread_work *work)
 
 
 void *
-destroy_kernel_lsof_probe(struct probe *probe)
+destroy_kernel_lsof_probe(struct sensor *sensor)
 {
-	struct kernel_lsof_probe *lsof_p = (struct kernel_lsof_probe *)probe;
+	struct kernel_lsof_probe *lsof_p = (struct kernel_lsof_probe *)sensor;
 	assert(lsof_p && __FLAG_IS_SET(lsof_p->flags, SENSOR_KLSOF));
 
-	if (__FLAG_IS_SET(probe->flags, SENSOR_INITIALIZED)) {
-		destroy_probe(probe);
+	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
+		destroy_probe(sensor);
 	}
 
 	if (lsof_p->klsof_pid_flex_array) {
@@ -420,7 +420,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 									 void *))
 {
 	int ccode = 0;
-	struct probe *tmp;
+	struct sensor *tmp;
 
 	if (!lsof_p) {
 		return ERR_PTR(-ENOMEM);
@@ -428,7 +428,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	memset(lsof_p, 0, sizeof(struct kernel_lsof_probe));
 	/* init the anonymous struct probe */
 
-	tmp = init_probe((struct probe *)lsof_p, id, id_len);
+	tmp = init_probe((struct sensor *)lsof_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
 	if (lsof_p != (struct kernel_lsof_probe *)tmp) {

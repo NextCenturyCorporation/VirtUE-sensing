@@ -376,11 +376,12 @@ static inline void task_cputime(struct task_struct *t,
  * 1 - rename id field to name - DONE
  * 1.1 - change name of flag PROBE_HAS_ID_FIELD to
  *                           PROBE_HAS_NAME_FIELD - DONE
- * 1.2 - change parameter names for init_probe
- * 2 - rename struct probe to struct sensor
+ * 1.2 - change parameter names for init_probe - DONE
+ * 2 - rename struct probe to struct sensor - DONE
  * 2.1 rename init_probe to init_sensor
  * 2.2 rename destroy_probe to destroy_sensor
  * 2.3 rename default_probe_message to default_sensor_message
+ * 2.4 rename struct probe_msg struct sensor_msg
  * 3 - rename specific probes to be specific sensors, e.g.,
  *     sysfs_probe to sysfs_sensor
  * 4 - update discovery response message to include uuid field.
@@ -388,7 +389,7 @@ static inline void task_cputime(struct task_struct *t,
  *     of the name
  **/
 
-struct probe {
+struct sensor {
 	union {
 		spinlock_t lock;
 		struct semaphore s_lock;
@@ -396,9 +397,9 @@ struct probe {
 	/** TODO: rename id to name **/
 	uint8_t *name;
 	uint8_t uuid[16];
-	struct probe *(*init)(struct probe *, uint8_t *, int);
-	void *(*destroy)(struct probe *);
-	int (*message)(struct probe *, struct probe_msg *);
+	struct sensor *(*init)(struct sensor *, uint8_t *, int);
+	void *(*destroy)(struct sensor *);
+	int (*message)(struct sensor *, struct probe_msg *);
 	uint64_t flags, state;  /* see controller-flags.h */
 	int timeout, repeat;
 	struct kthread_worker worker;
@@ -408,17 +409,17 @@ struct probe {
 
 
 int
-default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len);
+default_send_msg_to(struct sensor *, int msg, void *in_buf, ssize_t len);
 
 int
-default_rcv_msg_from(struct probe *probe,
+default_rcv_msg_from(struct sensor *,
 					 int msg,
 					 void **out_buf,
 					 ssize_t *len);
 
 
 int
-get_probe(uint8_t *probe_id, struct probe **p);
+get_probe(uint8_t *probe_id, struct sensor **);
 
 /**
  * @brief The kernel sensor is the parent of one or more probes
@@ -460,7 +461,7 @@ get_probe(uint8_t *probe_id, struct probe **p);
 /* connection struct is used for both listening and connected sockets */
 /* function pointers for listen, accept, close */
 struct connection {
-	struct probe;
+	struct sensor;
 	/**
 	 * _init parameters:
 	 * uint64_t flags - will have the PROBE_LISTENER or PROBE_CONNECTED bit set
@@ -477,10 +478,10 @@ struct connection {
 };
 
 struct kernel_sensor {
-	struct probe;
+	struct sensor;
 	struct kernel_sensor *(*_init)(struct kernel_sensor *);
 	void *(*_destroy)(struct kernel_sensor *);
-	struct list_head probes;
+	struct list_head sensors;
 	struct list_head listeners;
 	struct list_head connections;
 };
@@ -557,7 +558,7 @@ struct kernel_ps_data {
  *    struct probe.
  **/
 struct kernel_ps_probe {
-	struct probe;
+	struct sensor;
 	struct flex_array *kps_data_flex_array;
 	int (*print)(struct kernel_ps_probe *, uint8_t *, uint64_t, int);
 	int (*ps)(struct kernel_ps_probe *, int, uint64_t);
@@ -565,7 +566,7 @@ struct kernel_ps_probe {
 									 uint8_t *, int,
 		                             int (*print)(struct kernel_ps_probe *,
 												  uint8_t *, uint64_t, int));
-	void *(*_destroy)(struct probe *);
+	void *(*_destroy)(struct sensor *);
 };
 
 int kernel_ps_get_record(struct kernel_ps_probe *parent,
@@ -596,17 +597,17 @@ controller_create_worker(unsigned int flags, const char namefmt[], ...);
 
 void controller_destroy_worker(struct kthread_worker *worker);
 
-struct probe *init_probe(struct probe *probe,
+struct sensor *init_probe(struct sensor *sensor,
 						 uint8_t *name,  int name_size);
 void *destroy_probe_work(struct kthread_work *work);
-void *destroy_k_probe(struct probe *probe);
+void *destroy_k_probe(struct sensor *sensor);
 
 bool init_and_queue_work(struct kthread_work *work,
 						 struct kthread_worker *worker,
 						 void (*function)(struct kthread_work *));
 
 
-void *destroy_probe(struct probe *probe);
+void *destroy_probe(struct sensor *sensor);
 
 /**
  ******************************************************************************
@@ -714,7 +715,7 @@ struct kernel_lsof_data {
 
 
 struct kernel_lsof_probe {
-	struct probe;
+	struct sensor;
 	struct flex_array *klsof_pid_flex_array;
 	struct flex_array *klsof_data_flex_array;
 	int (*filter)(struct kernel_lsof_probe *,
@@ -729,7 +730,7 @@ struct kernel_lsof_probe {
 									   int (*filter)(struct kernel_lsof_probe *,
 													 struct kernel_lsof_data *,
 													 void *));
-	void *(*_destroy)(struct probe *);
+	void *(*_destroy)(struct sensor *);
 };
 
 extern struct kernel_lsof_probe klsof_probe;
@@ -738,11 +739,11 @@ extern int lsof_timeout;
 extern int lsof_level;
 
 int
-build_pid_index_unlocked(struct probe *p,
+build_pid_index_unlocked(struct sensor *p,
 						 struct flex_array *a,
 						 uint64_t nonce);
 int
-build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce);
+build_pid_index(struct sensor *p, struct flex_array *a, uint64_t nonce);
 
 int
 kernel_lsof_get_record(struct kernel_lsof_probe *parent,
@@ -795,7 +796,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 
 
 void *
-destroy_kernel_lsof_probe(struct probe *probe);
+destroy_kernel_lsof_probe(struct sensor *sensor);
 
 /**
  ****************************************************************************
@@ -835,7 +836,7 @@ struct kernel_sysfs_data {
 #define SYSFS_ARRAY_SIZE ((SYSFS_APPARENT_ARRAY_SIZE) - 1)
 
 struct kernel_sysfs_probe {
-	struct probe;
+	struct sensor;
 	struct flex_array *ksysfs_flex_array;
 	struct flex_array *ksysfs_pid_flex_array;
 	int (*print)(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
@@ -851,7 +852,7 @@ struct kernel_sysfs_probe {
 										int (*filter)(struct kernel_sysfs_probe *,
 													  struct kernel_sysfs_data *,
 													  void *));
-	void *(*_destroy)(struct probe *);
+	void *(*_destroy)(struct sensor *);
 };
 
 extern struct kernel_sysfs_probe ksysfs_probe;
@@ -903,7 +904,7 @@ init_sysfs_probe(struct kernel_sysfs_probe *,
 							   void *));
 
 void *
-destroy_sysfs_probe(struct probe *);
+destroy_sysfs_probe(struct sensor *sensor);
 
 /**
  * ****************************************
