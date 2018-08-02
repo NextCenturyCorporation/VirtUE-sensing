@@ -682,7 +682,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 /* we have an anonymous struct probe, need to initialize it.
  * the anonymous struct is the first member of this structure.
  */
-	init_probe((struct sensor *)sensor,
+	init_sensor((struct sensor *)sensor,
 			   "Kernel Sensor", strlen("Kernel Sensor") + 1);
 	sensor->_init = init_kernel_sensor;
 	INIT_LIST_HEAD_RCU(&sensor->sensors);
@@ -729,14 +729,14 @@ default_probe_message(struct sensor *sensor, struct probe_msg *msg)
 }
 
 
-struct sensor *init_probe(struct sensor *sensor,
+struct sensor *init_sensor(struct sensor *sensor,
 						 uint8_t *name, int name_size)
 {
 	if (!sensor) {
 		return ERR_PTR(-ENOMEM);
 	}
 	INIT_LIST_HEAD_RCU(&sensor->l_node);
-	sensor->init =  init_probe;
+	sensor->init =  init_sensor;
 	sensor->destroy = destroy_probe;
 	sensor->message = default_probe_message;
 	if (name && name_size > 0) {
@@ -761,7 +761,7 @@ struct sensor *init_probe(struct sensor *sensor,
 	__SET_FLAG(sensor->flags, SENSOR_INITIALIZED);
 	return sensor;
 }
-EXPORT_SYMBOL(init_probe);
+EXPORT_SYMBOL(init_sensor);
 
 
 

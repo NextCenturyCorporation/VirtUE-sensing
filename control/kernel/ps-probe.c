@@ -325,7 +325,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
 	/* init the anonymous struct probe */
 
-	tmp = init_probe((struct sensor *)ps_p, id, id_len);
+	tmp = init_sensor((struct sensor *)ps_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
 	if (ps_p != (struct kernel_ps_probe *)tmp) {

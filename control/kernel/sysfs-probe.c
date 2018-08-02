@@ -444,7 +444,7 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 	struct sensor *tmp;
 
 	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_probe));
-	tmp = init_probe((struct sensor *)sysfs_p, id, id_len);
+	tmp = init_sensor((struct sensor *)sysfs_p, id, id_len);
 	if(sysfs_p != (struct kernel_sysfs_probe *)tmp) {
 		ccode = -ENOMEM;
 		goto err_exit;

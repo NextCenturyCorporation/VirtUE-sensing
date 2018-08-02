@@ -597,7 +597,7 @@ controller_create_worker(unsigned int flags, const char namefmt[], ...);
 
 void controller_destroy_worker(struct kthread_worker *worker);
 
-struct sensor *init_probe(struct sensor *sensor,
+struct sensor *init_sensor(struct sensor *sensor,
 						 uint8_t *name,  int name_size);
 void *destroy_probe_work(struct kthread_work *work);
 void *destroy_k_probe(struct sensor *sensor);

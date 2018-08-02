@@ -428,7 +428,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	memset(lsof_p, 0, sizeof(struct kernel_lsof_probe));
 	/* init the anonymous struct probe */
 
-	tmp = init_probe((struct sensor *)lsof_p, id, id_len);
+	tmp = init_sensor((struct sensor *)lsof_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
 	if (lsof_p != (struct kernel_lsof_probe *)tmp) {
