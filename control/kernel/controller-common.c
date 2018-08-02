@@ -528,8 +528,8 @@ void *destroy_probe(struct probe *probe)
 		__CLEAR_FLAG(probe->flags, PROBE_HAS_WORK);
 	}
 	if (probe->name &&
-		__FLAG_IS_SET(probe->flags, PROBE_HAS_ID_FIELD)) {
-		__CLEAR_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
+		__FLAG_IS_SET(probe->flags, PROBE_HAS_NAME_FIELD)) {
+		__CLEAR_FLAG(probe->flags, PROBE_HAS_NAME_FIELD);
 		kfree(probe->name);
 		probe->name = NULL;
 	}
@@ -744,7 +744,7 @@ struct probe *init_probe(struct probe *probe,
 		if (!probe->name) {
 			return ERR_PTR(-ENOMEM);
 		}
-		__SET_FLAG(probe->flags, PROBE_HAS_ID_FIELD);
+		__SET_FLAG(probe->flags, PROBE_HAS_NAME_FIELD);
 /**
  * memcpy the number of chars minus the null terminator,
  * which is already NULL. make sure to call this with
@@ -777,7 +777,7 @@ static int __init kcontrol_init(void)
 	int ccode = 0;
 	struct kernel_ps_probe *ps_probe = NULL;
 	struct kernel_lsof_probe *lsof_probe = NULL;
-	struct kernel_sysfs_probe *sysfs_probe = NULL;
+//	struct kernel_sysfs_probe *sysfs_probe = NULL;
 
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
@@ -824,7 +824,7 @@ static int __init kcontrol_init(void)
 
 /**
  * initialize the sysfs probe
- **/
+
 
 	sysfs_probe = init_sysfs_probe(&ksysfs_probe,
 								   "Kernel Sysfs Probe",
@@ -840,6 +840,8 @@ static int __init kcontrol_init(void)
 	spin_lock(&k_sensor.lock);
 	list_add_rcu(&sysfs_probe->l_node, &k_sensor.probes);
 	spin_unlock(&k_sensor.lock);
+
+**/
 
 /**
  * initialize the socket interface
@@ -866,6 +868,7 @@ err_exit:
 		lsof_probe = NULL;
 	}
 
+	/**
 	if (sysfs_probe != ERR_PTR(-ENOMEM)) {
 		if (__FLAG_IS_SET(sysfs_probe->flags, PROBE_INITIALIZED)) {
 			sysfs_probe->_destroy((struct probe *)sysfs_probe);
@@ -873,6 +876,7 @@ err_exit:
 		kfree(sysfs_probe);
 		sysfs_probe = NULL;
 	}
+	**/
 	return ccode;
 }
 

@@ -40,7 +40,7 @@
 #define PROBE_INITIALIZED       0x01
 #define PROBE_DESTROYED         0x02
 #define PROBE_UNUSED            0x08
-#define PROBE_HAS_ID_FIELD      0x10
+#define PROBE_HAS_NAME_FIELD    0x10
 #define PROBE_HAS_WORK          0x20
 #define PROBE_LISTEN            0x40
 #define PROBE_CONNECT           0x80

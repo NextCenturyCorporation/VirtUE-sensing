@@ -373,10 +373,10 @@ static inline void task_cputime(struct task_struct *t,
 /**
  * TODO:
  * order of changes:
- * 1 - rename id field to name
+ * 1 - rename id field to name - DONE
  * 1.1 - change name of flag PROBE_HAS_ID_FIELD to
  *                           PROBE_HAS_NAME_FIELD
- * 1.2 - change parameter names for init_probe
+ * 1.2 - change parameter names for init_probegit l
  * 2 - rename struct probe to struct sensor
  * 3 - rename specific probes to be specific sensors, e.g.,
  *     sysfs_probe to sysfs_sensor
