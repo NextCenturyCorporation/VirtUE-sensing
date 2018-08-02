@@ -35,7 +35,7 @@
  * probe is LOCKED upon entry
  **/
 static int
-lsof_message(struct sensor *sensor, struct probe_msg *msg)
+lsof_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
@@ -102,7 +102,7 @@ lsof_all_files(struct kernel_lsof_probe *p,
  **/
 int
 kernel_lsof_get_record(struct kernel_lsof_probe *parent,
-					   struct probe_msg *msg,
+					   struct sensor_msg *msg,
 					   uint8_t *tag)
 {
 	struct kernel_lsof_data *klsof_p;

@@ -408,7 +408,7 @@ process_records_request(struct jsmn_message *msg, int index)
 
 	struct records_reply rp = {0};
 
-	struct probe_msg pm = {
+	struct sensor_msg pm = {
 		.id = RECORDS,
 		.ccode = 0,
 		.input = &rr,

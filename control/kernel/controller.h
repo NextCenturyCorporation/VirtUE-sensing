@@ -132,7 +132,7 @@ void init_jsonl_parser(void);
 
 
 
-struct probe_msg
+struct sensor_msg
 {
 	int id;
 	int ccode;
@@ -381,7 +381,7 @@ static inline void task_cputime(struct task_struct *t,
  * 2.1 rename init_probe to init_sensor - DONE
  * 2.2 rename destroy_probe to destroy_sensor - DONE
  * 2.3 rename default_probe_message to default_sensor_message - DONE
- * 2.4 rename struct probe_msg struct sensor_msg
+ * 2.4 rename struct probe_msg struct sensor_msg - DONE
  * 3 - rename specific probes to be specific sensors, e.g.,
  *     sysfs_probe to sysfs_sensor
  * 4 - update discovery response message to include uuid field.
@@ -399,7 +399,7 @@ struct sensor {
 	uint8_t uuid[16];
 	struct sensor *(*init)(struct sensor *, uint8_t *, int);
 	void *(*destroy)(struct sensor *);
-	int (*message)(struct sensor *, struct probe_msg *);
+	int (*message)(struct sensor *, struct sensor_msg *);
 	uint64_t flags, state;  /* see controller-flags.h */
 	int timeout, repeat;
 	struct kthread_worker worker;
@@ -570,7 +570,7 @@ struct kernel_ps_probe {
 };
 
 int kernel_ps_get_record(struct kernel_ps_probe *parent,
-						 struct probe_msg *msg,
+						 struct sensor_msg *msg,
 						 uint8_t *tag);
 
 int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce);
@@ -747,7 +747,7 @@ build_pid_index(struct sensor *p, struct flex_array *a, uint64_t nonce);
 
 int
 kernel_lsof_get_record(struct kernel_lsof_probe *parent,
-					   struct probe_msg *msg,
+					   struct sensor_msg *msg,
 					   uint8_t *tag);
 
 int

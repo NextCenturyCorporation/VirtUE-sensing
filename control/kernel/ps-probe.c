@@ -43,7 +43,7 @@
  **/
 int
 kernel_ps_get_record(struct kernel_ps_probe *parent,
-					 struct probe_msg *msg,
+					 struct sensor_msg *msg,
 					 uint8_t *tag)
 {
 	struct kernel_ps_data *kpsd_p;
@@ -280,7 +280,7 @@ void  run_kps_probe(struct kthread_work *work)
  * probe is LOCKED upon entry
  **/
 static int
-ps_message(struct sensor *sensor, struct probe_msg *msg)
+ps_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {

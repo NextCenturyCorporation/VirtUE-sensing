@@ -717,7 +717,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 
 
 int
-default_sensor_message(struct sensor *sensor, struct probe_msg *msg)
+default_sensor_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	assert(sensor && msg);
 

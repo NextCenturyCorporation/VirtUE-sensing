@@ -38,7 +38,7 @@
  **/
 int
 sysfs_get_record(struct kernel_sysfs_probe *p,
-				 struct probe_msg *msg,
+				 struct sensor_msg *msg,
 				 uint8_t *tag)
 {
 	struct kernel_sysfs_data *kfsd_p;
@@ -393,7 +393,7 @@ run_sysfs_probe(struct kthread_work *work)
  * probe is LOCKED upon entry
  **/
 static int
-sysfs_message(struct sensor *sensor, struct probe_msg *msg)
+sysfs_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
