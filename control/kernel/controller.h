@@ -383,9 +383,10 @@ static inline void task_cputime(struct task_struct *t,
  * 2.3 rename default_probe_message to default_sensor_message - DONE
  * 2.4 rename struct probe_msg struct sensor_msg - DONE
  * 3 - rename specific probes to be specific sensors, e.g.,
- *     sysfs_probe to sysfs_sensor
+ *     sysfs_probe to sysfs_sensor - DONE
  * 3.1 - rename kernel-ps probe to kernel-ps sensor - DONE
- * 3.2 - rename kernel-lsof probe to kernel-lsof sensor
+ * 3.2 - rename kernel-lsof probe to kernel-lsof sensor - DONE
+ * 3.3 - rename kernel-sysfs probe to kernel-sysfs sensor - DONE
  * 4 - update discovery response message to include uuid field.
  * 5 - change get_probe to get_sensor, and the key is the uuid instead
  *     of the name
@@ -806,7 +807,7 @@ destroy_kernel_lsof_sensor(struct sensor *sensor);
 
 /**
  ****************************************************************************
- * sysfs probe
+ * sysfs sensor
  ****************************************************************************
  **/
 
@@ -841,27 +842,27 @@ struct kernel_sysfs_data {
 
 #define SYSFS_ARRAY_SIZE ((SYSFS_APPARENT_ARRAY_SIZE) - 1)
 
-struct kernel_sysfs_probe {
+struct kernel_sysfs_sensor {
 	struct sensor;
 	struct flex_array *ksysfs_flex_array;
 	struct flex_array *ksysfs_pid_flex_array;
-	int (*print)(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
-	int (*filter)(struct kernel_sysfs_probe *,
+	int (*print)(struct kernel_sysfs_sensor *, uint8_t *, uint64_t, int);
+	int (*filter)(struct kernel_sysfs_sensor *,
 				  struct kernel_sysfs_data *,
 				  void *);
-	int (*ksysfs)(struct kernel_sysfs_probe *, int, uint64_t);
+	int (*ksysfs)(struct kernel_sysfs_sensor *, int, uint64_t);
 	int (*kernel_lsof)(struct kernel_lsof_sensor *parent, int count, uint64_t nonce);
-	struct kernel_sysfs_probe *(*_init)(struct kernel_sysfs_probe *,
+	struct kernel_sysfs_sensor *(*_init)(struct kernel_sysfs_sensor *,
 										uint8_t *, int,
-										int (*print)(struct kernel_sysfs_probe *,
+										int (*print)(struct kernel_sysfs_sensor *,
 													 uint8_t *, uint64_t, int),
-										int (*filter)(struct kernel_sysfs_probe *,
+										int (*filter)(struct kernel_sysfs_sensor *,
 													  struct kernel_sysfs_data *,
 													  void *));
 	void *(*_destroy)(struct sensor *);
 };
 
-extern struct kernel_sysfs_probe ksysfs_probe;
+extern struct kernel_sysfs_sensor ksysfs_sensor;
 
 int
 file_getattr(struct file *f, struct kstat *k);
@@ -888,29 +889,29 @@ ssize_t
 read_file(char *name, void *buf, size_t count, loff_t *pos);
 
 int
-print_sysfs_data(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
+print_sysfs_data(struct kernel_sysfs_sensor *, uint8_t *, uint64_t, int);
 
 int
-filter_sysfs_data(struct kernel_sysfs_probe *,
+filter_sysfs_data(struct kernel_sysfs_sensor *,
 				  struct kernel_sysfs_data *,
 				  void *);
 int
-kernel_sysfs_unlocked(struct kernel_sysfs_probe *, uint64_t);
+kernel_sysfs_unlocked(struct kernel_sysfs_sensor *, uint64_t);
 
 int
-kernel_sysfs(struct kernel_sysfs_probe *, int, uint64_t);
+kernel_sysfs(struct kernel_sysfs_sensor *, int, uint64_t);
 
-struct kernel_sysfs_probe *
-init_sysfs_probe(struct kernel_sysfs_probe *,
+struct kernel_sysfs_sensor *
+init_sysfs_sensor(struct kernel_sysfs_sensor *,
 				 uint8_t *, int,
-				 int (*print)(struct kernel_sysfs_probe *,
+				 int (*print)(struct kernel_sysfs_sensor *,
 							  uint8_t *, uint64_t, int),
-				 int (*filter)(struct kernel_sysfs_probe *,
+				 int (*filter)(struct kernel_sysfs_sensor *,
 							   struct kernel_sysfs_data *,
 							   void *));
 
 void *
-destroy_sysfs_probe(struct sensor *sensor);
+destroy_sysfs_sensor(struct sensor *sensor);
 
 /**
  * ****************************************

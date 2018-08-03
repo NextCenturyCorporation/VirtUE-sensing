@@ -39,7 +39,7 @@ EXPORT_SYMBOL(SHOULD_SHUTDOWN);
 
 struct kernel_ps_sensor kps_probe;
 struct kernel_lsof_sensor klsof_sensor;
-struct kernel_sysfs_probe ksysfs_probe;
+struct kernel_sysfs_sensor ksysfs_sensor;
 
 int lsof_repeat = 1;
 int lsof_timeout = 1;
@@ -561,7 +561,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		} else if (__FLAG_IS_SET(sensor_p->flags, SENSOR_KLSOF)) {
 			((struct kernel_lsof_sensor *)sensor_p)->_destroy(sensor_p);
 		} else if (__FLAG_IS_SET(sensor_p->flags, SENSOR_KSYSFS)) {
-			((struct kernel_sysfs_probe *)sensor_p)->_destroy(sensor_p);
+			((struct kernel_sysfs_sensor *)sensor_p)->_destroy(sensor_p);
 		} else {
 			sensor_p->destroy(sensor_p);
 		}
@@ -777,7 +777,7 @@ static int __init kcontrol_init(void)
 	int ccode = 0;
 	struct kernel_ps_sensor *ps_sensor = NULL;
 	struct kernel_lsof_sensor *lsof_sensor = NULL;
-//	struct kernel_sysfs_probe *sysfs_probe = NULL;
+//	struct kernel_sysfs_sensor *sysfs_probe = NULL;
 
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;

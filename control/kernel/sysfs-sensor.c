@@ -37,7 +37,7 @@
  * will unlock the probe upon return from this function.
  **/
 int
-sysfs_get_record(struct kernel_sysfs_probe *p,
+sysfs_get_record(struct kernel_sysfs_sensor *p,
 				 struct sensor_msg *msg,
 				 uint8_t *tag)
 {
@@ -169,7 +169,7 @@ calc_file_size(struct kstat *kstat)
  *       is the current proof-of-concept
  *
  **/
-ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
+ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 						struct task_struct *t,
 						int *start,
 						char *path,
@@ -250,7 +250,7 @@ STACK_FRAME_NON_STANDARD(sysfs_read_data);
 
 
 int
-sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, uint64_t nonce)
+sysfs_for_each_unlocked(struct kernel_sysfs_sensor *p, uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
@@ -287,7 +287,7 @@ sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, uint64_t nonce)
 
 
 int
-sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
+sysfs_for_each_pid(struct kernel_sysfs_sensor *p, int count, uint64_t nonce)
 {
 	int file_index = 0;
 
@@ -303,7 +303,7 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 STACK_FRAME_NON_STANDARD(sysfs_for_each_pid);
 
 int
-kernel_sysfs_unlocked(struct kernel_sysfs_probe *p,
+kernel_sysfs_unlocked(struct kernel_sysfs_sensor *p,
 					  uint64_t nonce)
 {
 	int count;
@@ -317,7 +317,7 @@ kernel_sysfs_unlocked(struct kernel_sysfs_probe *p,
 }
 
 int
-kernel_sysfs(struct kernel_sysfs_probe *p,
+kernel_sysfs(struct kernel_sysfs_sensor *p,
 			 int c,
 			 uint64_t nonce)
 {
@@ -337,7 +337,7 @@ kernel_sysfs(struct kernel_sysfs_probe *p,
 
 
 int
-filter_sysfs_data(struct kernel_sysfs_probe *p,
+filter_sysfs_data(struct kernel_sysfs_sensor *p,
 				  struct kernel_sysfs_data *sysfs_data,
 				  void *data)
 {
@@ -346,7 +346,7 @@ filter_sysfs_data(struct kernel_sysfs_probe *p,
 
 
 int
-print_sysfs_data(struct kernel_sysfs_probe *p,
+print_sysfs_data(struct kernel_sysfs_sensor *p,
 				 uint8_t *tag, uint64_t nonce, int count)
 {
 	if(print_to_log) {
@@ -361,8 +361,8 @@ void
 run_sysfs_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
-	struct kernel_sysfs_probe *probe_struct =
-		container_of(work, struct kernel_sysfs_probe, work);
+	struct kernel_sysfs_sensor *probe_struct =
+		container_of(work, struct kernel_sysfs_sensor, work);
 	int count = 0;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
@@ -397,7 +397,7 @@ sysfs_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return sysfs_get_record((struct kernel_sysfs_probe *)sensor,
+		return sysfs_get_record((struct kernel_sysfs_sensor *)sensor,
 								msg,
 								"kernel-sysfs");
 	}
@@ -409,9 +409,9 @@ sysfs_message(struct sensor *sensor, struct sensor_msg *msg)
 
 
 void *
-destroy_sysfs_probe(struct sensor *sensor)
+destroy_sysfs_sensor(struct sensor *sensor)
 {
-	struct kernel_sysfs_probe *sysfs_p = (struct kernel_sysfs_probe *)sensor;
+	struct kernel_sysfs_sensor *sysfs_p = (struct kernel_sysfs_sensor *)sensor;
 	assert(sysfs_p && __FLAG_IS_SET(sysfs_p->flags, SENSOR_KSYSFS));
 
 	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
@@ -426,26 +426,26 @@ destroy_sysfs_probe(struct sensor *sensor)
 		flex_array_free(sysfs_p->ksysfs_flex_array);
 	}
 
-	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_probe));
+	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_sensor));
 	return sysfs_p;
 }
-STACK_FRAME_NON_STANDARD(destroy_sysfs_probe);
+STACK_FRAME_NON_STANDARD(destroy_sysfs_sensor);
 
-struct kernel_sysfs_probe *
-init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
+struct kernel_sysfs_sensor *
+init_sysfs_sensor(struct kernel_sysfs_sensor *sysfs_p,
 				 uint8_t *id, int id_len,
-				 int (*print)(struct kernel_sysfs_probe *,
+				 int (*print)(struct kernel_sysfs_sensor *,
 							  uint8_t *, uint64_t, int),
-				 int (*filter)(struct kernel_sysfs_probe *,
+				 int (*filter)(struct kernel_sysfs_sensor *,
 							   struct kernel_sysfs_data *,
 							   void *))
 {
 	int ccode;
 	struct sensor *tmp;
 
-	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_probe));
+	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_sensor));
 	tmp = init_sensor((struct sensor *)sysfs_p, id, id_len);
-	if(sysfs_p != (struct kernel_sysfs_probe *)tmp) {
+	if(sysfs_p != (struct kernel_sysfs_sensor *)tmp) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
@@ -454,8 +454,8 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 	sysfs_p->timeout = sysfs_timeout;
 	sysfs_p->repeat = sysfs_repeat;
 
-	sysfs_p->_init = init_sysfs_probe;
-	sysfs_p->_destroy = destroy_sysfs_probe;
+	sysfs_p->_init = init_sysfs_sensor;
+	sysfs_p->_destroy = destroy_sysfs_sensor;
 	sysfs_p->message = sysfs_message;
 
 
@@ -524,4 +524,4 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
-STACK_FRAME_NON_STANDARD(init_sysfs_probe);
+STACK_FRAME_NON_STANDARD(init_sysfs_sensor);
