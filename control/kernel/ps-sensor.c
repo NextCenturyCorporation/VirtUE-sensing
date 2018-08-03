@@ -42,7 +42,7 @@
  * will unlock the probe upon return from this function.
  **/
 int
-kernel_ps_get_record(struct kernel_ps_probe *parent,
+kernel_ps_get_record(struct kernel_ps_sensor *parent,
 					 struct sensor_msg *msg,
 					 uint8_t *tag)
 {
@@ -138,7 +138,7 @@ record_created:
  **/
 
 int
-print_kernel_ps(struct kernel_ps_probe *parent,
+print_kernel_ps(struct kernel_ps_sensor *parent,
 				uint8_t *tag,
 				uint64_t nonce,
 				int count)
@@ -176,7 +176,7 @@ print_kernel_ps(struct kernel_ps_probe *parent,
 }
 STACK_FRAME_NON_STANDARD(print_kernel_ps);
 
-int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce)
+int kernel_ps_unlocked(struct kernel_ps_sensor *parent, uint64_t nonce)
 {
 
 	struct task_struct *task;
@@ -217,7 +217,7 @@ unlock_out:
  **/
 
 inline int
-kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
+kernel_ps(struct kernel_ps_sensor *parent, int count, uint64_t nonce)
 {
 
 	int index;
@@ -242,8 +242,8 @@ kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 void  run_kps_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
-	struct kernel_ps_probe *probe_struct =
-		container_of(work, struct kernel_ps_probe, work);
+	struct kernel_ps_sensor *probe_struct =
+		container_of(work, struct kernel_ps_sensor, work);
 	static int count;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
@@ -284,7 +284,7 @@ ps_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return kernel_ps_get_record((struct kernel_ps_probe *)sensor,
+		return kernel_ps_get_record((struct kernel_ps_sensor *)sensor,
 									msg,
 									"kernel-ps");
 	}
@@ -293,9 +293,9 @@ ps_message(struct sensor *sensor, struct sensor_msg *msg)
 	}
 }
 
-static void *destroy_kernel_ps_probe(struct sensor *sensor)
+static void *destroy_kernel_ps_sensor(struct sensor *sensor)
 {
-	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)sensor;
+	struct kernel_ps_sensor *ps_p = (struct kernel_ps_sensor *)sensor;
 	assert(ps_p && __FLAG_IS_SET(ps_p->flags, SENSOR_KPS));
 
 	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
@@ -306,14 +306,14 @@ static void *destroy_kernel_ps_probe(struct sensor *sensor)
 		flex_array_free(ps_p->kps_data_flex_array);
 	}
 
-	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
+	memset(ps_p, 0, sizeof(struct kernel_ps_sensor));
 	return ps_p;
 }
-STACK_FRAME_NON_STANDARD(destroy_kernel_ps_probe);
+STACK_FRAME_NON_STANDARD(destroy_kernel_ps_sensor);
 
-struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+struct kernel_ps_sensor *init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
 											 uint8_t *id, int id_len,
-											 int (*print)(struct kernel_ps_probe *,
+											 int (*print)(struct kernel_ps_sensor *,
 														  uint8_t *, uint64_t, int))
 {
 	int ccode = 0;
@@ -322,13 +322,13 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	if (!ps_p) {
 		return ERR_PTR(-ENOMEM);
 	}
-	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
+	memset(ps_p, 0, sizeof(struct kernel_ps_sensor));
 	/* init the anonymous struct probe */
 
 	tmp = init_sensor((struct sensor *)ps_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
-	if (ps_p != (struct kernel_ps_probe *)tmp) {
+	if (ps_p != (struct kernel_ps_sensor *)tmp) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
@@ -343,8 +343,8 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	ps_p->timeout = ps_timeout;
 	ps_p->repeat = ps_repeat;
 
-	ps_p->_init = init_kernel_ps_probe;
-	ps_p->_destroy = destroy_kernel_ps_probe;
+	ps_p->_init = init_kernel_ps_sensor;
+	ps_p->_destroy = destroy_kernel_ps_sensor;
 	ps_p->message = ps_message;
 
 	if (print) {
@@ -389,4 +389,4 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
-STACK_FRAME_NON_STANDARD(init_kernel_ps_probe);
+STACK_FRAME_NON_STANDARD(init_kernel_ps_sensor);

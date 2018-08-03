@@ -1,12 +1,12 @@
 #!/usr/bin/python
 import socket, sys, os, subprocess, uuid, io, json
 
-class KernelProbe:
+class KernelSensor:
 # TODO: self.connect_string is currently unused
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
     def __init__(self,
                  socket_name = '/var/run/kernel_sensor',
-                 target_probe = '"Kernel PS Probe"',
+                 target_probe = '"Kernel PS Sensor"',
                  out_file = '-'):
         self.sock = 0
         self.out_file = 0
@@ -191,38 +191,38 @@ def client_main(args):
     parser.add_argument("-r", "--records",
                         action = 'store_true',
                         help="test the controller's echo server")
-    parser.add_argument("-p", "--probe",
-                        help = "target probe for message")
+    parser.add_argument("--sensor",
+                        help = "target sensor for message")
     parser.add_argument("-f", "--file",
                         help = "output data to this file")
     parser.add_argument("-i", "--input",
                         help = "read input commands from this file")
 
     args = parser.parse_args()
-    probe = KernelProbe()
+    sensor = KernelSensor()
 
     if args.socket:
-        probe.set_socket(args.socket)
-    if args.probe:
-        probe.set_target_probe(args.probe)
+        sensor.set_socket(args.socket)
+    if args.sensor:
+        sensor.set_target_sensor(args.sensor)
     if args.file:
-        probe.set_out_file(args.file)
+        sensor.set_out_file(args.file)
     if args.input:
-        probe.set_in_file(args.input)
-        probe.run_input_file()
+        sensor.set_in_file(args.input)
+        sensor.run_input_file()
         sys.exit(0)
 
     if args.records:
-        probe.send_records_message()
+        sensor.send_records_message()
 
     if args.discover:
-        probe.send_discovery_message()
+        sensor.send_discovery_message()
 
     if args.echo:
-        probe.send_echo_test()
+        sensor.send_echo_test()
 
     if args.connect:
-        probe.json_connect()
+        sensor.json_connect()
 
 if __name__ == "__main__":
     import argparse

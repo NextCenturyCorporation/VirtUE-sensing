@@ -557,32 +557,35 @@ struct kernel_ps_data {
  *    the ps probe. It calls probe->destroy to tear down the anonymous
  *    struct probe.
  **/
-struct kernel_ps_probe {
+struct kernel_ps_sensor {
 	struct sensor;
 	struct flex_array *kps_data_flex_array;
-	int (*print)(struct kernel_ps_probe *, uint8_t *, uint64_t, int);
-	int (*ps)(struct kernel_ps_probe *, int, uint64_t);
-	struct kernel_ps_probe *(*_init)(struct kernel_ps_probe *,
+	int (*print)(struct kernel_ps_sensor *, uint8_t *, uint64_t, int);
+	int (*ps)(struct kernel_ps_sensor *, int, uint64_t);
+	struct kernel_ps_sensor *(*_init)(struct kernel_ps_sensor *,
 									 uint8_t *, int,
-		                             int (*print)(struct kernel_ps_probe *,
+		                             int (*print)(struct kernel_ps_sensor *,
 												  uint8_t *, uint64_t, int));
 	void *(*_destroy)(struct sensor *);
 };
 
-int kernel_ps_get_record(struct kernel_ps_probe *parent,
+int
+kernel_ps_get_record(struct kernel_ps_sensor *parent,
 						 struct sensor_msg *msg,
 						 uint8_t *tag);
 
-int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce);
-int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
-struct kernel_ps_probe *
-init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+int
+kernel_ps_unlocked(struct kernel_ps_sensor *parent, uint64_t nonce);
+int
+kernel_ps(struct kernel_ps_sensor *parent, int count, uint64_t nonce);
+struct kernel_ps_sensor *
+init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
 					 uint8_t *id, int id_len,
-					 int (*print)(struct kernel_ps_probe *,
+					 int (*print)(struct kernel_ps_sensor *,
 								  uint8_t *, uint64_t, int));
 
 int
-print_kernel_ps(struct kernel_ps_probe *parent,
+print_kernel_ps(struct kernel_ps_sensor *parent,
 				uint8_t *tag,
 				uint64_t nonce,
 				int count);
@@ -599,8 +602,8 @@ void controller_destroy_worker(struct kthread_worker *worker);
 
 struct sensor *init_sensor(struct sensor *sensor,
 						 uint8_t *name,  int name_size);
-void *destroy_probe_work(struct kthread_work *work);
-void *destroy_k_probe(struct sensor *sensor);
+void *destroy_sensor_work(struct kthread_work *work);
+void *destroy_k_sensor(struct sensor *sensor);
 
 bool init_and_queue_work(struct kthread_work *work,
 						 struct kthread_worker *worker,

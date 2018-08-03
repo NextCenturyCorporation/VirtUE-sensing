@@ -37,7 +37,7 @@ EXPORT_SYMBOL(SHOULD_SHUTDOWN);
  * checking for unused flags
  **/
 
-struct kernel_ps_probe kps_probe;
+struct kernel_ps_sensor kps_probe;
 struct kernel_lsof_probe klsof_probe;
 struct kernel_sysfs_probe ksysfs_probe;
 
@@ -557,7 +557,7 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		spin_unlock(&sensor->lock);
 		synchronize_rcu();
 		if (__FLAG_IS_SET(sensor_p->flags, SENSOR_KPS)) {
-			((struct kernel_ps_probe *)sensor_p)->_destroy(sensor_p);
+			((struct kernel_ps_sensor *)sensor_p)->_destroy(sensor_p);
 		} else if (__FLAG_IS_SET(sensor_p->flags, SENSOR_KLSOF)) {
 			((struct kernel_lsof_probe *)sensor_p)->_destroy(sensor_p);
 		} else if (__FLAG_IS_SET(sensor_p->flags, SENSOR_KSYSFS)) {
@@ -775,7 +775,7 @@ EXPORT_SYMBOL(init_sensor);
 static int __init kcontrol_init(void)
 {
 	int ccode = 0;
-	struct kernel_ps_probe *ps_probe = NULL;
+	struct kernel_ps_sensor *ps_sensor = NULL;
 	struct kernel_lsof_probe *lsof_probe = NULL;
 //	struct kernel_sysfs_probe *sysfs_probe = NULL;
 
@@ -786,19 +786,19 @@ static int __init kcontrol_init(void)
 	/**
 	 * initialize the ps probe
 	 **/
-	ps_probe = init_kernel_ps_probe(&kps_probe,
-									"Kernel PS Probe",
-									strlen("Kernel PS Probe") + 1,
+	ps_sensor = init_kernel_ps_sensor(&kps_probe,
+									"Kernel PS Sensor",
+									strlen("Kernel PS Sensor") + 1,
 									print_kernel_ps);
 
-	if (ps_probe == ERR_PTR(-ENOMEM)) {
+	if (ps_sensor == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
 
 	spin_lock(&k_sensor.lock);
 	/* link this probe to the sensor struct */
-	list_add_rcu(&ps_probe->l_node, &k_sensor.sensors);
+	list_add_rcu(&ps_sensor->l_node, &k_sensor.sensors);
 	spin_unlock(&k_sensor.lock);
 
     /**
@@ -852,12 +852,12 @@ static int __init kcontrol_init(void)
 	return ccode;
 
 err_exit:
-	if (ps_probe != ERR_PTR(-ENOMEM)) {
-		if (__FLAG_IS_SET(ps_probe->flags, SENSOR_INITIALIZED)) {
-			ps_probe->_destroy((struct sensor *)ps_probe);
+	if (ps_sensor != ERR_PTR(-ENOMEM)) {
+		if (__FLAG_IS_SET(ps_sensor->flags, SENSOR_INITIALIZED)) {
+			ps_sensor->_destroy((struct sensor *)ps_sensor);
 		}
-		kfree(ps_probe);
-		ps_probe = NULL;
+		kfree(ps_sensor);
+		ps_sensor = NULL;
 	}
 
 	if (lsof_probe != ERR_PTR(-ENOMEM)) {
