@@ -384,9 +384,12 @@ static inline void task_cputime(struct task_struct *t,
  * 2.4 rename struct probe_msg struct sensor_msg - DONE
  * 3 - rename specific probes to be specific sensors, e.g.,
  *     sysfs_probe to sysfs_sensor
+ * 3.1 - rename kernel-ps probe to kernel-ps sensor - DONE
+ * 3.2 - rename kernel-lsof probe to kernel-lsof sensor
  * 4 - update discovery response message to include uuid field.
  * 5 - change get_probe to get_sensor, and the key is the uuid instead
  *     of the name
+ * 6 - rename KernelProbe.py to KernelSensor.py - DONE
  **/
 
 struct sensor {
@@ -614,14 +617,14 @@ void *destroy_sensor(struct sensor *sensor);
 
 /**
  ******************************************************************************
- * lsof probe
+ * lsof sensor
  ******************************************************************************
  **/
 
 
 
 /**
- * workspace for kernel-lsof probe data
+ * workspace for kernel-lsof sensor data
  * line numbers from kernel version 4.16
  * struct file in include/linux/fs.h:857
  * struct path in include/linux/path.h:8
@@ -717,26 +720,26 @@ struct kernel_lsof_data {
 #define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
 
 
-struct kernel_lsof_probe {
+struct kernel_lsof_sensor {
 	struct sensor;
 	struct flex_array *klsof_pid_flex_array;
 	struct flex_array *klsof_data_flex_array;
-	int (*filter)(struct kernel_lsof_probe *,
+	int (*filter)(struct kernel_lsof_sensor *,
 				  struct kernel_lsof_data *,
 				  void *);
-	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t);
-	int (*lsof)(struct kernel_lsof_probe *, uint64_t);
-	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
+	int (*print)(struct kernel_lsof_sensor *, uint8_t *, uint64_t);
+	int (*lsof)(struct kernel_lsof_sensor *, uint64_t);
+	struct kernel_lsof_sensor *(*_init)(struct kernel_lsof_sensor *,
 									   uint8_t *, int,
-									   int (*print)(struct kernel_lsof_probe *,
+									   int (*print)(struct kernel_lsof_sensor *,
 													uint8_t *, uint64_t),
-									   int (*filter)(struct kernel_lsof_probe *,
+									   int (*filter)(struct kernel_lsof_sensor *,
 													 struct kernel_lsof_data *,
 													 void *));
 	void *(*_destroy)(struct sensor *);
 };
 
-extern struct kernel_lsof_probe klsof_probe;
+extern struct kernel_lsof_sensor klsof_sensor;
 extern int lsof_repeat;
 extern int lsof_timeout;
 extern int lsof_level;
@@ -749,57 +752,57 @@ int
 build_pid_index(struct sensor *p, struct flex_array *a, uint64_t nonce);
 
 int
-kernel_lsof_get_record(struct kernel_lsof_probe *parent,
+kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 					   struct sensor_msg *msg,
 					   uint8_t *tag);
 
 int
-lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
+lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
 						   uint64_t nonce);
 
-int lsof_pid_filter(struct kernel_lsof_probe *p,
+int lsof_pid_filter(struct kernel_lsof_sensor *p,
 					struct kernel_lsof_data *d,
 					void *cmp);
 
 
 int
-lsof_all_files(struct kernel_lsof_probe *p,
+lsof_all_files(struct kernel_lsof_sensor *p,
 				   struct kernel_lsof_data *d,
 			   void *cmp);
 
 
 int
-lsof_uid_filter(struct kernel_lsof_probe *p,
+lsof_uid_filter(struct kernel_lsof_sensor *p,
 				struct kernel_lsof_data *d,
 				void *cmp);
 
 int
-print_kernel_lsof(struct kernel_lsof_probe *parent,
+print_kernel_lsof(struct kernel_lsof_sensor *parent,
 				  uint8_t *tag,
 				  uint64_t nonce);
 
 int
-kernel_lsof_unlocked(struct kernel_lsof_probe *p,
+kernel_lsof_unlocked(struct kernel_lsof_sensor *p,
 					 uint64_t nonce);
 
 int
-kernel_lsof(struct kernel_lsof_probe *parent, uint64_t nonce);
+kernel_lsof(struct kernel_lsof_sensor *parent, uint64_t nonce);
 
 void
 run_klsof_probe(struct kthread_work *work);
 
-struct kernel_lsof_probe *
-init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
+struct kernel_lsof_sensor *
+init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
 					   uint8_t *id, int id_len,
-					   int (*print)(struct kernel_lsof_probe *,
+					   int (*print)(struct kernel_lsof_sensor *,
 									uint8_t *, uint64_t),
-					   int (*filter)(struct kernel_lsof_probe *,
+					   int (*filter)(struct kernel_lsof_sensor *,
 									 struct kernel_lsof_data *,
 									 void *));
 
 
 void *
-destroy_kernel_lsof_probe(struct sensor *sensor);
+destroy_kernel_lsof_sensor(struct sensor *sensor);
 
 /**
  ****************************************************************************
@@ -847,7 +850,7 @@ struct kernel_sysfs_probe {
 				  struct kernel_sysfs_data *,
 				  void *);
 	int (*ksysfs)(struct kernel_sysfs_probe *, int, uint64_t);
-	int (*kernel_lsof)(struct kernel_lsof_probe *parent, int count, uint64_t nonce);
+	int (*kernel_lsof)(struct kernel_lsof_sensor *parent, int count, uint64_t nonce);
 	struct kernel_sysfs_probe *(*_init)(struct kernel_sysfs_probe *,
 										uint8_t *, int,
 										int (*print)(struct kernel_sysfs_probe *,
