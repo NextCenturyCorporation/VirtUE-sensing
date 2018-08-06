@@ -417,6 +417,16 @@ exit:
  * small.
  **/
 
+
+/**
+ * TODO: adding the sensor uuid into the discovery buffer
+ * The new form of the discovery response buffer is:
+ *
+ * '[ ["sensor1 name", "sensor1 uuid"],
+ *    ["sensor2 name", "sensor2 uuid"], ...
+ *    ["sensorN name", "sensorN uuid"]
+ *  ]'
+ **/
 int
 build_discovery_buffer(uint8_t **buf, size_t *len)
 {
