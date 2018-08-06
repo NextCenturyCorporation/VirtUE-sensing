@@ -54,7 +54,11 @@ Where _nonce_ is a unique value that identifies a specific request and response,
 
 The server is expected to respond with:
 
-"{Virtue-protocol-verion: 0.1, reply: [nonce, discovery, [probe ids]] }\n"
+'{Virtue-protocol-verion: 0.1, reply: [nonce, discovery,
+   [ ["sensor1 name", "sensor1 uuid"],
+     ["sensor2 name", "sensor2 uuid"], ...
+     ["sensorN name", "sensorN uuid"]
+   ] ]}\n'
 
 Where _nonce_ is idendical to the value from the request. The _probe ids_ array contains the Id String of each probe that is registered with the server. For example, "kernel-ps", "kernel-lsof", and so on.
 
