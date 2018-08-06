@@ -419,51 +419,68 @@ exit:
 
 
 /**
- * TODO: adding the sensor uuid into the discovery buffer
+ * Added the sensor uuid into the discovery buffer
  * The new form of the discovery response buffer is:
  *
  * '[ ["sensor1 name", "sensor1 uuid"],
  *    ["sensor2 name", "sensor2 uuid"], ...
  *    ["sensorN name", "sensorN uuid"]
  *  ]'
+ *
+ * TODO: document this format in messages.md
+ *
  **/
 int
 build_discovery_buffer(uint8_t **buf, size_t *len)
 {
 
-	uint8_t *cursor;
+	uint8_t *cursor, *last_entry;
 	int remaining = 0, count = 0;
 	struct sensor *s_cursor = NULL;
 
 	assert(buf && len);
 
-	*len = CONNECTION_MAX_HEADER;
-	*buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+	*len = CONNECTION_MAX_REPLY;
+	*buf = kzalloc(CONNECTION_MAX_REPLY, GFP_KERNEL);
 	if (*buf <= 0) {
 		*buf = NULL;
 		*len = 0;
 		return -ENOMEM;
 	}
 
-	remaining = *len;
-	cursor = *buf;
-	*cursor++ = L_BRACKET; remaining--;
-	*cursor++ = D_QUOTE; remaining--;
+	remaining = *len - 2;
+	cursor = last_entry = *buf;
+	*cursor++ = L_BRACKET;
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(s_cursor, &k_sensor.sensors, l_node) {
 		int id_len;
-		if ((remaining - 5) > (id_len = strlen(s_cursor->name))) {
+/**
+ * 10 is the number of additional bytes we need to store for
+ * each name + uuid, for quotes, spaces, and brackets
+ **/
+		id_len = strlen(s_cursor->name) + SENSOR_UUID_SIZE + 10;
+
+		if ((remaining - 1) > id_len) {
 			if (count > 0) {
-				*cursor++ = COMMA; remaining--;
-				*cursor++ = SPACE; remaining--;
-				*cursor++ = D_QUOTE; remaining--;
+				*cursor++ = COMMA;
+				*cursor++ = SPACE;
 			}
+			*cursor++ = L_BRACKET;
+			*cursor++ = D_QUOTE;
 			strncpy(cursor, s_cursor->name, remaining - 3);
-			remaining -= id_len;
-			cursor += id_len;
-			*cursor++ = D_QUOTE; remaining--;
+			cursor += strlen(s_cursor->name);
+			*cursor++ = D_QUOTE;
+			*cursor++ = COMMA;
+			*cursor++ = SPACE;
+			*cursor++ = D_QUOTE;
+			memcpy(cursor, s_cursor->uuid, SENSOR_UUID_SIZE);
+			cursor += SENSOR_UUID_SIZE;
+			*cursor++ = D_QUOTE;
+			*cursor++ = R_BRACKET;
 			count++;
+			remaining -= (cursor - last_entry);
+			last_entry = cursor;
 		} else {
 			goto err_exit;
 		}
@@ -477,7 +494,6 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 		*buf = krealloc(*buf, (*len - (remaining - 2)), GFP_KERNEL);
 		*len -= (remaining - 2);
 	}
-
 	return 0;
 
 err_exit:

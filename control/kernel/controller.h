@@ -51,10 +51,9 @@ typedef enum message_command command;
 /* max message header size */
 #define CONNECTION_MAX_HEADER 0x400
 #define CONNECTION_MAX_REQUEST CONNECTION_MAX_HEADER
+#define CONNECTION_MAX_BUFFER 0x800
 #define CONNECTION_MAX_MESSAGE 0x1000
 #define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
-
-
 #define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
 /**
  * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
@@ -66,6 +65,7 @@ typedef enum message_command command;
 #define MAX_ID_SIZE MAX_CMD_SIZE
 #define MAX_NAME_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
+#define SENSOR_UUID_SIZE 16
 struct jsmn_message;
 struct jsmn_session;
 void dump_session(struct jsmn_session *s);
@@ -120,7 +120,7 @@ struct jsmn_session
 	 * user-space sensor wrapper
 	 **/
 	uint8_t probe_id[MAX_NAME_SIZE];
-	uint8_t probe_uuid[16];
+	uint8_t probe_uuid[SENSOR_UUID_SIZE];
 };
 
 
@@ -177,7 +177,7 @@ struct state_reply
 {
 	command cmd; /* enum message_command */
 	uint8_t name[MAX_NAME_SIZE];
-	uint8_t uuid[16];
+	uint8_t uuid[SENSOR_UUID_SIZE];
 	uint64_t flags, state;
 	int timeout, repeat;
 	bool clear;    /* clear records? */
@@ -400,7 +400,7 @@ struct sensor {
 	};
 	/** TODO: rename id to name **/
 	uint8_t *name;
-	uint8_t uuid[16];
+	uint8_t uuid[SENSOR_UUID_SIZE];
 	struct sensor *(*init)(struct sensor *, uint8_t *, int);
 	void *(*destroy)(struct sensor *);
 	int (*message)(struct sensor *, struct sensor_msg *);
