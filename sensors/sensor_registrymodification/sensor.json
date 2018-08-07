@@ -1,0 +1,10 @@
+{
+  "name": "registrymodification",
+  "version": "1.0",
+  "target_folder": "registrymodification",
+  "files": [],
+  "startup_script": "",
+  "requirements_files": ["registrymodification_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": [""]
+}

@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "repeat-interval": 86400,
+  "sensor-config-level": "off"
+}

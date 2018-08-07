@@ -1,0 +1,10 @@
+{
+  "name": "threadcreate",
+  "version": "1.0",
+  "target_folder": "threadcreate",
+  "files": [],
+  "startup_script": "",
+  "requirements_files": ["threadcreate_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": [""]
+}

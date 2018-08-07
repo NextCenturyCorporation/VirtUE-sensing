@@ -1,0 +1,5 @@
+{
+  "repeat-interval": 5,
+  "enabled": true,
+  "sensor-config-level": "adversarial"
+}
