@@ -1003,15 +1003,15 @@ def FilterConnectCommunicationPort(PortName):
     @returns hPort Port Handle
     '''
     hPort = HANDLE(-1)
-    res = HRESULT()
+    _res = HRESULT()
 
     try:
-        res = _FilterConnectCommunicationPort(PortName, 0, None, 0, None, byref(hPort))        
+        _res = _FilterConnectCommunicationPort(PortName, 0, None, 0, None, byref(hPort))        
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror, exc_info=True)
         raise
-    return res, hPort
+    return hPort
 
 def _build_filter_instance_info(buf):
     '''
