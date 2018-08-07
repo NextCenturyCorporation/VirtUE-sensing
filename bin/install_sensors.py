@@ -757,7 +757,7 @@ def install_ntfltmgr(target, ntfltmgr_dir):
     print "    + requirements.txt file"
     shutil.copy(
         os.path.abspath(os.path.join(ntfltmgr_dir, "ntfltmgr_requirements.txt")),
-        os.path.abspath(os.path.join(reqs_dir, "_requirements.txt"))
+        os.path.abspath(os.path.join(reqs_dir, "ntfltmgr_requirements.txt"))
     )
 
 
