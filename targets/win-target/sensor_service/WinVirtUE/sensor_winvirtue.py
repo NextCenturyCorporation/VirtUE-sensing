@@ -85,9 +85,12 @@ class sensor_winvirtue(object):
         '''
         update sensor information
         '''
+        hFltComms = None
         logger.info("Updating sensor information . . . ")        
         try:        
             hFltComms = FilterConnectCommunicationPort(CommandPort)
+            logger.info("Connected to Filter Communcations Port %s", CommandPort)
+            import pdb;pdb.set_trace()
             for sensor in EnumerateSensors(hFltComms):
                 self._sensordict[sensor.SensorName] = sensor
                 logger.info("Discovered Sensor %s",sensor)
