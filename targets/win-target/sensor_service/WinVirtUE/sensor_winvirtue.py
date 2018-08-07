@@ -90,7 +90,6 @@ class sensor_winvirtue(object):
         try:        
             hFltComms = FilterConnectCommunicationPort(CommandPort)
             logger.info("Connected to Filter Communcations Port %s", CommandPort)
-            import pdb;pdb.set_trace()
             for sensor in EnumerateSensors(hFltComms):
                 self._sensordict[sensor.SensorName] = sensor
                 logger.info("Discovered Sensor %s",sensor)
@@ -109,12 +108,12 @@ class sensor_winvirtue(object):
         logger.info("About to construct the SensorWrapper . . . ")
         for sensorname in self._sensordict:
             sensor_name = sensorname.lower()
-            sensor_id = self._sensordict[sensor_name].sensor_id
+            sensor_id = self._sensordict[sensorname].sensor_id
             self._wrapperdict[sensor_id] = SensorWrapper(sensor_name,
                                                        [self.evtdata_consumer],
                                                        stop_notification=self.wait_for_service_stop)
             self._sensorqueues[sensor_id] = Queue()
-            logger.info("SensorWrapper for %s id %s constructed . . . ", sensor_name, sensor_id)
+            logger.info("SensorWrapper for %s id %s constructed . . . ", sensorname, sensor_id)
         logger.info("All SensorWrapper Instances Built . . . ")
                     
     def load_config_data(self, wrappername):
