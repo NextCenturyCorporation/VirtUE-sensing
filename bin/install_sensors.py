@@ -8,12 +8,13 @@ import sys
 import json
 import types
 import shutil
+import platform
 
 
 # Should this be put into the targets.json file?
 APIHOST = 'sensing-api.savior.internal'
 BASE_PORT_NO = 11020
-DEFAULT_DEBUG_LEVEL = 'ERROR'
+DEFAULT_DEBUG_LEVEL = 'INFO'
 
 # output a configuration file that rougly co-relate with 
 # the original sensor wrapper command line parameters
@@ -26,23 +27,6 @@ api-host={apihost:s}
 sensor-port={sensorport:d}
 [runtime]
 dbglvl={default_debug_level:s}
-'''
-
-# The zip builder file prefix script
-UPDATE_SENSOR_ZIP = '''
-<# powershell -NoProfile -ExecutionPolicy ByPass -File .\update_sensor_zip.ps1 #>
-
-$host.ui.RawUI.WindowTitle ="Updating Windows VirtUE Sensors Zip File . . ."
-
-Write-Output $host.ui.RawUI.WindowTitle
-
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-$svc_dir=$Env:SystemDrive + "/WinVirtUE"
-$zipfile=$svc_dir + "/sensors.zip"
-
-if(!(Test-Path $svc_dir)) {mkdir $svc_dir}
-if(Test-Path $zipfile) { Remove-Item -Force $zipfile }
 '''
 
 """
@@ -230,6 +214,10 @@ def validate_target(target, sensors, kmods):
 
     errors = []
 
+    if ("os" in target["target"] 
+        and target["target"]["os"] not in ["Linux", "Windows"]):
+        errors.append("Platform %s is Invalid!" % target["target"]["os"],)
+
     for req_sensor in target["target"]["sensors"]:
         if req_sensor not in sensor_idx:
             errors.append("required sensor [%s] does not exist" % (req_sensor,))
@@ -239,11 +227,12 @@ def validate_target(target, sensors, kmods):
             errors.append("required kernel module [%s] does not exist" % (req_kmod,))
 
     for dir_key in ["os", "sensors_directory", "requirements_directory", "startup_scripts_directory", "library_directory"]:
+        if (platform.system() == "Windows" 
+                and dir_key in ["sensors_directory", "startup_scripts_directory"]):
+            continue     # skip the sensors directory and startup_scripts stuff
         if dir_key not in target["target"]:
             errors.append("Required directory definition field missing [%s]" % (dir_key,))
-    if ("os" in target["target"] 
-        and target["target"]["os"] not in ["Linux", "Windows"]):
-        errors.append("Platform %s is Invalid!" % target["target"]["os"],)
+
     return errors
 
 
@@ -272,16 +261,19 @@ def validate_sensor(sensor):
     errors = []
 
     # files exist
-    if not os.path.isfile(os.path.join(sensor["root"], sensor["sensor"]["startup_script"])):
-        errors.append("sensor.json::startup_script does not point to an existing file")
+    if platform.system() != "Windows":
+        if not os.path.isfile(os.path.join(sensor["root"], sensor["sensor"]["startup_script"])):
+            errors.append("sensor.json::startup_script does not point to an existing file")
 
     for req_file in sensor["sensor"]["requirements_files"]:
         if not os.path.isfile(os.path.join(sensor["root"], req_file)):
             errors.append("sensor.json::requirements_file [%s] does not point to an existing file" % (req_file,))
 
-    for src_file in sensor["sensor"]["files"]:
-        if not os.path.isfile(os.path.join(sensor["root"], src_file["source"])):
-            errors.append("sensor.json::files[]::source [%s] does not point to an existing file" % (src_file["source"],))
+    if platform.system() != "Windows":
+        for src_file in sensor["sensor"]["files"]:
+            if not os.path.isfile(os.path.join(sensor["root"], src_file["source"])):
+                errors.append("sensor.json::files[]::source [%s] does not point to an existing file" 
+                    % (src_file["source"],))
 
     # lists exist
     list_keys = ["required_sub_directories", "apt-get"]
@@ -339,7 +331,8 @@ def prep_target(target):
         os.makedirs(path)
 
 
-def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_dir):
+def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntfltmgr_dir):
+
     """
     Install all of the required sensors for the target.
 
@@ -366,7 +359,7 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntquerysys_di
     install_sensor_wrapper(target, wrapper_dir)
 
     if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
-        install_ntquerysys(target, ntquerysys_dir)
+        install_ntfltmgr(target, ntfltmgr_dir)
         install_sensor_service(target)
 
     # individual sensors
@@ -654,11 +647,12 @@ def install_sensor(target, sensor):
         with open(os.path.join(os.path.join(sensor_dest_dir, run_sub_dir), ".empty"), "w") as dotfile:
             dotfile.write("\n")
 
-    print "    + startup script"
-    shutil.copy(
-        os.path.abspath(os.path.join(sensor_src_dir, sensor["sensor"]["startup_script"])),
-        os.path.abspath(os.path.join(run_dir, sensor["sensor"]["startup_script"]))
-    )
+    if platform.system() != "Windows":
+        print "    + startup script"
+        shutil.copy(
+            os.path.abspath(os.path.join(sensor_src_dir, sensor["sensor"]["startup_script"])),
+            os.path.abspath(os.path.join(run_dir, sensor["sensor"]["startup_script"]))
+        )
 
     print "    + requirments.txt files"
     for require_txt in sensor["sensor"]["requirements_files"]:
@@ -699,14 +693,6 @@ def install_sensor_service(target):
         if not os.path.exists(logs_dir):
             os.makedirs(logs_dir)
 
-        with open(os.path.join(svc_root, "update_sensor_zip.ps1"), "w") as zf:
-            zf.write(UPDATE_SENSOR_ZIP)  
-            for sensor in sensors:
-                src_path = os.path.abspath(os.path.join(root, target["target"]["sensors_directory"], sensor))
-                cmd_line = ("Compress-Archive -Update -Path {0}\*.py -DestinationPath $zipfile\n"
-                        .format(src_path,))
-                zf.write(cmd_line)
-
         for sensor in sensors:
             certs_dir = os.path.join(svc_dir, "certs", sensor)
             if not os.path.exists(certs_dir):
@@ -738,38 +724,40 @@ def install_sensor_service(target):
                 print("    - Failed to open port %d for sensor %s!!"
                         % (portno, sensor,))
 
-def install_ntquerysys(target, ntquerysys_dir):
+def install_ntfltmgr(target, ntfltmgr_dir):
     """
-    Install the ntquerysys library files into the target.
+    Install the  library files into the target.
 
     :param target:
-    :param ntquerysys_dir:
+    :param ntfltmgr_dir:
     :return:
     """
     # define our directories
     root = target["root"]
-    reqs_dir = os.path.abspath(os.path.join(root, target["target"]["requirements_directory"]))
-    lib_dir = os.path.abspath(os.path.join(root, target["target"]["library_directory"]))
+    reqs_dir = os.path.abspath(os.path.join(root, 
+        target["target"]["requirements_directory"]))
+    lib_dir = os.path.abspath(os.path.join(root, 
+        target["target"]["library_directory"]))
 
     # install lib files
-    print "  + installing ntquerysys library"
-    ntquerysys_dest_dir = os.path.abspath(os.path.join(lib_dir, "ntquerysys"))
-    os.makedirs(ntquerysys_dest_dir)
+    print "  + installing  library"
+    ntfltmgr_dest_dir = os.path.abspath(os.path.join(lib_dir, "ntfltmgr"))
+    os.makedirs(ntfltmgr_dest_dir)
 
     print "    + library files"
-    lib_files = ["ntquerysys.py", "setup.py"]
+    lib_files = ["ntfltmgr.py", "setup.py"]
 
     for lib_file in lib_files:
         shutil.copy(
-            os.path.abspath(os.path.join(ntquerysys_dir, lib_file)),
-            os.path.abspath(os.path.join(ntquerysys_dest_dir, lib_file))
+            os.path.abspath(os.path.join(ntfltmgr_dir, lib_file)),
+            os.path.abspath(os.path.join(ntfltmgr_dest_dir, lib_file))
         )
 
     # install requirements.txt file
     print "    + requirements.txt file"
     shutil.copy(
-        os.path.abspath(os.path.join(ntquerysys_dir, "ntquerysys_requirements.txt")),
-        os.path.abspath(os.path.join(reqs_dir, "ntquerysys_requirements.txt"))
+        os.path.abspath(os.path.join(ntfltmgr_dir, "ntfltmgr_requirements.txt")),
+        os.path.abspath(os.path.join(reqs_dir, "_requirements.txt"))
     )
 
 
@@ -836,12 +824,12 @@ if __name__ == "__main__":
     sensor_dir = "./sensors"
     targets_dir = "./targets"
     wrapper_dir = "./sensors/wrapper"
-    ntquerysys_dir = "./sensors/ntquerysys"
+    ntfltmgr_dir = "./sensors/ntfltmgr"
     kernel_dir = "./"
 
     print "Running install_sensors"
     print "  wrapper(%s)" % (wrapper_dir,)
-    print "  ntquerysys(%s)" % (ntquerysys_dir,)
+    print "  (%s)" % (ntfltmgr_dir,)
     print "  sensors(%s)" % (sensor_dir,)
     print "  targets(%s)" % (targets_dir,)
     print "  kernel_mods(%s)" % (kernel_dir,)
@@ -930,4 +918,4 @@ if __name__ == "__main__":
     if opts.mode == "install":
         print "Installing components in Targets"
         for target in included_targets:
-            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir, ntquerysys_dir)
+            install_sensors_in_target(target, included_modules, included_sensors, wrapper_dir,ntfltmgr_dir)

@@ -1,6 +1,6 @@
 @echo off
 @ECHO Configuring execution environment . . .
-SET WORKDIR=%SystemDrive%:\app
+SET WORKDIR=%SystemDrive%\app
 SET TEMP=%SystemDrive%\SaviorTemp
 SET PYTHONUNBUFFERED=0
 SET PYTHONVER=3.6.4
@@ -40,28 +40,11 @@ CD ..\..
 RMDIR /q /s  .\app
 POPD
 
-@ECHO Installing All Sensors
-PUSHD .\sensor_service
-@ECHO Installing Service Components
-XCOPY /E /Y /F WinVirtUE\*.* %SystemDrive%\WinVirtUE
-@ECHO Create the sensors zip file archive
-%POWERSHELL% .\update_sensor_zip.ps1
-POPD
-
-@ECHO Download the handles.exe from SysInternals/MS 
-@ECHO *** NOTE: This files URI could be moved without warning ***
-%POWERSHELL% Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Handle.zip" -OutFile %TEMP%\Handle.zip
-%POWERSHELL% Expand-Archive -Force %TEMP%\Handle.zip -DestinationPath %SystemDrive%\WinVirtUE
-
-@ECHO Agree to the license on the dialog box
-%SystemDrive%\WinVirtUE\handle.exe > nul:
-
 RMDIR /Q /S %TEMP%
 
-PUSHD %SystemDrive%\WinVirtUE
-SET PYTHONPATH=%CD%\sensors.zip
-python .\service_winvirtue.py install
-python .\service_winvirtue.py start
+SET PYTHONPATH=%SystemDrive%:\
+python -m WinVirtUE install
+python -m WinVirtUE start
 
 @ECHO POP back to .\savior
 POPD
