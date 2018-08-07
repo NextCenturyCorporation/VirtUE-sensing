@@ -38,6 +38,7 @@ RMDIR /Q /S %TEMP%
 
 SET PYTHONPATH=%SystemDrive%\
 python -m WinVirtUE install
+sc config WindowsVirtue start= auto
 python -m WinVirtUE start
 
 @ECHO POP back to .\savior
