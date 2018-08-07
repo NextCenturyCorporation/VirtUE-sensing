@@ -208,8 +208,3 @@ class sensor_winvirtue(object):
                 await message_queue.put(dumped)
             finally:
                 await queue.task_done()
-    
-   
-                                    
-  
-        
