@@ -1350,7 +1350,7 @@ class WVU_RESPONSE(CtypesEnum):
     WVUSuccess = 0x1
     WVUFailure = 0x2
 
-GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'SensorId', 'DataSz', 'Data'])
+GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'sensor_id', 'DataSz', 'Data'])
     
 class COMMAND_MESSAGE(SaviorStruct):
     '''
@@ -1358,7 +1358,7 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     _fields_ = [        
         ("Command", ULONG),
-        ("SensorId", _UUID),
+        ("sensor_id", _UUID),
         ("DataSz", SIZE_T),
         ("Data", BYTE * 1) 
     ]
@@ -1372,8 +1372,8 @@ class COMMAND_MESSAGE(SaviorStruct):
         sb = create_string_buffer(sizeof(cls) + len(data) - 1)
         info = cast(sb, POINTER(cls))
         info.contents.Command = cmd
-        memmove(info.contents.SensorId, sensor_id.bytes, 
-                len(info.contents.SensorId.Data))
+        memmove(info.contents.sensor_id, sensor_id.bytes, 
+                len(info.contents.sensor_id.Data))
         info.contents.DataSz = len(data)        
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
@@ -1382,7 +1382,7 @@ class COMMAND_MESSAGE(SaviorStruct):
             
         command_packet = GetCommandMessage(
             info.contents.Command,
-            info.contents.SensorId,
+            info.contents.sensor_id,
             info.contents.DataSz,
             sb)
         return command_packet  
@@ -1427,14 +1427,14 @@ class SensorStatusHeader(SaviorStruct):
     ]
 
 GetSensorStatus = namedtuple('GetSensorStatus',  
-        ['SensorId', 'LastRunTime', 'RunInterval', 
+        ['sensor_id', 'LastRunTime', 'RunInterval', 
             'OperationCount', 'Attributes', 'SensorName'])
 class SensorStatus(SaviorStruct):
     '''
     The SensorStatus message
     '''
     _fields_ = [        
-        ("SensorId", _UUID),
+        ("sensor_id", _UUID),
         ("LastRunTime", LONGLONG),
         ("RunInterval", LONGLONG),
         ("OperationCount", LONG),
@@ -1457,7 +1457,7 @@ class SensorStatus(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_chars)
         lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
-        sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))        
         sensor_status = GetSensorStatus(            
             sensor_id,
             info.contents.LastRunTime,
@@ -1553,8 +1553,8 @@ def EnableProtection(hFltComms, sensor_id=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
     cmd_msg.contents.DataSz = 0
-    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
-            len(cmd_msg.contents.SensorId.Data))
+    memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes, 
+            len(cmd_msg.contents.sensor_id.Data))
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1570,8 +1570,8 @@ def DisableProtection(hFltComms, sensor_id=0):
     
     cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
     cmd_msg.contents.DataSz = 0
-    memmove(cmd_msg.contents.SensorId.Data, sensor_id.bytes, 
-            len(cmd_msg.contents.SensorId.Data))
+    memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes, 
+            len(cmd_msg.contents.sensor_id.Data))
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
@@ -1646,7 +1646,7 @@ def ConfigureSensor(hFltComms, cfgdata, sensor_id=0):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureSensor
-    memmove(cmd_msg.contents.SensorId.Data, 
+    memmove(cmd_msg.contents.sensor_id.Data, 
             sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
     offset = type(cmd_msg.contents).Data.offset 
@@ -1670,7 +1670,7 @@ def test_command_response():
         print("res = {0}\n".format(res,))        
         for sensor in sensors:
             print("{0}".format(sensor,))
-            ConfigureSensor(hFltComms,'{"repeat-interval": 60}', sensor.SensorId)
+            ConfigureSensor(hFltComms,'{"repeat-interval": 60}', sensor.sensor_id)
     finally:
         CloseHandle(hFltComms)
         
