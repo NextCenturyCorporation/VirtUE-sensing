@@ -1516,21 +1516,18 @@ def EnumerateSensors(hFltComms, Filter=None):
     cmd_msg.contents.Command = WVU_COMMAND.EnumerateSensors
     cmd_msg.contents.DataSz = 0
     
-    res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
+    _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     header = cast(rsp_buf, POINTER(ProbeStatusHeader))    
     cnt = header.contents.NumberOfEntries
     sb = create_string_buffer(rsp_buf[sizeof(ProbeStatusHeader):])
     length = sizeof(ProbeStatus)
-    probes = []
     
     for ndx in range(0, cnt):
         offset = ndx * sizeof(ProbeStatus)
         array_of_bytes = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_bytes)        
         probe = ProbeStatus.build(bytes(slc))
-        probes.append(probe)
-
-    return res, probes
+        yield probe
 
 def Echo(hFltComms):
     '''
