@@ -7,9 +7,11 @@
   "startup_scripts_directory": "./sensor_startup",
   "kernel_mod_directory": "./drivers",
   "sensors": [
-    "kernelprobe",
-    "processlist",
-    "handlelist"
+    "processcreate",
+    "processlistvalidation",
+    "threadcreate",
+    "registrymodification",
+    "imageload"
   ],
   "kernel_modules": [
   ],
