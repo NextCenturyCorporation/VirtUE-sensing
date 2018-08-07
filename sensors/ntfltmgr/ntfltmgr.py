@@ -1338,8 +1338,8 @@ class WVU_COMMAND(CtypesEnum):
     DisableProtection = 0x2        
     EnableUnload = 0x3
     DisableUnload = 0x4
-    EnumerateProbes = 0x5
-    ConfigureProbe = 0x6
+    EnumerateSensors = 0x5
+    ConfigureSensor = 0x6
     OneShotKill = 0x7   
     
 class WVU_RESPONSE(CtypesEnum):
@@ -1504,7 +1504,7 @@ def FilterSendMessage(hPort, cmd_buf):
     return res, response
 
     
-def EnumerateProbes(hFltComms, Filter=None):
+def EnumerateSensors(hFltComms, Filter=None):
     '''
     Enumerate Probes
     @note by default, all probes are enumerated and returned
@@ -1513,7 +1513,7 @@ def EnumerateProbes(hFltComms, Filter=None):
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
-    cmd_msg.contents.Command = WVU_COMMAND.EnumerateProbes
+    cmd_msg.contents.Command = WVU_COMMAND.EnumerateSensors
     cmd_msg.contents.DataSz = 0
     
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
@@ -1637,7 +1637,7 @@ def OneShotKill(hFltComms, pid):
 
     return res, rsp_msg
 
-def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
+def ConfigureSensor(hFltComms, cfgdata, sensor_id=0):
     '''
     Configure a specific probe with the provided 
     configuration data
@@ -1648,7 +1648,7 @@ def ConfigureProbe(hFltComms, cfgdata, sensor_id=0):
     length = len(cfgdata)
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
-    cmd_msg.contents.Command = WVU_COMMAND.ConfigureProbe
+    cmd_msg.contents.Command = WVU_COMMAND.ConfigureSensor
     memmove(cmd_msg.contents.SensorId.Data, 
             sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
@@ -1669,11 +1669,11 @@ def test_command_response():
     '''
     (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
     try:        
-        (res, probes,) = EnumerateProbes(hFltComms)
+        (res, probes,) = EnumerateSensors(hFltComms)
         print("res = {0}\n".format(res,))        
         for probe in probes:
             print("{0}".format(probe,))
-            ConfigureProbe(hFltComms,'{"repeat-interval": 60}', probe.SensorId)
+            ConfigureSensor(hFltComms,'{"repeat-interval": 60}', probe.SensorId)
     finally:
         CloseHandle(hFltComms)    
       
