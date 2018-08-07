@@ -1290,7 +1290,7 @@ def packet_decode():
     '''
     Test WinVirtUE packet decode
     '''    
-    (_res, hFltComms,) = FilterConnectCommunicationPort(EventPort)
+    hFltComms = FilterConnectCommunicationPort(EventPort)
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
@@ -1667,7 +1667,7 @@ def test_command_response():
     '''
     Test WinVirtUE command response
     '''
-    (res, hFltComms,) = FilterConnectCommunicationPort(CommandPort)
+    hFltComms = FilterConnectCommunicationPort(CommandPort)
     try:        
         (res, probes,) = EnumerateSensors(hFltComms)
         print("res = {0}\n".format(res,))        
@@ -1689,7 +1689,7 @@ def main(argv):
     let's test some stuff
     '''
     if len(argv) == 2:
-        (_res, hFltComms,) = FilterConnectCommunicationPort(CommandPort)
+        hFltComms = FilterConnectCommunicationPort(CommandPort)
         try:        
             (res, resp_msg,) = OneShotKill(hFltComms, int(argv[1]))
             print("_res={0},resp_msg={1}\n".format(res,resp_msg,))
