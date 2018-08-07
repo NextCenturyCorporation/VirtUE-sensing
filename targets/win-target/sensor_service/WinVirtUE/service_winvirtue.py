@@ -14,7 +14,6 @@ import servicemanager
 import win32service
 
 from sensor_winvirtue import sensor_winvirtue
-from .__main__ import cfgparser
 
 __VERSION__ = "1.20180801"
 __MODULE__ = "service_winvirtue.py"

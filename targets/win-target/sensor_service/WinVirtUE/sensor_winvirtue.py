@@ -14,8 +14,6 @@ from sensor_wrapper import SensorWrapper
 from ntfltmgr import FilterConnectCommunicationPort, EnumerateSensors
 from ntfltmgr import ConfigureSensor, CommandPort, CloseHandle, packet_decode
 
-from .__main__ import cfgparser
-
 __VERSION__ = "1.20180801"
 __MODULE__ = "sensor_winvirtue.py"
 
