@@ -42,7 +42,7 @@ POPD
 
 RMDIR /Q /S %TEMP%
 
-SET PYTHONPATH=%SystemDrive%:\
+SET PYTHONPATH=%SystemDrive%\
 python -m WinVirtUE install
 python -m WinVirtUE start
 
