@@ -5,7 +5,6 @@ pgdata
 *.un~
 *.json~
 *.*~
-/sensors/sensor.wpr
 cscope.files
 cscope.out
 /.vs/savior/v15/Browse.VC.db

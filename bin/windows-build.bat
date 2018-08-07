@@ -33,6 +33,8 @@ XCOPY /Y /S /F /V requirements\*.* %SystemDrive%\app\requirements\
 @ECHO Installing Sensor Libraries ... Part 1
 MKDIR %SystemDrive%\app\sensor_libraries
 XCOPY /Y /S /F /V sensor_libraries\*.* %SystemDrive%\app\sensor_libraries\
+@ECHO Installing WinVirtUE Service Files
+XCOPY /Y /E /F sensor_service\WinVirtUE\*.* %SystemDrive%\WinVirtUE
 @ECHO Installing Sensor Libraries ... Part 2
 PUSHD %SystemDrive%\app\sensor_libraries
 %POWERSHELL% .\install.ps1
@@ -42,7 +44,7 @@ POPD
 
 RMDIR /Q /S %TEMP%
 
-SET PYTHONPATH=%SystemDrive%:\
+SET PYTHONPATH=%SystemDrive%\
 python -m WinVirtUE install
 python -m WinVirtUE start
 
