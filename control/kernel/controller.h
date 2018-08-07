@@ -119,8 +119,8 @@ struct jsmn_session
 	 * reminder: converting probe_id to probe_name be be aligned with
 	 * user-space sensor wrapper
 	 **/
-	uint8_t probe_id[MAX_NAME_SIZE];
-	uint8_t probe_uuid[SENSOR_UUID_SIZE];
+	uint8_t sensor_name[MAX_NAME_SIZE];
+	uint8_t sensor_uuid[SENSOR_UUID_SIZE];
 };
 
 
@@ -177,7 +177,7 @@ struct state_reply
 {
 	command cmd; /* enum message_command */
 	uint8_t name[MAX_NAME_SIZE];
-	uint8_t uuid[SENSOR_UUID_SIZE];
+	uuid_t uuid;
 	uint64_t flags, state;
 	int timeout, repeat;
 	bool clear;    /* clear records? */
@@ -387,9 +387,10 @@ static inline void task_cputime(struct task_struct *t,
  * 3.1 - rename kernel-ps probe to kernel-ps sensor - DONE
  * 3.2 - rename kernel-lsof probe to kernel-lsof sensor - DONE
  * 3.3 - rename kernel-sysfs probe to kernel-sysfs sensor - DONE
- * 4 - update discovery response message to include uuid field.
- * 5 - change get_probe to get_sensor, and the key is the uuid instead
- *     of the name
+ * 4 - update discovery response message to include uuid field. - DONE
+ * 5 - change get_probe to get_sensor_name - DONE
+ * 5.1 - create get_sensor_uuid, and change key the target sensor
+ *       using the uuid instead of the name.
  * 6 - rename KernelProbe.py to KernelSensor.py - DONE
  **/
 
@@ -398,9 +399,14 @@ struct sensor {
 		spinlock_t lock;
 		struct semaphore s_lock;
 	};
-	/** TODO: rename id to name **/
 	uint8_t *name;
-	uint8_t uuid[SENSOR_UUID_SIZE];
+/**
+ * see <linux/uuid.h> and <uapi/linux/uuid.h>
+ * UUID_SIZE 16
+ * UUID_STRING_LEN 36
+ * https://en.wikipedia.org/wiki/Universally_unique_identifier
+ **/
+	uuid_t uuid;
 	struct sensor *(*init)(struct sensor *, uint8_t *, int);
 	void *(*destroy)(struct sensor *);
 	int (*message)(struct sensor *, struct sensor_msg *);
@@ -423,7 +429,13 @@ default_rcv_msg_from(struct sensor *,
 
 
 int
-get_probe(uint8_t *probe_id, struct sensor **);
+get_sensor(uint8_t *key, struct sensor **sensor);
+
+int
+get_sensor_name(uint8_t *probe_id, struct sensor **sensor);
+
+int
+get_sensor_uuid(uint8_t *uuid, struct sensor **p);
 
 /**
  * @brief The kernel sensor is the parent of one or more probes

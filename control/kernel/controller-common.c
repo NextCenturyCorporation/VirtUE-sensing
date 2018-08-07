@@ -347,24 +347,156 @@ build_pid_index(struct sensor *p, struct flex_array *a, uint64_t nonce)
 }
 STACK_FRAME_NON_STANDARD(build_pid_index);
 
-/**
- * TODO: convert get_probe to use the probe->uuid field
- **/
-/**
- *  probe is LOCKED upon return
+
+ /**
+ * @brief find, LOCK, and return a pointer to a sensor with a
+ *        matching key. The key must be a string, and may be either
+ *        a correctly formatted 36-byte uuid, or a variable-length
+ *        name.
+ *
+ * @param key. Must be either a 36-byte uuid string, or a name string
+          of fewer than MAX_NAME_SIZE bytes.
+ * @param p double pointer to a struct sensor, it is used to return
+ *        pointer to the matching sensor
+ *
+ * @note Will always first attempt to match a uuid with a running sensor.
+ *       If the uuid match fails, it will try to match a name with a running
+ *       sensor.
+ *
+ *       it is possible for two sensor instances to have the same
+ *       name. The only reliable way to find a specific sensor instance
+ *       is to search using the sensor uuid as the key.
+ *
+ * @note probe is LOCKED upon return
  **/
 int
-get_probe(uint8_t *sensor_name, struct sensor **p)
+get_sensor(uint8_t *key, struct sensor **sensor)
+{
+	int ccode = -ENFILE;
+	assert(key);
+	assert(sensor);
+	*sensor = NULL;
+
+	/**
+	 * we first want to try to use the key as a uuid
+	 **/
+
+	if (UUID_STRING_LEN == strnlen(key, MAX_NAME_SIZE)) {
+		/* the key is the correct size to be a formatted uuid*/
+		uuid_t input = {0};
+		if (! uuid_is_valid(key)) {
+			goto name_search;
+		}
+		if (0 > uuid_parse(key, &input)) {
+			goto name_search;
+		}
+
+uuid_search:
+		ccode = get_sensor_uuid(key, sensor);
+		if (ccode == -EAGAIN) {
+			schedule();
+			goto uuid_search;
+		}
+		if (ccode == 0) {
+			return ccode;
+		}
+	}
+
+name_search:
+	ccode = get_sensor_name(key, sensor);
+	if (ccode == -EAGAIN) {
+		schedule();
+		goto name_search;
+	}
+	return ccode;
+}
+
+ /**
+ * @brief find, LOCK, and return a pointer to a sensor with a
+ *        matching name string
+ *
+ * @param sensor_name string of variable length, nul-terminated.
+ * @param p double pointer to a struct sensor, it is used to return
+ *        pointer to the matching sensor
+ *
+ * @note it is possible for two sensor instances to have the same
+ *       name. The only reliable way to find a specific sensor instance
+ *       is to search using the sensor uuid using
+ *       get_sensor_uuid.
+ *
+ * @note probe is LOCKED upon return
+ **/
+int
+get_sensor_name(uint8_t *sensor_name, struct sensor **sensor)
 {
 	struct sensor *sensor_p = NULL;
 	int ccode = -ENFILE;
+	size_t name_len = 0;
 	assert(sensor_name);
+	assert(sensor);
+	*sensor = NULL;
+	name_len = strnlen(sensor_name, MAX_NAME_SIZE);
+	if (name_len == MAX_NAME_SIZE) {
+		return -EINVAL;
+	}
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(sensor_p, &k_sensor.sensors, l_node) {
+		if (! strncmp(sensor_p->name, sensor_name, name_len)) {
+			if(!spin_trylock(&sensor_p->lock)) {
+				ccode =  -EAGAIN;
+				goto exit;
+			} else {
+				*sensor = sensor_p;
+				ccode = 0;
+				goto exit;
+			}
+		}
+	}
+exit:
+	rcu_read_unlock();
+	return ccode;
+}
+
+
+/**
+ * @brief find, LOCK, and return a pointer to a sensor with a
+ *        matching UUID
+ *
+ * @param uuid - string form of uuid, 36 bytes long not including
+ *        terminating NUL
+ * @param p double pointer to a struct sensor, it is used to return
+ *        pointer to the matching sensor
+ *
+ * @note The uuid string is of the form:
+ *       "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+ *
+ *       it will be parsed into binary form and compared to the
+ *       binary uuid stored in each sensor struct
+ *
+ * @note probe is LOCKED upon return
+ **/
+int
+get_sensor_uuid(uint8_t *uuid, struct sensor **p)
+{
+	struct sensor *sensor_p = NULL;
+	int ccode = -ENFILE;
+	uuid_t input = {0};
+	assert(uuid);
 	assert(p);
 
 	*p = NULL;
+	if (! uuid_is_valid(uuid)) {
+		return -EINVAL;
+	}
+
+	if (0 > uuid_parse(uuid, &input)) {
+		return -EINVAL;
+	}
+
 	rcu_read_lock();
 	list_for_each_entry_rcu(sensor_p, &k_sensor.sensors, l_node) {
-		if (! strncmp(sensor_p->name, sensor_name, strlen(sensor_p->name))) {
+		if (uuid_equal(&input, &sensor_p->uuid)) {
 			if(!spin_trylock(&sensor_p->lock)) {
 				ccode =  -EAGAIN;
 				goto exit;
@@ -458,8 +590,9 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 /**
  * 10 is the number of additional bytes we need to store for
  * each name + uuid, for quotes, spaces, and brackets
+ *
  **/
-		id_len = strlen(s_cursor->name) + SENSOR_UUID_SIZE + 10;
+		id_len = strlen(s_cursor->name) + UUID_STRING_LEN + 1 + 10;
 
 		if ((remaining - 1) > id_len) {
 			if (count > 0) {
@@ -474,8 +607,8 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 			*cursor++ = COMMA;
 			*cursor++ = SPACE;
 			*cursor++ = D_QUOTE;
-			memcpy(cursor, s_cursor->uuid, SENSOR_UUID_SIZE);
-			cursor += SENSOR_UUID_SIZE;
+			snprintf(cursor, UUID_STRING_LEN + 1, "%pUl", &s_cursor->uuid);
+			cursor += UUID_STRING_LEN;
 			*cursor++ = D_QUOTE;
 			*cursor++ = R_BRACKET;
 			count++;
@@ -779,7 +912,7 @@ struct sensor *init_sensor(struct sensor *sensor,
 		memcpy(sensor->name, name, name_size - 1);
 	}
 	/* generate the probe uuid */
-	generate_random_uuid(sensor->uuid);
+	generate_random_uuid(sensor->uuid.b);
 	sensor->lock=__SPIN_LOCK_UNLOCKED("sensor");
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */

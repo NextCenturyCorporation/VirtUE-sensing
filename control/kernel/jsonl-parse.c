@@ -238,8 +238,8 @@ free_session(struct jsmn_session *s)
 static inline int
 pre_process_jsmn_request_cmd(struct jsmn_message *m)
 {
-	uint8_t *c, *id = NULL;
-	size_t c_bytes, id_bytes = 0;
+	uint8_t *c, *name = NULL;
+	size_t c_bytes, name_bytes = 0;
 	int ccode;
 
 	assert(m && m->s);
@@ -259,16 +259,16 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 		/**
 		 * there is no probe element, not valid
 		 **/
-		printk(KERN_DEBUG "received a jsonl request message with no probe id."
+		printk(KERN_DEBUG "received a jsonl request message with no probe name."
 			   " %s:%d\n", __FILE__, __LINE__);
 		goto err_out;
 	} else {
-		id = m->line + m->tokens[PROBE].start;
-		id_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
-		if (id_bytes ==0 || id_bytes > MAX_CMD_SIZE) {
+		name = m->line + m->tokens[PROBE].start;
+		name_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
+		if (name_bytes ==0 || name_bytes > MAX_CMD_SIZE) {
 			printk(KERN_DEBUG "pre_process_jsmn_command: json command token is either"
 				   "too small or too large for any valid commands: %ld bytes\n",
-				   id_bytes);
+				   name_bytes);
 			return JSMN_ERROR_INVAL;
 		}
 	}
@@ -278,9 +278,9 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 		memcpy(m->s->cmd, c, c_bytes);
 		m->s->cmd[c_bytes] = 0x00;
 		if (m->parser.toknext > PROBE) {
-			memcpy(m->s->probe_id, id, id_bytes);
-			m->s->probe_id[id_bytes] = 0x00;
-			printk(KERN_DEBUG "request probe id: %s\n", m->s->probe_id);
+			memcpy(m->s->sensor_name, name, name_bytes);
+			m->s->sensor_name[name_bytes] = 0x00;
+			printk(KERN_DEBUG "request sensor name: %s\n", m->s->sensor_name);
 
 		}
 		ccode = index_command(c, c_bytes);
@@ -418,7 +418,7 @@ process_records_request(struct jsmn_message *msg, int index)
 	};
 
 	do {
-		ccode = get_probe(msg->s->probe_id, &sensor_p);
+		ccode = get_sensor_name(msg->s->sensor_name, &sensor_p);
 	} while (ccode == -EAGAIN);
 
 	if (ccode < 0) {
