@@ -17,7 +17,7 @@ CommandPort = "\\WVUCommand"
 EventPort = "\\WVUPort"
 S_OK = 0
 MAXPKTSZ = 0x10000  # max packet size
-MAXPROBENAMESZ = 64
+MAXSENSORNAMESZ = 64
 SIZE_T = c_ulonglong
 NTSTATUS = DWORD
 PVOID = c_void_p
@@ -53,15 +53,15 @@ class SaviorStruct(Structure):
     __repr__ = __str__
     
     @classmethod
-    def GetProbeDataHeader(cls, msg_pkt):
+    def GetSensorDataHeader(cls, msg_pkt):
         '''
         accepts raw packet data from the driver and returns
-        the ProbeDataHeader in the form of a named tuple
+        the SensorDataHeader in the form of a named tuple
         '''     
-        info = cast(msg_pkt, POINTER(ProbeDataHeader))
-        probe_id = uuid.UUID(bytes=bytes(info.contents.probe_id.Data))
-        pdh = GetProbeDataHeader(str(probe_id),
-                                 ProbeType(info.contents.probe_type), 
+        info = cast(msg_pkt, POINTER(SensorDataHeader))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))
+        pdh = GetSensorDataHeader(str(sensor_id),
+                                 SensorType(info.contents.sensor_type), 
                                  info.contents.DataSz, 
                                  info.contents.CurrentGMT,
                                  msg_pkt)        
@@ -316,9 +316,9 @@ class KPROCESSOR_MODE(IntEnum):
         '''
         return CHAR(obj)    
     
-class ProbeType(CtypesEnum):
+class SensorType(CtypesEnum):
     '''
-    Probe Type of filter driver data to unpack
+    Sensor Type of filter driver data to unpack
     '''
     NONE           = 0x0000
     ImageLoad    = 0x0001
@@ -335,20 +335,20 @@ class ProbeType(CtypesEnum):
     RegRenameKeyInfo = 0x000C        
     RegPostOperationInfo = 0x1001     # post operation handlers start at 0x1001
     
-class ProbeAttributeFlags(Flag):
+class SensorAttributeFlags(Flag):
     '''
-    Probe Attribute Flag Enumerations
+    Sensor Attribute Flag Enumerations
     '''
     # No attributes
     NoAttributes = 0
-    # Real Time Probe that emits events as it happens
+    # Real Time Sensor that emits events as it happens
     RealTime = (1 << 1)
     # Emits events at regular time intervals
     Temporal = (1 << 2)
-    # Indicates the probe will start at driver load  
+    # Indicates the sensor will start at driver load  
     EnabledAtStart = (1 << 3)
-    # Set if Probe Type is Dynamic (Loaded by external operation)
-    DynamicProbe = (1 << 4)  
+    # Set if Sensor Type is Dynamic (Loaded by external operation)
+    DynamicSensor = (1 << 4)  
     
 class RegObjectType(IntEnum):
     '''
@@ -399,15 +399,15 @@ LIST_ENTRY._fields_ = [
     ("space", BYTE * 16)
 ]
 
-GetProbeDataHeader = namedtuple('GetProbeDataHeader',  
-        ['probe_id', 'probe_type', 'DataSz', 'CurrentGMT', 'Packet'])  
-class ProbeDataHeader(SaviorStruct):
+GetSensorDataHeader = namedtuple('GetSensorDataHeader',  
+        ['sensor_id', 'sensor_type', 'DataSz', 'CurrentGMT', 'Packet'])  
+class SensorDataHeader(SaviorStruct):
     '''
-    Probe Data Header
+    Sensor Data Header
     '''
     _fields_ = [
-        ('probe_id', _UUID),
-	('probe_type', USHORT),
+        ('sensor_id', _UUID),
+	('sensor_type', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
@@ -415,17 +415,17 @@ class ProbeDataHeader(SaviorStruct):
 
     
 GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',  
-    ['probe_id', 'probe_type', 'CurrentGMT',
+    ['sensor_id', 'sensor_type', 'CurrentGMT',
     'ProcessId', 'EProcess',
     'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
     'DesiredAccess', 'GrantedAccess', 'Version', 'Wow64Flags',
     'Attributes', 'CheckAccessMode', 'CompleteName'])
 class RegCreateKeyInfo(SaviorStruct):
     '''
-    Probe Data Header
+    Sensor Data Header
     '''    
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("RootObject", LONGLONG),
@@ -455,10 +455,10 @@ class RegCreateKeyInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CompleteName = cls.DecodeString(slc)
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))            
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))            
         key_nfo = GetRegCreateKeyInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -476,14 +476,14 @@ class RegCreateKeyInfo(SaviorStruct):
         return key_nfo
         
 GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',  
-        ['probe_id', 'probe_type', 'CurrentGMT', 
+        ['sensor_id', 'sensor_type', 'CurrentGMT', 
         'ProcessId', 'EProcess', 'Class', 'Object', 'KeyValueInformationClass', 'ValueName'])
 class RegQueryValueKeyInfo(SaviorStruct):
     '''
-    Probe Data Header
+    Sensor Data Header
     '''    
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("Class", UINT),
@@ -507,10 +507,10 @@ class RegQueryValueKeyInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ValueName = cls.DecodeString(slc)
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         key_info = GetRegQueryValueKeyInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -522,14 +522,14 @@ class RegQueryValueKeyInfo(SaviorStruct):
 
     
 GetRegRenameKeyInfo = namedtuple('GetRegRenameKeyInfo',  
-                                ['probe_id', 'probe_type', 'CurrentGMT', 
+                                ['sensor_id', 'sensor_type', 'CurrentGMT', 
                                  'ProcessId', 'EProcess', 'Object', 'NewName'])
 class RegRenameKeyInfo(SaviorStruct):
     '''
     Registry Rename Value Key
     '''    
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),            
         ("Object", LONGLONG),
@@ -550,11 +550,11 @@ class RegRenameKeyInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         NewName = cls.DecodeString(slc)
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
 
         key_info = GetRegRenameKeyInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -565,7 +565,7 @@ class RegRenameKeyInfo(SaviorStruct):
 
 
 GetRegPostOperationInfo = namedtuple('GetRegPostOperationInfo',  
-            ['probe_id', 'probe_type', 'CurrentGMT', 
+            ['sensor_id', 'sensor_type', 'CurrentGMT', 
              'ProcessId', 'EProcess', 'Object',
              'Status', 'PreInformation', 'ReturnStatus'])
 class RegPostOperationInfo(SaviorStruct):
@@ -573,7 +573,7 @@ class RegPostOperationInfo(SaviorStruct):
     Registry Post Operations
     '''    
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),            
         ("Object", LONGLONG),
@@ -589,11 +589,11 @@ class RegPostOperationInfo(SaviorStruct):
         classes instance data
         '''        
         info = cast(msg_pkt.Packet, POINTER(cls))        
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
 
         key_info = GetRegPostOperationInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -604,14 +604,14 @@ class RegPostOperationInfo(SaviorStruct):
         return key_info
     
 GetRegDeleteValueKeyInfo = namedtuple('GetRegDeleteValueKeyInfo',  
-                                      ['probe_id', 'probe_type', 'CurrentGMT', 
+                                      ['sensor_id', 'sensor_type', 'CurrentGMT', 
                                     'ProcessId', 'EProcess', 'Object', 'ValueName'])
 class RegDeleteValueKeyInfo(SaviorStruct):
     '''
     Registry Delete Value Key
     '''    
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),            
         ("Object", LONGLONG),
@@ -632,11 +632,11 @@ class RegDeleteValueKeyInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ValueName = cls.DecodeString(slc)
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
 
         key_info = GetRegDeleteValueKeyInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -645,7 +645,7 @@ class RegDeleteValueKeyInfo(SaviorStruct):
         return key_info
         
 GetRegSetValueKeyInfo = namedtuple('GetRegSetValueKeyInfo',  
-             ['probe_id', 'probe_type', 'CurrentGMT', 
+             ['sensor_id', 'sensor_type', 'CurrentGMT', 
               'ProcessId', 'EProcess', 'Object', 'Type', 'ValueName'])
     
 class RegSetValueKeyInfo(SaviorStruct):
@@ -653,7 +653,7 @@ class RegSetValueKeyInfo(SaviorStruct):
     Registry Set Value Key
     '''    
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),            
         ("Object", LONGLONG),
@@ -675,7 +675,7 @@ class RegSetValueKeyInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ValueName = cls.DecodeString(slc)
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         obj_type_name = ''
         try:
             obj_type_name = RegObjectType(info.contents.Type).name
@@ -683,8 +683,8 @@ class RegSetValueKeyInfo(SaviorStruct):
             obj_type_name = info.contents.Type
 
         key_info = GetRegSetValueKeyInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -694,15 +694,15 @@ class RegSetValueKeyInfo(SaviorStruct):
         return key_info
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
-        ['probe_id', 'probe_type', 'CurrentGMT', 'Status', 
+        ['sensor_id', 'sensor_type', 'CurrentGMT', 'Status', 
             'ProcessId', 'EProcess'])
 
 class ProcessListValidationFailed(SaviorStruct):
     '''
-    Probe Data Header
+    Sensor Data Header
     '''
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("Status", NTSTATUS),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG)
@@ -715,10 +715,10 @@ class ProcessListValidationFailed(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         process_list_validation_failed = GetProcessListValidationFailed(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,            
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,            
             info.contents.Header.CurrentGMT,
             info.contents.Status,
             info.contents.ProcessId,
@@ -727,14 +727,14 @@ class ProcessListValidationFailed(SaviorStruct):
 
     
 GetImageLoadInfo = namedtuple('GetImageLoadInfo',  
-        ['probe_id', 'probe_type', 'CurrentGMT', 
+        ['sensor_id', 'sensor_type', 'CurrentGMT', 
         'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 class ImageLoadInfo(SaviorStruct):
     '''
-    Probe Data Header
+    Sensor Data Header
     '''    
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
         ("ImageBase", LONGLONG),
@@ -756,10 +756,10 @@ class ImageLoadInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         ModuleName = "".join(map(chr, slc[::2]))
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         img_nfo = GetImageLoadInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
@@ -769,14 +769,14 @@ class ImageLoadInfo(SaviorStruct):
         return img_nfo
     
 GetThreadCreateInfo = namedtuple('GetThreadCreateInfo',  
-                                  ['probe_id', 'probe_type', 'CurrentGMT', 
+                                  ['sensor_id', 'sensor_type', 'CurrentGMT', 
          'ProcessId', 'ThreadId', 'Win32StartAddress', 'StartAddress','IsStartAddressValid'])
 class ThreadCreateInfo(SaviorStruct ):
     '''
     ThreadCreateInfoInfo Definition
     '''
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("ThreadId", LONGLONG),
         ("Win32StartAddress", LONGLONG),
@@ -791,10 +791,10 @@ class ThreadCreateInfo(SaviorStruct ):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         create_info = GetThreadCreateInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             info.contents.ThreadId,
@@ -804,14 +804,14 @@ class ThreadCreateInfo(SaviorStruct ):
         return create_info
     
 GetThreadDestroyInfo = namedtuple('GetThreadDestroyInfo',  
-                                     ['probe_id', 'probe_type', 'CurrentGMT', 
+                                     ['sensor_id', 'sensor_type', 'CurrentGMT', 
                                    'ProcessId', 'ThreadId'])
 class ThreadDestroyInfo(SaviorStruct ):
     '''
     ThreadDestroyInfoInfo Definition
     '''
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("ThreadId", LONGLONG),             
     ]
@@ -823,17 +823,17 @@ class ThreadDestroyInfo(SaviorStruct ):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         create_info = GetThreadDestroyInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             info.contents.ThreadId,)
         return create_info
 
 GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  
-        ['probe_id', 'probe_type', 'CurrentGMT', 
+        ['sensor_id', 'sensor_type', 'CurrentGMT', 
         'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 
         'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz', 
         'CommandLine'])
@@ -843,7 +843,7 @@ class ProcessCreateInfo(SaviorStruct ):
     ProcessCreateInfo Definition
     '''
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ParentProcessId", LONGLONG),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG),
@@ -867,10 +867,10 @@ class ProcessCreateInfo(SaviorStruct ):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CommandLine = cls.DecodeString(slc)
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         create_info = GetProcessCreateInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ParentProcessId,
             info.contents.ProcessId,
@@ -884,7 +884,7 @@ class ProcessCreateInfo(SaviorStruct ):
         return create_info
 
 GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
-        ['probe_id', 'probe_type', 'CurrentGMT', 
+        ['sensor_id', 'sensor_type', 'CurrentGMT', 
          'ProcessId', 'EProcess'])
     
 class ProcessDestroyInfo(SaviorStruct):
@@ -892,7 +892,7 @@ class ProcessDestroyInfo(SaviorStruct):
     ProcessDestroyInfo Definition
     '''
     _fields_ = [
-        ("Header", ProbeDataHeader),
+        ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG) 
     ]
@@ -904,13 +904,13 @@ class ProcessDestroyInfo(SaviorStruct):
         classes instance data
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
-        probe_id = uuid.UUID(bytes=bytes(info.contents.Header.probe_id.Data))
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         info.contents.EProcess = (0 if not info.contents.EProcess 
                 else info.contents.EProcess)
         print(info.contents.EProcess)
         create_info = GetProcessDestroyInfo(
-            str(probe_id),
-            ProbeType(info.contents.Header.probe_type).name,
+            str(sensor_id),
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess))
@@ -1295,35 +1295,35 @@ def packet_decode():
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
-        pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
-        if pdh.probe_type == ProbeType.ImageLoad:            
+        pdh = SaviorStruct.GetSensorDataHeader(msg_pkt.Remainder)
+        if pdh.sensor_type == SensorType.ImageLoad:            
             msg_data = ImageLoadInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ProcessCreate:
+        elif pdh.sensor_type == SensorType.ProcessCreate:
             msg_data = ProcessCreateInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ProcessDestroy:
+        elif pdh.sensor_type == SensorType.ProcessDestroy:
             msg_data = ProcessDestroyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ProcessListValidationFailed:
+        elif pdh.sensor_type == SensorType.ProcessListValidationFailed:
             msg_data = ProcessListValidationFailed.build(pdh)
-        elif pdh.probe_type == ProbeType.RegQueryValueKeyInfo:
+        elif pdh.sensor_type == SensorType.RegQueryValueKeyInfo:
             msg_data = RegQueryValueKeyInfo.build(pdh)            
-        elif pdh.probe_type == ProbeType.RegCreateKeyInfo:
+        elif pdh.sensor_type == SensorType.RegCreateKeyInfo:
             msg_data = RegCreateKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegSetValueKeyInfo:
+        elif pdh.sensor_type == SensorType.RegSetValueKeyInfo:
             msg_data = RegSetValueKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegOpenKeyInfo:
+        elif pdh.sensor_type == SensorType.RegOpenKeyInfo:
             msg_data = RegCreateKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegDeleteValueKeyInfo:
+        elif pdh.sensor_type == SensorType.RegDeleteValueKeyInfo:
             msg_data = RegDeleteValueKeyInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.RegRenameKeyInfo:
+        elif pdh.sensor_type == SensorType.RegRenameKeyInfo:
             msg_data = RegRenameKeyInfo.build(pdh)            
-        elif pdh.probe_type == ProbeType.RegPostOperationInfo:
+        elif pdh.sensor_type == SensorType.RegPostOperationInfo:
             msg_data = RegPostOperationInfo.build(pdh)                        
-        elif pdh.probe_type == ProbeType.ThreadCreate:
+        elif pdh.sensor_type == SensorType.ThreadCreate:
             msg_data = ThreadCreateInfo.build(pdh)
-        elif pdh.probe_type == ProbeType.ThreadDestroy:
+        elif pdh.sensor_type == SensorType.ThreadDestroy:
             msg_data = ThreadDestroyInfo.build(pdh)            
         else:
-            logger.warning("Unknown or unsupported probe type %s encountered\n", pdh.probe_type)
+            logger.warning("Unknown or unsupported sensor type %s encountered\n", pdh.sensor_type)
             continue
         yield msg_data._asdict()        
 
@@ -1418,20 +1418,20 @@ class RESPONSE_MESSAGE(SaviorStruct):
             sb)
         return command_packet
     
-class ProbeStatusHeader(SaviorStruct):
+class SensorStatusHeader(SaviorStruct):
     '''
-    The probe status message header
+    The sensor status message header
     '''
     _fields_ = [        
         ("NumberOfEntries", DWORD)
     ]
 
-GetProbeStatus = namedtuple('GetProbeStatus',  
+GetSensorStatus = namedtuple('GetSensorStatus',  
         ['SensorId', 'LastRunTime', 'RunInterval', 
             'OperationCount', 'Attributes', 'SensorName'])
-class ProbeStatus(SaviorStruct):
+class SensorStatus(SaviorStruct):
     '''
-    The ProbeStatus message
+    The SensorStatus message
     '''
     _fields_ = [        
         ("SensorId", _UUID),
@@ -1440,7 +1440,7 @@ class ProbeStatus(SaviorStruct):
         ("OperationCount", LONG),
         ("Attributes", USHORT),
         ("Enabled", BOOLEAN),
-        ("SensorName", BYTE * MAXPROBENAMESZ),
+        ("SensorName", BYTE * MAXSENSORNAMESZ),
     ]
 
     @classmethod
@@ -1450,7 +1450,7 @@ class ProbeStatus(SaviorStruct):
         classes instance data
         '''        
         info = cast(msg_pkt, POINTER(cls))    
-        length = MAXPROBENAMESZ
+        length = MAXSENSORNAMESZ
         offset = type(info.contents).SensorName.offset
         sb = create_string_buffer(msg_pkt)
         array_of_chars = memoryview(sb)[offset:length+offset]
@@ -1458,14 +1458,14 @@ class ProbeStatus(SaviorStruct):
         lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.SensorId.Data))        
-        probe_status = GetProbeStatus(            
+        sensor_status = GetSensorStatus(            
             sensor_id,
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
-            ProbeAttributeFlags(info.contents.Attributes), 
+            SensorAttributeFlags(info.contents.Attributes), 
             SensorName)
-        return probe_status
+        return sensor_status
     
 MAXRSPSZ = 0x1000
 MAXCMDSZ = 0x1000
@@ -1506,8 +1506,8 @@ def FilterSendMessage(hPort, cmd_buf):
     
 def EnumerateSensors(hFltComms, Filter=None):
     '''
-    Enumerate Probes
-    @note by default, all probes are enumerated and returned
+    Enumerate Sensors
+    @note by default, all sensors are enumerated and returned
     '''
 
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
@@ -1517,21 +1517,21 @@ def EnumerateSensors(hFltComms, Filter=None):
     cmd_msg.contents.DataSz = 0
     
     _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    header = cast(rsp_buf, POINTER(ProbeStatusHeader))    
+    header = cast(rsp_buf, POINTER(SensorStatusHeader))    
     cnt = header.contents.NumberOfEntries
-    sb = create_string_buffer(rsp_buf[sizeof(ProbeStatusHeader):])
-    length = sizeof(ProbeStatus)
+    sb = create_string_buffer(rsp_buf[sizeof(SensorStatusHeader):])
+    length = sizeof(SensorStatus)
     
     for ndx in range(0, cnt):
-        offset = ndx * sizeof(ProbeStatus)
+        offset = ndx * sizeof(SensorStatus)
         array_of_bytes = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_bytes)        
-        probe = ProbeStatus.build(bytes(slc))
-        yield probe
+        sensor = SensorStatus.build(bytes(slc))
+        yield sensor
 
 def Echo(hFltComms):
     '''
-    Send and receive an echo probe
+    Send and receive an echo sensor
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
@@ -1636,7 +1636,7 @@ def OneShotKill(hFltComms, pid):
 
 def ConfigureSensor(hFltComms, cfgdata, sensor_id=0):
     '''
-    Configure a specific probe with the provided 
+    Configure a specific sensor with the provided 
     configuration data
     '''
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
@@ -1666,11 +1666,11 @@ def test_command_response():
     '''
     hFltComms = FilterConnectCommunicationPort(CommandPort)
     try:        
-        (res, probes,) = EnumerateSensors(hFltComms)
+        (res, sensors,) = EnumerateSensors(hFltComms)
         print("res = {0}\n".format(res,))        
-        for probe in probes:
-            print("{0}".format(probe,))
-            ConfigureSensor(hFltComms,'{"repeat-interval": 60}', probe.SensorId)
+        for sensor in sensors:
+            print("{0}".format(sensor,))
+            ConfigureSensor(hFltComms,'{"repeat-interval": 60}', sensor.SensorId)
     finally:
         CloseHandle(hFltComms)
         
