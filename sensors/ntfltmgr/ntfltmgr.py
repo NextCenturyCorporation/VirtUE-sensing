@@ -13,7 +13,10 @@ from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windl
 from ctypes.wintypes import DWORD, LPCWSTR, LPDWORD, LPVOID, LPCVOID, BOOLEAN, CHAR
 from ctypes.wintypes import LPHANDLE, ULONG, WCHAR, USHORT, WORD, HANDLE, BYTE, BOOL, LONG, UINT
 
+CommandPort = "\\WVUCommand"
+EventPort = "\\WVUPort"
 S_OK = 0
+MAXPKTSZ = 0x10000  # max packet size
 MAXPROBENAMESZ = 64
 SIZE_T = c_ulonglong
 NTSTATUS = DWORD
@@ -21,9 +24,8 @@ PVOID = c_void_p
 ULONGLONG = c_ulonglong
 LONGLONG = c_longlong
 
-logger = logging.getLogger("ntfltmgr")
+logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-logger.setLevel(logging.ERROR)
 
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
@@ -949,7 +951,7 @@ def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
         res = _FilterReplyMessage(hPort, byref(info.contents), msg_len)
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("FilterReplyMessage Failed on Message Reply - Error %d", lasterror)
+        logger.exception("FilterReplyMessage Failed on Message Reply - Error %d", lasterror, exc_info=True)
         res = lasterror
 
     return res
@@ -976,10 +978,10 @@ def FilterGetMessage(hPort, msg_len):
                 cast(None, POINTER(OVERLAPPED)))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror)
+        logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror, exc_info=True)
         raise
     except Exception as exc:
-        print("Exception: FilterGetMessage failed to Get Message - Error %s" % (exc,))
+        logger.exception("Exception: FilterGetMessage failed to Get Message - Error %r", repr(exc), exc_info=True)
         raise
 
     ReplyLen = info.contents.ReplyLength
@@ -1007,7 +1009,7 @@ def FilterConnectCommunicationPort(PortName):
         res = _FilterConnectCommunicationPort(PortName, 0, None, 0, None, byref(hPort))        
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("Failed to connect to port %s error %d", PortName, lasterror)
+        logger.exception("Failed to connect to port %s error %d", PortName, lasterror, exc_info=True)
         raise
     return res, hPort
 
@@ -1284,16 +1286,14 @@ def CloseHandle(handle):
     return success
 
 
-def test_packet_decode():
+def packet_decode():
     '''
     Test WinVirtUE packet decode
-    '''
-    MAXPKTSZ = 0x10000  # max packet size
-    (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUPort")
+    '''    
+    (_res, hFltComms,) = FilterConnectCommunicationPort(EventPort)
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
-        print(response)
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
         pdh = SaviorStruct.GetProbeDataHeader(msg_pkt.Remainder)
         if pdh.probe_type == ProbeType.ImageLoad:            
@@ -1323,9 +1323,9 @@ def test_packet_decode():
         elif pdh.probe_type == ProbeType.ThreadDestroy:
             msg_data = ThreadDestroyInfo.build(pdh)            
         else:
-            print("Unknown or unsupported probe type %s encountered\n" % (pdh.probe_type,))
+            logger.warning("Unknown or unsupported probe type %s encountered\n", pdh.probe_type)
             continue
-        print(json.dumps(msg_data._asdict(), indent=4))
+        yield msg_data._asdict()        
 
     CloseHandle(hFltComms)
   
@@ -1494,7 +1494,7 @@ def FilterSendMessage(hPort, cmd_buf):
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         print(osr)
-        logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr))
+        logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr), exc_info=True)
         res = lasterror    
     
     bufsz = (bytes_returned.value 
@@ -1667,7 +1667,7 @@ def test_command_response():
     '''
     Test WinVirtUE command response
     '''
-    (res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+    (res, hFltComms,) = FilterConnectCommunicationPort(CommandPort)
     try:        
         (res, probes,) = EnumerateSensors(hFltComms)
         print("res = {0}\n".format(res,))        
@@ -1675,14 +1675,21 @@ def test_command_response():
             print("{0}".format(probe,))
             ConfigureSensor(hFltComms,'{"repeat-interval": 60}', probe.SensorId)
     finally:
-        CloseHandle(hFltComms)    
+        CloseHandle(hFltComms)
+        
+def test_packet_decode():
+    '''
+    test the packet decode
+    '''
+    for packet in packet_decode():
+        print(json.dumps(packet, indent=3))        
       
 def main(argv):
     '''
     let's test some stuff
     '''
     if len(argv) == 2:
-        (_res, hFltComms,) = FilterConnectCommunicationPort("\\WVUCommand")
+        (_res, hFltComms,) = FilterConnectCommunicationPort(CommandPort)
         try:        
             (res, resp_msg,) = OneShotKill(hFltComms, int(argv[1]))
             print("_res={0},resp_msg={1}\n".format(res,resp_msg,))
