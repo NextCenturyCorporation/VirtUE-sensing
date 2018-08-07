@@ -1,10 +1,10 @@
 {
-  "name": "imageload",
+  "name": "processcreate",
   "version": "1.0",
-  "target_folder": "imageload",
+  "target_folder": "processcreate",
   "files": [],
   "startup_script": "",
-  "requirements_files": ["imageload_requirements.txt"],
+  "requirements_files": ["processcreate_requirements.txt"],
   "required_sub_directories": ["certs"],
   "apt-get": [""]
 }
