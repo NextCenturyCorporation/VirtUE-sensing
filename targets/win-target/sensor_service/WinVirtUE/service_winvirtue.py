@@ -13,8 +13,7 @@ import win32event
 import servicemanager
 import win32service
 
-from sensor_winvirtue import sensor_winvirtue
-from .__main__ import cfgparser
+#from sensor_winvirtue import sensor_winvirtue
 
 __VERSION__ = "1.20180801"
 __MODULE__ = "service_winvirtue.py"
@@ -28,7 +27,7 @@ class WinVirtUE(win32serviceutil.ServiceFramework):
     then converts it to json and sends it on its way to the api
     '''
     # you can NET START/STOP the service by the following name  
-    _svc_name_ = "WinVirtUE"
+    _svc_name_ = "WindowsVirtUE"
     # this text shows up as the service name in the Service  
     _svc_display_name_ = "Windows Virtue Service"
     # this text shows up as the description in the SCM  

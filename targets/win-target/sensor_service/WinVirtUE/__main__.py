@@ -10,7 +10,7 @@ from configparser import ConfigParser
 import win32serviceutil
 import servicemanager
 
-from service_winvirtue import WinVirtUE
+from .service_winvirtue import WinVirtUE
 
 __VERSION__ = "1.20180801"
 __MODULE__  = "__main__.py"
@@ -65,8 +65,11 @@ if __name__ == '__main__':
         handlers    = [trfhandler])        # The timed rotating loggger
     
     if len(sys.argv) == 1:
+        logger.info("Initializing ServiceManager . . .")
         servicemanager.Initialize()
+        logger.info("Calling PrepareToHostSingle(WinVirtUE) . . .")
         servicemanager.PrepareToHostSingle(WinVirtUE)                
+        logger.info("Calling StartServiceCtrlDispatcher() . . . ")
         servicemanager.StartServiceCtrlDispatcher()
     else:
         #sys.frozen = 'windows_exe'
