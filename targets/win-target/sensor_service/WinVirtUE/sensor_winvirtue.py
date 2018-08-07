@@ -122,10 +122,14 @@ class sensor_winvirtue(object):
         @param wrappername the wrappers name (sensor)
         @returns a dictionary of key/value pairs
         '''
-        cfgfilename = os.path.join(os.environ["SystemDrive"], os.sep, __MODULE__, 
-                                       "config", wrappername + '.cfg')
+        basedir =  os.path.abspath(os.path.dirname(__file__))
+        basedir += os.sep
+        cfgfilename = os.path.join(basedir, "config", wrappername + '.cfg')
+        logger.info("Loading config data from %s for %s", 
+                cfgfilename, wrappername)
         config = configparser.ConfigParser()
         config.read_file(open(cfgfilename))
+        logger.info("succesfully loaded data from %s", cfgfilename)
     
         if not config.has_section('parameters'):               
             raise EnvironmentError("Missing sensor configuration file - exiting!")
@@ -139,9 +143,15 @@ class sensor_winvirtue(object):
         '''
         Start the sensors
         '''
+        logger.info("Attempting to start sensors . . .")
         for sensor_id in self._wrapperdict:
-            paramdict = self.load_config_data(sensor_id)  # load the configuration data
+            sensor_name = self._wrapperdict[sensor_id].sensor_name
+            logger.info("Retrieved sensor id %s from sensor %s", 
+                    sensor_id, sensor_name)
+            paramdict = self.load_config_data(sensor_name)  # load the configuration data
+            logger.info("loaded config data for sensor %s", sensor_id)
             paramdict["sensor_id"] = sensor_id  # artificially inject the sensor id
+            logger.info("About to start the %s sensor . . .", sensor_name)
             self._wrapperdict[sensor_id].start(paramdict) # start the wrapper
                     
     @property
