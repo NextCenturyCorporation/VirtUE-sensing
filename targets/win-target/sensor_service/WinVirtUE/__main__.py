@@ -3,6 +3,7 @@
 '''
 import os
 import sys
+import socket
 from uuid import uuid4
 import logging
 import logging.handlers
@@ -26,7 +27,7 @@ def build_default_section_string(pkgbasedir):
     virtue_id = str(uuid4())
     delay_start = 5
     if "USERNAME" in os.environ:
-        user_name = os.environ["USERNAME"]
+        username = os.environ["USERNAME"]
     api_retry_max=30.0
     api_retry_wait=0.5
     api_version='v1'
@@ -38,14 +39,17 @@ log_dir = {2}
 cert_dir = {3}
 virtue_id = {4}
 delay_start = {5}
-user_name = {6}
+username = {6}
 api_retry_max={7}
 api_retry_wait={8}
 api_version={9}
+sensor_hostname={10}
+sensor_advertised_hostname=None
+sensor_advertised_port=None
     '''.format(pkgbasedir, os.path.join(pkgbasedir,"config"),
             os.path.join(pkgbasedir,"logs"), os.path.join(pkgbasedir,"certs"),
-            virtue_id, delay_start, user_name, api_retry_max, api_retry_wait,
-            api_version)
+            virtue_id, delay_start, username, api_retry_max, api_retry_wait,
+            api_version, socket.gethostname())
     return default_section
 
 if __name__ == '__main__':
@@ -60,10 +64,11 @@ if __name__ == '__main__':
         or "cert_dir" not in cfgparser["DEFAULT"]
         or "virtue_id" not in cfgparser["DEFAULT"]
         or "delay_start" not in cfgparser["DEFAULT"]
-        or "user_name" not in cfgparser["DEFAULT"]
+        or "username" not in cfgparser["DEFAULT"]
         or "api_retry_max" not in cfgparser["DEFAULT"]
         or "api_retry_wait" not in cfgparser["DEFAULT"]
-        or "api_version" not in cfgparser["DEFAULT"]):
+        or "api_version" not in cfgparser["DEFAULT"]
+        or "sensor_hostname" not in cfgparser["DEFAULT"]):
         defsect = build_default_section_string(basedir)
         cfgparser.read_string(defsect)
     cfgparser.write(open(cfgfilename, 'w'))
