@@ -31,7 +31,6 @@ class sensor_winvirtue(object):
         '''
         construct an object instance
         '''
-        import pdb;pdb.set_trace()
         self._running = False
         self._sensordict = {}
         self._wrapperdict = {}        
