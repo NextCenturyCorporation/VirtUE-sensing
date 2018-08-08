@@ -34,29 +34,34 @@ class sensor_winvirtue(object):
         self._running = False
         self._sensordict = {}
         self._wrapperdict = {}        
-        self._sensorqueues = {}       
+        self._sensorqueues = {}
+        self._sensorthddict = {}
         self._defdict = dict(__main__.cfgparser.items('DEFAULT'))
-        self.update_sensor_info()
+        self._update_sensor_info()
         self._event = UniversalEvent()
         self._barrier = Barrier(len(self._sensordict) + 1, 
                                 action=None, 
                                 timeout=sensor_winvirtue.BARTIMEOUT)
-        self._sensorthd = Thread(None, self._event_stream_runner, "Data Stream Thread")
+        self._datastreamthd = Thread(None, self._event_stream_runner, "Data Stream Thread")        
         
     def start(self):
         '''
         start the sensor
         '''         
-        self.build_sensor_wrappers()
-        self.start_sensors()
-        self._sensorthd.start()
+        self._build_sensor_wrappers()        
+        self._datastreamthd.start() 
+        self._start_sensors()
         self._running = True
     
     def stop(self):
         '''
         stop the sensor
         '''
-        logger.info("Stopping the sensor_winvirtue sensor . . . ")
+        logger.info("Stopping the sensor_winvirtue sensors . . . ")
+        for sensor_id in self._wrapperdict:
+            sensor_name = self._wrapperdict[sensor_id].sensor_name        
+            logger.info("Notifying the %s sensor to stop retrying (if not running) . . .", sensor_name)
+            self._wrapperdict[sensor_id].stop_retrying = True                                                 
         self._running = False  # set the tasks to exit
         self._event.set()  # cause the wait_for_service_stop to return
         self._barrier.wait() # one of n + 1 barrier waits
@@ -84,7 +89,7 @@ class sensor_winvirtue(object):
         '''
         run(self._event_stream_pump)    
     
-    def update_sensor_info(self):
+    def _update_sensor_info(self):
         '''
         update sensor information
         '''
@@ -104,7 +109,7 @@ class sensor_winvirtue(object):
         finally:
             CloseHandle(hFltComms)
     
-    def build_sensor_wrappers(self):
+    def _build_sensor_wrappers(self):
         '''
         construct a dictionary of sensor name keyed sensor wrappers
         '''
@@ -119,7 +124,7 @@ class sensor_winvirtue(object):
             logger.info("SensorWrapper for %s id %s constructed . . . ", sensorname, sensor_id)
         logger.info("All SensorWrapper Instances Built . . . ")
                     
-    def load_config_data(self, wrappername):
+    def _load_config_data(self, wrappername):
         '''
         load the sensor specific configuration
         @param wrappername the wrappers name (sensor)
@@ -142,7 +147,7 @@ class sensor_winvirtue(object):
             params[key] = config['parameters'][key]        
         return params
     
-    def start_sensors(self):
+    def _start_sensors(self):
         '''
         Start the sensors
         '''
@@ -151,11 +156,14 @@ class sensor_winvirtue(object):
             sensor_name = self._wrapperdict[sensor_id].sensor_name
             logger.info("Retrieved sensor id %s from sensor %s", 
                     sensor_id, sensor_name)
-            paramdict = self.load_config_data(sensor_name)  # load the configuration data
+            paramdict = self._load_config_data(sensor_name)  # load the configuration data
             logger.info("loaded config data for sensor %s", sensor_id)
             paramdict["sensor_id"] = sensor_id  # artificially inject the sensor id
             logger.info("About to start the %s sensor . . .", sensor_name)
-            self._wrapperdict[sensor_id].start(paramdict) # start the wrapper
+            self._sensorthddict[sensor_id] = Thread(None, self._wrapperdict[sensor_id].start, 
+                                     "Sensor %s Start Thread" % (sensor_name,),
+                                     args=(), kwargs=paramdict)
+            self._sensorthddict[sensor_id].start()
                     
     @property
     def running(self):

@@ -121,7 +121,8 @@ class SensorWrapper(object):
                           "sensor_port": int, "delay_start": int, 
                           "api_retry_max": float, "api_retry_wait": float,
                           "sensor_advertised_hostname": type(None), 
-                          "sensor_advertised_port": type(None),  
+                          "sensor_advertised_port": type(None),
+                          "backoff_delay": int,
                           "check_for_long_blocking": bool}
         self._stop_notification = stop_notification
         # what operating system are we?
@@ -148,9 +149,19 @@ class SensorWrapper(object):
 
         # Keep track of the public certificate of the API server
         self.api_public_certificate = None
+        
+        # notify when wrapper should stop retrying
+        self._stop_retrying = False
 
         logger.info("Configured with sensing methods:")
         logger.info(sensing_methods)
+        
+    @stop_retrying.setter
+    def stop_retrying(self, value):
+        '''
+        sets stop_retrying state
+        '''
+        self._stop_retrying = value
         
     def __str__(self):
         '''
@@ -1240,13 +1251,21 @@ class SensorWrapper(object):
                 self.opts.delay_start)
             time.sleep(self.opts.delay_start)
 
-        # let's jump right into async land
-        if self.opts.check_for_long_blocking:
-            logger.info("  %% starting with long-blocking detection")
-            run(self.main, debug=longblock(max_time=0.5))
-        else:
-            logger.info("  %% starting with no long-blocking detection")
-            run(self.main)
+        # set the stop_retrying to True to
+        # stop retrying and terminate the start thread
+        while not self._stop_retrying:
+            try:
+                # let's jump right into async land
+                if self.opts.check_for_long_blocking:
+                    logger.info("  %% starting with long-blocking detection")
+                    run(self.main, debug=longblock(max_time=0.5))
+                else:
+                    logger.info("  %% starting with no long-blocking detection")
+                    run(self.main)
+            except Exception as exc:
+                logger.exception("Failed to start because [%r] - backing off for %d seconds", 
+                                 exc, self.opts.backoff_delay, exc_info=SensorWrapper.exc_info)
+                time.sleep(self.opts.backoff_delay)
 
 
 def read_properties(filename):
