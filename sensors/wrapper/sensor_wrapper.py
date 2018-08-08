@@ -121,7 +121,8 @@ class SensorWrapper(object):
                           "sensor_port": int, "delay_start": int, 
                           "api_retry_max": float, "api_retry_wait": float,
                           "sensor_advertised_hostname": type(None), 
-                          "sensor_advertised_port": type(None)}
+                          "sensor_advertised_port": type(None), "api_https_port": int,
+                          "api_http_port": int}
         self._stop_notification = stop_notification
         # what operating system are we?
         self.operating_system = None
