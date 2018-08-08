@@ -29,7 +29,8 @@ if pltfrm not in ["windows", "nt"]:
     import pwd
     from curio import SignalEvent
     
-from curio import Queue, TaskGroup, run, tcp_server, CancelledError
+from curio import Queue, TaskGroup, run, tcp_server
+from curio import CancelledError, TaskError, TaskCancelled, TaskExit
 from curio import sleep, check_cancellation, ssl, spawn
 from curio.debug import longblock
 from Crypto.PublicKey import RSA
@@ -1261,12 +1262,15 @@ class SensorWrapper(object):
                     run(self.main, debug=longblock(max_time=0.5))
                 else:
                     logger.info("  %% starting with no long-blocking detection")
-                    run(self.main)
-            except Exception as exc:
+                    run(self.main)                    
+            except TaskError as err:
                 logger.exception("Failed to start because [%r] - backing off for %d seconds", 
-                                 exc, self.opts.backoff_delay, exc_info=SensorWrapper.exc_info)
+                                 err, self.opts.backoff_delay, exc_info=SensorWrapper.exc_info)
                 time.sleep(self.opts.backoff_delay)
-
+            except (TaskCancelled, TaskExit) as exc:
+                logger.exception("Failed to start because [%r]", exc, 
+                                 exc_info=SensorWrapper.exc_info)
+                raise  # propogate these errors/exit requests
 
 def read_properties(filename):
     """
