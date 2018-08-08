@@ -20,9 +20,9 @@ DEFAULT_DEBUG_LEVEL = 'INFO'
 # the original sensor wrapper command line parameters
 CONFIG_FILE_TEMPLATE = '''
 [parameters]
-public_key_path={sysdrv:s}\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key.pub
-private_key_path={sysdrv:s}\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key
-ca_key_path={sysdrv:s}\\WinVirtUE\\certs\\{sensorname:s}\\
+public_key_path={sysdrv:s}WinVirtUE\\certs\\{sensorname:s}\\rsa_key.pub
+private_key_path={sysdrv:s}WinVirtUE\\certs\\{sensorname:s}\\rsa_key
+ca_key_path={sysdrv:s}WinVirtUE\\certs\\{sensorname:s}\\
 api_host={apihost:s}
 sensor_port={sensorport:d}
 [runtime]
