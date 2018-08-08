@@ -3,6 +3,7 @@
 '''
 import os
 import sys
+import uuid
 import logging
 import logging.handlers
 from time import localtime, gmtime
@@ -37,8 +38,15 @@ if __name__ == '__main__':
     logfilename = os.path.join(basedir, "logs", __package__ + '.log')
     cfgfilename = os.path.join(basedir, "default.cfg")
     cfgparser = ConfigParser()
-    cfgparser.read_string(build_default_section_string(basedir))
     cfgparser.read_file(open(cfgfilename, 'r'))
+    if ("base_dir" not in cfgparser["DEFAULT"]
+        or "config_dir" not in cfgparser["DEFAULT"]
+        or "log_dir" not in cfgparser["DEFAULT"]
+        or "cert_dir" not in cfgparser["DEFAULT"]
+        or "virtue_id" not in cfgparser["DEFAULT"]
+        or "delay_start" not in cfgparser["DEFAULT"]):
+        defsect = build_default_section_string(basedir)
+        cfgparser.read_string(defsect)
     cfgparser.write(open(cfgfilename, 'w'))
     level = getattr(logging, cfgparser['LOGGING']['level'], logging.ERROR)
     utc = cfgparser.getboolean('LOGGING', 'utc')
