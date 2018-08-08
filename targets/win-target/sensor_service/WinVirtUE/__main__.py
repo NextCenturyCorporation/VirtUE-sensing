@@ -66,7 +66,6 @@ if __name__ == '__main__':
         or "api_version" not in cfgparser["DEFAULT"]):
         defsect = build_default_section_string(basedir)
         cfgparser.read_string(defsect)
-    print(cfgparser._sections["DEFAULT"])
     cfgparser.write(open(cfgfilename, 'w'))
     level = getattr(logging, cfgparser['LOGGING']['level'], logging.ERROR)
     utc = cfgparser.getboolean('LOGGING', 'utc')
@@ -91,7 +90,6 @@ if __name__ == '__main__':
         level       = level,               # configured level
         datefmt     = '%m-%d %H:%M',
         handlers    = [trfhandler])        # The timed rotating loggger
-    sys.exit(-1) 
     if len(sys.argv) == 1:
         logger.info("Initializing ServiceManager . . .")
         servicemanager.Initialize()
