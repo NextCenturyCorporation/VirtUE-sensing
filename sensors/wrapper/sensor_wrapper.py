@@ -18,7 +18,6 @@ import signal
 import socket
 import sys
 import time
-from pydoc import locate
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -1210,8 +1209,7 @@ class SensorWrapper(object):
             typ = None
             for key in args:  # iterate through the args and set it into the ns
                 if key in self.opt_types:
-                    typstr = self.opt_types[key] # python reflection, oof
-                    typ = type(None) if typstr.lower() == "none" else locate(typstr)
+                    typ = self.opt_types[key]
                     if typ is type(None):
                         value = None
                     else:
