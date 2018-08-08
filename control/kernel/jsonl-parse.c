@@ -58,7 +58,7 @@ void init_jsonl_parser(void)
 
 
 enum parse_index {OBJECT_START, VER_TAG, VERSION, MSG, JSONL_BRACKET, NONCE, CMD,
-                  PROBE, JSONR_BRACKET, OBJECT_END};
+                  SENSOR, JSONR_BRACKET, OBJECT_END};
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
@@ -255,7 +255,7 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 	c_bytes = m->tokens[CMD].end - m->tokens[CMD].start;
 	if (c_bytes <=0 || c_bytes >= MAX_CMD_SIZE)
 		return JSMN_ERROR_INVAL;
-	if (m->parser.toknext < PROBE) {
+	if (m->parser.toknext < SENSOR) {
 		/**
 		 * there is no probe element, not valid
 		 **/
@@ -263,8 +263,8 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 			   " %s:%d\n", __FILE__, __LINE__);
 		goto err_out;
 	} else {
-		name = m->line + m->tokens[PROBE].start;
-		name_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
+		name = m->line + m->tokens[SENSOR].start;
+		name_bytes = m->tokens[SENSOR].end - m->tokens[SENSOR].start;
 		if (name_bytes ==0 || name_bytes > MAX_CMD_SIZE) {
 			printk(KERN_DEBUG "pre_process_jsmn_command: json command token is either"
 				   "too small or too large for any valid commands: %ld bytes\n",
@@ -277,7 +277,7 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
         /* copy the command into the session command array */
 		memcpy(m->s->cmd, c, c_bytes);
 		m->s->cmd[c_bytes] = 0x00;
-		if (m->parser.toknext > PROBE) {
+		if (m->parser.toknext > SENSOR) {
 			memcpy(m->s->sensor_name, name, name_bytes);
 			m->s->sensor_name[name_bytes] = 0x00;
 			printk(KERN_DEBUG "request sensor name: %s\n", m->s->sensor_name);
