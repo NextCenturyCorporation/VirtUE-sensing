@@ -14,6 +14,8 @@ from sensor_wrapper import SensorWrapper
 from ntfltmgr import FilterConnectCommunicationPort, EnumerateSensors
 from ntfltmgr import  CommandPort, CloseHandle, packet_decode
 
+import __main__ 
+
 __VERSION__ = "1.20180801"
 __MODULE__ = "sensor_winvirtue.py"
 
@@ -29,10 +31,12 @@ class sensor_winvirtue(object):
         '''
         construct an object instance
         '''
+        import pdb;pdb.set_trace()
         self._running = False
         self._sensordict = {}
         self._wrapperdict = {}        
         self._sensorqueues = {}       
+        self._defdict = dict(__main__.cfgparser.items('DEFAULT'))
         self.update_sensor_info()
         self._event = UniversalEvent()
         self._barrier = Barrier(len(self._sensordict) + 1, 
@@ -127,7 +131,7 @@ class sensor_winvirtue(object):
         cfgfilename = os.path.join(basedir, "config", wrappername + '.cfg')
         logger.info("Loading config data from %s for %s", 
                 cfgfilename, wrappername)
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(self._defdict)
         config.read_file(open(cfgfilename))
         logger.info("succesfully loaded data from %s", cfgfilename)
     
