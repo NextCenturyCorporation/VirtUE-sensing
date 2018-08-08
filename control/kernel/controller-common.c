@@ -486,9 +486,6 @@ get_sensor_uuid(uint8_t *uuid, struct sensor **p)
 	assert(p);
 
 	*p = NULL;
-	if (! uuid_is_valid(uuid)) {
-		return -EINVAL;
-	}
 
 	if (0 > uuid_parse(uuid, &input)) {
 		return -EINVAL;
@@ -607,7 +604,7 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 			*cursor++ = COMMA;
 			*cursor++ = SPACE;
 			*cursor++ = D_QUOTE;
-			snprintf(cursor, UUID_STRING_LEN + 1, "%pUl", &s_cursor->uuid);
+			snprintf(cursor, UUID_STRING_LEN + 1, "%pUb", &s_cursor->uuid);
 			cursor += UUID_STRING_LEN;
 			*cursor++ = D_QUOTE;
 			*cursor++ = R_BRACKET;
