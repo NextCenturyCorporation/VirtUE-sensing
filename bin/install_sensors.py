@@ -20,11 +20,11 @@ DEFAULT_DEBUG_LEVEL = 'INFO'
 # the original sensor wrapper command line parameters
 CONFIG_FILE_TEMPLATE = '''
 [parameters]
-public-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key.pub
-private-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key
-ca-key-path=c:\\WinVirtUE\\certs\\{sensorname:s}\\
-api-host={apihost:s}
-sensor-port={sensorport:d}
+public_key_path={sysdrv:s}\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key.pub
+private_key_path={sysdrv:s}\\WinVirtUE\\certs\\{sensorname:s}\\rsa_key
+ca_key_path={sysdrv:s}\\WinVirtUE\\certs\\{sensorname:s}\\
+api_host={apihost:s}
+sensor_port={sensorport:d}
 [runtime]
 dbglvl={default_debug_level:s}
 '''
@@ -703,7 +703,8 @@ def install_sensor_service(target):
             with open(cfg_file_path, "w") as cfg_file:
                 portno = BASE_PORT_NO
                 BASE_PORT_NO += 1
-                cfg_data = CONFIG_FILE_TEMPLATE.format(apihost=APIHOST,
+                cfg_data = CONFIG_FILE_TEMPLATE.format(sysdrv=sys_drive,
+                        apihost=APIHOST,
                         sensorport=portno, sensorname=sensor, 
                         default_debug_level=DEFAULT_DEBUG_LEVEL,)
                 cfg_file.write(cfg_data)

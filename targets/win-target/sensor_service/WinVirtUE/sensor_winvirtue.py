@@ -108,7 +108,7 @@ class sensor_winvirtue(object):
         logger.info("About to construct the SensorWrapper . . . ")
         for sensorname in self._sensordict:
             sensor_name = sensorname.lower()
-            sensor_id = self._sensordict[sensorname].sensor_id
+            sensor_id = str(self._sensordict[sensorname].sensor_id)
             self._wrapperdict[sensor_id] = SensorWrapper(sensor_name,
                                                        [self.evtdata_consumer],
                                                        stop_notification=self.wait_for_service_stop)
