@@ -39,13 +39,15 @@ log_dir = {2}
 cert_dir = {3}
 virtue_id = {4}
 delay_start = {5}
-username = {6}
-api_retry_max={7}
-api_retry_wait={8}
-api_version={9}
-sensor_hostname={10}
-sensor_advertised_hostname=None
-sensor_advertised_port=None
+username= {6}
+api_retry_max = {7}
+api_retry_wait = {8}
+api_version = {9}
+sensor_hostname= {10}
+api_https_port = 17504
+api_http_port = 17141
+sensor_advertised_hostname = None
+sensor_advertised_port = None
     '''.format(pkgbasedir, os.path.join(pkgbasedir,"config"),
             os.path.join(pkgbasedir,"logs"), os.path.join(pkgbasedir,"certs"),
             virtue_id, delay_start, username, api_retry_max, api_retry_wait,
