@@ -117,7 +117,10 @@ class SensorWrapper(object):
         if pltfrm not in ["windows", "nt"]:
             self.setup_options()
         self.opts = None if pltfrm not in ["windows", "nt"] else argparse.Namespace()
-        self._stop_notification = stop_notification\
+        self.opt_types = {"api_https_port": int, "api_http_port": int, 
+                          "sensor_port": int, "delay_start": int, 
+                          "api_retry_max": float, "api_retry_wait": float}
+        self._stop_notification = stop_notification
         # what operating system are we?
         self.operating_system = None
         p = platform.system().lower()
@@ -1022,6 +1025,7 @@ class SensorWrapper(object):
         """
         self.argparser = argparse.ArgumentParser(description=self.sensor_name)
 
+
         # top level control
 
         # key management
@@ -1200,13 +1204,23 @@ class SensorWrapper(object):
 
         if pltfrm in ["windows", "nt"] and isinstance(args, dict):
             logger.info("Windows Service Setting Arguments for %s", self)
+            typ = None
             for key in args:  # iterate through the args and set it into the ns
-                logger.info("Setting opts with key: %s, value: %s, value type %s",
-                            key, args[key], type(args[key]))                
-                setattr(self.opts, key, args[key])
+                if key in self.opt_types:
+                    typ = self.opt_types[key]
+                    value = typ(args[key])
+                    setattr(self.opts, key, value)
+                else:
+                    typ = str
+                    setattr(self.opts, key, args[key])
+                logger.info("Setting opts with key: %s, value: %s, type %s",
+                            key, args[key], typ.__name__)
+                
         else:
+            logger.info("Linux/Darwin Service Setting Arguments for %s", self)
             self.parse_options(args)
         
+        logger.info("Ensuring we are properly identified . . . ")
         self.check_identification()
 
         # are we over-riding our long block check?
@@ -1223,6 +1237,7 @@ class SensorWrapper(object):
             logger.info("  %% starting with long-blocking detection")
             run(self.main, debug=longblock(max_time=0.5))
         else:
+            logger.info("  %% starting with no long-blocking detection")
             run(self.main)
 
 
