@@ -18,6 +18,7 @@ import signal
 import socket
 import sys
 import time
+from pydoc import locate
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -119,7 +120,9 @@ class SensorWrapper(object):
         self.opts = None if pltfrm not in ["windows", "nt"] else argparse.Namespace()
         self.opt_types = {"api_https_port": int, "api_http_port": int, 
                           "sensor_port": int, "delay_start": int, 
-                          "api_retry_max": float, "api_retry_wait": float}
+                          "api_retry_max": float, "api_retry_wait": float,
+                          "sensor_advertised_hostname": type(None), 
+                          "sensor_advertised_port": type(None)}
         self._stop_notification = stop_notification
         # what operating system are we?
         self.operating_system = None
@@ -1207,8 +1210,12 @@ class SensorWrapper(object):
             typ = None
             for key in args:  # iterate through the args and set it into the ns
                 if key in self.opt_types:
-                    typ = self.opt_types[key]
-                    value = typ(args[key])
+                    typstr = self.opt_types[key] # python reflection, oof
+                    typ = type(None) if typstr.lower() == "none" else locate(typstr)
+                    if typ is type(None):
+                        value = None
+                    else:
+                        value = typ(args[key])
                     setattr(self.opts, key, value)
                 else:
                     typ = str
