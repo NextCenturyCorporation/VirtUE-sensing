@@ -12,7 +12,7 @@ from curio import UniversalEvent, Queue, abide, run
 from sensor_wrapper import SensorWrapper
 
 from ntfltmgr import FilterConnectCommunicationPort, EnumerateSensors
-from ntfltmgr import ConfigureSensor, CommandPort, CloseHandle, packet_decode
+from ntfltmgr import  CommandPort, CloseHandle, packet_decode
 
 __VERSION__ = "1.20180801"
 __MODULE__ = "sensor_winvirtue.py"
@@ -206,17 +206,20 @@ class sensor_winvirtue(object):
                     "level": "info",
                     "message": msg
                 }
+                imageload_logmsg.update(message_stub)
+                dumped = json.dumps(imageload_logmsg)
+                logger.debug(dumped)
+                await message_queue.put(dumped)
             except Exception as exc:
-                logger.exception("Caught Exception %s", exc)
+                logger.exception("Caught Exception %r", exc, exc_info=True)
                 imageload_logmsg = {
                             "timestamp": datetime.datetime.now().isoformat(),
                             "level": "error",
                             "message": str(exc)
                 }
-            else:
                 imageload_logmsg.update(message_stub)
                 dumped = json.dumps(imageload_logmsg, indent=3)
-                logger.debug(dumped)
+                logger.debug(dumped)                
                 await message_queue.put(dumped)
             finally:
                 await queue.task_done()

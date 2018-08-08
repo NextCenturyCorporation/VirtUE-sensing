@@ -16,6 +16,7 @@ from .service_winvirtue import WinVirtUE
 __VERSION__ = "1.20180801"
 __MODULE__  = "__main__.py"
 logger = logging.getLogger(__name__)
+
 cfgparser = ConfigParser()
 
 def build_default_section_string(pkgbasedir):
@@ -26,7 +27,7 @@ def build_default_section_string(pkgbasedir):
     delay_start = 5
     if "USERNAME" in os.environ:
         user_name = os.environ["USERNAME"]
-    api_retry_max=30
+    api_retry_max=30.0
     api_retry_wait=0.5
     api_version='v1'
     default_section = '''
@@ -48,12 +49,10 @@ api_version={9}
     return default_section
 
 if __name__ == '__main__':
-    import pdb;pdb.set_trace()
     basedir =  os.path.abspath(os.path.dirname(__file__))
     basedir += os.sep
     logfilename = os.path.join(basedir, "logs", __package__ + '.log')
     cfgfilename = os.path.join(basedir, "default.cfg")
-    cfgparser = ConfigParser()
     cfgparser.read_file(open(cfgfilename, 'r'))
     if ("base_dir" not in cfgparser["DEFAULT"]
         or "config_dir" not in cfgparser["DEFAULT"]
@@ -67,6 +66,7 @@ if __name__ == '__main__':
         or "api_version" not in cfgparser["DEFAULT"]):
         defsect = build_default_section_string(basedir)
         cfgparser.read_string(defsect)
+    print(cfgparser._sections["DEFAULT"])
     cfgparser.write(open(cfgfilename, 'w'))
     level = getattr(logging, cfgparser['LOGGING']['level'], logging.ERROR)
     utc = cfgparser.getboolean('LOGGING', 'utc')

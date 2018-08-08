@@ -2,10 +2,9 @@
 """
 The Windows VirtUE Sensor Services
 """
-import logging
-import socket
 import sys
-import os
+import socket
+import logging
 from threading import Thread
 
 import win32serviceutil
@@ -71,8 +70,8 @@ class WinVirtUE(win32serviceutil.ServiceFramework):
         try:    
             self._svcthd.start()
         except EnvironmentError as eerr:
-            logger.exception("Error occurred attempting to start: %s", str(eerr))
-            servicemanager.LogErrorMsg("Error occurred attempting to start: %s", str(eerr))
+            logger.exception("Error occurred attempting to start: %r", eerr, exc_info=True)
+            servicemanager.LogErrorMsg("Error occurred attempting to start: %r", eerr)
             sys.exit(-1)
         else:
             win32event.WaitForSingleObject(self.hWaitStop, win32event.INFINITE)
