@@ -122,7 +122,7 @@ class SensorWrapper(object):
                           "api_retry_max": float, "api_retry_wait": float,
                           "sensor_advertised_hostname": type(None), 
                           "sensor_advertised_port": type(None), "api_https_port": int,
-                          "api_http_port": int}
+                          "api_http_port": int, "check_for_long_blocking": bool}
         self._stop_notification = stop_notification
         # what operating system are we?
         self.operating_system = None

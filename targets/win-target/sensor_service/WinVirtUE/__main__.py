@@ -48,6 +48,7 @@ api_https_port = 17504
 api_http_port = 17141
 sensor_advertised_hostname = None
 sensor_advertised_port = None
+check_for_long_blocking = False
     '''.format(pkgbasedir, os.path.join(pkgbasedir,"config"),
             os.path.join(pkgbasedir,"logs"), os.path.join(pkgbasedir,"certs"),
             virtue_id, delay_start, username, api_retry_max, api_retry_wait,
