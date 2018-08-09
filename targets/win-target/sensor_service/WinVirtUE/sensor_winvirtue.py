@@ -49,9 +49,9 @@ class sensor_winvirtue(object):
         start the sensor
         '''         
         self._build_sensor_wrappers()        
+        self._running = True
         self._datastreamthd.start() 
         self._start_sensors()
-        self._running = True
     
     def stop(self):
         '''
@@ -71,14 +71,17 @@ class sensor_winvirtue(object):
     async def _event_stream_pump(self):
         '''
         The actual async method that is reading from the event stream enqueue the data
-        '''        
+        '''
+        logger.info("Entering Event Stream Pump!")
         for evt in packet_decode():
             if not self.running:
+                logging.info("Terminating packet decode - returning on False running!")
                 break
             if not "sensor_id" in evt:
                 logger.warning("Streamed Event %s from the driver didn't contain a sensor_id!", evt)
                 continue  # if there is no sensor id in this message, log and continue
             sensor_id = evt["sensor_id"]
+            logger.info("Retrieved and Enqueuing message [%r] from Sensor Id %s", evt, sensor_id)
             await self._sensorqueues[sensor_id].put(evt)
     
     def _event_stream_runner(self):
@@ -199,6 +202,8 @@ class sensor_winvirtue(object):
         :param message_queue: Shared Queue for messages
         :return: None
         '''        
+        logger.info("evtdata_consumer(): self=[%r], message_stub=[%r], config=[%r], message_queue=[%r]", 
+                    self, message_stub, config, message_queue)
         sensor_id = message_stub["sensor_id"]
         sensor_name = message_stub["sensor_name"]
         sensor_config_level = config.get("sensor-config-level", "default")    
@@ -207,8 +212,11 @@ class sensor_winvirtue(object):
                           
         queue = self._sensorqueues[sensor_id]
         
+        logger.info("Utilizing queue [%r] for sensor id %s", queue, sensor_id)
+        
         async for msg in queue:
             if not self.running:
+                logger.info("Exiting event data consumer as running is false!")
                 break
             imageload_logmsg = {}
             try:
@@ -218,6 +226,7 @@ class sensor_winvirtue(object):
                     "message": msg
                 }
                 imageload_logmsg.update(message_stub)
+                logger.info("About ready to send message [%r]",  imageload_logmsg)           
                 dumped = json.dumps(imageload_logmsg)
                 logger.debug(dumped)
                 await message_queue.put(dumped)
@@ -229,6 +238,7 @@ class sensor_winvirtue(object):
                             "message": str(exc)
                 }
                 imageload_logmsg.update(message_stub)
+                logger.info("About ready to send error message [%r]", imageload_logmsg)
                 dumped = json.dumps(imageload_logmsg, indent=3)
                 logger.debug(dumped)                
                 await message_queue.put(dumped)

@@ -156,7 +156,14 @@ class SensorWrapper(object):
 
         logger.info("Configured with sensing methods:")
         logger.info(sensing_methods)
-        
+
+    @property
+    def stop_retrying(self):
+        '''
+        returns the current retrying state
+        '''
+        return self._stop_retrying
+    
     @stop_retrying.setter
     def stop_retrying(self, value):
         '''
@@ -318,6 +325,9 @@ class SensorWrapper(object):
             "port": self.opts.sensor_advertised_port
         }
         ca_path = os.path.join(self.opts.ca_key_path, "ca.pem")
+        
+        logger.info("  @ payload is [%r], ca_path is [%s] for request", 
+                    payload, ca_path)
 
         pki_priv_res = await curequests.put(uri, json=payload, verify=ca_path)
 
@@ -416,7 +426,7 @@ class SensorWrapper(object):
             "os": self.operating_system
         }
 
-        logger.info("registering with [%s]", uri)
+        logger.info("registering with uri [%s] payload [%r]", uri, payload)
 
         ca_path = os.path.join(self.opts.ca_key_path, "ca.pem")
         client_cert_paths = (os.path.abspath(self.opts.public_key_path), os.path.abspath(self.opts.private_key_path))
@@ -850,11 +860,13 @@ class SensorWrapper(object):
             # sure we set the correct permissions (0x600)
             with open(self.opts.public_key_path, "w") as public_key_file:
                 public_key_file.write(pub_key)
-            os.chmod(self.opts.public_key_path, 0x600)
+            if pltfrm not in ["windows", "nt"]:
+                os.chmod(self.opts.public_key_path, 0x600)
 
             with open(self.opts.private_key_path, "w") as private_key_file:
                 private_key_file.write(priv_key)
-            os.chmod(self.opts.private_key_path, 0x600)
+            if pltfrm not in ["windows", "nt"]:
+                os.chmod(self.opts.private_key_path, 0x600)
 
             # we can now spin up our HTTPS actuation listener using our new keys
             ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -1206,39 +1218,40 @@ class SensorWrapper(object):
         logger.info("\thostname   == %s", self.opts.sensor_advertised_hostname)
         logger.info("\tport       == %d", self.opts.sensor_advertised_port)
 
-    def start(self, args=None, check_for_long_blocking=False):
+    def start(self, argv=None, check_for_long_blocking=False, *args, **kwargs):
         """
         Start up the sensor wrapper.
 
         :return:
         """
-        logger.info("Called SensorWrapper.start(%s)", args)
+        logger.info("Called SensorWrapper.start(%s)", argv)
 
         # good morning.
         logger.info("Starting %s(version=%s)", self.sensor_name, __VERSION__)
 
-        if pltfrm in ["windows", "nt"] and isinstance(args, dict):
+        if pltfrm in ["windows", "nt"]:
             logger.info("Windows Service Setting Arguments for %s", self)
             typ = None
-            for key in args:  # iterate through the args and set it into the ns
+            for key in kwargs:  # iterate through the argv and set it into the ns
+                logger.info("key = %s, kwargs[%s]=%r", key, key, kwargs[key])                
                 if key in self.opt_types:
                     typ = self.opt_types[key]
                     if typ is type(None):
                         value = None
                     elif typ is bool:
-                        value = eval(args[key])
+                        value = eval(kwargs[key])
                     else:
-                        value = typ(args[key])
+                        value = typ(kwargs[key])
                     setattr(self.opts, key, value)
                 else:
                     typ = str
-                    setattr(self.opts, key, args[key])
+                    setattr(self.opts, key, kwargs[key])
                 logger.info("Setting opts with key: %s, value: %s, type %s",
-                            key, args[key], typ.__name__)
+                            key, kwargs[key], typ.__name__)
                 
         else:
             logger.info("Linux/Darwin Service Setting Arguments for %s", self)
-            self.parse_options(args)
+            self.parse_options(argv)
         
         logger.info("Ensuring we are properly identified . . . ")
         self.check_identification()
