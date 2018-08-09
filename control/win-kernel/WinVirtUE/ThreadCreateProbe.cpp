@@ -154,6 +154,7 @@ ThreadCreateProbe::ThreadCreateCallback(
 				ThdBeh = (ThreadBehavior)*((PBYTE)Add2Ptr(pThread, 0x6c8));
 				break;
 			case 16299:
+			case 17134:
 				StartAddress = (PVOID)*((PULONG_PTR)Add2Ptr(pThread, 0x610));
 				Win32StartAddress = (PVOID)*((PULONG_PTR)Add2Ptr(pThread, 0x690));
 				ThdBeh = (ThreadBehavior)*((PBYTE)Add2Ptr(pThread, 0x6d8));
@@ -174,8 +175,8 @@ ThreadCreateProbe::ThreadCreateCallback(
 			if (FALSE == AbnormalTermination())
 			{
 				WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, TRACE_LEVEL_ID,
-					"Process Id 0x%08 Thread Id 0x%08 at EProcess 0x%p was %s to run at start address 0x%p\n",
-					pThread, ProcessId, Create ? "Created" : "Terminated", StartAddress);
+					"Process Id 0x%08 Thread Id 0x%08 at EProcess 0x%p was %s to run at start address 0x%p, win32startaddress 0x%p\n",
+					pThread, ProcessId, Create ? "Created" : "Terminated", StartAddress, Win32StartAddress);
 			}
 			ObDereferenceObject(pThread);
 		}
