@@ -6,12 +6,12 @@ class KernelSensor:
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
     def __init__(self,
                  socket_name = '/var/run/kernel_sensor',
-                 target_probe = '"Kernel PS Sensor"',
+                 target_sensor = '"Kernel PS Sensor"',
                  out_file = '-'):
         self.sock = 0
         self.out_file = 0
         self.in_file = 0
-        self.target_probe = target_probe
+        self.target_sensor = target_sensor
         self.set_socket(socket_name)
         self.set_out_file(out_file)
 
@@ -43,8 +43,8 @@ class KernelSensor:
         else:
             self.in_file = sys.stdin
 
-    def set_target_probe(self, probe):
-        self.target_probe = probe
+    def set_target_sensor(self, sensor):
+        self.target_sensor = sensor
 
     def run_input_file(self):
         # each line in the file is expected to be a json object that contains
@@ -154,10 +154,10 @@ class KernelSensor:
             message_footer = "]}"
             print >> sys.stderr, 'sending "%s%s%s%s%s"' \
                 %(message_header, message_nonce, message_command, \
-                  self.target_probe, message_footer)
+                  self.target_sensor, message_footer)
             self.sock.sendall("%s%s%s%s%s" \
                               %(message_header, message_nonce, message_command, \
-                                self.target_probe, message_footer))
+                                self.target_sensor, message_footer))
 
             self.sock.settimeout(0.5)
             amount_received = 0

@@ -232,7 +232,7 @@ free_session(struct jsmn_session *s)
  * assumes: we have already attached the message to
  * a session.
  * every message requires a command, and every message
- * EXCEPT for the discovery request requires a probe ID
+ * EXCEPT for the discovery request requires a sensor ID
  **/
 
 static inline int
@@ -257,17 +257,17 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 		return JSMN_ERROR_INVAL;
 	if (m->parser.toknext < SENSOR) {
 		/**
-		 * there is no probe element, not valid
+		 * there is no sensor element, not valid
 		 **/
-		printk(KERN_DEBUG "received a jsonl request message with no probe name."
+		printk(KERN_DEBUG "received a jsonl request message with no sensor name."
 			   " %s:%d\n", __FILE__, __LINE__);
 		goto err_out;
 	} else {
 		name = m->line + m->tokens[SENSOR].start;
 		name_bytes = m->tokens[SENSOR].end - m->tokens[SENSOR].start;
-		if (name_bytes ==0 || name_bytes > MAX_CMD_SIZE) {
-			printk(KERN_DEBUG "pre_process_jsmn_command: json command token is either"
-				   "too small or too large for any valid commands: %ld bytes\n",
+		if (name_bytes ==0 || name_bytes > MAX_NAME_SIZE) {
+			printk(KERN_DEBUG "json name token is either"
+				   "too small or too large for a sensor name or uuid: %ld bytes\n",
 				   name_bytes);
 			return JSMN_ERROR_INVAL;
 		}
@@ -401,7 +401,6 @@ process_records_request(struct jsmn_message *msg, int index)
 		.json_msg = msg,
 		.run_probe = 1,
 		.clear = 1,
-		.nonce = 0L,
 		.index = 0,
 		.range = -1
 	};
@@ -417,8 +416,17 @@ process_records_request(struct jsmn_message *msg, int index)
 		.output_len = sizeof(struct records_reply),
 	};
 
+	get_random_bytes(&rr.nonce, sizeof(uint64_t));
+
+	/**
+	 * get_sensor will work with either the sensor name or the sensor
+	 * uuid as the key. It first tests the key to see if it is a uuid,
+	 * and if so tries to find the sensor by uuid.
+	 *
+	 * If the uuid search fails, it tries to find the sensor by name.
+	 **/
 	do {
-		ccode = get_sensor_name(msg->s->sensor_name, &sensor_p);
+		ccode = get_sensor(msg->s->sensor_name, &sensor_p);
 	} while (ccode == -EAGAIN);
 
 	if (ccode < 0) {

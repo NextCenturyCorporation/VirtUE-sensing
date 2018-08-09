@@ -910,6 +910,8 @@ struct sensor *init_sensor(struct sensor *sensor,
 	}
 	/* generate the probe uuid */
 	generate_random_uuid(sensor->uuid.b);
+	/* generate the string version of the uuid */
+	snprintf(sensor->uuid_string, UUID_STRING_LEN + 1, "%pUb", &sensor->uuid);
 	sensor->lock=__SPIN_LOCK_UNLOCKED("sensor");
 	/* flags, timeout, repeat are zero'ed */
 	/* probe_work is NULL */

@@ -407,6 +407,7 @@ struct sensor {
  * https://en.wikipedia.org/wiki/Universally_unique_identifier
  **/
 	uuid_t uuid;
+	uint8_t uuid_string[UUID_STRING_LEN + 1];
 	struct sensor *(*init)(struct sensor *, uint8_t *, int);
 	void *(*destroy)(struct sensor *);
 	int (*message)(struct sensor *, struct sensor_msg *);

@@ -61,7 +61,9 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 	assert(msg->input_len == (sizeof(struct records_request)));
 	assert(msg->output_len == (sizeof(struct records_reply)));
 	assert(rr->index >= 0 && rr->index < PS_ARRAY_SIZE);
-
+	if (rr->index >= PS_ARRAY_SIZE) {
+		printk(KERN_DEBUG "rr->index too large?? %d\n", rr->index);
+	}
 
 	if (!rp->records || rp->records_len <=0) {
 		return -ENOMEM;
@@ -78,42 +80,37 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 	}
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, rr->index);
-	if (!kpsd_p || kpsd_p->clear == FLEX_ARRAY_FREE) {
-	/**
-	* when there is no entry, or the entry is clear, return an
-	* empty record response. per the protocol control/kernel/messages.md
-	**/
+	if (!kpsd_p || kpsd_p->clear == FLEX_ARRAY_FREE ||
+		(rr->nonce && kpsd_p->nonce != rr->nonce)) {
+		/**
+		 * when there is no entry, or the entry is clear, return an
+		 * empty record response. per the protocol control/kernel/messages.md
+		 **/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s]}\n",
+							"%s %s, %s, %s]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							parent->name);
+							parent->name,
+							parent->uuid_string);
 		rp->index = -ENOENT;
 		goto record_created;
 	}
-
-	if (rr->nonce && kpsd_p->nonce != rr->nonce) {
-		return -EINVAL;
-	}
-
 
 	/**
 	 * build the record json object(s)
 	 **/
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s %d %s %d %d %llx ]}\n",
+						"%s %s, %s, %s, %s, %d %s %d %d %llx ]}\n",
 						r_header, rr->json_msg->s->nonce, parent->name,
-						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
-						kpsd_p->user_id.val, rr->nonce);
+						tag, parent->uuid_string, rr->index, kpsd_p->comm,
+						kpsd_p->pid_nr, kpsd_p->user_id.val, rr->nonce);
 	rp->index = rr->index;
-
+record_created:
 	if (kpsd_p && rr->clear) {
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
-
-record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
