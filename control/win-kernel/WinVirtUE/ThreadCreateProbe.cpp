@@ -165,6 +165,7 @@ ThreadCreateProbe::ThreadCreateCallback(
 				WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID,
 					"Failed to retrieve Thread Data for Version 0x%08 - Status=0x%08x\n",
 					Globals.lpVersionInformation.dwBuildNumber, Status);
+				FLT_ASSERTMSG("Failed to retrieve thread data!", FALSE);
 				goto ErrorExit;
 			}
 		}
