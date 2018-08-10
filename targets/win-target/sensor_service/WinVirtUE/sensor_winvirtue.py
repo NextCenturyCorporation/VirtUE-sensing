@@ -241,3 +241,4 @@ class sensor_winvirtue(object):
             finally:
                 await queue.task_done()
         logger.info("  ::%s evtdata_consumer exiting!", sensor_name)
+        
