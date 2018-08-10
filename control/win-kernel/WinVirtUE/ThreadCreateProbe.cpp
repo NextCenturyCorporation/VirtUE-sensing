@@ -146,6 +146,11 @@ ThreadCreateProbe::ThreadCreateCallback(
 		}
 		__try
 		{
+			/** this is a rather cheezie way to get the information we need
+			** It would be far better to artificially download from MS the correcdt
+			** PDBs and parse them for the proper structure. Given time
+			** constraints for this project, this was not done.
+			*/
 			switch (Globals.lpVersionInformation.dwBuildNumber)
 			{
 			case 14393:
