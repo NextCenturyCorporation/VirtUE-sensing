@@ -81,8 +81,8 @@ class sensor_winvirtue(object):
                 logger.warning("Streamed Event %s from the driver didn't contain a sensor_id!", evt)
                 continue  # if there is no sensor id in this message, log and continue
             sensor_id = evt["sensor_id"]
-            logger.info("Retrieved and Enqueuing message [%r] from Sensor Id %s", evt, sensor_id)
             await self._sensorqueues[sensor_id].put(evt)
+        logging.info("Exiting Event Stream Pump!")
     
     def _event_stream_runner(self):
         '''
@@ -202,45 +202,42 @@ class sensor_winvirtue(object):
         :param message_queue: Shared Queue for messages
         :return: None
         '''        
-        logger.info("evtdata_consumer(): self=[%r], message_stub=[%r], config=[%r], message_queue=[%r]", 
+        logger.debug("evtdata_consumer(): self=[%r], message_stub=[%r], config=[%r], message_queue=[%r]", 
                     self, message_stub, config, message_queue)
         sensor_id = message_stub["sensor_id"]
         sensor_name = message_stub["sensor_name"]
         sensor_config_level = config.get("sensor-config-level", "default")    
-        logger.info(" ::starting %s monitor", sensor_name)    
+        logger.info(" ::starting %s evtdata_consumer", sensor_name)    
         logger.info("    $ sensor-config-level = %s", sensor_config_level)
-                          
+    
         queue = self._sensorqueues[sensor_id]
-        
+    
         logger.info("Utilizing queue [%r] for sensor id %s", queue, sensor_id)
-        
+        dumped = None 
         async for msg in queue:
             if not self.running:
                 logger.info("Exiting event data consumer as running is false!")
                 break
-            imageload_logmsg = {}
-            try:
-                imageload_logmsg = {
+            event_logmsg = {
                     "timestamp": datetime.datetime.now().isoformat(),
                     "level": "info",
                     "message": msg
                 }
-                imageload_logmsg.update(message_stub)
-                logger.info("About ready to send message [%r]",  imageload_logmsg)           
-                dumped = json.dumps(imageload_logmsg)
-                logger.debug(dumped)
+            event_logmsg.update(message_stub)
+            try:
+                dumped = json.dumps(event_logmsg)
                 await message_queue.put(dumped)
-            except Exception as exc:
-                logger.exception("Caught Exception %r", exc, exc_info=True)
-                imageload_logmsg = {
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "level": "error",
-                            "message": str(exc)
-                }
-                imageload_logmsg.update(message_stub)
-                logger.info("About ready to send error message [%r]", imageload_logmsg)
-                dumped = json.dumps(imageload_logmsg, indent=3)
-                logger.debug(dumped)                
+            except UnicodeEncodeError as ueer:
+                logger.exception("Error Decoding Inbound Message [%r]",
+                                     ueer, exc_info=True)
+                error_logmsg = {
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "level": "error",
+                        "message": str(ueer)
+                    }
+                error_logmsg.update(message_stub)
+                dumped = json.dumps(error_logmsg)
                 await message_queue.put(dumped)
             finally:
                 await queue.task_done()
+        logger.info("  ::%s evtdata_consumer exiting!", sensor_name)
