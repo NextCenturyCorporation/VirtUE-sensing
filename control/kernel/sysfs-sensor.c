@@ -66,12 +66,9 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 
 	if (rr->run_probe) {
 		/**
-		 * refresh all the ps records in the flex array
+		 * refreshes all the pid records in the flex array
+		 * then gets files for each pid
 		 **/
-		ccode = build_pid_index_unlocked(
-			(struct sensor *)p,
-			p->ksysfs_pid_flex_array,
-			rr->nonce);
 		ccode = kernel_sysfs_unlocked(p, rr->nonce);
 		if (ccode < 0) {
 			return ccode;
@@ -79,26 +76,23 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	}
 
 	kfsd_p = flex_array_get(p->ksysfs_flex_array, rr->index);
-	if (!kfsd_p || kfsd_p->clear == FLEX_ARRAY_FREE) {
+	if (!kfsd_p || kfsd_p->clear == FLEX_ARRAY_FREE ||
+		(rr->nonce && kfsd_p->nonce != rr->nonce)) {
 	/**
 	* when there is no entry, or the entry is clear, return an
 	* empty record response. per the protocol control/kernel/messages.md
 	**/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s ]}\n",
+							"%s %s, %s, %s ]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							p->name);
+							p->name,
+							p->uuid_string);
 
 		rp->index = -ENOENT;
 		goto record_created;
 	}
-
-	if (rr->nonce && kfsd_p->nonce != rr->nonce) {
-		return -EINVAL;
-	}
-
 
 	/**
 	 * build the record json object(s), with a raw extension
@@ -108,11 +102,12 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s %d %x %s %s %lx}]}\n",
+						"%s %s, %s, %s, %s, %d %x %s %s %lx}]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
 						p->name,
 						tag,
+						p->uuid_string,
 						rr->index,
 						kfsd_p->pid,
 						kfsd_p->dpath,
@@ -129,31 +124,18 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	memcpy(cursor, &kfsd_p->stat, sizeof(struct kstat));
 	cursor += sizeof(struct kstat);
 	memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
+
+record_created:
 	if (kfsd_p && rr->clear) {
 		kfree(kfsd_p->data);
 		flex_array_clear(p->ksysfs_flex_array, rr->index);
 	}
-
-record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->range = rr->range;
 	return 0;
 }
 
-
-
-static inline size_t
-calc_file_size(struct kstat *kstat)
-{
-	if (kstat->size) {
-		return kstat->size;
-	}
-	if (kstat->blocks) {
-		return kstat->blocks * kstat->blksize;
-	}
-	return kstat->blksize > 0 ? kstat->blksize: 0x100;
-}
 
 
 /**
@@ -176,35 +158,36 @@ ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 						uint64_t nonce)
 {
 
-	static struct kernel_sysfs_data ksysfsd, *clear_p;
 	ssize_t ccode = 0;
+	struct kernel_sysfs_data ksysfsd = {0}, *clear_p = NULL;
+	loff_t pos = 0;
 	struct file *f = NULL;
-	/**
-	 * default size for /proc and /sys is 0x100, one block.
-	 * they don't return a size in kstat
-	 **/
-	memset(&ksysfsd, 0x00, sizeof(struct kernel_sysfs_data));
+	if (t->pid == current->pid) {
+		printk(KERN_DEBUG "trying to read our own /proc/%d/mount\n", current->pid);
+	}
+
+	if (! pid_alive(t)) {
+		printk(KERN_DEBUG "trying to read a dead task struct %d\n", t->pid);
+		return 0;
+	}
+
 	f = filp_open(path, O_RDONLY, 0);
 	if (f) {
-		size_t size = 0, max_size = 0x100000;
-		loff_t pos = 0;
+		int regular = 0;
+		/*  increment the reference count as an extra safety measure */
+		f  = get_file(f);
 		ccode = file_getattr(f, &ksysfsd.stat);
-		if (ccode) {
-			printk(KERN_INFO "error getting file attributes %zx\n", ccode);
+		if (ccode < 0) {
+			fput_atomic(f);
 			goto err_exit;
 		}
-		/**
-		 * get the size, or default size if /proc or /sys
-		 * set an arbitrary limit of 1 MB for read buffer
-		 **/
-		size = min(calc_file_size(&ksysfsd.stat), max_size);
-		ksysfsd.data = kzalloc(size, GFP_KERNEL);
-		if (ksysfsd.data == NULL) {
-			ccode = -ENOMEM;
-			goto err_exit;
+		regular = is_regular_file(f);
+		if (regular) {
+			ccode = kernel_read_file_with_name(path, &ksysfsd.data, max_size, &pos);
+		} else {
+			ccode = vfs_read_file(path, &ksysfsd.data, max_size, &pos);
 		}
-		ksysfsd.data_len = size;
-		ccode = ksysfsd.ccode = read_file_struct(f, ksysfsd.data, size, &pos);
+		fput_atomic(f);
 		if (ccode < 0) {
 			goto err_exit;
 		}
@@ -270,6 +253,12 @@ sysfs_for_each_unlocked(struct kernel_sysfs_sensor *p, uint64_t nonce)
 			snprintf(sysfs_path, MAX_DENTRY_LEN, format, pid_el_p->pid);
 			file_index = index;
 			task = get_task_by_pid_number(pid_el_p->pid);
+			if (! task || ! pid_alive(task)) {
+					printk(KERN_DEBUG "trying to read a dead task struct %d\n",
+						   pid_el_p->pid);
+					continue;
+			}
+
 			ccode = sysfs_read_data(p,
 									task,
 									&file_index,

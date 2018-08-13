@@ -36,6 +36,9 @@
 
 extern int print_to_log;
 extern atomic64_t SHOULD_SHUTDOWN;
+extern long max_size;
+extern long chunk_size;
+
 
 enum json_array_chars {
 	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d
@@ -55,12 +58,7 @@ typedef enum message_command command;
 #define CONNECTION_MAX_MESSAGE 0x1000
 #define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
 #define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
-/**
- * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
- * allow shorter nonces, allowing the client to choose,
- * up to MAX_NONCE_SIZE
- **/
-#define MAX_NONCE_SIZE 32
+#define MAX_NONCE_SIZE UUID_STRING_LEN + 4
 #define MAX_CMD_SIZE 128
 #define MAX_ID_SIZE MAX_CMD_SIZE
 #define MAX_NAME_SIZE MAX_CMD_SIZE

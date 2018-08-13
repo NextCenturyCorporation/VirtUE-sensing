@@ -103,16 +103,12 @@ long max_size = (~0UL >> 1);
 module_param(max_size, long, 0644);
 MODULE_PARM_DESC(max_size, "largest file buffer to allocate");
 
-
-
-
 int
 file_getattr(struct file *f, struct kstat *k)
 {
 	int ccode = 0;
-	memset(k, 0x00, sizeof(struct kstat));
 #ifdef MODERN_FILE_API
-	ccode = vfs_getattr(&f->f_path, k, 0x00000fffU, KSTAT_QUERY_FLAGS);
+	ccode = vfs_getattr(&f->f_path, k, STATX_ALL, KSTAT_QUERY_FLAGS);
 #else
 	ccode = vfs_getattr(&f->f_path, k);
 #endif
@@ -130,6 +126,7 @@ is_regular_file(struct file *f)
 
 	return 1;
 }
+
 ssize_t
 write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos)
 {
@@ -211,6 +208,7 @@ read_file(char *name, void *buf, size_t count, loff_t *pos)
 	return ccode;
 }
 STACK_FRAME_NON_STANDARD(read_file);
+
 
 ssize_t
 kernel_read_file_with_name(char *name, void **buf, size_t max_count, loff_t *pos)
@@ -348,14 +346,14 @@ build_pid_index(struct sensor *p, struct flex_array *a, uint64_t nonce)
 STACK_FRAME_NON_STANDARD(build_pid_index);
 
 
- /**
+/**
  * @brief find, LOCK, and return a pointer to a sensor with a
  *        matching key. The key must be a string, and may be either
  *        a correctly formatted 36-byte uuid, or a variable-length
  *        name.
  *
  * @param key. Must be either a 36-byte uuid string, or a name string
-          of fewer than MAX_NAME_SIZE bytes.
+ of fewer than MAX_NAME_SIZE bytes.
  * @param p double pointer to a struct sensor, it is used to return
  *        pointer to the matching sensor
  *
@@ -391,7 +389,7 @@ get_sensor(uint8_t *key, struct sensor **sensor)
 			goto name_search;
 		}
 
-uuid_search:
+	uuid_search:
 		ccode = get_sensor_uuid(key, sensor);
 		if (ccode == -EAGAIN) {
 			schedule();
@@ -411,7 +409,7 @@ name_search:
 	return ccode;
 }
 
- /**
+/**
  * @brief find, LOCK, and return a pointer to a sensor with a
  *        matching name string
  *
@@ -704,8 +702,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 
 	rcu_read_lock();
 	sensor_p = list_first_or_null_rcu(&sensor->sensors,
-									 struct sensor,
-									 l_node);
+									  struct sensor,
+									  l_node);
 	rcu_read_unlock();
 	while (sensor_p != NULL) {
 		spin_lock(&sensor->lock);
@@ -727,8 +725,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		 **/
 		rcu_read_lock();
 		sensor_p = list_first_or_null_rcu(&sensor->sensors,
-										 struct sensor,
-										 l_node);
+										  struct sensor,
+										  l_node);
 		rcu_read_unlock();
 	}
 	synchronize_rcu();
@@ -839,7 +837,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
  * the anonymous struct is the first member of this structure.
  */
 	init_sensor((struct sensor *)sensor,
-			   "Kernel Sensor", strlen("Kernel Sensor") + 1);
+				"Kernel Sensor", strlen("Kernel Sensor") + 1);
 	sensor->_init = init_kernel_sensor;
 	INIT_LIST_HEAD_RCU(&sensor->sensors);
 	INIT_LIST_HEAD_RCU(&sensor->listeners);
@@ -850,24 +848,24 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
 }
 
 /**
- * A probe routine is a kthread  worker, called from kernel thread.
+ * A sensor routine is a kthread  worker, called from kernel thread.
  * Once it runs once, it must be re-initialized
  * and re-queued to run again...see /include/linux/kthread.h
  **/
 
 
 /**
- * init_probe - initialize a probe that has already been allocated.
- * struct probe is usually used as an anonymous structure in a more
- * specialized type of probe, for example kernel-ps or kernel-lsof
- *  - probe memory is already allocated and should be zero'd by the
+ * init_sensor - initialize a sensor that has already been allocated.
+ * struct sensor is usually used as an anonymous structure in a more
+ * specialized type of sensor, for example kernel-ps or kernel-lsof
+ *  - sensor memory is already allocated and should be zero'd by the
  *    caller
- *  - initialize the probe's spinlock and list head
- *  - possibly allocates memory for the probe's ID and data
- *  - does not initialize probe->probe_work with a work node,
+ *  - initialize the sensor's spinlock and list head
+ *  - possibly allocates memory for the sensor's ID and data
+ *  - does not initialize sensor->sensor_work with a work node,
  *    which does need to get done by the kthreads library.
- * Initialize a probe structure.
- * void *init_probe(struct probe *p, uint8_t *id, uint8_t *data)
+ * Initialize a sensor structure.
+ * void *init_sensor(struct sensor *s, uint8_t *id, uint8_t *data)
  *
  **/
 
@@ -886,7 +884,7 @@ default_sensor_message(struct sensor *sensor, struct sensor_msg *msg)
 
 
 struct sensor *init_sensor(struct sensor *sensor,
-						 uint8_t *name, int name_size)
+						   uint8_t *name, int name_size)
 {
 	if (!sensor) {
 		return ERR_PTR(-ENOMEM);
@@ -914,14 +912,12 @@ struct sensor *init_sensor(struct sensor *sensor,
 	snprintf(sensor->uuid_string, UUID_STRING_LEN + 1, "%pUb", &sensor->uuid);
 	sensor->lock=__SPIN_LOCK_UNLOCKED("sensor");
 	/* flags, timeout, repeat are zero'ed */
-	/* probe_work is NULL */
+	/* sensor_work is NULL */
 
 	__SET_FLAG(sensor->flags, SENSOR_INITIALIZED);
 	return sensor;
 }
 EXPORT_SYMBOL(init_sensor);
-
-
 
 
 /**
@@ -935,7 +931,7 @@ static int __init kcontrol_init(void)
 	int ccode = 0;
 	struct kernel_ps_sensor *ps_sensor = NULL;
 	struct kernel_lsof_sensor *lsof_sensor = NULL;
-//	struct kernel_sysfs_sensor *sysfs_probe = NULL;
+	struct kernel_sysfs_sensor *sysfs_sensor = NULL;
 
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
@@ -945,9 +941,9 @@ static int __init kcontrol_init(void)
 	 * initialize the ps probe
 	 **/
 	ps_sensor = init_kernel_ps_sensor(&kps_probe,
-									"Kernel PS Sensor",
-									strlen("Kernel PS Sensor") + 1,
-									print_kernel_ps);
+									  "Kernel PS Sensor",
+									  strlen("Kernel PS Sensor") + 1,
+									  print_kernel_ps);
 
 	if (ps_sensor == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
@@ -964,10 +960,10 @@ static int __init kcontrol_init(void)
 	 **/
 
 	lsof_sensor = init_kernel_lsof_sensor(&klsof_sensor,
-										"Kernel LSOF Sensor",
-										strlen("Kernel LSOF Sensor") + 1,
-										print_kernel_lsof,
-										lsof_pid_filter);
+										  "Kernel LSOF Sensor",
+										  strlen("Kernel LSOF Sensor") + 1,
+										  print_kernel_lsof,
+										  lsof_pid_filter);
 	if (lsof_sensor == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
 		goto err_exit;
@@ -982,24 +978,23 @@ static int __init kcontrol_init(void)
 
 /**
  * initialize the sysfs probe
+ **/
 
+	sysfs_sensor = init_sysfs_sensor(&ksysfs_sensor,
+									 "Kernel Sysfs Sensor",
+									 strlen("Kernel Sysfs Sensor") + 1,
+									 print_sysfs_data,
+									 filter_sysfs_data);
 
-	sysfs_probe = init_sysfs_probe(&ksysfs_probe,
-								   "Kernel Sysfs Probe",
-								   strlen("Kernel Sysfs Probe") + 1,
-								   print_sysfs_data,
-								   filter_sysfs_data);
-
-	if (sysfs_probe == ERR_PTR(-ENOMEM)) {
+	if (sysfs_sensor == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
 
 	spin_lock(&k_sensor.lock);
-	list_add_rcu(&sysfs_probe->l_node, &k_sensor.probes);
+	list_add_rcu(&sysfs_sensor->l_node, &k_sensor.sensors);
 	spin_unlock(&k_sensor.lock);
 
-**/
 
 /**
  * initialize the socket interface
@@ -1026,15 +1021,15 @@ err_exit:
 		lsof_sensor = NULL;
 	}
 
-	/**
-	if (sysfs_probe != ERR_PTR(-ENOMEM)) {
-		if (__FLAG_IS_SET(sysfs_probe->flags, SENSOR_INITIALIZED)) {
-			sysfs_probe->_destroy((struct sensor *)sysfs_probe);
+
+	if (sysfs_sensor != ERR_PTR(-ENOMEM)) {
+		if (__FLAG_IS_SET(sysfs_sensor->flags, SENSOR_INITIALIZED)) {
+			sysfs_sensor->_destroy((struct sensor *)sysfs_sensor);
 		}
-		kfree(sysfs_probe);
-		sysfs_probe = NULL;
+		kfree(sysfs_sensor);
+		sysfs_sensor = NULL;
 	}
-	**/
+
 	return ccode;
 }
 
