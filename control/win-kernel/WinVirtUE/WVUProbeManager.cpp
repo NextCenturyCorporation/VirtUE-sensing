@@ -25,6 +25,7 @@ class ThreadCreateProbe *pTCP = nullptr;
 */
 WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 { 
+	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 
 	WVUCommsManager& commsmgr = WVUCommsManager::GetInstance();
 	// Start the filter comms manager
@@ -136,6 +137,9 @@ WVUProbeManager::~WVUProbeManager()
 	{
 		delete pPDQ;
 	}
+
+	// Drop a rundown reference 
+	ExReleaseRundownProtection(&Globals.RunDownRef);
 }
 
 /**
