@@ -107,5 +107,5 @@ if __name__ == '__main__':
         logger.info("Calling StartServiceCtrlDispatcher() . . . ")
         servicemanager.StartServiceCtrlDispatcher()
     else:
-        #sys.frozen = 'windows_exe'  # uncomment to allow debugging
+        sys.frozen = 'windows_exe'  # uncomment to allow debugging
         win32serviceutil.HandleCommandLine(WinVirtUE)     

@@ -102,6 +102,10 @@ class sensor_winvirtue(object):
             hFltComms = FilterConnectCommunicationPort(CommandPort)
             logger.info("Connected to Filter Communcations Port %s", CommandPort)
             for sensor in EnumerateSensors(hFltComms):
+                if not sensor.Enabled:
+                    logger.warn("Sensor %s not enabled - skipping!", 
+                            sensor.SensorName)
+                    continue
                 self._sensordict[sensor.SensorName] = sensor
                 logger.info("Discovered Sensor %s",sensor)
         except OSError as osr:
