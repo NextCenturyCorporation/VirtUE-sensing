@@ -695,23 +695,14 @@ RegistryModificationProbe::RegistryModificationCB(
 	PVOID Argument1,
 	PVOID Argument2)
 {	
-	UNREFERENCED_PARAMETER(Argument2);
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 #pragma warning(push)
 #pragma warning(disable:4302) // ignore type cast truncation error 
 	USHORT Class = (USHORT)Argument1;
 #pragma warning(pop)
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	ANSI_STRING notification = { 0,0,NULL };
-
-	if (NULL == probe)
-	{
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, ERROR_LEVEL_ID, "Invalid Context Passed to Callback Function!\n");
-		goto ErrorExit;
-	}
-
-	notification = RTL_CONSTANT_STRING(probe->GetNotifyClassString(Class));
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;	
+	FLT_ASSERTMSG("Invalid Context Passed to Callback Function!", NULL != probe);
+	ANSI_STRING notification = RTL_CONSTANT_STRING(probe->GetNotifyClassString(Class));
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, INFO_LEVEL_ID,
 		"Callback Driver Object Context %p, Registry Notification Class=%w, Arg2=%08x\n", 
@@ -733,8 +724,6 @@ RegistryModificationProbe::RegistryModificationCB(
 		// Drop a rundown reference 
 		ExReleaseRundownProtection(&Globals.RunDownRef);
 	}
-
-ErrorExit:
 
 	return Status;
 }
