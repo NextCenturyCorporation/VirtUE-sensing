@@ -293,7 +293,7 @@ class SensorWrapper(object):
 
             if reg_res.status_code == 200:
                 if not self.is_pinned_api(reg_res):
-                    sys.exit(1)
+                    raise TaskError("certificate not pinned!")
                 logger.info("Synced sensor with Sensing API")
             else:
                 logger.warning("Couldn't sync sensor with Sensing API")
@@ -435,7 +435,7 @@ class SensorWrapper(object):
 
         if reg_res.status_code == 200:
             if not self.is_pinned_api(reg_res):
-                sys.exit(1)
+                raise TaskError("certificate not pinned!")
             logger.info("  = Got registration data: ")
             logger.info(reg_res.json())
             return reg_res.json()
@@ -443,7 +443,7 @@ class SensorWrapper(object):
             logger.critical("Couldn't register sensor with Sensing API")
             logger.critical("  status_code == %d", reg_res.status_code)
             logger.critical(reg_res.text)
-            sys.exit(1)
+            raise TaskError("Couldn't register sensor with Sensing API status_code == %d", reg_res.status_code)
 
     def deregister_sensor(self, pub_key):
         """
@@ -797,14 +797,14 @@ class SensorWrapper(object):
 
             if not rc_success:
                 logger.critical("  ! Couldn't get the CA root certificate - no way to verify secure communications")
-                sys.exit(1)
+                raise TaskError("  ! Couldn't get the CA root certificate - no way to verify secure communications")
 
             # now the certificate cycle, where we get our pub/priv key pair
             pki_private_future = await g.spawn(self.get_private_key_and_csr)
             pki_priv_success, priv_key, csr, challenge_data = await pki_private_future.join()
             if not pki_priv_success:
                 logger.critical("  ! Encountered an error when retrieving a private key for the sensor, aborting")
-                sys.exit(1)
+                raise TaskError("  ! Encountered an error when retrieving a private key for the sensor, aborting")
 
             logger.info("  %% private key fingerprint(%s)", self.rsa_private_fingerprint(priv_key))
             logger.info("  %% CA http-savior challenge url(%s) and token(%s)", challenge_data["url"], challenge_data["token"])
@@ -851,7 +851,7 @@ class SensorWrapper(object):
             pub_key_success, pub_key = await pki_public_future.join()
             if not pub_key_success:
                 logger.critical("  ! Encountered an error when retrieving a public key for the sensor, aborting")
-                sys.exit(1)
+                raise TaskError("  ! Encountered an error when retrieving a public key for the sensor, aborting")
 
             # spin down the http server
             await challenge_server.cancel()
@@ -943,7 +943,7 @@ class SensorWrapper(object):
         except ValueError as ve:
             logger.exception("Couldn't import RSA public key at %s - %s", key_path, str(ve), exc_info=SensorWrapper.exc_info)
             logger.critical("  If this is encountered during testing, run the gen_cert.sh script to create a key pair, and try testing again")
-            sys.exit(1)
+            raise
 
         return rsakey, key_string
 
@@ -975,7 +975,7 @@ class SensorWrapper(object):
         except ValueError as ve:
             logger.exception("Couldn't import RSA private key at %s - %s", key_path, str(ve), exc_info=SensorWrapper.exc_info)
             logger.critical("  If this is encountered during testing, run the gen_cert.sh script to create a key pair, and try testing again")
-            sys.exit(1)
+            raise
 
         return rsakey, key_string
 
