@@ -1428,7 +1428,7 @@ class SensorStatusHeader(SaviorStruct):
 
 GetSensorStatus = namedtuple('GetSensorStatus',  
         ['sensor_id', 'LastRunTime', 'RunInterval', 
-            'OperationCount', 'Attributes', 'SensorName'])
+            'OperationCount', 'Attributes', 'Enabled', 'SensorName'])
 class SensorStatus(SaviorStruct):
     '''
     The SensorStatus message
@@ -1464,6 +1464,7 @@ class SensorStatus(SaviorStruct):
             info.contents.RunInterval,
             info.contents.OperationCount,
             SensorAttributeFlags(info.contents.Attributes), 
+            info.contents.Enabled,
             SensorName)
         return sensor_status
     
