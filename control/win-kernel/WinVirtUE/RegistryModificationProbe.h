@@ -47,7 +47,7 @@ public:
 	_Must_inspect_result_
 		virtual const LARGE_INTEGER& GetCookie() const { return this->Cookie; }
 	_Success_(NULL != return)
-		CONST PCHAR
+		CONST ANSI_STRING&
 		GetNotifyClassString(
 			_In_ USHORT NotifyClass);
 };

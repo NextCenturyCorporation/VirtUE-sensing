@@ -700,9 +700,9 @@ RegistryModificationProbe::RegistryModificationCB(
 #pragma warning(disable:4302) // ignore type cast truncation error 
 	USHORT Class = (USHORT)Argument1;
 #pragma warning(pop)
-	NTSTATUS Status = STATUS_UNSUCCESSFUL;	
+	NTSTATUS Status = STATUS_SUCCESS;
 	FLT_ASSERTMSG("Invalid Context Passed to Callback Function!", NULL != probe);
-	ANSI_STRING notification = RTL_CONSTANT_STRING(probe->GetNotifyClassString(Class));
+	const ANSI_STRING& notification = probe->GetNotifyClassString(Class);
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, INFO_LEVEL_ID,
 		"Callback Driver Object Context %p, Registry Notification Class=%w, Arg2=%08x\n", 
@@ -712,12 +712,10 @@ RegistryModificationProbe::RegistryModificationCB(
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
 	__try
 	{
-		if (NULL == g_pCallbackFcns[Class])
+		if (NULL != g_pCallbackFcns[Class])
 		{
-			Status = STATUS_SUCCESS;
-			__leave;
-		}
-		Status = (*(g_pCallbackFcns[Class]))(CallbackContext, Argument1, Argument2);
+			Status = (*(g_pCallbackFcns[Class]))(CallbackContext, Argument1, Argument2);			
+		}		
 	}
 	__finally
 	{
@@ -854,58 +852,60 @@ RegistryModificationProbe::OnRun()
 * @return Returns a string of the name of NotifyClass
 */
 _Use_decl_annotations_
-CONST PCHAR
+CONST ANSI_STRING&
 RegistryModificationProbe::GetNotifyClassString(
 	USHORT NotifyClass)
 {
+	static ANSI_STRING str = RTL_CONSTANT_STRING("Unsupported REG_NOTIFY_CLASS");
+
 	switch (NotifyClass) 
 	{
-	case RegNtPreDeleteKey:                 return ("RegNtPreDeleteKey");
-	case RegNtPreSetValueKey:               return ("RegNtPreSetValueKey");
-	case RegNtPreDeleteValueKey:            return ("RegNtPreDeleteValueKey");
-	case RegNtPreSetInformationKey:         return ("RegNtPreSetInformationKey");
-	case RegNtPreRenameKey:                 return ("RegNtPreRenameKey");
-	case RegNtPreEnumerateKey:              return ("RegNtPreEnumerateKey");
-	case RegNtPreEnumerateValueKey:         return ("RegNtPreEnumerateValueKey");
-	case RegNtPreQueryKey:                  return ("RegNtPreQueryKey");
-	case RegNtPreQueryValueKey:             return ("RegNtPreQueryValueKey");
-	case RegNtPreQueryMultipleValueKey:     return ("RegNtPreQueryMultipleValueKey");
-	case RegNtPreKeyHandleClose:            return ("RegNtPreKeyHandleClose");
-	case RegNtPreCreateKeyEx:               return ("RegNtPreCreateKeyEx");
-	case RegNtPreOpenKeyEx:                 return ("RegNtPreOpenKeyEx");
-	case RegNtPreFlushKey:                  return ("RegNtPreFlushKey");
-	case RegNtPreLoadKey:                   return ("RegNtPreLoadKey");
-	case RegNtPreUnLoadKey:                 return ("RegNtPreUnLoadKey");
-	case RegNtPreQueryKeySecurity:          return ("RegNtPreQueryKeySecurity");
-	case RegNtPreSetKeySecurity:            return ("RegNtPreSetKeySecurity");
-	case RegNtPreRestoreKey:                return ("RegNtPreRestoreKey");
-	case RegNtPreSaveKey:                   return ("RegNtPreSaveKey");
-	case RegNtPreReplaceKey:                return ("RegNtPreReplaceKey");
+	case RegNtPreDeleteKey:                 str = RTL_CONSTANT_STRING("RegNtPreDeleteKey"); break;
+	case RegNtPreSetValueKey:               str = RTL_CONSTANT_STRING("RegNtPreSetValueKey"); break;
+	case RegNtPreDeleteValueKey:            str = RTL_CONSTANT_STRING("RegNtPreDeleteValueKey"); break;
+	case RegNtPreSetInformationKey:         str = RTL_CONSTANT_STRING("RegNtPreSetInformationKey"); break;
+	case RegNtPreRenameKey:                 str = RTL_CONSTANT_STRING("RegNtPreRenameKey"); break;
+	case RegNtPreEnumerateKey:              str = RTL_CONSTANT_STRING("RegNtPreEnumerateKey"); break;
+	case RegNtPreEnumerateValueKey:         str = RTL_CONSTANT_STRING("RegNtPreEnumerateValueKey"); break;
+	case RegNtPreQueryKey:                  str = RTL_CONSTANT_STRING("RegNtPreQueryKey"); break;
+	case RegNtPreQueryValueKey:             str = RTL_CONSTANT_STRING("RegNtPreQueryValueKey"); break;
+	case RegNtPreQueryMultipleValueKey:     str = RTL_CONSTANT_STRING("RegNtPreQueryMultipleValueKey"); break;
+	case RegNtPreKeyHandleClose:            str = RTL_CONSTANT_STRING("RegNtPreKeyHandleClose"); break;
+	case RegNtPreCreateKeyEx:               str = RTL_CONSTANT_STRING("RegNtPreCreateKeyEx"); break;
+	case RegNtPreOpenKeyEx:                 str = RTL_CONSTANT_STRING("RegNtPreOpenKeyEx"); break;
+	case RegNtPreFlushKey:                  str = RTL_CONSTANT_STRING("RegNtPreFlushKey"); break;
+	case RegNtPreLoadKey:                   str = RTL_CONSTANT_STRING("RegNtPreLoadKey"); break;
+	case RegNtPreUnLoadKey:                 str = RTL_CONSTANT_STRING("RegNtPreUnLoadKey"); break;
+	case RegNtPreQueryKeySecurity:          str = RTL_CONSTANT_STRING("RegNtPreQueryKeySecurity"); break;
+	case RegNtPreSetKeySecurity:            str = RTL_CONSTANT_STRING("RegNtPreSetKeySecurity"); break;
+	case RegNtPreRestoreKey:                str = RTL_CONSTANT_STRING("RegNtPreRestoreKey"); break;
+	case RegNtPreSaveKey:                   str = RTL_CONSTANT_STRING("RegNtPreSaveKey"); break;
+	case RegNtPreReplaceKey:                str = RTL_CONSTANT_STRING("RegNtPreReplaceKey"); break;
 
-	case RegNtPostDeleteKey:                return ("RegNtPostDeleteKey");
-	case RegNtPostSetValueKey:              return ("RegNtPostSetValueKey");
-	case RegNtPostDeleteValueKey:           return ("RegNtPostDeleteValueKey");
-	case RegNtPostSetInformationKey:        return ("RegNtPostSetInformationKey");
-	case RegNtPostRenameKey:                return ("RegNtPostRenameKey");
-	case RegNtPostEnumerateKey:             return ("RegNtPostEnumerateKey");
-	case RegNtPostEnumerateValueKey:        return ("RegNtPostEnumerateValueKey");
-	case RegNtPostQueryKey:                 return ("RegNtPostQueryKey");
-	case RegNtPostQueryValueKey:            return ("RegNtPostQueryValueKey");
-	case RegNtPostQueryMultipleValueKey:    return ("RegNtPostQueryMultipleValueKey");
-	case RegNtPostKeyHandleClose:           return ("RegNtPostKeyHandleClose");
-	case RegNtPostCreateKeyEx:              return ("RegNtPostCreateKeyEx");
-	case RegNtPostOpenKeyEx:                return ("RegNtPostOpenKeyEx");
-	case RegNtPostFlushKey:                 return ("RegNtPostFlushKey");
-	case RegNtPostLoadKey:                  return ("RegNtPostLoadKey");
-	case RegNtPostUnLoadKey:                return ("RegNtPostUnLoadKey");
-	case RegNtPostQueryKeySecurity:         return ("RegNtPostQueryKeySecurity");
-	case RegNtPostSetKeySecurity:           return ("RegNtPostSetKeySecurity");
-	case RegNtPostRestoreKey:               return ("RegNtPostRestoreKey");
-	case RegNtPostSaveKey:                  return ("RegNtPostSaveKey");
-	case RegNtPostReplaceKey:               return ("RegNtPostReplaceKey");
-	case RegNtCallbackObjectContextCleanup: return ("RegNtCallbackObjectContextCleanup");
-	default:
-		return ("Unsupported REG_NOTIFY_CLASS");
+	case RegNtPostDeleteKey:                str = RTL_CONSTANT_STRING("RegNtPostDeleteKey"); break;
+	case RegNtPostSetValueKey:              str = RTL_CONSTANT_STRING("RegNtPostSetValueKey"); break;
+	case RegNtPostDeleteValueKey:           str = RTL_CONSTANT_STRING("RegNtPostDeleteValueKey"); break;
+	case RegNtPostSetInformationKey:        str = RTL_CONSTANT_STRING("RegNtPostSetInformationKey"); break;
+	case RegNtPostRenameKey:                str = RTL_CONSTANT_STRING("RegNtPostRenameKey"); break;
+	case RegNtPostEnumerateKey:             str = RTL_CONSTANT_STRING("RegNtPostEnumerateKey"); break;
+	case RegNtPostEnumerateValueKey:        str = RTL_CONSTANT_STRING("RegNtPostEnumerateValueKey"); break;
+	case RegNtPostQueryKey:                 str = RTL_CONSTANT_STRING("RegNtPostQueryKey"); break;
+	case RegNtPostQueryValueKey:            str = RTL_CONSTANT_STRING("RegNtPostQueryValueKey"); break;
+	case RegNtPostQueryMultipleValueKey:    str = RTL_CONSTANT_STRING("RegNtPostQueryMultipleValueKey"); break;
+	case RegNtPostKeyHandleClose:           str = RTL_CONSTANT_STRING("RegNtPostKeyHandleClose"); break;
+	case RegNtPostCreateKeyEx:              str = RTL_CONSTANT_STRING("RegNtPostCreateKeyEx"); break;
+	case RegNtPostOpenKeyEx:                str = RTL_CONSTANT_STRING("RegNtPostOpenKeyEx"); break;
+	case RegNtPostFlushKey:                 str = RTL_CONSTANT_STRING("RegNtPostFlushKey"); break;
+	case RegNtPostLoadKey:                  str = RTL_CONSTANT_STRING("RegNtPostLoadKey"); break;
+	case RegNtPostUnLoadKey:                str = RTL_CONSTANT_STRING("RegNtPostUnLoadKey"); break;
+	case RegNtPostQueryKeySecurity:         str = RTL_CONSTANT_STRING("RegNtPostQueryKeySecurity"); break;
+	case RegNtPostSetKeySecurity:           str = RTL_CONSTANT_STRING("RegNtPostSetKeySecurity"); break;
+	case RegNtPostRestoreKey:               str = RTL_CONSTANT_STRING("RegNtPostRestoreKey"); break;
+	case RegNtPostSaveKey:                  str = RTL_CONSTANT_STRING("RegNtPostSaveKey"); break;
+	case RegNtPostReplaceKey:               str = RTL_CONSTANT_STRING("RegNtPostReplaceKey"); break;
+	case RegNtCallbackObjectContextCleanup: str = RTL_CONSTANT_STRING("RegNtCallbackObjectContextCleanup"); break;
+	default: break;		
 	}
+	return str;
 }
 #pragma endregion
