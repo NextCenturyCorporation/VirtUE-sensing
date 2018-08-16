@@ -117,7 +117,7 @@ static inline int index_command(uint8_t *cmd, int bytes)
  **/
 
 
-static inline int
+static int
 process_records_request(struct jsmn_message *m, int index);
 
 static int
@@ -235,7 +235,7 @@ free_session(struct jsmn_session *s)
  * EXCEPT for the discovery request requires a sensor ID
  **/
 
-static inline int
+static int
 pre_process_jsmn_request_cmd(struct jsmn_message *m)
 {
 	uint8_t *c, *name = NULL;
@@ -760,7 +760,7 @@ get_session(struct jsmn_message *m)
  *
  **/
 
-static inline int
+static int
 check_protocol_message(struct jsmn_message *m)
 {
 	uint8_t *messages[] = {"request", "reply"};
@@ -785,7 +785,7 @@ check_protocol_message(struct jsmn_message *m)
 
 
 
-static inline int
+static int
 check_protocol_version(struct jsmn_message *m)
 {
 	uint8_t *start;
@@ -829,7 +829,7 @@ check_protocol_version(struct jsmn_message *m)
 	return 0;
 }
 
-static inline int
+static int
 validate_message_tokens(struct jsmn_message *m)
 {
 	int i = 0, len;

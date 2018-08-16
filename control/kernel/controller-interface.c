@@ -64,12 +64,7 @@ k_socket_write(struct socket *sock,
 	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
 	struct kvec iov = {.iov_base = out, .iov_len = size};
-
-/**
- *	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
- *		   "outbuf %p, flags %x\n",
- *		   sock, size, out, flags);
- **/
+	
 again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
 	if (res <= 0) {
