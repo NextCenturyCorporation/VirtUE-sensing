@@ -36,6 +36,9 @@
 
 extern int print_to_log;
 extern atomic64_t SHOULD_SHUTDOWN;
+extern long max_size;
+extern long chunk_size;
+
 
 enum json_array_chars {
 	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d
@@ -51,21 +54,16 @@ typedef enum message_command command;
 /* max message header size */
 #define CONNECTION_MAX_HEADER 0x400
 #define CONNECTION_MAX_REQUEST CONNECTION_MAX_HEADER
+#define CONNECTION_MAX_BUFFER 0x800
 #define CONNECTION_MAX_MESSAGE 0x1000
 #define CONNECTION_MAX_REPLY CONNECTION_MAX_MESSAGE
-
-
 #define MAX_LINE_LEN CONNECTION_MAX_MESSAGE
-/**
- * TODO: do not make MAX_NONCE_SIZE to be the de-facto nonce size
- * allow shorter nonces, allowing the client to choose,
- * up to MAX_NONCE_SIZE
- **/
-#define MAX_NONCE_SIZE 32
+#define MAX_NONCE_SIZE UUID_STRING_LEN + 4
 #define MAX_CMD_SIZE 128
 #define MAX_ID_SIZE MAX_CMD_SIZE
 #define MAX_NAME_SIZE MAX_CMD_SIZE
 #define MAX_TOKENS 64
+#define SENSOR_UUID_SIZE 16
 struct jsmn_message;
 struct jsmn_session;
 void dump_session(struct jsmn_session *s);
@@ -119,8 +117,8 @@ struct jsmn_session
 	 * reminder: converting probe_id to probe_name be be aligned with
 	 * user-space sensor wrapper
 	 **/
-	uint8_t probe_id[MAX_NAME_SIZE];
-	uint8_t probe_uuid[16];
+	uint8_t sensor_name[MAX_NAME_SIZE];
+	uint8_t sensor_uuid[SENSOR_UUID_SIZE];
 };
 
 
@@ -132,7 +130,7 @@ void init_jsonl_parser(void);
 
 
 
-struct probe_msg
+struct sensor_msg
 {
 	int id;
 	int ccode;
@@ -177,7 +175,7 @@ struct state_reply
 {
 	command cmd; /* enum message_command */
 	uint8_t name[MAX_NAME_SIZE];
-	uint8_t uuid[16];
+	uuid_t uuid;
 	uint64_t flags, state;
 	int timeout, repeat;
 	bool clear;    /* clear records? */
@@ -370,18 +368,47 @@ static inline void task_cputime(struct task_struct *t,
    structures.
 **/
 
+/**
+ * TODO:
+ * order of changes:
+ * 1 - rename id field to name - DONE
+ * 1.1 - change name of flag PROBE_HAS_ID_FIELD to
+ *                           PROBE_HAS_NAME_FIELD - DONE
+ * 1.2 - change parameter names for init_probe - DONE
+ * 2 - rename struct probe to struct sensor - DONE
+ * 2.1 rename init_probe to init_sensor - DONE
+ * 2.2 rename destroy_probe to destroy_sensor - DONE
+ * 2.3 rename default_probe_message to default_sensor_message - DONE
+ * 2.4 rename struct probe_msg struct sensor_msg - DONE
+ * 3 - rename specific probes to be specific sensors, e.g.,
+ *     sysfs_probe to sysfs_sensor - DONE
+ * 3.1 - rename kernel-ps probe to kernel-ps sensor - DONE
+ * 3.2 - rename kernel-lsof probe to kernel-lsof sensor - DONE
+ * 3.3 - rename kernel-sysfs probe to kernel-sysfs sensor - DONE
+ * 4 - update discovery response message to include uuid field. - DONE
+ * 5 - change get_probe to get_sensor_name - DONE
+ * 5.1 - create get_sensor_uuid, and change key the target sensor
+ *       using the uuid instead of the name.
+ * 6 - rename KernelProbe.py to KernelSensor.py - DONE
+ **/
 
-struct probe {
+struct sensor {
 	union {
 		spinlock_t lock;
 		struct semaphore s_lock;
 	};
-	/** TODO: rename id to name **/
-	uint8_t *id;
-	uint8_t uuid[16];
-	struct probe *(*init)(struct probe *, uint8_t *, int);
-	void *(*destroy)(struct probe *);
-	int (*message)(struct probe *, struct probe_msg *);
+	uint8_t *name;
+/**
+ * see <linux/uuid.h> and <uapi/linux/uuid.h>
+ * UUID_SIZE 16
+ * UUID_STRING_LEN 36
+ * https://en.wikipedia.org/wiki/Universally_unique_identifier
+ **/
+	uuid_t uuid;
+	uint8_t uuid_string[UUID_STRING_LEN + 1];
+	struct sensor *(*init)(struct sensor *, uint8_t *, int);
+	void *(*destroy)(struct sensor *);
+	int (*message)(struct sensor *, struct sensor_msg *);
 	uint64_t flags, state;  /* see controller-flags.h */
 	int timeout, repeat;
 	struct kthread_worker worker;
@@ -391,17 +418,23 @@ struct probe {
 
 
 int
-default_send_msg_to(struct probe *probe, int msg, void *in_buf, ssize_t len);
+default_send_msg_to(struct sensor *, int msg, void *in_buf, ssize_t len);
 
 int
-default_rcv_msg_from(struct probe *probe,
+default_rcv_msg_from(struct sensor *,
 					 int msg,
 					 void **out_buf,
 					 ssize_t *len);
 
 
 int
-get_probe(uint8_t *probe_id, struct probe **p);
+get_sensor(uint8_t *key, struct sensor **sensor);
+
+int
+get_sensor_name(uint8_t *probe_id, struct sensor **sensor);
+
+int
+get_sensor_uuid(uint8_t *uuid, struct sensor **p);
 
 /**
  * @brief The kernel sensor is the parent of one or more probes
@@ -443,7 +476,7 @@ get_probe(uint8_t *probe_id, struct probe **p);
 /* connection struct is used for both listening and connected sockets */
 /* function pointers for listen, accept, close */
 struct connection {
-	struct probe;
+	struct sensor;
 	/**
 	 * _init parameters:
 	 * uint64_t flags - will have the PROBE_LISTENER or PROBE_CONNECTED bit set
@@ -460,10 +493,10 @@ struct connection {
 };
 
 struct kernel_sensor {
-	struct probe;
+	struct sensor;
 	struct kernel_sensor *(*_init)(struct kernel_sensor *);
 	void *(*_destroy)(struct kernel_sensor *);
-	struct list_head probes;
+	struct list_head sensors;
 	struct list_head listeners;
 	struct list_head connections;
 };
@@ -539,32 +572,35 @@ struct kernel_ps_data {
  *    the ps probe. It calls probe->destroy to tear down the anonymous
  *    struct probe.
  **/
-struct kernel_ps_probe {
-	struct probe;
+struct kernel_ps_sensor {
+	struct sensor;
 	struct flex_array *kps_data_flex_array;
-	int (*print)(struct kernel_ps_probe *, uint8_t *, uint64_t, int);
-	int (*ps)(struct kernel_ps_probe *, int, uint64_t);
-	struct kernel_ps_probe *(*_init)(struct kernel_ps_probe *,
+	int (*print)(struct kernel_ps_sensor *, uint8_t *, uint64_t, int);
+	int (*ps)(struct kernel_ps_sensor *, int, uint64_t);
+	struct kernel_ps_sensor *(*_init)(struct kernel_ps_sensor *,
 									 uint8_t *, int,
-		                             int (*print)(struct kernel_ps_probe *,
+		                             int (*print)(struct kernel_ps_sensor *,
 												  uint8_t *, uint64_t, int));
-	void *(*_destroy)(struct probe *);
+	void *(*_destroy)(struct sensor *);
 };
 
-int kernel_ps_get_record(struct kernel_ps_probe *parent,
-						 struct probe_msg *msg,
+int
+kernel_ps_get_record(struct kernel_ps_sensor *parent,
+						 struct sensor_msg *msg,
 						 uint8_t *tag);
 
-int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce);
-int kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce);
-struct kernel_ps_probe *
-init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+int
+kernel_ps_unlocked(struct kernel_ps_sensor *parent, uint64_t nonce);
+int
+kernel_ps(struct kernel_ps_sensor *parent, int count, uint64_t nonce);
+struct kernel_ps_sensor *
+init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
 					 uint8_t *id, int id_len,
-					 int (*print)(struct kernel_ps_probe *,
+					 int (*print)(struct kernel_ps_sensor *,
 								  uint8_t *, uint64_t, int));
 
 int
-print_kernel_ps(struct kernel_ps_probe *parent,
+print_kernel_ps(struct kernel_ps_sensor *parent,
 				uint8_t *tag,
 				uint64_t nonce,
 				int count);
@@ -579,28 +615,28 @@ controller_create_worker(unsigned int flags, const char namefmt[], ...);
 
 void controller_destroy_worker(struct kthread_worker *worker);
 
-struct probe *init_probe(struct probe *probe,
-						 uint8_t *id,  int id_size);
-void *destroy_probe_work(struct kthread_work *work);
-void *destroy_k_probe(struct probe *probe);
+struct sensor *init_sensor(struct sensor *sensor,
+						 uint8_t *name,  int name_size);
+void *destroy_sensor_work(struct kthread_work *work);
+void *destroy_k_sensor(struct sensor *sensor);
 
 bool init_and_queue_work(struct kthread_work *work,
 						 struct kthread_worker *worker,
 						 void (*function)(struct kthread_work *));
 
 
-void *destroy_probe(struct probe *probe);
+void *destroy_sensor(struct sensor *sensor);
 
 /**
  ******************************************************************************
- * lsof probe
+ * lsof sensor
  ******************************************************************************
  **/
 
 
 
 /**
- * workspace for kernel-lsof probe data
+ * workspace for kernel-lsof sensor data
  * line numbers from kernel version 4.16
  * struct file in include/linux/fs.h:857
  * struct path in include/linux/path.h:8
@@ -696,93 +732,93 @@ struct kernel_lsof_data {
 #define LSOF_ARRAY_SIZE ((LSOF_APPARENT_ARRAY_SIZE) - 1)
 
 
-struct kernel_lsof_probe {
-	struct probe;
+struct kernel_lsof_sensor {
+	struct sensor;
 	struct flex_array *klsof_pid_flex_array;
 	struct flex_array *klsof_data_flex_array;
-	int (*filter)(struct kernel_lsof_probe *,
+	int (*filter)(struct kernel_lsof_sensor *,
 				  struct kernel_lsof_data *,
 				  void *);
-	int (*print)(struct kernel_lsof_probe *, uint8_t *, uint64_t);
-	int (*lsof)(struct kernel_lsof_probe *, uint64_t);
-	struct kernel_lsof_probe *(*_init)(struct kernel_lsof_probe *,
+	int (*print)(struct kernel_lsof_sensor *, uint8_t *, uint64_t);
+	int (*lsof)(struct kernel_lsof_sensor *, uint64_t);
+	struct kernel_lsof_sensor *(*_init)(struct kernel_lsof_sensor *,
 									   uint8_t *, int,
-									   int (*print)(struct kernel_lsof_probe *,
+									   int (*print)(struct kernel_lsof_sensor *,
 													uint8_t *, uint64_t),
-									   int (*filter)(struct kernel_lsof_probe *,
+									   int (*filter)(struct kernel_lsof_sensor *,
 													 struct kernel_lsof_data *,
 													 void *));
-	void *(*_destroy)(struct probe *);
+	void *(*_destroy)(struct sensor *);
 };
 
-extern struct kernel_lsof_probe klsof_probe;
+extern struct kernel_lsof_sensor klsof_sensor;
 extern int lsof_repeat;
 extern int lsof_timeout;
 extern int lsof_level;
 
 int
-build_pid_index_unlocked(struct probe *p,
+build_pid_index_unlocked(struct sensor *p,
 						 struct flex_array *a,
 						 uint64_t nonce);
 int
-build_pid_index(struct probe *p, struct flex_array *a, uint64_t nonce);
+build_pid_index(struct sensor *p, struct flex_array *a, uint64_t nonce);
 
 int
-kernel_lsof_get_record(struct kernel_lsof_probe *parent,
-					   struct probe_msg *msg,
+kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
+					   struct sensor_msg *msg,
 					   uint8_t *tag);
 
 int
-lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
+lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
 						   uint64_t nonce);
 
-int lsof_pid_filter(struct kernel_lsof_probe *p,
+int lsof_pid_filter(struct kernel_lsof_sensor *p,
 					struct kernel_lsof_data *d,
 					void *cmp);
 
 
 int
-lsof_all_files(struct kernel_lsof_probe *p,
+lsof_all_files(struct kernel_lsof_sensor *p,
 				   struct kernel_lsof_data *d,
 			   void *cmp);
 
 
 int
-lsof_uid_filter(struct kernel_lsof_probe *p,
+lsof_uid_filter(struct kernel_lsof_sensor *p,
 				struct kernel_lsof_data *d,
 				void *cmp);
 
 int
-print_kernel_lsof(struct kernel_lsof_probe *parent,
+print_kernel_lsof(struct kernel_lsof_sensor *parent,
 				  uint8_t *tag,
 				  uint64_t nonce);
 
 int
-kernel_lsof_unlocked(struct kernel_lsof_probe *p,
+kernel_lsof_unlocked(struct kernel_lsof_sensor *p,
 					 uint64_t nonce);
 
 int
-kernel_lsof(struct kernel_lsof_probe *parent, uint64_t nonce);
+kernel_lsof(struct kernel_lsof_sensor *parent, uint64_t nonce);
 
 void
 run_klsof_probe(struct kthread_work *work);
 
-struct kernel_lsof_probe *
-init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
+struct kernel_lsof_sensor *
+init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
 					   uint8_t *id, int id_len,
-					   int (*print)(struct kernel_lsof_probe *,
+					   int (*print)(struct kernel_lsof_sensor *,
 									uint8_t *, uint64_t),
-					   int (*filter)(struct kernel_lsof_probe *,
+					   int (*filter)(struct kernel_lsof_sensor *,
 									 struct kernel_lsof_data *,
 									 void *));
 
 
 void *
-destroy_kernel_lsof_probe(struct probe *probe);
+destroy_kernel_lsof_sensor(struct sensor *sensor);
 
 /**
  ****************************************************************************
- * sysfs probe
+ * sysfs sensor
  ****************************************************************************
  **/
 
@@ -817,30 +853,39 @@ struct kernel_sysfs_data {
 
 #define SYSFS_ARRAY_SIZE ((SYSFS_APPARENT_ARRAY_SIZE) - 1)
 
-struct kernel_sysfs_probe {
-	struct probe;
+struct kernel_sysfs_sensor {
+	struct sensor;
 	struct flex_array *ksysfs_flex_array;
 	struct flex_array *ksysfs_pid_flex_array;
-	int (*print)(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
-	int (*filter)(struct kernel_sysfs_probe *,
+	int (*print)(struct kernel_sysfs_sensor *, uint8_t *, uint64_t, int);
+	int (*filter)(struct kernel_sysfs_sensor *,
 				  struct kernel_sysfs_data *,
 				  void *);
-	int (*ksysfs)(struct kernel_sysfs_probe *, int, uint64_t);
-	int (*kernel_lsof)(struct kernel_lsof_probe *parent, int count, uint64_t nonce);
-	struct kernel_sysfs_probe *(*_init)(struct kernel_sysfs_probe *,
+	int (*ksysfs)(struct kernel_sysfs_sensor *, int, uint64_t);
+	int (*kernel_lsof)(struct kernel_lsof_sensor *parent, int count, uint64_t nonce);
+	struct kernel_sysfs_sensor *(*_init)(struct kernel_sysfs_sensor *,
 										uint8_t *, int,
-										int (*print)(struct kernel_sysfs_probe *,
+										int (*print)(struct kernel_sysfs_sensor *,
 													 uint8_t *, uint64_t, int),
-										int (*filter)(struct kernel_sysfs_probe *,
+										int (*filter)(struct kernel_sysfs_sensor *,
 													  struct kernel_sysfs_data *,
 													  void *));
-	void *(*_destroy)(struct probe *);
+	void *(*_destroy)(struct sensor *);
 };
 
-extern struct kernel_sysfs_probe ksysfs_probe;
+extern struct kernel_sysfs_sensor ksysfs_sensor;
 
 int
 file_getattr(struct file *f, struct kstat *k);
+
+int
+is_regular_file(struct file *f);
+
+ssize_t
+kernel_read_file_with_name(char *name, void **buf, size_t max_count, loff_t *pos);
+
+ssize_t
+vfs_read_file(char *name, void **buf, size_t max_count, loff_t *pos);
 
 ssize_t
 write_file_struct(struct file *f, void *buf, size_t count, loff_t *pos);
@@ -855,29 +900,29 @@ ssize_t
 read_file(char *name, void *buf, size_t count, loff_t *pos);
 
 int
-print_sysfs_data(struct kernel_sysfs_probe *, uint8_t *, uint64_t, int);
+print_sysfs_data(struct kernel_sysfs_sensor *, uint8_t *, uint64_t, int);
 
 int
-filter_sysfs_data(struct kernel_sysfs_probe *,
+filter_sysfs_data(struct kernel_sysfs_sensor *,
 				  struct kernel_sysfs_data *,
 				  void *);
 int
-kernel_sysfs_unlocked(struct kernel_sysfs_probe *, uint64_t);
+kernel_sysfs_unlocked(struct kernel_sysfs_sensor *, uint64_t);
 
 int
-kernel_sysfs(struct kernel_sysfs_probe *, int, uint64_t);
+kernel_sysfs(struct kernel_sysfs_sensor *, int, uint64_t);
 
-struct kernel_sysfs_probe *
-init_sysfs_probe(struct kernel_sysfs_probe *,
+struct kernel_sysfs_sensor *
+init_sysfs_sensor(struct kernel_sysfs_sensor *,
 				 uint8_t *, int,
-				 int (*print)(struct kernel_sysfs_probe *,
+				 int (*print)(struct kernel_sysfs_sensor *,
 							  uint8_t *, uint64_t, int),
-				 int (*filter)(struct kernel_sysfs_probe *,
+				 int (*filter)(struct kernel_sysfs_sensor *,
 							   struct kernel_sysfs_data *,
 							   void *));
 
 void *
-destroy_sysfs_probe(struct probe *);
+destroy_sysfs_sensor(struct sensor *sensor);
 
 /**
  * ****************************************

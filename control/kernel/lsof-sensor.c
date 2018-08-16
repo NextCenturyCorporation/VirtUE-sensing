@@ -35,11 +35,11 @@
  * probe is LOCKED upon entry
  **/
 static int
-lsof_message(struct probe *probe, struct probe_msg *msg)
+lsof_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return kernel_lsof_get_record((struct kernel_lsof_probe *)probe,
+		return kernel_lsof_get_record((struct kernel_lsof_sensor *)sensor,
 									  msg,
 									  "kernel-lsof");
 	}
@@ -54,7 +54,7 @@ lsof_message(struct probe *probe, struct probe_msg *msg)
  * pid > 1, which means systemd
  **/
 int
-lsof_pid_filter(struct kernel_lsof_probe *p,
+lsof_pid_filter(struct kernel_lsof_sensor *p,
 				struct kernel_lsof_data* d,
 				void *cmp)
 
@@ -68,7 +68,7 @@ lsof_pid_filter(struct kernel_lsof_probe *p,
  * uid != *data
  **/
 int
-lsof_uid_filter(struct kernel_lsof_probe *p,
+lsof_uid_filter(struct kernel_lsof_sensor *p,
 				struct kernel_lsof_data *d,
 				void *cmp)
 {
@@ -78,9 +78,9 @@ lsof_uid_filter(struct kernel_lsof_probe *p,
 }
 
 int
-lsof_all_files(struct kernel_lsof_probe *p,
-				   struct kernel_lsof_data *d,
-				   void *cmp)
+lsof_all_files(struct kernel_lsof_sensor *p,
+			   struct kernel_lsof_data *d,
+			   void *cmp)
 {
 	return 1;
 }
@@ -101,8 +101,8 @@ lsof_all_files(struct kernel_lsof_probe *p,
  * Note: the parent probe is LOCKED by the caller
  **/
 int
-kernel_lsof_get_record(struct kernel_lsof_probe *parent,
-					   struct probe_msg *msg,
+kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
+					   struct sensor_msg *msg,
 					   uint8_t *tag)
 {
 	struct kernel_lsof_data *klsof_p;
@@ -132,23 +132,21 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 	}
 
 	klsof_p = flex_array_get(parent->klsof_data_flex_array, rr->index);
-	if (!klsof_p || klsof_p->clear == FLEX_ARRAY_FREE) {
-   /**
-	* when there is no entry, or the entry is clear, return an
-	* empty record response. per the protocol control/kernel/messages.md
-	**/
+	if (!klsof_p || klsof_p->clear == FLEX_ARRAY_FREE ||
+		(rr->nonce && klsof_p->nonce != rr->nonce)) {
+		/**
+		 * when there is no entry, or the entry is clear, return an
+		 * empty record response. per the protocol control/kernel/messages.md
+		 **/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s]}\n",
+							"%s %s, %s, %s]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							parent->id);
+							parent->name,
+							parent->uuid_string);
 		rp->index = -ENOENT;
 		goto record_created;
-	}
-
-	if (rr->nonce && klsof_p->nonce != rr->nonce) {
-		return -EINVAL;
 	}
 
 	if (!rp->records || rp->records_len <=0) {
@@ -160,12 +158,13 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s uid: %d pid: %d flags: %x "
+						"%s %s, %s, %s, %s, uid: %d pid: %d flags: %x "
 						"mode: %x count: %lx %s]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
-						parent->id,
+						parent->name,
 						tag,
+						parent->uuid_string,
 						klsof_p->user_id.val,
 						klsof_p->pid_nr,
 						klsof_p->flags,
@@ -173,11 +172,12 @@ kernel_lsof_get_record(struct kernel_lsof_probe *parent,
 						atomic64_read(&klsof_p->count),
 						klsof_p->dpath + klsof_p->dp_offset);
 	rp->index = rr->index;
+
+record_created:
 	if (klsof_p && rr->clear) {
 		flex_array_clear(parent->klsof_data_flex_array, rr->index);
 	}
 
-record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
@@ -186,7 +186,7 @@ record_created:
 }
 
 int
-print_kernel_lsof(struct kernel_lsof_probe *parent,
+print_kernel_lsof(struct kernel_lsof_sensor *parent,
 				  uint8_t *tag,
 				  uint64_t nonce)
 {
@@ -237,7 +237,7 @@ STACK_FRAME_NON_STANDARD(print_kernel_lsof);
  * holds a lock on p->lock
  **/
 int
-lsof_get_files_struct(struct kernel_lsof_probe *p,
+lsof_get_files_struct(struct kernel_lsof_sensor *p,
 						  struct task_struct *t,
 						  int *start,
 						  uint64_t nonce)
@@ -299,7 +299,7 @@ STACK_FRAME_NON_STANDARD(lsof_get_files_struct);
  **/
 
 int
-lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
+lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
 						   uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
@@ -329,11 +329,11 @@ lsof_for_each_pid_unlocked(struct kernel_lsof_probe *p,
 }
 
 int
-kernel_lsof_unlocked(struct kernel_lsof_probe *p,
+kernel_lsof_unlocked(struct kernel_lsof_sensor *p,
 					 uint64_t nonce)
 {
 	int count;
-	count = build_pid_index_unlocked((struct probe *)p,
+	count = build_pid_index_unlocked((struct sensor *)p,
 									 p->klsof_pid_flex_array,
 									 nonce);
 	count = lsof_for_each_pid_unlocked(p, nonce);
@@ -342,14 +342,14 @@ kernel_lsof_unlocked(struct kernel_lsof_probe *p,
 
 
 int
-kernel_lsof(struct kernel_lsof_probe *p, uint64_t nonce)
+kernel_lsof(struct kernel_lsof_sensor *p, uint64_t nonce)
 {
 	int count;
 
 	if (!spin_trylock(&p->lock)) {
 		return -EAGAIN;
 	}
-	count = build_pid_index_unlocked((struct probe *)p,
+	count = build_pid_index_unlocked((struct sensor *)p,
 									 p->klsof_pid_flex_array,
 									 nonce);
 	count = lsof_for_each_pid_unlocked(p, nonce);
@@ -361,8 +361,8 @@ void
 run_klsof_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
-	struct kernel_lsof_probe *probe_struct =
-		container_of(work, struct kernel_lsof_probe, work);
+	struct kernel_lsof_sensor *probe_struct =
+		container_of(work, struct kernel_lsof_sensor, work);
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
 	probe_struct->lsof(probe_struct, nonce);
@@ -388,13 +388,13 @@ run_klsof_probe(struct kthread_work *work)
 
 
 void *
-destroy_kernel_lsof_probe(struct probe *probe)
+destroy_kernel_lsof_sensor(struct sensor *sensor)
 {
-	struct kernel_lsof_probe *lsof_p = (struct kernel_lsof_probe *)probe;
-	assert(lsof_p && __FLAG_IS_SET(lsof_p->flags, PROBE_KLSOF));
+	struct kernel_lsof_sensor *lsof_p = (struct kernel_lsof_sensor *)sensor;
+	assert(lsof_p && __FLAG_IS_SET(lsof_p->flags, SENSOR_KLSOF));
 
-	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
-		destroy_probe(probe);
+	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
+		destroy_sensor(sensor);
 	}
 
 	if (lsof_p->klsof_pid_flex_array) {
@@ -405,33 +405,33 @@ destroy_kernel_lsof_probe(struct probe *probe)
 		flex_array_free(lsof_p->klsof_data_flex_array);
 	}
 
-	memset(lsof_p, 0, sizeof(struct kernel_lsof_probe));
+	memset(lsof_p, 0, sizeof(struct kernel_lsof_sensor));
 	return lsof_p;
 }
-STACK_FRAME_NON_STANDARD(destroy_kernel_lsof_probe);
+STACK_FRAME_NON_STANDARD(destroy_kernel_lsof_sensor);
 
-struct kernel_lsof_probe *
-init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
+struct kernel_lsof_sensor *
+init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
 					   uint8_t *id, int id_len,
-					   int (*print)(struct kernel_lsof_probe *,
+					   int (*print)(struct kernel_lsof_sensor *,
 									uint8_t *, uint64_t),
-					   int (*filter)(struct kernel_lsof_probe *,
+					   int (*filter)(struct kernel_lsof_sensor *,
 									 struct kernel_lsof_data *,
 									 void *))
 {
 	int ccode = 0;
-	struct probe *tmp;
+	struct sensor *tmp;
 
 	if (!lsof_p) {
 		return ERR_PTR(-ENOMEM);
 	}
-	memset(lsof_p, 0, sizeof(struct kernel_lsof_probe));
+	memset(lsof_p, 0, sizeof(struct kernel_lsof_sensor));
 	/* init the anonymous struct probe */
 
-	tmp = init_probe((struct probe *)lsof_p, id, id_len);
+	tmp = init_sensor((struct sensor *)lsof_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
-	if (lsof_p != (struct kernel_lsof_probe *)tmp) {
+	if (lsof_p != (struct kernel_lsof_sensor *)tmp) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
@@ -441,13 +441,13 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 	 * they are passed on the command line, or read
 	 * from sysfs
 	 **/
-	__SET_FLAG(lsof_p->flags, PROBE_KLSOF);
+	__SET_FLAG(lsof_p->flags, SENSOR_KLSOF);
 
 	lsof_p->timeout = lsof_timeout;
 	lsof_p->repeat = lsof_repeat;
 
-	lsof_p->_init = init_kernel_lsof_probe;
-	lsof_p->_destroy = destroy_kernel_lsof_probe;
+	lsof_p->_init = init_kernel_lsof_sensor;
+	lsof_p->_destroy = destroy_kernel_lsof_sensor;
 	lsof_p->message = lsof_message;
 	if (print) {
 		lsof_p->print = print;
@@ -497,7 +497,7 @@ init_kernel_lsof_probe(struct kernel_lsof_probe *lsof_p,
 
 /* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&lsof_p->work, run_klsof_probe);
-	__SET_FLAG(lsof_p->flags, PROBE_HAS_WORK);
+	__SET_FLAG(lsof_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&lsof_p->worker);
 	CONT_QUEUE_WORK(&lsof_p->worker,
 					&lsof_p->work);
@@ -512,4 +512,4 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
-STACK_FRAME_NON_STANDARD(init_kernel_lsof_probe);
+STACK_FRAME_NON_STANDARD(init_kernel_lsof_sensor);
