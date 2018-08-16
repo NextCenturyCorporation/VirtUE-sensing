@@ -248,16 +248,17 @@ lsof_get_files_struct(struct kernel_lsof_sensor *p,
 	struct file *file;
 	struct fdtable *files_table;
 
-	files = t->files;
 
-	if(!files) {
+	if (! pid_alive(t) || ! t->files) {
  		/**
  		 * occasionally there will be a dead task_struct
  		 * due to timing issues.
  		 **/
- 		printk(KERN_INFO "task has no files_struct: %d\n", t->pid);
+ 		printk(KERN_INFO "task pid is dead: %d\n", t->pid);
  		return 0;
  	}
+	files = t->files;
+
 	memset(&klsofd, 0x00, sizeof(struct kernel_lsof_data));
 	files_table = t->files->fdt;
 
@@ -313,7 +314,7 @@ lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
 				break;
 			}
 			task = get_task_by_pid_number(pid_el_p->pid);
-			if (task) {
+			if (task && pid_alive(task)) {
 				ccode = lsof_get_files_struct(p,
 											  task,
 											  &file_index,
