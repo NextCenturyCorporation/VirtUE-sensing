@@ -72,15 +72,21 @@ The `nonce` size is upon the discretion of the client, provided it is between 16
 The client may issue commands to the sensor:
 
 "{Virtue-protocol-verion: 0.1, request: [nonce, command, sensor] }\n"
-where _command_ is one of:
+
+_sensor_ may be either the sensor's `uuid` or the sensor's `name`. Either usage will work, but only the `uuid` is guaranteed to uniquely target a sensor instance when there are multiple copies of a sensor running at once. 
+
+_command_ is one of:
 
 * off: turn sensor sensing off
 * on: turn sensor sensing on
 * increase: increase sensor sensing level
 * decrease: decrease sensor sensing level
-* reset: reset sensor to default state
+* low: set sensing level to _low_
+* default: set sensing level to _default_
+* high: set sensing level to _high_
+* adversarial: set sensing level to _adversarial_
+* reset: reset sensor to _default_ state
 * records: retrieve sensor records
-
 
 The server will respond with:
 
@@ -93,6 +99,8 @@ where _result_ is one of:
 * level: sensor is sensing at this level
 * reset: sensor is reset, meaning its state is erased
 * records: one or more messages with result records. Multiple records are correlated using the _sensor id_ and _nonce_ from the original request.
+
+Each sensor must define the meaning of the specific states for itself. For example, _adversarial_ entails different sets of behavior for different types of sensors.
 
 Each sensor will reply with its records differently. The most common format is for each record to be one JSONL message:
 
