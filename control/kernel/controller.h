@@ -167,18 +167,12 @@ struct state_request
 	struct jsmn_message *json_msg;
 	command  cmd; /* enum message_command */
 	uint64_t flags, state;
-	int timeout, repeat;
-	bool clear;     /* clear records? */
 };
 
 struct state_reply
 {
 	command cmd; /* enum message_command */
-	uint8_t name[MAX_NAME_SIZE];
-	uuid_t uuid;
-	uint64_t flags, state;
-	int timeout, repeat;
-	bool clear;    /* clear records? */
+	uint64_t state;
 };
 
 static inline void sleep(unsigned sec)
@@ -213,28 +207,11 @@ ssize_t k_socket_write(struct socket *sock,
 					   void *out,
 					   unsigned int flags);
 
-/* the kernel itself has dynamic trace points, they
- *  need to be part of the probe capability.
- */
-
-/* - - probe - -
+/* - - sensor - -
  *
- * A probe is an active sensor. It is a function that runs as a kernel
+ * A sensor is a function that runs as a kernel
  * task at regular intervals to obtain information or to check the
  * truth of various assertions.
-
- * It's expected that most sensors will be comprised of one or more
- * probes; that a sensor is not always an active probe and a probe is
- * not always a sensor.
- *
- * By defining a passive sensor as a special kind of probe--a
- * "passive probe"--we can say that a sensor is always also probe.
- *
- * A Sensor is also one or more passive or active probes.
- *
- * At the prototype stage, a sensor will have a fixed array of
- * un-ininitialized probes, and those probes will be initiailized as
- * they are registered with the kernel.
  */
 
 
@@ -828,7 +805,8 @@ extern int sysfs_level;
 
 struct kernel_sysfs_data {
 	uint8_t clear;
-	uint8_t pad[7];
+	uint8_t regular_file;
+	uint8_t pad[6];
 	uint64_t nonce;
 	int index;
 	pid_t pid;

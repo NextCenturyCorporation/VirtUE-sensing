@@ -116,6 +116,8 @@ static inline int index_command(uint8_t *cmd, int bytes)
  *       free_message.
  **/
 
+static int
+process_state_request(struct jsmn_message *m, int index);
 
 static int
 process_records_request(struct jsmn_message *m, int index);
@@ -129,15 +131,15 @@ int (*cmd_table[])(struct jsmn_message *m, int index) =
 {
 	process_jsmn_cmd, /* connect */
 	process_discovery_request, /* DISCOVERY */
-	process_jsmn_cmd, /* OFF */
-	process_jsmn_cmd, /* ON */
-	process_jsmn_cmd, /* INCREASE */
-	process_jsmn_cmd, /* DECREASE */
-	process_jsmn_cmd, /* LOW */
-	process_jsmn_cmd, /* DEFAULT */
-	process_jsmn_cmd, /* HIGH */
-	process_jsmn_cmd, /* ADVERSARIAL */
-	process_jsmn_cmd, /* RESET */
+	process_state_request, /* OFF */
+	process_state_request, /* ON */
+	process_state_request, /* INCREASE */
+	process_state_request, /* DECREASE */
+	process_state_request, /* LOW */
+	process_state_request, /* DEFAULT */
+	process_state_request, /* HIGH */
+	process_state_request, /* ADVERSARIAL */
+	process_state_request, /* RESET */
 	process_records_request /* RECORDS */
 };
 
@@ -325,7 +327,7 @@ err_out:
 
 
 static struct jsmn_message *
-allocate_reply_message(struct jsmn_message *request, bool alloc_buffer)
+allocate_reply_message(struct jsmn_message *request, size_t alloc_buffer)
 {
 	struct jsmn_message *rply = NULL;
 
@@ -334,11 +336,11 @@ allocate_reply_message(struct jsmn_message *request, bool alloc_buffer)
 		return NULL;
 	}
 	if(alloc_buffer) {
-		rply->line = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
+		rply->line = kzalloc(alloc_buffer, GFP_KERNEL);
 		if (!rply->line) {
 			goto err_out_rply;
 		}
-		rply->len = CONNECTION_MAX_HEADER;
+		rply->len = alloc_buffer;
 	}
 
 	/**
@@ -390,12 +392,89 @@ err_socket_write:
 }
 
 
+
+static int
+process_state_request(struct jsmn_message *m, int index)
+{
+	int ccode = 0, write_ccode = 0;
+	struct sensor *sensor_p = NULL;
+	struct jsmn_message *s_reply = NULL;
+
+	struct state_request sreq = {
+		.json_msg = m,
+		.cmd = index,
+	};
+
+	struct state_reply srep = {
+		.cmd = index,
+	};
+
+	struct sensor_msg sm = {
+		.id = index,
+		.ccode = 0,
+		.input = &sreq,
+		.input_len = sizeof(struct state_request),
+		.output = &srep,
+		.output_len = sizeof(struct state_reply),
+	};
+
+	do {
+		ccode = get_sensor(m->s->sensor_name, &sensor_p);
+	} while (ccode == -EAGAIN);
+
+	if (ccode < 0) {
+		/**
+		 * TODO: return an empty discovery response or some json object
+		 * that tells the client the target probe was not found.
+		 **/
+		printk(KERN_DEBUG "could not find a matching sensor, exiting %d\n",
+			   ccode);
+		return ccode;
+	}
+	if (!ccode && sensor_p != NULL) {
+		ccode = sensor_p->message(sensor_p, &sm);
+		if (ccode > 0) {
+			int bytes = 0;
+			s_reply = allocate_reply_message(m, m->len * 2);
+			if (!s_reply) {
+				ccode = -ENOMEM;
+				goto err_exit;
+			}
+			bytes = scnprintf(s_reply->line,
+							  s_reply->len - 1,
+							  "{%s, reply: [%s, %llu]}\n",
+							  PROTOCOL_VERSION,
+							  s_reply->s->nonce,
+							  srep.state);
+
+			s_reply->line = krealloc(s_reply->line, bytes + 1, GFP_KERNEL);
+			s_reply->len = bytes + 1;
+			spin_lock(&s_reply->s->sl);
+			list_add_tail_rcu(&s_reply->e_messages,
+							  &s_reply->s->h_replies);
+			spin_unlock(&s_reply->s->sl);
+			write_ccode = write_session_replies(s_reply->s);
+		} else {
+			goto err_exit;
+		}
+	}
+
+err_exit:
+	free_session(m->s);
+	if (ccode < 0)
+		return ccode;
+	if (write_ccode < 0)
+		return write_ccode;
+	return COMPLETE;
+}
+
+
 static int
 process_records_request(struct jsmn_message *msg, int index)
 {
 	int ccode = 0, write_ccode = 0;
 	struct sensor *sensor_p = NULL;
-	struct jsmn_message *records_reply = NULL;
+	struct jsmn_message *r_reply = NULL;
 
 	struct records_request rr = {
 		.json_msg = msg,
@@ -405,7 +484,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		.range = -1
 	};
 
-	struct records_reply rp = {0};
+	struct records_reply rp = {};
 
 	struct sensor_msg pm = {
 		.id = RECORDS,
@@ -434,7 +513,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		 * TODO: return an empty discovery response or some json object
 		 * that tells the client the target probe was not found.
 		 **/
-		printk(KERN_DEBUG "could not find a matching probe, exiting %d\n",
+		printk(KERN_DEBUG "could not find a matching sensor, exiting %d\n",
 			   ccode);
 		return ccode;
 	}
@@ -458,19 +537,19 @@ process_records_request(struct jsmn_message *msg, int index)
 			 * rp.records_len contains the length of the object(s)
 			 **/
 			if (ccode >= 0) {
-				records_reply = allocate_reply_message(msg, 0);
-				if (records_reply) {
+				r_reply = allocate_reply_message(msg, 0);
+				if (r_reply) {
 					/**
 					 * response was built in sensor_p->message, assign
 					 * that buffer to this reply, then
 					 * link the reply message to the session
 					 **/
-					records_reply->line = rp.records;
-					records_reply->len  = rp.records_len;
-					spin_lock(&records_reply->s->sl);
-					list_add_tail_rcu(&records_reply->e_messages,
-									  &records_reply->s->h_replies);
-					spin_unlock(&records_reply->s->sl);
+					r_reply->line = rp.records;
+					r_reply->len  = rp.records_len;
+					spin_lock(&r_reply->s->sl);
+					list_add_tail_rcu(&r_reply->e_messages,
+									  &r_reply->s->h_replies);
+					spin_unlock(&r_reply->s->sl);
 				}
 			}
 			/**

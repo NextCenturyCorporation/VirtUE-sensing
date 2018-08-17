@@ -118,13 +118,12 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	if (! rp->records) {
 		return -ENOMEM;
 	}
-	cur_len += (raw_len + 1);
 
 	cursor = rp->records + cur_len;
 	memcpy(cursor, &kfsd_p->stat, sizeof(struct kstat));
 	cursor += sizeof(struct kstat);
 	memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
-
+	cur_len += (raw_len + 1);
 record_created:
 	if (kfsd_p && rr->clear) {
 		kfree(kfsd_p->data);
@@ -136,20 +135,15 @@ record_created:
 	return 0;
 }
 
-
-
 /**
  * caller holds a reference count on struct task AND
  * holds a lock on p->lock
  *
- *
- * TODO: do we need the task_struct as a parameter?
- *       answer: no, we don't need the task struct.
- * TODO: remove task_struct, and change sysfs_get_record
+ * TODO: change sysfs_get_record
  *       so it will read files based on a filter, instead
- *       of reading files in the /proc/ file system, which
- *       is the current proof-of-concept
- *
+ *       of reading a path, which is the current proof-of-concept
+ * TODO: add an option to just "stat" the file instead of reading
+ *       file contents.
  **/
 ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 						struct task_struct *t,
@@ -159,7 +153,7 @@ ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 {
 
 	ssize_t ccode = 0;
-	struct kernel_sysfs_data ksysfsd = {0}, *clear_p = NULL;
+	struct kernel_sysfs_data ksysfsd = {}, *clear_p = NULL;
 	loff_t pos = 0;
 	struct file *f = NULL;
 	if (t->pid == current->pid) {
@@ -173,7 +167,6 @@ ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 
 	f = filp_open(path, O_RDONLY, 0);
 	if (f) {
-		int regular = 0;
 		/*  increment the reference count as an extra safety measure */
 		f  = get_file(f);
 		ccode = file_getattr(f, &ksysfsd.stat);
@@ -181,19 +174,37 @@ ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 			fput_atomic(f);
 			goto err_exit;
 		}
-		regular = is_regular_file(f);
-		if (regular) {
+		ksysfsd.regular_file = is_regular_file(f);
+		/**
+		 * vfs files stat normally, so their size is present in struct kstat.
+		 * on the other hand sysfs, procfs, and some other files do not stat
+		 * normally, kstat says they have no size or blocks. The only way to
+		 * get a file size (afaik) is to read the file using vfs_read_file,
+		 * and the size of the file is returned in the offset parameter.
+		 *
+		 * In either case, the file contents will be stored in ksysfsd.data
+		 * if the read operation is successful
+		 **/
+		if (ksysfsd.regular_file) {
 			ccode = kernel_read_file_with_name(path, &ksysfsd.data, max_size, &pos);
+			ksysfsd.data_len = (size_t) ksysfsd.stat.size;
 		} else {
 			ccode = vfs_read_file(path, &ksysfsd.data, max_size, &pos);
+			ksysfsd.data_len = (size_t) pos;
 		}
 		fput_atomic(f);
 		if (ccode < 0) {
 			goto err_exit;
 		}
-		if (*start <  LSOF_ARRAY_SIZE) {
+		if (*start <  SYSFS_ARRAY_SIZE) {
+			ksysfsd.ccode = ccode;
+			strncpy(ksysfsd.dpath, path, MAX_DENTRY_LEN);
+			ksysfsd.index = *start;
+			ksysfsd.pid = t->pid;
+			ksysfsd.nonce = nonce;
+
 			/**
-			 * check for an allocated data buffer stored in this
+			 * check for an allocated file data buffer stored in this
 			 * array element - if its there, free it
 			 **/
 			 clear_p = flex_array_get(p->ksysfs_flex_array, *start);
@@ -231,6 +242,12 @@ err_exit:
 }
 STACK_FRAME_NON_STANDARD(sysfs_read_data);
 
+/**
+ * TODO: add a filter or path so this will read any
+ * file system.
+ *
+ * The current (demo) will read /proc/star/mounts
+ **/
 
 int
 sysfs_for_each_unlocked(struct kernel_sysfs_sensor *p, uint64_t nonce)
