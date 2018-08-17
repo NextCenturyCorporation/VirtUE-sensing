@@ -50,7 +50,9 @@
 #define SENSOR_KSYSFS            0x200
 
 /**
- * state flags, probe.state
+ * state flags, sensor.state
+ * TODO: these are duplicated in enum message_command
+ *       in controller.h
  **/
 #define SENSOR_LOW               0x01
 #define SENSOR_DEFAULT           0x02

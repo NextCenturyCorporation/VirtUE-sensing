@@ -630,7 +630,49 @@ err_exit:
 	*len = -ENOMEM;
 	return -ENOMEM;
 }
-\
+
+
+/**
+ * common (default) state message processing
+ *
+ * this is a default message processor that only changes the
+ * state variable(s) in a sensor.
+ *
+ * It will not process discovery or record messages.
+ **/
+int
+process_state_message(struct sensor *sensor, struct sensor_msg *msg)
+{
+	int ccode = 0;
+	struct state_request *sreq = msg->input;
+	struct state_reply *srep = msg->output;
+
+
+	switch(msg->id) {
+	case OFF:
+	case ON:
+	case LOW:
+	case DEFAULT:
+	case HIGH:
+	case ADVERSARIAL:
+	{
+		sensor->state = msg->id;
+
+	}
+
+	case INCREASE:
+	case DECREASE:
+	case RESET:
+	{
+
+	}
+	default:
+		return -EINVAL;
+	}
+	return
+
+}
+
 
 /* ugly but expedient way to support < 4.9 kernels */
 /* todo: convert to macros and move to header */

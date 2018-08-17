@@ -360,17 +360,6 @@ struct sensor {
 	struct list_head l_node;
 };
 
-
-int
-default_send_msg_to(struct sensor *, int msg, void *in_buf, ssize_t len);
-
-int
-default_rcv_msg_from(struct sensor *,
-					 int msg,
-					 void **out_buf,
-					 ssize_t *len);
-
-
 int
 get_sensor(uint8_t *key, struct sensor **sensor);
 

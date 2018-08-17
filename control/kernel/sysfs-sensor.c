@@ -408,7 +408,7 @@ sysfs_message(struct sensor *sensor, struct sensor_msg *msg)
 								"kernel-sysfs");
 	}
 	default:
-		return -EINVAL;
+		return process_state_message(sensor, msg);
 	}
 }
 
