@@ -297,77 +297,44 @@ static inline void task_cputime(struct task_struct *t,
 
 
 /**
-   @brief struct probe is an a generic struct that is designed to be
-   incorporated into a more specific type of probe.
+   @brief struct sensor is a generic struct that is designed to be
+   incorporated into a more specific type of sensor.
 
-   struct probe is initialized and destroyed by its incorporating
+   struct sensor is initialized and destroyed by its incorporating
    data structure. It has function pointers for init and destroy
    methods.
 
    members:
-   - probe_lock is available as a mutex object if needed
+   anonymous union:
+      - lock is a spinlock, available as a mutex object if needed
+      - s_lock is a semaphore.
 
-   - probe_id is meant to uniqueily identify the probe,
-   it contains a copy of memory passed to the
-   probe in the init call.
+   - name is the non-unique identifier for the sensor type
+   - uuid is a 128-bit binary uuid typedef
+   - uuid_string is a 36 + 1 byte string that holds a parsed uuid string
 
-   - struct probe *(*init)(struct probe *probe,
-   uint8_t *id, int id_size,
-   uint8_t *data, int data_size) points to
-   an initializing function that will prepare the probe to run.
-   It takes a pointer to probe memory that has already been allocated,
-   and a pointer to allocated memory that identifies the probe. The
-   id and data are copied into a newly allocated memory buffer.
+   - struct sensor *(*init)(struct sensor * sensor,
+             uint8_t *name, int name_len)
+   points to an initializing function that will prepare the sensor to run.
+   It takes a pointer to sensor memory that has already been allocated,
+   and a pointer to allocated memory containing the name of the sensor.
+   name is copied into a newly allocated memory buffer.
 
    - void *(*destroy)(struct probe *probe) points to a destructor function
    that stops kernel threads and tears down probe resources, frees id and
    data memory but does not free probe memory.
 
-   - int (*send_msg_to_probe)(struct probe *probe, int length, void *buf)
-   causes the probe to copy length bytes of memory from buf. If
-   successful, it returns the number of bytes copied, or a negative
-   error code.
+   - int (*message)(struct sensor *, struct sensor_msg *)
+   invokes a function in the sensor that responds to the message
 
-   - int (*rcv_msg_from_probe)(struct probe *, void **ptr) causes the probe to
-   allocate buffer and assign it to *ptr. It returns the length of
-   the buffer at *ptr, or a negative number if an error occured.
-   if the probe does not have any messages to copy to the caller, it
-   will return -EAGAIN.
+   - flags, state, timeout, and repeat control the operation of the sensor.
 
-   - struct kthread_worker probe_worker, and struct kthread_work probe_work
-   are both used to schedule the probe as a kernel thread.
+   - struct kthread_worker worker, and struct kthread_work work
+   are both used to schedule the sensor as a kernel thread.
 
    - struct list_node l_node is the linked list node pointer. It
-   is used by the parent sensor to manage the probe as a peer of more than
-   one siblings.
-
-   - uint8 *data is a generic pointer whose use may be to store probe data
-   structures.
+   is used by the parent sensor to manage the sensor as a child
 **/
-
-/**
- * TODO:
- * order of changes:
- * 1 - rename id field to name - DONE
- * 1.1 - change name of flag PROBE_HAS_ID_FIELD to
- *                           PROBE_HAS_NAME_FIELD - DONE
- * 1.2 - change parameter names for init_probe - DONE
- * 2 - rename struct probe to struct sensor - DONE
- * 2.1 rename init_probe to init_sensor - DONE
- * 2.2 rename destroy_probe to destroy_sensor - DONE
- * 2.3 rename default_probe_message to default_sensor_message - DONE
- * 2.4 rename struct probe_msg struct sensor_msg - DONE
- * 3 - rename specific probes to be specific sensors, e.g.,
- *     sysfs_probe to sysfs_sensor - DONE
- * 3.1 - rename kernel-ps probe to kernel-ps sensor - DONE
- * 3.2 - rename kernel-lsof probe to kernel-lsof sensor - DONE
- * 3.3 - rename kernel-sysfs probe to kernel-sysfs sensor - DONE
- * 4 - update discovery response message to include uuid field. - DONE
- * 5 - change get_probe to get_sensor_name - DONE
- * 5.1 - create get_sensor_uuid, and change key the target sensor
- *       using the uuid instead of the name.
- * 6 - rename KernelProbe.py to KernelSensor.py - DONE
- **/
 
 struct sensor {
 	union {
