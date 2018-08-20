@@ -5,9 +5,11 @@ class KernelSensor:
 # TODO: self.connect_string is currently unused
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
     def __init__(self,
+                 args,
                  socket_name = '/var/run/kernel_sensor',
                  target_sensor = '"Kernel PS Sensor"',
                  out_file = '-'):
+        self.args = args
         self.sock = 0
         self.out_file = 0
         self.in_file = 0
@@ -146,6 +148,30 @@ class KernelSensor:
            print >>sys.stderr, 'send_discovery_message: closing socket'
            self.sock.close()
 
+    def send_state_message(self):
+        try:
+            message_header = "{Virtue-protocol-version: 0.1, request: ["
+            message_nonce = uuid.uuid4().hex
+            message_command = self.args.state
+            message_footer = "]}"
+            print >> sys.stderr, 'sending "%s%s, %s, %s%s"' \
+                %(message_header, message_nonce, message_command, \
+                  self.target_sensor, message_footer)
+            self.sock.sendall("%s%s, %s, %s%s" \
+                              %(message_header, message_nonce, message_command, \
+                                self.target_sensor, message_footer))
+
+            self.sock.settimeout(0.5)
+            amount_received = 0
+            max_amount = 0x400
+            data = self.sock.recv(max_amount)
+            while len(data):
+                self.out_file.write("%s" %(data))
+                data = self.sock.recv(max_amount)
+
+        except:
+            print >>sys.stderr, 'send_records_message: closing socket'
+            self.sock.close()
     def send_records_message(self):
         try:
             message_header = "{Virtue-protocol-version: 0.1, request: ["
@@ -174,7 +200,7 @@ class KernelSensor:
 
 def client_main(args):
     usage_string = """usage: %s [--connect] [--discover] [--echo]
-                             [--socket <path>]""" % sys.argv[0]
+                             [--socket <path>] [...]""" % sys.argv[0]
     connect_string = "{Virtue-protocol-verion: 0.1}\n"
     parser = argparse.ArgumentParser(description=usage_string)
     parser.add_argument("-s", "--socket",
@@ -190,27 +216,32 @@ def client_main(args):
                         help = "test the controller's echo server")
     parser.add_argument("-r", "--records",
                         action = 'store_true',
-                        help="test the controller's echo server")
+                        help = "test the controller's echo server")
+    parser.add_argument("--state",
+                        help = "send a state change message (off, on, low, high, etc.)")
     parser.add_argument("--sensor",
                         help = "target sensor for message")
-    parser.add_argument("-f", "--file",
+    parser.add_argument("-o", "--outfile",
                         help = "output data to this file")
-    parser.add_argument("-i", "--input",
+    parser.add_argument("-i", "--infile",
                         help = "read input commands from this file")
 
     args = parser.parse_args()
-    sensor = KernelSensor()
+    sensor = KernelSensor(args)
 
     if args.socket:
         sensor.set_socket(args.socket)
     if args.sensor:
         sensor.set_target_sensor(args.sensor)
-    if args.file:
-        sensor.set_out_file(args.file)
-    if args.input:
-        sensor.set_in_file(args.input)
+    if args.outfile:
+        sensor.set_out_file(args.outfile)
+    if args.infile:
+        sensor.set_in_file(args.infile)
         sensor.run_input_file()
         sys.exit(0)
+
+    if args.state:
+        sensor.send_state_message()
 
     if args.records:
         sensor.send_records_message()
