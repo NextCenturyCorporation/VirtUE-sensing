@@ -7,6 +7,9 @@ controller-y := controller-common.o controller-interface.o lsof-sensor.o \
 	ps-sensor.o jsmn/jsmn.o sysfs-sensor.o jsonl-parse.o
 OBJECT_FILES_NON_STANDARD_controller-common.o := n
 
+.PHONY: default
+default: rebuild ;
+
 .PHONY: uname
 uname:
 	@./uname.sh

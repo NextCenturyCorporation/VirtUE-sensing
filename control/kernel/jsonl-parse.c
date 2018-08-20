@@ -401,7 +401,6 @@ process_state_request(struct jsmn_message *m, int index)
 	struct jsmn_message *s_reply = NULL;
 
 	struct state_request sreq = {
-		.json_msg = m,
 		.cmd = index,
 	};
 
@@ -442,7 +441,7 @@ process_state_request(struct jsmn_message *m, int index)
 			}
 			bytes = scnprintf(s_reply->line,
 							  s_reply->len - 1,
-							  "{%s, reply: [%s, %llu]}\n",
+							  "{%s, reply: [%s, %d]}\n",
 							  PROTOCOL_VERSION,
 							  s_reply->s->nonce,
 							  srep.state);

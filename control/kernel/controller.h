@@ -129,6 +129,7 @@ int parse_json_message(struct jsmn_message *m);
 void init_jsonl_parser(void);
 
 
+struct sensor;
 
 struct sensor_msg
 {
@@ -164,15 +165,13 @@ struct records_reply
  **/
 struct state_request
 {
-	struct jsmn_message *json_msg;
 	command  cmd; /* enum message_command */
-	uint64_t flags, state;
 };
 
 struct state_reply
 {
 	command cmd; /* enum message_command */
-	uint64_t state;
+	int state;
 };
 
 static inline void sleep(unsigned sec)

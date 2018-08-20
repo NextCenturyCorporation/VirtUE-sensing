@@ -49,19 +49,4 @@
 #define SENSOR_KLSOF             0x100
 #define SENSOR_KSYSFS            0x200
 
-/**
- * state flags, sensor.state
- * TODO: these are duplicated in enum message_command
- *       in controller.h
- **/
-#define SENSOR_LOW               0x01
-#define SENSOR_DEFAULT           0x02
-#define SENSOR_HIGH              0x04
-#define SENSOR_ADVERSARIAL       0x08
-#define SENSOR_OFF               0x10
-#define SENSOR_ON                0x20
-#define SENSOR_RESET             0x40
-#define SENSOR_INCREASE          0x80
-#define SENSOR_DECREASE          0x100
-#define SENSOR_INVOKE            0x200 /* simulate a direct function call */
 #endif
