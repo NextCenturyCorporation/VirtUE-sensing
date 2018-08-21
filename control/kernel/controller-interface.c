@@ -64,7 +64,7 @@ k_socket_write(struct socket *sock,
 	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
 	struct kvec iov = {.iov_base = out, .iov_len = size};
-	
+
 again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
 	if (res <= 0) {
@@ -240,12 +240,7 @@ k_echo_server(struct kthread_work *work)
 		}
 
 		m->socket = sock;
-/**
- * TODO: use an appropriately named variable to store
- *       return of parse_json_message
- **/
 		m->count = parse_json_message(m);
-		printk(KERN_DEBUG "message token count: %d", m->count);
 /**
  * TODO: if parse_json_message returns COMPLETE, close connection
  *       else if it returns 0, keep connection open

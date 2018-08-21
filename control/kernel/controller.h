@@ -50,6 +50,7 @@ enum message_command {CONNECT = 0, DISCOVERY, OFF, ON, INCREASE, DECREASE,
 					  RECORDS};
 typedef enum message_command command;
 
+extern uint8_t *cmd_strings[]; /* in controller-common.c */
 
 /* max message header size */
 #define CONNECTION_MAX_HEADER 0x400
@@ -173,6 +174,9 @@ struct state_reply
 	command cmd; /* enum message_command */
 	int state;
 };
+
+int
+process_state_message(struct sensor *sensor, struct sensor_msg *msg);
 
 static inline void sleep(unsigned sec)
 {
@@ -305,15 +309,15 @@ static inline void task_cputime(struct task_struct *t,
 
    members:
    anonymous union:
-      - lock is a spinlock, available as a mutex object if needed
-      - s_lock is a semaphore.
+   - lock is a spinlock, available as a mutex object if needed
+   - s_lock is a semaphore.
 
    - name is the non-unique identifier for the sensor type
    - uuid is a 128-bit binary uuid typedef
    - uuid_string is a 36 + 1 byte string that holds a parsed uuid string
 
    - struct sensor *(*init)(struct sensor * sensor,
-             uint8_t *name, int name_len)
+   uint8_t *name, int name_len)
    points to an initializing function that will prepare the sensor to run.
    It takes a pointer to sensor memory that has already been allocated,
    and a pointer to allocated memory containing the name of the sensor.
@@ -352,6 +356,7 @@ struct sensor {
 	struct sensor *(*init)(struct sensor *, uint8_t *, int);
 	void *(*destroy)(struct sensor *);
 	int (*message)(struct sensor *, struct sensor_msg *);
+	int (*state_change)(struct sensor *, struct sensor_msg *);
 	uint64_t flags, state;  /* see controller-flags.h */
 	int timeout, repeat;
 	struct kthread_worker worker;
@@ -510,16 +515,16 @@ struct kernel_ps_sensor {
 	int (*print)(struct kernel_ps_sensor *, uint8_t *, uint64_t, int);
 	int (*ps)(struct kernel_ps_sensor *, int, uint64_t);
 	struct kernel_ps_sensor *(*_init)(struct kernel_ps_sensor *,
-									 uint8_t *, int,
-		                             int (*print)(struct kernel_ps_sensor *,
-												  uint8_t *, uint64_t, int));
+									  uint8_t *, int,
+									  int (*print)(struct kernel_ps_sensor *,
+												   uint8_t *, uint64_t, int));
 	void *(*_destroy)(struct sensor *);
 };
 
 int
 kernel_ps_get_record(struct kernel_ps_sensor *parent,
-						 struct sensor_msg *msg,
-						 uint8_t *tag);
+					 struct sensor_msg *msg,
+					 uint8_t *tag);
 
 int
 kernel_ps_unlocked(struct kernel_ps_sensor *parent, uint64_t nonce);
@@ -527,9 +532,9 @@ int
 kernel_ps(struct kernel_ps_sensor *parent, int count, uint64_t nonce);
 struct kernel_ps_sensor *
 init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
-					 uint8_t *id, int id_len,
-					 int (*print)(struct kernel_ps_sensor *,
-								  uint8_t *, uint64_t, int));
+					  uint8_t *id, int id_len,
+					  int (*print)(struct kernel_ps_sensor *,
+								   uint8_t *, uint64_t, int));
 
 int
 print_kernel_ps(struct kernel_ps_sensor *parent,
@@ -548,7 +553,7 @@ controller_create_worker(unsigned int flags, const char namefmt[], ...);
 void controller_destroy_worker(struct kthread_worker *worker);
 
 struct sensor *init_sensor(struct sensor *sensor,
-						 uint8_t *name,  int name_size);
+						   uint8_t *name,  int name_size);
 void *destroy_sensor_work(struct kthread_work *work);
 void *destroy_k_sensor(struct sensor *sensor);
 
@@ -560,10 +565,10 @@ bool init_and_queue_work(struct kthread_work *work,
 void *destroy_sensor(struct sensor *sensor);
 
 /**
- ******************************************************************************
- * lsof sensor
- ******************************************************************************
- **/
+******************************************************************************
+* lsof sensor
+******************************************************************************
+**/
 
 
 
@@ -628,7 +633,7 @@ get_task_by_pid_number(pid_t pid);
  **/
 
 #define PID_EL_SIZE sizeof(pid_el)
-#define PID_APPARENT_ARRAY_SIZE \
+#define PID_APPARENT_ARRAY_SIZE											\
 	(FLEX_ARRAY_ELEMENTS_PER_PART(PID_EL_SIZE) * (FLEX_ARRAY_NR_BASE_PTRS))
 #define PID_EL_ARRAY_SIZE ((PID_APPARENT_ARRAY_SIZE) - 1)
 
@@ -674,12 +679,12 @@ struct kernel_lsof_sensor {
 	int (*print)(struct kernel_lsof_sensor *, uint8_t *, uint64_t);
 	int (*lsof)(struct kernel_lsof_sensor *, uint64_t);
 	struct kernel_lsof_sensor *(*_init)(struct kernel_lsof_sensor *,
-									   uint8_t *, int,
-									   int (*print)(struct kernel_lsof_sensor *,
-													uint8_t *, uint64_t),
-									   int (*filter)(struct kernel_lsof_sensor *,
-													 struct kernel_lsof_data *,
-													 void *));
+										uint8_t *, int,
+										int (*print)(struct kernel_lsof_sensor *,
+													 uint8_t *, uint64_t),
+										int (*filter)(struct kernel_lsof_sensor *,
+													  struct kernel_lsof_data *,
+													  void *));
 	void *(*_destroy)(struct sensor *);
 };
 
@@ -711,7 +716,7 @@ int lsof_pid_filter(struct kernel_lsof_sensor *p,
 
 int
 lsof_all_files(struct kernel_lsof_sensor *p,
-				   struct kernel_lsof_data *d,
+			   struct kernel_lsof_data *d,
 			   void *cmp);
 
 
@@ -737,22 +742,22 @@ run_klsof_probe(struct kthread_work *work);
 
 struct kernel_lsof_sensor *
 init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
-					   uint8_t *id, int id_len,
-					   int (*print)(struct kernel_lsof_sensor *,
-									uint8_t *, uint64_t),
-					   int (*filter)(struct kernel_lsof_sensor *,
-									 struct kernel_lsof_data *,
-									 void *));
+						uint8_t *id, int id_len,
+						int (*print)(struct kernel_lsof_sensor *,
+									 uint8_t *, uint64_t),
+						int (*filter)(struct kernel_lsof_sensor *,
+									  struct kernel_lsof_data *,
+									  void *));
 
 
 void *
 destroy_kernel_lsof_sensor(struct sensor *sensor);
 
 /**
- ****************************************************************************
- * sysfs sensor
- ****************************************************************************
- **/
+****************************************************************************
+* sysfs sensor
+****************************************************************************
+**/
 
 extern int sysfs_repeat;
 extern int sysfs_timeout;
@@ -797,12 +802,12 @@ struct kernel_sysfs_sensor {
 	int (*ksysfs)(struct kernel_sysfs_sensor *, int, uint64_t);
 	int (*kernel_lsof)(struct kernel_lsof_sensor *parent, int count, uint64_t nonce);
 	struct kernel_sysfs_sensor *(*_init)(struct kernel_sysfs_sensor *,
-										uint8_t *, int,
-										int (*print)(struct kernel_sysfs_sensor *,
-													 uint8_t *, uint64_t, int),
-										int (*filter)(struct kernel_sysfs_sensor *,
-													  struct kernel_sysfs_data *,
-													  void *));
+										 uint8_t *, int,
+										 int (*print)(struct kernel_sysfs_sensor *,
+													  uint8_t *, uint64_t, int),
+										 int (*filter)(struct kernel_sysfs_sensor *,
+													   struct kernel_sysfs_data *,
+													   void *));
 	void *(*_destroy)(struct sensor *);
 };
 
@@ -847,12 +852,12 @@ kernel_sysfs(struct kernel_sysfs_sensor *, int, uint64_t);
 
 struct kernel_sysfs_sensor *
 init_sysfs_sensor(struct kernel_sysfs_sensor *,
-				 uint8_t *, int,
-				 int (*print)(struct kernel_sysfs_sensor *,
-							  uint8_t *, uint64_t, int),
-				 int (*filter)(struct kernel_sysfs_sensor *,
-							   struct kernel_sysfs_data *,
-							   void *));
+				  uint8_t *, int,
+				  int (*print)(struct kernel_sysfs_sensor *,
+							   uint8_t *, uint64_t, int),
+				  int (*filter)(struct kernel_sysfs_sensor *,
+								struct kernel_sysfs_data *,
+								void *));
 
 void *
 destroy_sysfs_sensor(struct sensor *sensor);
@@ -899,7 +904,7 @@ uint64_t update_probe(uint8_t *probe_id,
 uint8_t *register_sensor(struct kernel_sensor *s);
 int unregister_sensor(uint8_t *sensor_id);
 uint8_t *list_sensors(uint8_t *filter);
-#define DMSG() \
+#define DMSG()															\
 	printk(KERN_INFO "DEBUG: kernel-sensor Passed %s %d \n",__FUNCTION__,__LINE__);
 
 #endif // CONTROLLER_H

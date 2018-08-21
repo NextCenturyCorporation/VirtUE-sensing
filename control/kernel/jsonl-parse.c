@@ -431,8 +431,13 @@ process_state_request(struct jsmn_message *m, int index)
 		return ccode;
 	}
 	if (!ccode && sensor_p != NULL) {
+	    /**
+	     * sensor is LOCKED
+	     **/
 		ccode = sensor_p->message(sensor_p, &sm);
-		if (ccode > 0) {
+		/* UNLOCK sensor! */
+		spin_unlock(&sensor_p->lock);
+		if (ccode >= 0) {
 			int bytes = 0;
 			s_reply = allocate_reply_message(m, m->len * 2);
 			if (!s_reply) {
@@ -441,11 +446,10 @@ process_state_request(struct jsmn_message *m, int index)
 			}
 			bytes = scnprintf(s_reply->line,
 							  s_reply->len - 1,
-							  "{%s, reply: [%s, %d]}\n",
+							  "{%s, reply: [%s, %s]}\n",
 							  PROTOCOL_VERSION,
 							  s_reply->s->nonce,
-							  srep.state);
-
+							  cmd_strings[srep.state]);
 			s_reply->line = krealloc(s_reply->line, bytes + 1, GFP_KERNEL);
 			s_reply->len = bytes + 1;
 			spin_lock(&s_reply->s->sl);

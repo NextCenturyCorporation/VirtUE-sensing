@@ -103,6 +103,22 @@ long max_size = (~0UL >> 1);
 module_param(max_size, long, 0644);
 MODULE_PARM_DESC(max_size, "largest file buffer to allocate");
 
+/**
+ * strings correspond to enum message_command in controller.h
+ **/
+uint8_t *cmd_strings[] = {"Connect",
+						  "Discovery",
+						  "Off",
+						  "On",
+						  "Increase",
+						  "Decrease",
+						  "Low",
+						  "Default",
+						  "High",
+						  "Adversarial",
+						  "Reset",
+						  "Records"};
+
 int
 file_getattr(struct file *f, struct kstat *k)
 {
@@ -403,6 +419,8 @@ get_sensor(uint8_t *key, struct sensor **sensor)
 name_search:
 	ccode = get_sensor_name(key, sensor);
 	if (ccode == -EAGAIN) {
+		DMSG();
+
 		schedule();
 		goto name_search;
 	}
@@ -506,6 +524,129 @@ exit:
 	rcu_read_unlock();
 	return ccode;
 }
+
+
+/**
+ * common (default) state message processing
+ *
+ * this is a default message processor that only changes the
+ * state variable(s) in a sensor.
+ *
+ * each sensor must have its own routine to process state messages,
+ * and its expected that sensors will eventually process state
+ * messages in unique ways. (evolve from this default routine.)
+ *
+ * this routine acts as a notification mechanisms to allow the
+ * sensor to make any active changes it requires to effect the
+ * new state.
+ *
+ * It will not process discovery or record messages.
+ **/
+int
+process_state_message(struct sensor *sensor, struct sensor_msg *msg)
+{
+	int ccode = 0;
+	struct state_request *sreq = msg->input;
+	struct state_reply *srep = msg->output;
+	srep->cmd = sreq->cmd;
+
+	switch(sreq->cmd) {
+	case OFF:
+	{
+		sensor->repeat = 0;
+		srep->state = OFF;
+		break;
+	}
+
+	case ON:
+	{
+		sensor->repeat = INT_MAX;
+		srep->state = ON;
+		break;
+	}
+	case LOW:
+	{
+	low_new_state:
+		sensor->state = LOW;
+		sensor->timeout = 3600; /* one hour */
+		srep->state = LOW;
+		break;
+	}
+	case DEFAULT:
+	{
+	default_new_state:
+		sensor->state = DEFAULT;
+		sensor->timeout = 300; /* five minutes */
+		srep->state = DEFAULT;
+		break;
+	}
+	case HIGH:
+	{
+	high_new_state:
+		sensor->state = HIGH;
+		sensor->timeout = 10; /* 10 seconds */
+		srep->state = HIGH;
+		break;
+	}
+	case ADVERSARIAL:
+	{
+	adversarial_new_state:
+		sensor->state = ADVERSARIAL;
+		sensor->timeout = 1; /* 1 second */
+		srep->state = ADVERSARIAL;
+		break;
+	}
+
+	case INCREASE:
+	{
+		if (sensor->state >= ADVERSARIAL) {
+			srep->state = ADVERSARIAL;
+			break;
+		}
+
+		++sensor->state;
+		if (sensor->state == DEFAULT)
+			goto default_new_state;
+		else if (sensor->state == HIGH)
+			goto high_new_state;
+		else if (sensor->state == ADVERSARIAL)
+			goto adversarial_new_state;
+
+		break;
+	}
+
+	case DECREASE:
+	{
+		if (sensor->state <= LOW) {
+			srep->state = LOW;
+			break;
+		}
+
+		sreq->cmd = --sensor->state;
+		if (sreq->cmd == HIGH)
+			goto high_new_state;
+		else if (sreq->cmd == DEFAULT)
+			goto default_new_state;
+		else if (sreq->cmd == LOW)
+			goto low_new_state;
+
+		break;
+	}
+
+	case RESET:
+	{
+		sreq->cmd = DEFAULT;
+		goto default_new_state;
+
+	}
+
+	default:
+		srep->state = -EINVAL;
+	}
+	return ccode;
+}
+
+
 
 /**
  * The discovery buffer needs to be a formatted as a JSON array,
@@ -892,6 +1033,8 @@ struct sensor *init_sensor(struct sensor *sensor,
 	sensor->init =  init_sensor;
 	sensor->destroy = destroy_sensor;
 	sensor->message = default_sensor_message;
+	sensor->state_change = process_state_message;
+
 	if (name && name_size > 0) {
 		sensor->name = kzalloc(name_size, GFP_KERNEL);
 		if (!sensor->name) {
@@ -912,6 +1055,7 @@ struct sensor *init_sensor(struct sensor *sensor,
 	sensor->lock=__SPIN_LOCK_UNLOCKED("sensor");
 	/* flags, timeout, repeat are zero'ed */
 	/* sensor_work is NULL */
+	sensor->state = DEFAULT;
 
 	__SET_FLAG(sensor->flags, SENSOR_INITIALIZED);
 	return sensor;
