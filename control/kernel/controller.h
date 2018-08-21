@@ -31,8 +31,8 @@
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
 
-#define PROTOCOL_VERSION "Virtue-protocol-version: 0.1"
-#define SESSION_RESPONSE "{Virtue-protocol-version: 0.1}\n\0"
+#define PROTOCOL_VERSION "\"Virtue-protocol-version\": 0.1"
+#define SESSION_RESPONSE "{\"Virtue-protocol-version\": 0.1}\n\0"
 
 extern int print_to_log;
 extern atomic64_t SHOULD_SHUTDOWN;

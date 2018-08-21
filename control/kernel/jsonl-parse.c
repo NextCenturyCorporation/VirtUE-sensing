@@ -609,7 +609,7 @@ process_discovery_request(struct jsmn_message *m, int index)
  **/
 	struct jsmn_message *reply_msg = NULL;
 	uint8_t *probe_ids = NULL;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", \"reply\": [";
 	size_t probe_ids_len = 0;
 	int ccode = 0;
 
@@ -652,39 +652,18 @@ process_discovery_request(struct jsmn_message *m, int index)
 	} else {
 		/**
 	     * build the JSONL buffer
-	     * '{Virtue-protocol-verion: 0.1, reply: [nonce, discovery, [probe ids]] }\n'
 	     **/
 		ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
-		ssize_t cur_len = strlcat(reply_msg->line, r_header, orig_len);
-		if (unlikely(cur_len >= orig_len)) {
-			goto out_reply_msg;
-		}
 
-		if ( unlikely(strlcat(reply_msg->line,
-							  reply_msg->s->nonce,
-							  orig_len) >= orig_len)) {
-			goto out_reply_msg;
-		}
+		orig_len = scnprintf(reply_msg->line,
+							orig_len,
+							"%s\"%s\", \"discovery\", %s]}\n",
+							r_header,
+							reply_msg->s->nonce,
+							probe_ids);
 
-		if (unlikely(strlcat(reply_msg->line,
-							 ", discovery, ",
-							 orig_len) >= orig_len)) {
-			goto out_reply_msg;
-		}
 
-		if (unlikely(strlcat(reply_msg->line,
-							 probe_ids,
-							 orig_len) >= orig_len)) {
-			goto out_reply_msg;
-		}
-
-		if (unlikely((cur_len = strlcat(reply_msg->line,
-										"] }\n",
-										orig_len)) >= orig_len)) {
-			goto out_reply_msg;
-		}
-
-		reply_msg->line = krealloc(reply_msg->line, cur_len + 1, GFP_KERNEL);
+		reply_msg->line = krealloc(reply_msg->line, orig_len + 1, GFP_KERNEL);
 
 		/**
 		 * link the discovery reply message to the session

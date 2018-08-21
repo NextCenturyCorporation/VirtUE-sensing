@@ -16,6 +16,7 @@ class KernelSensor:
         self.target_sensor = target_sensor
         self.set_socket(socket_name)
         self.set_out_file(out_file)
+        self.protocol_version = 0.1
 
     def set_socket(self, socket_name):
         if self.sock:
@@ -131,12 +132,11 @@ class KernelSensor:
 # '{Virtue-protocol-verion: 0.1, request: [nonce, discovery, *]}'
     def send_discovery_message(self):
        try:
-           message_header = "{Virtue-protocol-version: 0.1, request: ["
-           message_nonce = uuid.uuid4().hex
-           message_footer = ", discovery, *]}"
-           print >>sys.stderr, 'sending "%s%s%s"' \
-               %(message_header, message_nonce, message_footer)
-           self.sock.sendall("%s%s%s" %(message_header, message_nonce, message_footer))
+           json_message = {'Virtue-protocol-version': self.protocol_version,
+                           'request': [ uuid.uuid4().hex, 'discovery', '*' ]}
+
+           print >> sys.stderr, json.dumps(json_message, sort_keys = True)
+           self.sock.sendall(json.dumps(json_message, sort_keys = True))
 
            amount_received = 0
            max_amount = 0x400
