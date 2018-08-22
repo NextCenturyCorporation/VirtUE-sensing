@@ -70,22 +70,6 @@ class KernelSensor:
             except:
                 print >> sys.stderr, "Not a valid JSON object %s" %(line)
 
-    def json_connect(self):
-        try:
-            message = "{Virtue-protocol-version: 0.1}\n\0"
-            print >>sys.stderr, 'sending "%s"' % message
-            self.sock.sendall(message)
-
-            amount_received = 0
-            max_amount = 0x400
-
-            data = self.sock.recv(max_amount)
-            amount_received = len(data)
-            print >>sys.stderr, 'received "%s"' % data
-        except:
-            print >>sys.stderr, 'json_connect: closing socket'
-            self.sock.close()
-
     def send_echo_test(self):
         echo_response = subprocess.check_output('uname -r', shell=True)
         print >> sys.stderr, "response expected: %s" % echo_response
@@ -101,26 +85,6 @@ class KernelSensor:
             data = self.sock.recv(max_amount)
             amount_received = len(data)
             print >>sys.stderr, 'received "%s"' % data
-        except:
-            print >>sys.stderr, 'send_discover_test: closing socket'
-            self.sock.close()
-
-
-# send a discovery test message
-# not a proper json discover message, but tests building
-# a list of all running probes and returning that list as a json array
-    def send_discovery_test(self):
-        try:
-            message = 'discover\0'
-            print >>sys.stderr, 'sending "%s"' % message
-            self.sock.sendall(message)
-
-            amount_received = 0
-            max_amount = 0x400
-            data = self.sock.recv(max_amount)
-            amount_received = len(data)
-            print >>sys.stderr, 'discovery test received "%s"' % data
-
         except:
             print >>sys.stderr, 'send_discover_test: closing socket'
             self.sock.close()
@@ -186,15 +150,10 @@ class KernelSensor:
 
 
 def client_main(args):
-    usage_string = """usage: %s [--connect] [--discover] [--echo]
-                             [--socket <path>] [...]""" % sys.argv[0]
-    connect_string = "{Virtue-protocol-verion: 0.1}\n"
+    usage_string = """usage: %s [...]""" % sys.argv[0]
     parser = argparse.ArgumentParser(description=usage_string)
     parser.add_argument("-s", "--socket",
                         help = "path to domain socket")
-    parser.add_argument("-c", "--connect",
-                        action = "store_true",
-                        help = "issue a JSON connect message")
     parser.add_argument("-d", "--discover",
                         action = 'store_true',
                         help = "retrieve a JSON array of loaded probes (not a full json exchange)")
@@ -238,9 +197,6 @@ def client_main(args):
 
     if args.echo:
         sensor.send_echo_test()
-
-    if args.connect:
-        sensor.json_connect()
 
 if __name__ == "__main__":
     import argparse
