@@ -165,7 +165,7 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 						rp->records_len - 1,
 						"%s \'%s\', \'%s\', \'%s\', \'%s\',"
 						"\'uid: %d pid: %d flags: %x "
-						"mode: %x count: %lx %s\']}\n",
+						"mode: %x count: %ld %s\']}\n",
 						r_header,
 						rr->json_msg->s->nonce,
 						parent->name,

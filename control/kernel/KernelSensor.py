@@ -2,8 +2,6 @@
 import socket, sys, os, subprocess, uuid, io, json
 
 class KernelSensor:
-# TODO: self.connect_string is currently unused
-    connect_string = "{Virtue-protocol-verion: 0.1}\n"
     def __init__(self,
                  args,
                  socket_name = '/var/run/kernel_sensor',
