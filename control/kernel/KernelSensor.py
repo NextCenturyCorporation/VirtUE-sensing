@@ -142,8 +142,7 @@ class KernelSensor:
            max_amount = 0x400
            data = self.sock.recv(max_amount)
            amount_received = len(data)
-           self.out_file.write("%s" %(data))
-
+           self.out_file.write("%s\n" %(data))
        except:
            print >>sys.stderr, 'send_discovery_message: closing socket'
            self.sock.close()

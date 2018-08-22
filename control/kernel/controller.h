@@ -31,8 +31,8 @@
 #define _MODULE_AUTHOR "Michael D. Day II <mike.day@twosixlabs.com>"
 #define _MODULE_INFO "In-Virtue Kernel Controller"
 
-#define PROTOCOL_VERSION "\"Virtue-protocol-version\": 0.1"
-#define SESSION_RESPONSE "{\"Virtue-protocol-version\": 0.1}\n\0"
+#define PROTOCOL_VERSION "\'Virtue-protocol-version\': 0.1"
+#define SESSION_RESPONSE "{\'Virtue-protocol-version\': 0.1}\n\0"
 
 extern int print_to_log;
 extern atomic64_t SHOULD_SHUTDOWN;
@@ -41,7 +41,8 @@ extern long chunk_size;
 
 
 enum json_array_chars {
-	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d
+	L_BRACKET = 0x5b, SPACE = 0x20, D_QUOTE = 0x22, COMMA = 0x2c, R_BRACKET = 0x5d,
+	S_QUOTE = 0x27
 };
 
 #define NUM_COMMANDS 12

@@ -609,7 +609,7 @@ process_discovery_request(struct jsmn_message *m, int index)
  **/
 	struct jsmn_message *reply_msg = NULL;
 	uint8_t *probe_ids = NULL;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", \"reply\": [";
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", \'reply\': [";
 	size_t probe_ids_len = 0;
 	int ccode = 0;
 
@@ -657,7 +657,7 @@ process_discovery_request(struct jsmn_message *m, int index)
 
 		orig_len = scnprintf(reply_msg->line,
 							orig_len,
-							"%s\"%s\", \"discovery\", %s]}\n",
+							"%s\'%s\', \'discovery\', %s]}",
 							r_header,
 							reply_msg->s->nonce,
 							probe_ids);

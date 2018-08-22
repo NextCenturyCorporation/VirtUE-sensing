@@ -736,16 +736,16 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 				*cursor++ = SPACE;
 			}
 			*cursor++ = L_BRACKET;
-			*cursor++ = D_QUOTE;
+			*cursor++ = S_QUOTE;
 			strncpy(cursor, s_cursor->name, remaining - 3);
 			cursor += strlen(s_cursor->name);
-			*cursor++ = D_QUOTE;
+			*cursor++ = S_QUOTE;
 			*cursor++ = COMMA;
 			*cursor++ = SPACE;
-			*cursor++ = D_QUOTE;
+			*cursor++ = S_QUOTE;
 			snprintf(cursor, UUID_STRING_LEN + 1, "%pUb", &s_cursor->uuid);
 			cursor += UUID_STRING_LEN;
-			*cursor++ = D_QUOTE;
+			*cursor++ = S_QUOTE;
 			*cursor++ = R_BRACKET;
 			count++;
 			remaining -= (cursor - last_entry);
