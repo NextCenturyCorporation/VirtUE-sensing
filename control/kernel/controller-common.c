@@ -456,9 +456,18 @@ get_sensor_name(uint8_t *sensor_name, struct sensor **sensor)
 		return -EINVAL;
 	}
 
+
+
 	rcu_read_lock();
 	list_for_each_entry_rcu(sensor_p, &k_sensor.sensors, l_node) {
-		if (! strncmp(sensor_p->name, sensor_name, name_len)) {
+		if (strlen(sensor_p->name) == name_len &&
+			!strncmp(sensor_p->name, sensor_name, name_len)) {
+/**
+ * do not allow partial name matches. e.g., disallow
+ * "Kernel" from matching "Kernel PS Sensor." Both
+ * the search name and the sensor name should be of
+ * the same length.
+ **/
 			if(!spin_trylock(&sensor_p->lock)) {
 				ccode =  -EAGAIN;
 				goto exit;

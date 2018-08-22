@@ -88,7 +88,7 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 		 **/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s, %s]}\n",
+							"%s \'%s\', \'%s\', \'%s\']}\n",
 							r_header,
 							rr->json_msg->s->nonce,
 							parent->name,
@@ -102,7 +102,8 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 	 **/
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s, %s, %d %s %d %d %llx ]}\n",
+						"%s \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', \'%s\'. \'%d\',"
+                        "\'%d\', \'%llx\']}\n",
 						r_header, rr->json_msg->s->nonce, parent->name,
 						tag, parent->uuid_string, rr->index, kpsd_p->comm,
 						kpsd_p->pid_nr, kpsd_p->user_id.val, rr->nonce);

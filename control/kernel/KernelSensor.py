@@ -7,7 +7,7 @@ class KernelSensor:
     def __init__(self,
                  args,
                  socket_name = '/var/run/kernel_sensor',
-                 target_sensor = '"Kernel PS Sensor"',
+                 target_sensor = "Kernel PS Sensor",
                  out_file = '-'):
         self.args = args
         self.sock = 0
@@ -149,16 +149,11 @@ class KernelSensor:
 
     def send_state_message(self):
         try:
-            message_header = "{Virtue-protocol-version: 0.1, request: ["
-            message_nonce = uuid.uuid4().hex
-            message_command = self.args.state
-            message_footer = "]}"
-            print >> sys.stderr, 'sending "%s%s, %s, %s%s"' \
-                %(message_header, message_nonce, message_command, \
-                  self.target_sensor, message_footer)
-            self.sock.sendall("%s%s, %s, %s%s" \
-                              %(message_header, message_nonce, message_command, \
-                                self.target_sensor, message_footer))
+            json_message = {'Virtue-protocol-version': self.protocol_version,
+                           'request': [ uuid.uuid4().hex, self.args.state,
+                                        self.target_sensor]}
+            print >> sys.stderr, json.dumps(json_message, sort_keys = True)
+            self.sock.sendall(json.dumps(json_message, sort_keys = True))
 
             self.sock.settimeout(0.5)
             amount_received = 0
@@ -173,16 +168,11 @@ class KernelSensor:
             self.sock.close()
     def send_records_message(self):
         try:
-            message_header = "{Virtue-protocol-version: 0.1, request: ["
-            message_nonce = uuid.uuid4().hex
-            message_command = ", records, "
-            message_footer = "]}"
-            print >> sys.stderr, 'sending "%s%s%s%s%s"' \
-                %(message_header, message_nonce, message_command, \
-                  self.target_sensor, message_footer)
-            self.sock.sendall("%s%s%s%s%s" \
-                              %(message_header, message_nonce, message_command, \
-                                self.target_sensor, message_footer))
+            json_message = {'Virtue-protocol-version': self.protocol_version,
+                           'request': [ uuid.uuid4().hex, 'records',
+                                        self.target_sensor]}
+            print >> sys.stderr, json.dumps(json_message, sort_keys = True)
+            self.sock.sendall(json.dumps(json_message, sort_keys = True))
 
             self.sock.settimeout(0.5)
             amount_received = 0

@@ -47,8 +47,8 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	ssize_t cur_len = 0, raw_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;
 	struct records_reply *rp = (struct records_reply *)msg->output;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
-	uint8_t * raw_header = "{type: raw, length: ";
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", \'reply\': [";
+	uint8_t * raw_header = "{\'type\': \'raw\', \'length\': ";
 
 	assert(p);
 	assert(msg);
@@ -84,7 +84,7 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	**/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s, %s ]}\n",
+							"%s \'%s\', \'%s\', \'%s\']}\n",
 							r_header,
 							rr->json_msg->s->nonce,
 							p->name,
@@ -102,7 +102,8 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s, %s, %d %x %s %s %lx}]}\n",
+						"%s \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', "
+						"\'%x\', \'%s\', %s \'%lx\'}]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
 						p->name,
