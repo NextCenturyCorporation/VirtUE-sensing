@@ -97,6 +97,63 @@ Exit:
 	return success;
 }
 
+
+/**
+* @brief Start the ImageLoadProbe by setting the notification callback
+* @returns TRUE if successfully installed the notification routine callback
+*/
+_Use_decl_annotations_
+BOOLEAN AbstractVirtueProbe::Start()
+{
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	if (TRUE == this->Enabled)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %w already enabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
+
+	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
+	{
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %w not enabled at start - probe is registered but not active\n",
+			&this->ProbeName);
+		goto ErrorExit;
+	}
+
+	// we can proceed with the start iff we are not already enabled and we 
+	// are to be enabled at start
+	Status = STATUS_SUCCESS;
+
+ErrorExit:
+
+	return NT_SUCCESS(Status);
+}
+
+/**
+* @brief Stop the ImageLoadProbe by unsetting the notification callback
+* @returns TRUE if successfully removed the notification routine callback
+*/
+_Use_decl_annotations_
+BOOLEAN AbstractVirtueProbe::Stop()
+{
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	if (FALSE == this->Enabled)
+	{
+		Status = STATUS_SUCCESS;
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
+			"Probe %w already disabled - continuing!\n", &this->ProbeName);
+		goto ErrorExit;
+	}
+
+	Status = STATUS_SUCCESS;
+
+ErrorExit:
+
+	return NT_SUCCESS(Status);
+}
 /**
 * @brief called by system thread if polled thread has expired
 * @return NTSTATUS of this running of the probe

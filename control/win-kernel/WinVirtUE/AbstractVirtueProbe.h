@@ -93,4 +93,5 @@ public:
 	virtual const UUID& GetProbeId() { return this->ProbeId; }
 	/** returns the registration state */
 	virtual const BOOLEAN& GetIsRegistered() { return this->Registered; }	
+	virtual const BOOLEAN IsEnabledAtStart() { return (this->Attributes & ProbeAttributes::EnabledAtStart) == ProbeAttributes::EnabledAtStart; }
 };
