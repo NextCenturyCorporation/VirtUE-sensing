@@ -396,6 +396,15 @@ STACK_FRAME_NON_STANDARD(k_read_write);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 
+/**
+ * NOTE: k_poll is unused. It is intended to be a replacement for
+ * k_accept, which works perfectly fine. k_poll would be slightly more
+ * efficient and responsive, but more complex. It isn't tested.
+ *
+ * -mdd
+ **/
+
+
 static void k_poll(struct kthread_work *work)
 {
 
