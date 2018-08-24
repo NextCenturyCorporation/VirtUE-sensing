@@ -149,3 +149,30 @@ a specific message handler during its sensor initialization. For
 example, see the kernel module functions `init_sensor` and
 `init_kernel_ps_sensor`.
 
+
+## records
+
+The records message will retrieve current sensing records from the
+_target sensor_. At present, sending a _records request_ will
+automatically cause the sensor to run and collect new records,
+clearing old records.
+
+See the docment `savior/control/kernel/messages.md` for the format of
+the `records` request and response messages.
+
+    [mdday@localhost kernel]$ sudo ./KernelSensor.py -r
+    connecting to /var/run/kernel_sensor
+    attempting to open - as output file
+    {"Virtue-protocol-version": 0.1, "request": ["17ab9fd684d94338840fc4c38a4f0883", "records", "Kernel PS Sensor"]}
+    {'Virtue-protocol-version': 0.1, reply:
+    [ '17ab9fd684d94338840fc4c38a4f0883', 'Kernel PS Sensor', 'kernel-ps', '2ae5fe83-b8f1-4f96-b6d4-44e5bdadc316', '0', 'systemd'. '1','0', '1d41195975c33b89']}
+
+    ...
+
+    {'Virtue-protocol-version': 0.1, reply: [ '17ab9fd684d94338840fc4c38a4f0883', 'Kernel PS Sensor', 'kernel-ps', '2ae5fe83-b8f1-4f96-b6d4-44e5bdadc316', '215', 'kcontrol read &'. '24202','0', '1d41195975c33b89']}
+    {'Virtue-protocol-version': 0.1, reply: [ '17ab9fd684d94338840fc4c38a4f0883', 'Kernel PS Sensor', '2ae5fe83-b8f1-4f96-b6d4-44e5bdadc316']}
+    send_records_message: closing socket
+
+
+The last `records` response is always empty, signifying that the
+`records` request is complete.
