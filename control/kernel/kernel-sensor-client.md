@@ -109,3 +109,43 @@ discovery request and reply fields.)
     ['Kernel PS Sensor', '2ae5fe83-b8f1-4f96-b6d4-44e5bdadc316']]]}
 
 
+## state
+
+The state message is a multi-purpose message that can cause a specific
+sensor to undergo a state change. Supported state changes are:
+
+* off
+* on
+* increase (sensing level)
+* decrease (sensing level)
+* low
+* default
+* high
+* adversarial
+* reset
+
+Here is an example of sending a state change (increase) message to the
+default target sensor (Kernel PS Sensor):
+
+    [mdday@localhost kernel]$ sudo ./KernelSensor.py --state increase
+    connecting to /var/run/kernel_sensor
+    attempting to open - as output file
+    {"Virtue-protocol-version": 0.1, "request": ["19b19880dc874fd9b634d5ded8e466f0", "increase", "Kernel PS Sensor"]}
+    {'Virtue-protocol-version': 0.1, reply: [19b19880dc874fd9b634d5ded8e466f0, Adversarial]}
+
+The Kernel PS Sensor increased its state one level from _high_ to
+_adversarial_.
+
+Each sensing level has configurable runtime parameters associated with
+it. These are currently controlled by the function
+`process_state_message` in the kernel module file
+`controller-common.c`. These parameters are also controllable via the
+linux kernel sysfs file system. See lines 62-104 of
+`controller-common.c` and the `module_param` macros.
+
+`process_state_message` is a shared message handler, meaning it is the
+default for all three current sensors. Each sensor may replace it with
+a specific message handler during its sensor initialization. For
+example, see the kernel module functions `init_sensor` and
+`init_kernel_ps_sensor`.
+
