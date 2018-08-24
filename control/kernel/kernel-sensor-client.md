@@ -187,3 +187,17 @@ The _target sensor_ may be addressed by either a _name_ (e.g., "Kernel
 PS Sensor") or an _instance UUID_. The _name_ is human readable, but
 the _instance UUID_ is guaranteed to be unique in case there are two
 or more sensors with the same name running on the server.
+
+The _instance UUID_ is always part of the `discovery` response message
+for each active sensor.
+
+Here is an example of sending a `state` message to a sensor using an
+_instance UUID_:
+
+    [mdday@localhost kernel]$ sudo ./KernelSensor.py --sensor '3180ed42-59d5-4bd8-88e6-1ddb92e8fadf' --state default
+    connecting to /var/run/kernel_sensor
+    attempting to open - as output file
+    {"Virtue-protocol-version": 0.1, "request": ["b384a8f896834e1f9a7eb18ac14b6459", "default", "3180ed42-59d5-4bd8-88e6-1ddb92e8fadf"]}
+    {'Virtue-protocol-version': 0.1, reply: [b384a8f896834e1f9a7eb18ac14b6459, Default]}
+    send_records_message: closing socket
+
