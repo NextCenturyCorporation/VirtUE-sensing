@@ -176,3 +176,14 @@ the `records` request and response messages.
 
 The last `records` response is always empty, signifying that the
 `records` request is complete.
+
+## target sensor
+
+The `state` and `records` messages are always targeted to a specific
+sensor instance. This is the _target sensor_, and is controlled by the
+`--sensor` parameter.
+
+The _target sensor_ may be addressed by either a _name_ (e.g., "Kernel
+PS Sensor") or an _instance UUID_. The _name_ is human readable, but
+the _instance UUID_ is guaranteed to be unique in case there are two
+or more sensors with the same name running on the server.
