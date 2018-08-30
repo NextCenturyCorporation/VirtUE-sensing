@@ -29,8 +29,6 @@
 
 
 
-
-
 /**
  * probe is LOCKED upon entry
  **/
@@ -43,8 +41,15 @@ lsof_message(struct sensor *sensor, struct sensor_msg *msg)
 									  msg,
 									  "kernel-lsof");
 	}
+
 	default:
-		return -EINVAL;
+	{
+		/**
+		 * process_state_message will cause invalid msg->id codes
+		 * to fail with -EINVAL
+		 **/
+		return sensor->state_change(sensor, msg);
+	}
 	}
 }
 
@@ -140,7 +145,7 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 		 **/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s, %s]}\n",
+							"%s \'%s\', \'%s\', \'%s\']}\n",
 							r_header,
 							rr->json_msg->s->nonce,
 							parent->name,
@@ -158,8 +163,9 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s, %s, uid: %d pid: %d flags: %x "
-						"mode: %x count: %lx %s]}\n",
+						"%s \'%s\', \'%s\', \'%s\', \'%s\',"
+						"\'uid: %d pid: %d flags: %x "
+						"mode: %x count: %ld %s\']}\n",
 						r_header,
 						rr->json_msg->s->nonce,
 						parent->name,
@@ -248,16 +254,17 @@ lsof_get_files_struct(struct kernel_lsof_sensor *p,
 	struct file *file;
 	struct fdtable *files_table;
 
-	files = t->files;
 
-	if(!files) {
+	if (! pid_alive(t) || ! t->files) {
  		/**
  		 * occasionally there will be a dead task_struct
  		 * due to timing issues.
  		 **/
- 		printk(KERN_INFO "task has no files_struct: %d\n", t->pid);
+ 		printk(KERN_INFO "task pid is dead: %d\n", t->pid);
  		return 0;
  	}
+	files = t->files;
+
 	memset(&klsofd, 0x00, sizeof(struct kernel_lsof_data));
 	files_table = t->files->fdt;
 
@@ -313,7 +320,7 @@ lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
 				break;
 			}
 			task = get_task_by_pid_number(pid_el_p->pid);
-			if (task) {
+			if (task && pid_alive(task)) {
 				ccode = lsof_get_files_struct(p,
 											  task,
 											  &file_index,
