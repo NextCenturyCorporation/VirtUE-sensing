@@ -40,8 +40,12 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"ImageLoadProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Start the image load probe
-	NT_ASSERTMSG("Failed to start the image load probe!", TRUE == pILP->Start());
+
+	if (TRUE == pILP->IsEnabledAtStart())
+	{
+		// Start the image load probe
+		NT_ASSERTMSG("Failed to start the image load probe!", TRUE == pILP->Start());
+	}
 
 	// Make ready the process create probe
 	pPCP = new ProcessCreateProbe();
@@ -52,8 +56,12 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"ProcessCreateProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Start the process create probe
-	NT_ASSERTMSG("Failed to start the process create probe!", TRUE == pPCP->Start());
+
+	if (TRUE == pPCP->IsEnabledAtStart())
+	{
+		// Start the process create probe
+		NT_ASSERTMSG("Failed to start the process create probe!", TRUE == pPCP->Start());
+	}
 
 	// Make ready the process list validation probe
 	pPLVP = new ProcessListValidationProbe();
@@ -64,8 +72,12 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"ProcessListValidationProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Start the process create probe
-	NT_ASSERTMSG("Failed to start the process list validation probe!", TRUE == pPLVP->Start());
+
+	if (TRUE == pPLVP->IsEnabledAtStart())
+	{
+		// Start the process create probe
+		NT_ASSERTMSG("Failed to start the process list validation probe!", TRUE == pPLVP->Start());
+	}
 
 	// Make ready the registry modification probe
 	pRMP = new RegistryModificationProbe();
@@ -76,8 +88,12 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"RegistryModificationProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Start the process create probe
-	NT_ASSERTMSG("Failed to start the Registry Modification Probe!", TRUE == pRMP->Start());
+
+	if (TRUE == pRMP->IsEnabledAtStart())
+	{
+		// Start the process create probe
+		NT_ASSERTMSG("Failed to start the Registry Modification Probe!", TRUE == pRMP->Start());
+	}
 
 	// Make ready the thread creation probe
 	pTCP = new ThreadCreateProbe();
@@ -88,8 +104,11 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"ThreadCreateProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-	// Start the process create probe
-	NT_ASSERTMSG("Failed to start the Thread Create Probe!", TRUE == pTCP->Start());
+	if (TRUE == pTCP->IsEnabledAtStart())
+	{
+		// Start the process create probe
+		NT_ASSERTMSG("Failed to start the Thread Create Probe!", TRUE == pTCP->Start());
+	}
 	
 ErrorExit:
 	return;
