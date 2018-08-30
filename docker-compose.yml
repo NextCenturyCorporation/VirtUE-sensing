@@ -38,6 +38,8 @@ services:
         aliases:
           - kafka
           - sensing-kafka.savior.internal
+    depends_on:
+      - zookeeper
   cfssl:
     image: 127.0.0.1:5000/savior-cfssl
     build: "./control/savior-ca"
@@ -101,6 +103,7 @@ services:
       apinet:
         aliases:
           - ntp.savior.internal
+
 volumes:
   db-data:
 networks:
