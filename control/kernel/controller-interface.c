@@ -65,10 +65,11 @@ k_socket_write(struct socket *sock,
 	struct msghdr msg = {.msg_flags = flags};
 	struct kvec iov = {.iov_base = out, .iov_len = size};
 
-
-	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
-		   "outbuf %p, flags %x\n",
-		   sock, size, out, flags);
+/**
+ *	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
+ *		   "outbuf %p, flags %x\n",
+ *		   sock, size, out, flags);
+ **/
 again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
 	if (res <= 0) {
@@ -178,8 +179,8 @@ k_echo_server(struct kthread_work *work)
 	assert(connection &&
 		   connection->flags &&
 		   connection->connected);
-	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
-	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
+	assert(__FLAG_IS_SET(connection->flags, SENSOR_CONNECT));
+	assert(__FLAG_IS_SET(connection->flags, SENSOR_HAS_WORK));
 	ccode = down_interruptible(&connection->s_lock);
 	if (ccode)
 		goto close_out;
@@ -192,7 +193,7 @@ k_echo_server(struct kthread_work *work)
 
 			printk(KERN_DEBUG "k_socket read unable to allocate read buffer: " \
 				   "%d bytes\n", ccode);
-			__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+			__CLEAR_FLAG(connection->flags, SENSOR_CONNECT);
 			goto close_out;
 
 		}
@@ -201,7 +202,7 @@ k_echo_server(struct kthread_work *work)
 		if (ccode <= 0) {
 
 			printk(KERN_DEBUG "k_socket_read returned error: %d\n", ccode);
-			__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+			__CLEAR_FLAG(connection->flags, SENSOR_CONNECT);
 			goto close_out;
 		}
 	} else {
@@ -322,8 +323,8 @@ k_read_write(struct kthread_work *work)
 
 	assert(connection &&
 		   connection->flags);
-	assert(__FLAG_IS_SET(connection->flags, PROBE_CONNECT));
-	assert(__FLAG_IS_SET(connection->flags, PROBE_HAS_WORK));
+	assert(__FLAG_IS_SET(connection->flags, SENSOR_CONNECT));
+	assert(__FLAG_IS_SET(connection->flags, SENSOR_HAS_WORK));
 
 	sock = connection->connected;
 	read_buf = kzalloc(CONNECTION_MAX_HEADER, GFP_KERNEL);
@@ -345,7 +346,7 @@ again:
 		if (ccode == -EAGAIN) {
 			goto again;
 		}
-		__CLEAR_FLAG(connection->flags, PROBE_CONNECT);
+		__CLEAR_FLAG(connection->flags, SENSOR_CONNECT);
 		goto err_out1;
 	}
 	if (flags == MSG_PEEK) {
@@ -473,7 +474,7 @@ peek_again:
 				if (ccode == -EAGAIN) {
 					goto peek_again;
 				}
-				__CLEAR_FLAG(connection->flags, PROBE_LISTEN);
+				__CLEAR_FLAG(connection->flags, SENSOR_LISTEN);
 				goto close_out_quit;
 			}
 
@@ -493,7 +494,7 @@ peek_again:
 			if (newsock != NULL && (! atomic64_read(&SHOULD_SHUTDOWN))) {
 				new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
 				if (new_connection) {
-					init_connection(new_connection, PROBE_CONNECT, newsock);
+					init_connection(new_connection, SENSOR_CONNECT, newsock);
 				} else {
 					atomic64_set(&SHOULD_SHUTDOWN, 1);
 				}
@@ -549,7 +550,7 @@ static void k_accept(struct kthread_work *work)
 
 		new_connection = kzalloc(sizeof(struct connection), GFP_KERNEL);
 		if (new_connection) {
-			init_connection(new_connection, PROBE_CONNECT, newsock);
+			init_connection(new_connection, SENSOR_CONNECT, newsock);
 		} else {
 			atomic64_set(&SHOULD_SHUTDOWN, 1);
 		}
@@ -574,7 +575,7 @@ static int start_listener(struct connection *c)
 	struct sockaddr_un addr = {.sun_family = AF_UNIX};
 	struct socket *sock = NULL;
 
-	assert(__FLAG_IS_SET(c->flags, PROBE_LISTEN));
+	assert(__FLAG_IS_SET(c->flags, SENSOR_LISTEN));
 	SOCK_CREATE_KERN(&init_net, AF_UNIX, SOCK_STREAM, 0, &sock);
 
 	if (!sock) {
@@ -625,7 +626,7 @@ link_new_connection_work(struct connection *c,
 		spin_unlock(&k_sensor.lock);
 
 		CONT_INIT_WORK(&c->work, f);
-		__SET_FLAG(c->flags, PROBE_HAS_WORK);
+		__SET_FLAG(c->flags, SENSOR_HAS_WORK);
 
 		CONT_INIT_WORKER(&c->worker);
 		CONT_QUEUE_WORK(&c->worker, &c->work);
@@ -651,7 +652,7 @@ static inline void *destroy_connection(struct connection *c)
 		c->connected = NULL;
 	}
 	up(&c->s_lock);
-	c->destroy((struct probe *)c);
+	c->destroy((struct sensor *)c);
 	memset(c, 0x00, sizeof(*c));
 	return c;
 }
@@ -670,13 +671,13 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 
 	assert(c != NULL);
 	assert(p != NULL);
-	assert(__FLAG_IS_SET(flags, PROBE_LISTEN) ||
-		   __FLAG_IS_SET(flags, PROBE_CONNECT));
-	assert(! (__FLAG_IS_SET(flags, PROBE_LISTEN) &&
-			  __FLAG_IS_SET(flags, PROBE_CONNECT)));
+	assert(__FLAG_IS_SET(flags, SENSOR_LISTEN) ||
+		   __FLAG_IS_SET(flags, SENSOR_CONNECT));
+	assert(! (__FLAG_IS_SET(flags, SENSOR_LISTEN) &&
+			  __FLAG_IS_SET(flags, SENSOR_CONNECT)));
 
 	memset(c, 0x00, sizeof(struct connection));
-	c = (struct connection *)init_probe((struct probe *)c,
+	c = (struct connection *)init_sensor((struct sensor *)c,
 										"connection", strlen("connection") + 1);
 	sema_init(&c->s_lock, 1);
 
@@ -690,7 +691,7 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	c->flags |= flags;
 	c->_destroy = destroy_connection;
 
-	if (__FLAG_IS_SET(flags, PROBE_LISTEN)) {
+	if (__FLAG_IS_SET(flags, SENSOR_LISTEN)) {
 		/**
 		 * p is a pointer to a string holding the socket name
 		 **/
@@ -836,7 +837,7 @@ socket_interface_init(void)
 {
 	init_jsonl_parser();
 	unlink_sock_name(socket_name, lockfile_name);
-	init_connection(&listener, PROBE_LISTEN, socket_name);
+	init_connection(&listener, SENSOR_LISTEN, socket_name);
 	return 0;
 }
 

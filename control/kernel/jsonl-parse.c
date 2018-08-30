@@ -58,7 +58,7 @@ void init_jsonl_parser(void)
 
 
 enum parse_index {OBJECT_START, VER_TAG, VERSION, MSG, JSONL_BRACKET, NONCE, CMD,
-                  PROBE, JSONR_BRACKET, OBJECT_END};
+                  SENSOR, JSONR_BRACKET, OBJECT_END};
 enum type { VERBOSE, ADD_NL, TRIM_TO_NL, UXP_NL, XP_NL, IN_FILE, USAGE };
 enum type option_index = USAGE;
 enum message_type {EMPTY, REQUEST, REPLY, COMPLETE};
@@ -232,14 +232,14 @@ free_session(struct jsmn_session *s)
  * assumes: we have already attached the message to
  * a session.
  * every message requires a command, and every message
- * EXCEPT for the discovery request requires a probe ID
+ * EXCEPT for the discovery request requires a sensor ID
  **/
 
 static inline int
 pre_process_jsmn_request_cmd(struct jsmn_message *m)
 {
-	uint8_t *c, *id = NULL;
-	size_t c_bytes, id_bytes = 0;
+	uint8_t *c, *name = NULL;
+	size_t c_bytes, name_bytes = 0;
 	int ccode;
 
 	assert(m && m->s);
@@ -255,20 +255,20 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 	c_bytes = m->tokens[CMD].end - m->tokens[CMD].start;
 	if (c_bytes <=0 || c_bytes >= MAX_CMD_SIZE)
 		return JSMN_ERROR_INVAL;
-	if (m->parser.toknext < PROBE) {
+	if (m->parser.toknext < SENSOR) {
 		/**
-		 * there is no probe element, not valid
+		 * there is no sensor element, not valid
 		 **/
-		printk(KERN_DEBUG "received a jsonl request message with no probe id."
+		printk(KERN_DEBUG "received a jsonl request message with no sensor name."
 			   " %s:%d\n", __FILE__, __LINE__);
 		goto err_out;
 	} else {
-		id = m->line + m->tokens[PROBE].start;
-		id_bytes = m->tokens[PROBE].end - m->tokens[PROBE].start;
-		if (id_bytes ==0 || id_bytes > MAX_CMD_SIZE) {
-			printk(KERN_DEBUG "pre_process_jsmn_command: json command token is either"
-				   "too small or too large for any valid commands: %ld bytes\n",
-				   id_bytes);
+		name = m->line + m->tokens[SENSOR].start;
+		name_bytes = m->tokens[SENSOR].end - m->tokens[SENSOR].start;
+		if (name_bytes ==0 || name_bytes > MAX_NAME_SIZE) {
+			printk(KERN_DEBUG "json name token is either"
+				   "too small or too large for a sensor name or uuid: %ld bytes\n",
+				   name_bytes);
 			return JSMN_ERROR_INVAL;
 		}
 	}
@@ -277,10 +277,10 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
         /* copy the command into the session command array */
 		memcpy(m->s->cmd, c, c_bytes);
 		m->s->cmd[c_bytes] = 0x00;
-		if (m->parser.toknext > PROBE) {
-			memcpy(m->s->probe_id, id, id_bytes);
-			m->s->probe_id[id_bytes] = 0x00;
-			printk(KERN_DEBUG "request probe id: %s\n", m->s->probe_id);
+		if (m->parser.toknext > SENSOR) {
+			memcpy(m->s->sensor_name, name, name_bytes);
+			m->s->sensor_name[name_bytes] = 0x00;
+			printk(KERN_DEBUG "request sensor name: %s\n", m->s->sensor_name);
 
 		}
 		ccode = index_command(c, c_bytes);
@@ -394,21 +394,20 @@ static int
 process_records_request(struct jsmn_message *msg, int index)
 {
 	int ccode = 0, write_ccode = 0;
-	struct probe *probe_p = NULL;
+	struct sensor *sensor_p = NULL;
 	struct jsmn_message *records_reply = NULL;
 
 	struct records_request rr = {
 		.json_msg = msg,
 		.run_probe = 1,
 		.clear = 1,
-		.nonce = 0L,
 		.index = 0,
 		.range = -1
 	};
 
 	struct records_reply rp = {0};
 
-	struct probe_msg pm = {
+	struct sensor_msg pm = {
 		.id = RECORDS,
 		.ccode = 0,
 		.input = &rr,
@@ -417,8 +416,17 @@ process_records_request(struct jsmn_message *msg, int index)
 		.output_len = sizeof(struct records_reply),
 	};
 
+	get_random_bytes(&rr.nonce, sizeof(uint64_t));
+
+	/**
+	 * get_sensor will work with either the sensor name or the sensor
+	 * uuid as the key. It first tests the key to see if it is a uuid,
+	 * and if so tries to find the sensor by uuid.
+	 *
+	 * If the uuid search fails, it tries to find the sensor by name.
+	 **/
 	do {
-		ccode = get_probe(msg->s->probe_id, &probe_p);
+		ccode = get_sensor(msg->s->sensor_name, &sensor_p);
 	} while (ccode == -EAGAIN);
 
 	if (ccode < 0) {
@@ -431,7 +439,7 @@ process_records_request(struct jsmn_message *msg, int index)
 		return ccode;
 	}
 
-	if (!ccode && probe_p != NULL) {
+	if (!ccode && sensor_p != NULL) {
         /* send this probe a records request */
 		/* will return 0 or error if no record. */
 		/* each record is encapsulated in a json object and copied into */
@@ -444,7 +452,7 @@ process_records_request(struct jsmn_message *msg, int index)
 				break;
 			}
 
-			ccode = probe_p->message(probe_p, &pm);
+			ccode = sensor_p->message(sensor_p, &pm);
 			/**
 			 * rp.records contains the json record object(s)
 			 * rp.records_len contains the length of the object(s)
@@ -453,7 +461,7 @@ process_records_request(struct jsmn_message *msg, int index)
 				records_reply = allocate_reply_message(msg, 0);
 				if (records_reply) {
 					/**
-					 * response was built in probe_p->message, assign
+					 * response was built in sensor_p->message, assign
 					 * that buffer to this reply, then
 					 * link the reply message to the session
 					 **/
@@ -471,8 +479,8 @@ process_records_request(struct jsmn_message *msg, int index)
 			rr.run_probe = 0;
 			rr.index++;
 		} while(!ccode && rp.index != -ENOENT);
-		spin_unlock(&probe_p->lock);
-		probe_p = NULL;
+		spin_unlock(&sensor_p->lock);
+		sensor_p = NULL;
 	}
 
 	/**
