@@ -31,6 +31,9 @@ ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
 ERROR_NO_MORE_ITEMS = 0x103
 
+MAXRSPSZ = 0x1000
+MAXCMDSZ = 0x1000
+
 class SaviorStruct(Structure):
     '''
     Implement a base class that takes care of JSON serialization/deserialization, 
@@ -837,6 +840,157 @@ GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',
         'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 
         'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz', 
         'CommandLine'])
+
+class WVU_COMMAND(CtypesEnum):
+    '''
+    Winvirtue Commands
+    '''
+    Echo = 0x0
+    EnableProbe  = 0x1
+    DisableProbe = 0x2        
+    EnableUnload = 0x3
+    DisableUnload = 0x4
+    EnumerateSensors = 0x5
+    ConfigureSensor = 0x6
+    OneShotKill = 0x7   
+
+class WVU_RESPONSE(CtypesEnum):
+    '''
+    Winvirtue Command Responses
+    '''
+    NORESPONSE = 0x0
+    WVUSuccess = 0x1
+    WVUFailure = 0x2
+
+GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'sensor_id', 'DataSz', 'Data'])
+
+class COMMAND_MESSAGE(SaviorStruct):
+    '''
+    Command Message as sent to the driver
+    '''
+    _fields_ = [        
+        ("Command", ULONG),
+        ("sensor_id", _UUID),
+        ("DataSz", SIZE_T),
+        ("Data", BYTE * 1) 
+    ]
+
+    @classmethod
+    def build(cls, cmd, sensor_id, data):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        sb = create_string_buffer(sizeof(cls) + len(data) - 1)
+        info = cast(sb, POINTER(cls))
+        info.contents.Command = cmd
+        memmove(info.contents.sensor_id, sensor_id.bytes, 
+                len(info.contents.sensor_id.Data))
+        info.contents.DataSz = len(data)        
+        if info.contents.DataSz > 0:
+            length = info.contents.DataSz
+            offset = type(info.contents).Data.offset
+            sb[offset:length] = data
+
+        command_packet = GetCommandMessage(
+            info.contents.Command,
+            info.contents.sensor_id,
+            info.contents.DataSz,
+            sb)
+        return command_packet  
+
+GetResponseMessage = namedtuple('GetResponseMessage',  ['Response', 'Status', 'DataSz', 'Data'])
+
+class RESPONSE_MESSAGE(SaviorStruct):
+    '''
+    Response Message as receieved from driver
+    '''
+    _fields_ = [        
+        ("Response", ULONG),
+        ("Status", NTSTATUS),
+        ("DataSz", SIZE_T),
+        ("Data", BYTE * 1) 
+    ]
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''
+        sb = ''
+        info = cast(msg_pkt.Packet, POINTER(cls))
+        if info.contents.DataSz > 0:
+            length = info.contents.DataSz
+            offset = type(info.contents).Data.offset
+            sb = create_string_buffer(msg_pkt.Packet[offset:length])        
+        command_packet = GetCommandMessage(
+            info.contents.Size,
+            info.contents.Command,
+            sb)
+        return command_packet
+
+class SensorStatusHeader(SaviorStruct):
+    '''
+    The sensor status message header
+    '''
+    _fields_ = [        
+        ("NumberOfEntries", DWORD)
+    ]
+
+
+GetSensorStatus = namedtuple('GetSensorStatus',  
+                             ['sensor_id', 'LastRunTime', 'RunInterval', 
+         'OperationCount', 'Attributes', 'Enabled', 'SensorName'])
+class SensorStatus(SaviorStruct):
+    '''
+    The SensorStatus message
+    '''
+    _fields_ = [        
+        ("sensor_id", _UUID),
+        ("LastRunTime", LONGLONG),
+        ("RunInterval", LONGLONG),
+        ("OperationCount", LONG),
+        ("Attributes", USHORT),
+        ("Enabled", BOOLEAN),
+        ("SensorName", BYTE * MAXSENSORNAMESZ),
+    ]
+
+    saf_name = "SensorAttributeFlags."
+
+    @classmethod
+    def build(cls, msg_pkt):
+        '''
+        build named tuple instance representing this
+        classes instance data
+        '''        
+        info = cast(msg_pkt, POINTER(cls))    
+        length = MAXSENSORNAMESZ
+        offset = type(info.contents).SensorName.offset
+        sb = create_string_buffer(msg_pkt)
+        array_of_chars = memoryview(sb)[offset:length+offset]
+        slc = (BYTE * length).from_buffer(array_of_chars)
+        lst = [ch for ch in slc if ch]
+        SensorName = "".join(map(chr, lst))
+
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))        
+
+
+        attrib_flags = str(SensorAttributeFlags(info.contents.Attributes))
+        ndx = attrib_flags.find(cls.saf_name)
+        if ndx == 0:
+            attrib_flags = attrib_flags[len(cls.paf_name):]
+
+        sensor_status = GetSensorStatus(            
+            sensor_id,
+            info.contents.LastRunTime,
+            info.contents.RunInterval,
+            info.contents.OperationCount,
+            SensorAttributeFlags(info.contents.Attributes), 
+            attrib_flags,
+            str(bool(info.contents.Enabled)),
+            SensorName)
+        return sensor_status
     
 class ProcessCreateInfo(SaviorStruct ):
     '''
@@ -915,6 +1069,7 @@ class ProcessDestroyInfo(SaviorStruct):
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess))
         return create_info
+    
     
 
 _FilterReplyMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
@@ -1285,6 +1440,38 @@ def CloseHandle(handle):
     success = _CloseHandle(handle)
     return success
 
+_FilterSendMessageProto = WINFUNCTYPE(HRESULT, HANDLE, LPVOID, DWORD, LPVOID, DWORD, LPDWORD)
+_FilterSendMessageParamFlags = (0, "hPort"), (0,  "lpInBuffer"), (0, "dwInBufferSize"), (1, "lpOutBuffer"), (0, "dwOutBufferSize"), (1, "lpBytesReturned")
+_FilterSendMessage = _FilterSendMessageProto(("FilterSendMessage", windll.fltlib), _FilterSendMessageParamFlags)
+def FilterSendMessage(hPort, cmd_buf):
+    '''    
+    @brief The FilterSendMessage function sends a message to a kernel-mode minifilter. 
+    @param hPort port handle returned by a previous call to 
+    FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
+    @param cmd_buf command buffer
+    @returns S_OK if successful. Otherwise, it returns an error value
+    @returns response buffer - can be empty / zero length
+    '''    
+    res = HRESULT()
+    bytes_returned = DWORD()
+    rsp_buf = create_string_buffer(MAXRSPSZ)
+        
+    if cmd_buf is None or not hasattr(cmd_buf, "__len__") or len(cmd_buf) <= 0:
+        raise ValueError("Parameter cmd_buf is invalid!")
+
+    try:
+        res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(rsp_buf), byref(bytes_returned))
+    except OSError as osr:
+        lasterror = osr.winerror & 0x0000FFFF
+        print(osr)
+        logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr), exc_info=True)
+        res = lasterror    
+    
+    bufsz = (bytes_returned.value 
+            if bytes_returned.value < MAXRSPSZ 
+            else MAXRSPSZ)
+    response = create_string_buffer(rsp_buf.raw[0:bufsz], bufsz)
+    return res, response
 
 def packet_decode():
     '''
@@ -1326,184 +1513,7 @@ def packet_decode():
             logger.warning("Unknown or unsupported sensor type %s encountered\n", pdh.sensor_type)
             continue
         yield msg_data._asdict()        
-
     CloseHandle(hFltComms)
-  
-class WVU_COMMAND(CtypesEnum):
-    '''
-    Winvirtue Commands
-    '''
-    Echo = 0x0
-    EnableProtection  = 0x1
-    DisableProtection = 0x2        
-    EnableUnload = 0x3
-    DisableUnload = 0x4
-    EnumerateSensors = 0x5
-    ConfigureSensor = 0x6
-    OneShotKill = 0x7   
-    
-class WVU_RESPONSE(CtypesEnum):
-    '''
-    Winvirtue Command Responses
-    '''
-    NORESPONSE = 0x0
-    WVUSuccess = 0x1
-    WVUFailure = 0x2
-
-GetCommandMessage = namedtuple('GetCommandMessage',  ['Command', 'sensor_id', 'DataSz', 'Data'])
-    
-class COMMAND_MESSAGE(SaviorStruct):
-    '''
-    Command Message as sent to the driver
-    '''
-    _fields_ = [        
-        ("Command", ULONG),
-        ("sensor_id", _UUID),
-        ("DataSz", SIZE_T),
-        ("Data", BYTE * 1) 
-    ]
-
-    @classmethod
-    def build(cls, cmd, sensor_id, data):
-        '''
-        build named tuple instance representing this
-        classes instance data
-        '''
-        sb = create_string_buffer(sizeof(cls) + len(data) - 1)
-        info = cast(sb, POINTER(cls))
-        info.contents.Command = cmd
-        memmove(info.contents.sensor_id, sensor_id.bytes, 
-                len(info.contents.sensor_id.Data))
-        info.contents.DataSz = len(data)        
-        if info.contents.DataSz > 0:
-            length = info.contents.DataSz
-            offset = type(info.contents).Data.offset
-            sb[offset:length] = data
-            
-        command_packet = GetCommandMessage(
-            info.contents.Command,
-            info.contents.sensor_id,
-            info.contents.DataSz,
-            sb)
-        return command_packet  
-
-GetResponseMessage = namedtuple('GetResponseMessage',  ['Response', 'Status', 'DataSz', 'Data'])
-
-class RESPONSE_MESSAGE(SaviorStruct):
-    '''
-    Response Message as receieved from driver
-    '''
-    _fields_ = [        
-        ("Response", ULONG),
-        ("Status", NTSTATUS),
-        ("DataSz", SIZE_T),
-        ("Data", BYTE * 1) 
-    ]
-
-    @classmethod
-    def build(cls, msg_pkt):
-        '''
-        build named tuple instance representing this
-        classes instance data
-        '''
-        sb = ''
-        info = cast(msg_pkt.Packet, POINTER(cls))
-        if info.contents.DataSz > 0:
-            length = info.contents.DataSz
-            offset = type(info.contents).Data.offset
-            sb = create_string_buffer(msg_pkt.Packet[offset:length])        
-        command_packet = GetCommandMessage(
-            info.contents.Size,
-            info.contents.Command,
-            sb)
-        return command_packet
-    
-class SensorStatusHeader(SaviorStruct):
-    '''
-    The sensor status message header
-    '''
-    _fields_ = [        
-        ("NumberOfEntries", DWORD)
-    ]
-
-GetSensorStatus = namedtuple('GetSensorStatus',  
-        ['sensor_id', 'LastRunTime', 'RunInterval', 
-            'OperationCount', 'Attributes', 'Enabled', 'SensorName'])
-class SensorStatus(SaviorStruct):
-    '''
-    The SensorStatus message
-    '''
-    _fields_ = [        
-        ("sensor_id", _UUID),
-        ("LastRunTime", LONGLONG),
-        ("RunInterval", LONGLONG),
-        ("OperationCount", LONG),
-        ("Attributes", USHORT),
-        ("Enabled", BOOLEAN),
-        ("SensorName", BYTE * MAXSENSORNAMESZ),
-    ]
-
-    @classmethod
-    def build(cls, msg_pkt):
-        '''
-        build named tuple instance representing this
-        classes instance data
-        '''        
-        info = cast(msg_pkt, POINTER(cls))    
-        length = MAXSENSORNAMESZ
-        offset = type(info.contents).SensorName.offset
-        sb = create_string_buffer(msg_pkt)
-        array_of_chars = memoryview(sb)[offset:length+offset]
-        slc = (BYTE * length).from_buffer(array_of_chars)
-        lst = [ch for ch in slc if ch]
-        SensorName = "".join(map(chr, lst))
-        sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))        
-        sensor_status = GetSensorStatus(            
-            sensor_id,
-            info.contents.LastRunTime,
-            info.contents.RunInterval,
-            info.contents.OperationCount,
-            SensorAttributeFlags(info.contents.Attributes), 
-            info.contents.Enabled,
-            SensorName)
-        return sensor_status
-    
-MAXRSPSZ = 0x1000
-MAXCMDSZ = 0x1000
-    
-_FilterSendMessageProto = WINFUNCTYPE(HRESULT, HANDLE, LPVOID, DWORD, LPVOID, DWORD, LPDWORD)
-_FilterSendMessageParamFlags = (0, "hPort"), (0,  "lpInBuffer"), (0, "dwInBufferSize"), (1, "lpOutBuffer"), (0, "dwOutBufferSize"), (1, "lpBytesReturned")
-_FilterSendMessage = _FilterSendMessageProto(("FilterSendMessage", windll.fltlib), _FilterSendMessageParamFlags)
-def FilterSendMessage(hPort, cmd_buf):
-    '''    
-    @brief The FilterSendMessage function sends a message to a kernel-mode minifilter. 
-    @param hPort port handle returned by a previous call to 
-    FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
-    @param cmd_buf command buffer
-    @returns S_OK if successful. Otherwise, it returns an error value
-    @returns response buffer - can be empty / zero length
-    '''    
-    res = HRESULT()
-    bytes_returned = DWORD()
-    rsp_buf = create_string_buffer(MAXRSPSZ)
-        
-    if cmd_buf is None or not hasattr(cmd_buf, "__len__") or len(cmd_buf) <= 0:
-        raise ValueError("Parameter cmd_buf is invalid!")
-
-    try:
-        res = _FilterSendMessage(hPort, cmd_buf, len(cmd_buf), byref(rsp_buf), len(rsp_buf), byref(bytes_returned))
-    except OSError as osr:
-        lasterror = osr.winerror & 0x0000FFFF
-        print(osr)
-        logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr), exc_info=True)
-        res = lasterror    
-    
-    bufsz = (bytes_returned.value 
-            if bytes_returned.value < MAXRSPSZ 
-            else MAXRSPSZ)
-    response = create_string_buffer(rsp_buf.raw[0:bufsz], bufsz)
-    return res, response
-
     
 def EnumerateSensors(hFltComms, Filter=None):
     '''
@@ -1545,14 +1555,14 @@ def Echo(hFltComms):
 
     return res, rsp_msg
 
-def EnableProtection(hFltComms, sensor_id=0):
+def EnableProbe(hFltComms, sensor_id=0):
     '''
-    Enable Full Protection
+    Enable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
-    cmd_msg.contents.Command = WVU_COMMAND.EnableProtection
+    cmd_msg.contents.Command = WVU_COMMAND.EnableProbe
     cmd_msg.contents.DataSz = 0
     memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes, 
             len(cmd_msg.contents.sensor_id.Data))
@@ -1562,14 +1572,14 @@ def EnableProtection(hFltComms, sensor_id=0):
 
     return res, rsp_msg
     
-def DisableProtection(hFltComms, sensor_id=0):
+def DisableProbe(hFltComms, sensor_id=0):
     '''
-    Disable Full Protection
+    Disable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
     
-    cmd_msg.contents.Command = WVU_COMMAND.DisableProtection
+    cmd_msg.contents.Command = WVU_COMMAND.DisableProbe
     cmd_msg.contents.DataSz = 0
     memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes, 
             len(cmd_msg.contents.sensor_id.Data))

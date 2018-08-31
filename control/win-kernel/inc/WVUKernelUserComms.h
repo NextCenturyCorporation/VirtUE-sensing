@@ -20,8 +20,8 @@
 typedef enum _WVU_COMMAND : ULONG
 {
 	Echo = 0,
-	EnableProtection = 1,
-	DisableProtection = 2,
+	EnableProbe = 1,
+	DisableProbe = 2,
 	EnableUnload = 3,
 	DisableUnload = 4,
 	EnumerateProbes = 5,
