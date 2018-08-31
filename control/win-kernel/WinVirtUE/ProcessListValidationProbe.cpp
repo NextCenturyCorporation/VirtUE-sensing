@@ -107,8 +107,17 @@ ErrorExit:
 _Use_decl_annotations_
 BOOLEAN ProcessListValidationProbe::Start()
 {
+	if (FALSE == AbstractVirtueProbe::Start())
+	{
+		this->Enabled = FALSE;
+		goto ErrorExit;
+	}	
+
 	this->Enabled = TRUE;
-	return TRUE;
+
+ErrorExit:
+
+	return this->Enabled;
 }
 
 /**
@@ -118,7 +127,14 @@ BOOLEAN ProcessListValidationProbe::Start()
 _Use_decl_annotations_
 BOOLEAN ProcessListValidationProbe::Stop()
 {
+	if (FALSE == AbstractVirtueProbe::Stop())
+	{
+		goto ErrorExit;
+	}
+
 	this->Enabled = FALSE;
+
+ErrorExit:
 	return TRUE;
 }
 

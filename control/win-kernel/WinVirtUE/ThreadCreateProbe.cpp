@@ -19,7 +19,14 @@ ThreadCreateProbe::ThreadCreateProbe() : AbstractVirtueProbe(probe_name)
 _Use_decl_annotations_
 BOOLEAN ThreadCreateProbe::Start()
 {
-	NTSTATUS Status = PsSetCreateThreadNotifyRoutine(ThreadCreateProbe::ThreadCreateCallback);
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	if (FALSE == AbstractVirtueProbe::Start())
+	{
+		goto ErrorExit;
+	}
+	
+	Status = PsSetCreateThreadNotifyRoutine(ThreadCreateProbe::ThreadCreateCallback);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID, "PsSetCreateThreadNotifyRoutine(ThreadCreateCallback) "
@@ -27,8 +34,11 @@ BOOLEAN ThreadCreateProbe::Start()
 		this->Enabled = FALSE;
 		goto ErrorExit;
 	}
+
 	this->Enabled = TRUE;
+
 ErrorExit:
+
 	return this->Enabled;
 }
 
@@ -38,8 +48,15 @@ ErrorExit:
 */
 _Use_decl_annotations_
 BOOLEAN ThreadCreateProbe::Stop()
-{
-	NTSTATUS Status = PsRemoveCreateThreadNotifyRoutine(ThreadCreateProbe::ThreadCreateCallback);
+{	
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	if (FALSE == AbstractVirtueProbe::Stop())
+	{
+		goto ErrorExit;
+	}
+
+	Status = PsRemoveCreateThreadNotifyRoutine(ThreadCreateProbe::ThreadCreateCallback);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_NOTIFY_THREAD, ERROR_LEVEL_ID, "PsRemoveCreateThreadNotifyRoutine (ThreadCreateCallback) "

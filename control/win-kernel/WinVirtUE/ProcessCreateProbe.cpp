@@ -64,21 +64,10 @@ _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
-	if (TRUE == this->Enabled)
+	if (FALSE == AbstractVirtueProbe::Start())
 	{
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %w already enabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
-	}
-	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
-	{
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %w not enabled at start - probe is registered but not active\n",
-			&this->ProbeName);
-		goto ErrorExit;
-	}
+	}	
 	Status = this->RemoveNotify(FALSE);
 
 ErrorExit:
@@ -94,12 +83,10 @@ _Use_decl_annotations_
 BOOLEAN ProcessCreateProbe::Stop()
 {	
 	BOOLEAN retval = TRUE;
-	if (FALSE == this->Enabled)
+	if (FALSE == AbstractVirtueProbe::Stop())
 	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %w already disabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
-	}	
+	}
 	this->Enabled = FALSE;
 	retval = NT_SUCCESS(this->RemoveNotify(TRUE));
 ErrorExit:

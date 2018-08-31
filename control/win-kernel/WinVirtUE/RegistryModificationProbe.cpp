@@ -738,24 +738,11 @@ BOOLEAN RegistryModificationProbe::Start()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
-	if (TRUE == this->Enabled)
+	if (FALSE == AbstractVirtueProbe::Start())
 	{
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %w already enabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}
-
-	if ((Attributes & ProbeAttributes::EnabledAtStart) != ProbeAttributes::EnabledAtStart)
-	{
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %w not enabled at start - probe is registered but not active\n",
-			&this->ProbeName);
-		goto ErrorExit;
-	}
-
-
+	
 	Cookie.QuadPart = (LONGLONG)Globals.DriverObject;
 	Status = CmRegisterCallbackEx(RegistryModificationCB, &WinVirtUEAltitude, Globals.DriverObject, this, &Cookie, NULL);
 	if (FALSE == NT_SUCCESS(Status))
@@ -781,11 +768,8 @@ BOOLEAN RegistryModificationProbe::Stop()
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
-	if (FALSE == this->Enabled)
+	if (FALSE == AbstractVirtueProbe::Stop())
 	{
-		Status = STATUS_SUCCESS;
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, WARNING_LEVEL_ID,
-			"Probe %w already disabled - continuing!\n", &this->ProbeName);
 		goto ErrorExit;
 	}
 
