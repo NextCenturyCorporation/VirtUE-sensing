@@ -525,6 +525,3 @@ err_exit:
 	return ERR_PTR(ccode);
 }
 STACK_FRAME_NON_STANDARD(init_sysfs_probe);
-
-
-
