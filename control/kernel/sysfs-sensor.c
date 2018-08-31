@@ -37,8 +37,8 @@
  * will unlock the probe upon return from this function.
  **/
 int
-sysfs_get_record(struct kernel_sysfs_probe *p,
-				 struct probe_msg *msg,
+sysfs_get_record(struct kernel_sysfs_sensor *p,
+				 struct sensor_msg *msg,
 				 uint8_t *tag)
 {
 	struct kernel_sysfs_data *kfsd_p;
@@ -66,12 +66,9 @@ sysfs_get_record(struct kernel_sysfs_probe *p,
 
 	if (rr->run_probe) {
 		/**
-		 * refresh all the ps records in the flex array
+		 * refreshes all the pid records in the flex array
+		 * then gets files for each pid
 		 **/
-		ccode = build_pid_index_unlocked(
-			(struct probe *)p,
-			p->ksysfs_pid_flex_array,
-			rr->nonce);
 		ccode = kernel_sysfs_unlocked(p, rr->nonce);
 		if (ccode < 0) {
 			return ccode;
@@ -79,26 +76,23 @@ sysfs_get_record(struct kernel_sysfs_probe *p,
 	}
 
 	kfsd_p = flex_array_get(p->ksysfs_flex_array, rr->index);
-	if (!kfsd_p || kfsd_p->clear == FLEX_ARRAY_FREE) {
+	if (!kfsd_p || kfsd_p->clear == FLEX_ARRAY_FREE ||
+		(rr->nonce && kfsd_p->nonce != rr->nonce)) {
 	/**
 	* when there is no entry, or the entry is clear, return an
 	* empty record response. per the protocol control/kernel/messages.md
 	**/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s ]}\n",
+							"%s %s, %s, %s ]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							p->id);
+							p->name,
+							p->uuid_string);
 
 		rp->index = -ENOENT;
 		goto record_created;
 	}
-
-	if (rr->nonce && kfsd_p->nonce != rr->nonce) {
-		return -EINVAL;
-	}
-
 
 	/**
 	 * build the record json object(s), with a raw extension
@@ -108,11 +102,12 @@ sysfs_get_record(struct kernel_sysfs_probe *p,
 
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s %d %x %s %s %lx}]}\n",
+						"%s %s, %s, %s, %s, %d %x %s %s %lx}]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
-						p->id,
+						p->name,
 						tag,
+						p->uuid_string,
 						rr->index,
 						kfsd_p->pid,
 						kfsd_p->dpath,
@@ -129,31 +124,18 @@ sysfs_get_record(struct kernel_sysfs_probe *p,
 	memcpy(cursor, &kfsd_p->stat, sizeof(struct kstat));
 	cursor += sizeof(struct kstat);
 	memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
+
+record_created:
 	if (kfsd_p && rr->clear) {
 		kfree(kfsd_p->data);
 		flex_array_clear(p->ksysfs_flex_array, rr->index);
 	}
-
-record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->range = rr->range;
 	return 0;
 }
 
-
-
-static inline size_t
-calc_file_size(struct kstat *kstat)
-{
-	if (kstat->size) {
-		return kstat->size;
-	}
-	if (kstat->blocks) {
-		return kstat->blocks * kstat->blksize;
-	}
-	return kstat->blksize > 0 ? kstat->blksize: 0x100;
-}
 
 
 /**
@@ -169,42 +151,43 @@ calc_file_size(struct kstat *kstat)
  *       is the current proof-of-concept
  *
  **/
-ssize_t sysfs_read_data(struct kernel_sysfs_probe *p,
+ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 						struct task_struct *t,
 						int *start,
 						char *path,
 						uint64_t nonce)
 {
 
-	static struct kernel_sysfs_data ksysfsd, *clear_p;
 	ssize_t ccode = 0;
+	struct kernel_sysfs_data ksysfsd = {0}, *clear_p = NULL;
+	loff_t pos = 0;
 	struct file *f = NULL;
-	/**
-	 * default size for /proc and /sys is 0x100, one block.
-	 * they don't return a size in kstat
-	 **/
-	memset(&ksysfsd, 0x00, sizeof(struct kernel_sysfs_data));
+	if (t->pid == current->pid) {
+		printk(KERN_DEBUG "trying to read our own /proc/%d/mount\n", current->pid);
+	}
+
+	if (! pid_alive(t)) {
+		printk(KERN_DEBUG "trying to read a dead task struct %d\n", t->pid);
+		return 0;
+	}
+
 	f = filp_open(path, O_RDONLY, 0);
 	if (f) {
-		size_t size = 0, max_size = 0x100000;
-		loff_t pos = 0;
+		int regular = 0;
+		/*  increment the reference count as an extra safety measure */
+		f  = get_file(f);
 		ccode = file_getattr(f, &ksysfsd.stat);
-		if (ccode) {
-			printk(KERN_INFO "error getting file attributes %zx\n", ccode);
+		if (ccode < 0) {
+			fput_atomic(f);
 			goto err_exit;
 		}
-		/**
-		 * get the size, or default size if /proc or /sys
-		 * set an arbitrary limit of 1 MB for read buffer
-		 **/
-		size = min(calc_file_size(&ksysfsd.stat), max_size);
-		ksysfsd.data = kzalloc(size, GFP_KERNEL);
-		if (ksysfsd.data == NULL) {
-			ccode = -ENOMEM;
-			goto err_exit;
+		regular = is_regular_file(f);
+		if (regular) {
+			ccode = kernel_read_file_with_name(path, &ksysfsd.data, max_size, &pos);
+		} else {
+			ccode = vfs_read_file(path, &ksysfsd.data, max_size, &pos);
 		}
-		ksysfsd.data_len = size;
-		ccode = ksysfsd.ccode = read_file_struct(f, ksysfsd.data, size, &pos);
+		fput_atomic(f);
 		if (ccode < 0) {
 			goto err_exit;
 		}
@@ -250,7 +233,7 @@ STACK_FRAME_NON_STANDARD(sysfs_read_data);
 
 
 int
-sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, uint64_t nonce)
+sysfs_for_each_unlocked(struct kernel_sysfs_sensor *p, uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
@@ -270,6 +253,12 @@ sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, uint64_t nonce)
 			snprintf(sysfs_path, MAX_DENTRY_LEN, format, pid_el_p->pid);
 			file_index = index;
 			task = get_task_by_pid_number(pid_el_p->pid);
+			if (! task || ! pid_alive(task)) {
+					printk(KERN_DEBUG "trying to read a dead task struct %d\n",
+						   pid_el_p->pid);
+					continue;
+			}
+
 			ccode = sysfs_read_data(p,
 									task,
 									&file_index,
@@ -287,7 +276,7 @@ sysfs_for_each_unlocked(struct kernel_sysfs_probe *p, uint64_t nonce)
 
 
 int
-sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
+sysfs_for_each_pid(struct kernel_sysfs_sensor *p, int count, uint64_t nonce)
 {
 	int file_index = 0;
 
@@ -303,12 +292,12 @@ sysfs_for_each_pid(struct kernel_sysfs_probe *p, int count, uint64_t nonce)
 STACK_FRAME_NON_STANDARD(sysfs_for_each_pid);
 
 int
-kernel_sysfs_unlocked(struct kernel_sysfs_probe *p,
+kernel_sysfs_unlocked(struct kernel_sysfs_sensor *p,
 					  uint64_t nonce)
 {
 	int count;
 
-	count = build_pid_index_unlocked((struct probe *)p,
+	count = build_pid_index_unlocked((struct sensor *)p,
 									 p->ksysfs_pid_flex_array,
 									 nonce);
 	count = sysfs_for_each_unlocked(p, nonce);
@@ -317,7 +306,7 @@ kernel_sysfs_unlocked(struct kernel_sysfs_probe *p,
 }
 
 int
-kernel_sysfs(struct kernel_sysfs_probe *p,
+kernel_sysfs(struct kernel_sysfs_sensor *p,
 			 int c,
 			 uint64_t nonce)
 {
@@ -326,7 +315,7 @@ kernel_sysfs(struct kernel_sysfs_probe *p,
 	if (!spin_trylock(&p->lock)) {
 		return -EAGAIN;
 	}
-	count = build_pid_index_unlocked((struct probe *)p,
+	count = build_pid_index_unlocked((struct sensor *)p,
 									 p->ksysfs_pid_flex_array,
 									 nonce);
 	count = sysfs_for_each_unlocked(p, nonce);
@@ -337,7 +326,7 @@ kernel_sysfs(struct kernel_sysfs_probe *p,
 
 
 int
-filter_sysfs_data(struct kernel_sysfs_probe *p,
+filter_sysfs_data(struct kernel_sysfs_sensor *p,
 				  struct kernel_sysfs_data *sysfs_data,
 				  void *data)
 {
@@ -346,7 +335,7 @@ filter_sysfs_data(struct kernel_sysfs_probe *p,
 
 
 int
-print_sysfs_data(struct kernel_sysfs_probe *p,
+print_sysfs_data(struct kernel_sysfs_sensor *p,
 				 uint8_t *tag, uint64_t nonce, int count)
 {
 	if(print_to_log) {
@@ -361,8 +350,8 @@ void
 run_sysfs_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
-	struct kernel_sysfs_probe *probe_struct =
-		container_of(work, struct kernel_sysfs_probe, work);
+	struct kernel_sysfs_sensor *probe_struct =
+		container_of(work, struct kernel_sysfs_sensor, work);
 	int count = 0;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
@@ -393,11 +382,11 @@ run_sysfs_probe(struct kthread_work *work)
  * probe is LOCKED upon entry
  **/
 static int
-sysfs_message(struct probe *probe, struct probe_msg *msg)
+sysfs_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return sysfs_get_record((struct kernel_sysfs_probe *)probe,
+		return sysfs_get_record((struct kernel_sysfs_sensor *)sensor,
 								msg,
 								"kernel-sysfs");
 	}
@@ -409,13 +398,13 @@ sysfs_message(struct probe *probe, struct probe_msg *msg)
 
 
 void *
-destroy_sysfs_probe(struct probe *probe)
+destroy_sysfs_sensor(struct sensor *sensor)
 {
-	struct kernel_sysfs_probe *sysfs_p = (struct kernel_sysfs_probe *)probe;
-	assert(sysfs_p && __FLAG_IS_SET(sysfs_p->flags, PROBE_KSYSFS));
+	struct kernel_sysfs_sensor *sysfs_p = (struct kernel_sysfs_sensor *)sensor;
+	assert(sysfs_p && __FLAG_IS_SET(sysfs_p->flags, SENSOR_KSYSFS));
 
-	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
-		destroy_probe(probe);
+	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
+		destroy_sensor(sensor);
 	}
 
 	if (sysfs_p->ksysfs_pid_flex_array) {
@@ -426,36 +415,36 @@ destroy_sysfs_probe(struct probe *probe)
 		flex_array_free(sysfs_p->ksysfs_flex_array);
 	}
 
-	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_probe));
+	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_sensor));
 	return sysfs_p;
 }
-STACK_FRAME_NON_STANDARD(destroy_sysfs_probe);
+STACK_FRAME_NON_STANDARD(destroy_sysfs_sensor);
 
-struct kernel_sysfs_probe *
-init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
+struct kernel_sysfs_sensor *
+init_sysfs_sensor(struct kernel_sysfs_sensor *sysfs_p,
 				 uint8_t *id, int id_len,
-				 int (*print)(struct kernel_sysfs_probe *,
+				 int (*print)(struct kernel_sysfs_sensor *,
 							  uint8_t *, uint64_t, int),
-				 int (*filter)(struct kernel_sysfs_probe *,
+				 int (*filter)(struct kernel_sysfs_sensor *,
 							   struct kernel_sysfs_data *,
 							   void *))
 {
 	int ccode;
-	struct probe *tmp;
+	struct sensor *tmp;
 
-	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_probe));
-	tmp = init_probe((struct probe *)sysfs_p, id, id_len);
-	if(sysfs_p != (struct kernel_sysfs_probe *)tmp) {
+	memset(sysfs_p, 0, sizeof(struct kernel_sysfs_sensor));
+	tmp = init_sensor((struct sensor *)sysfs_p, id, id_len);
+	if(sysfs_p != (struct kernel_sysfs_sensor *)tmp) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
 
-	__SET_FLAG(sysfs_p->flags, PROBE_KSYSFS);
+	__SET_FLAG(sysfs_p->flags, SENSOR_KSYSFS);
 	sysfs_p->timeout = sysfs_timeout;
 	sysfs_p->repeat = sysfs_repeat;
 
-	sysfs_p->_init = init_sysfs_probe;
-	sysfs_p->_destroy = destroy_sysfs_probe;
+	sysfs_p->_init = init_sysfs_sensor;
+	sysfs_p->_destroy = destroy_sysfs_sensor;
 	sysfs_p->message = sysfs_message;
 
 
@@ -508,7 +497,7 @@ init_sysfs_probe(struct kernel_sysfs_probe *sysfs_p,
 
 	/* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&sysfs_p->work, run_sysfs_probe);
-	__SET_FLAG(sysfs_p->flags, PROBE_HAS_WORK);
+	__SET_FLAG(sysfs_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&sysfs_p->worker);
 	CONT_QUEUE_WORK(&sysfs_p->worker,
 					&sysfs_p->work);
@@ -524,4 +513,4 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
-STACK_FRAME_NON_STANDARD(init_sysfs_probe);
+STACK_FRAME_NON_STANDARD(init_sysfs_sensor);

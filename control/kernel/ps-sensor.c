@@ -42,8 +42,8 @@
  * will unlock the probe upon return from this function.
  **/
 int
-kernel_ps_get_record(struct kernel_ps_probe *parent,
-					 struct probe_msg *msg,
+kernel_ps_get_record(struct kernel_ps_sensor *parent,
+					 struct sensor_msg *msg,
 					 uint8_t *tag)
 {
 	struct kernel_ps_data *kpsd_p;
@@ -61,7 +61,9 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	assert(msg->input_len == (sizeof(struct records_request)));
 	assert(msg->output_len == (sizeof(struct records_reply)));
 	assert(rr->index >= 0 && rr->index < PS_ARRAY_SIZE);
-
+	if (rr->index >= PS_ARRAY_SIZE) {
+		printk(KERN_DEBUG "rr->index too large?? %d\n", rr->index);
+	}
 
 	if (!rp->records || rp->records_len <=0) {
 		return -ENOMEM;
@@ -78,42 +80,37 @@ kernel_ps_get_record(struct kernel_ps_probe *parent,
 	}
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, rr->index);
-	if (!kpsd_p || kpsd_p->clear == FLEX_ARRAY_FREE) {
-	/**
-	* when there is no entry, or the entry is clear, return an
-	* empty record response. per the protocol control/kernel/messages.md
-	**/
+	if (!kpsd_p || kpsd_p->clear == FLEX_ARRAY_FREE ||
+		(rr->nonce && kpsd_p->nonce != rr->nonce)) {
+		/**
+		 * when there is no entry, or the entry is clear, return an
+		 * empty record response. per the protocol control/kernel/messages.md
+		 **/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s]}\n",
+							"%s %s, %s, %s]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
-							parent->id);
+							parent->name,
+							parent->uuid_string);
 		rp->index = -ENOENT;
 		goto record_created;
 	}
-
-	if (rr->nonce && kpsd_p->nonce != rr->nonce) {
-		return -EINVAL;
-	}
-
 
 	/**
 	 * build the record json object(s)
 	 **/
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s %d %s %d %d %llx ]}\n",
-						r_header, rr->json_msg->s->nonce, parent->id,
-						tag, rr->index, kpsd_p->comm, kpsd_p->pid_nr,
-						kpsd_p->user_id.val, rr->nonce);
+						"%s %s, %s, %s, %s, %d %s %d %d %llx ]}\n",
+						r_header, rr->json_msg->s->nonce, parent->name,
+						tag, parent->uuid_string, rr->index, kpsd_p->comm,
+						kpsd_p->pid_nr, kpsd_p->user_id.val, rr->nonce);
 	rp->index = rr->index;
-
+record_created:
 	if (kpsd_p && rr->clear) {
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
-
-record_created:
 	rp->records_len = cur_len;
 	rp->records[cur_len] = 0x00;
 	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
@@ -138,7 +135,7 @@ record_created:
  **/
 
 int
-print_kernel_ps(struct kernel_ps_probe *parent,
+print_kernel_ps(struct kernel_ps_sensor *parent,
 				uint8_t *tag,
 				uint64_t nonce,
 				int count)
@@ -176,7 +173,7 @@ print_kernel_ps(struct kernel_ps_probe *parent,
 }
 STACK_FRAME_NON_STANDARD(print_kernel_ps);
 
-int kernel_ps_unlocked(struct kernel_ps_probe *parent, uint64_t nonce)
+int kernel_ps_unlocked(struct kernel_ps_sensor *parent, uint64_t nonce)
 {
 
 	struct task_struct *task;
@@ -217,7 +214,7 @@ unlock_out:
  **/
 
 inline int
-kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
+kernel_ps(struct kernel_ps_sensor *parent, int count, uint64_t nonce)
 {
 
 	int index;
@@ -242,8 +239,8 @@ kernel_ps(struct kernel_ps_probe *parent, int count, uint64_t nonce)
 void  run_kps_probe(struct kthread_work *work)
 {
 	struct kthread_worker *co_worker = work->worker;
-	struct kernel_ps_probe *probe_struct =
-		container_of(work, struct kernel_ps_probe, work);
+	struct kernel_ps_sensor *probe_struct =
+		container_of(work, struct kernel_ps_sensor, work);
 	static int count;
 	uint64_t nonce;
 	get_random_bytes(&nonce, sizeof(uint64_t));
@@ -280,11 +277,11 @@ void  run_kps_probe(struct kthread_work *work)
  * probe is LOCKED upon entry
  **/
 static int
-ps_message(struct probe *probe, struct probe_msg *msg)
+ps_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
 	case RECORDS: {
-		return kernel_ps_get_record((struct kernel_ps_probe *)probe,
+		return kernel_ps_get_record((struct kernel_ps_sensor *)sensor,
 									msg,
 									"kernel-ps");
 	}
@@ -293,42 +290,42 @@ ps_message(struct probe *probe, struct probe_msg *msg)
 	}
 }
 
-static void *destroy_kernel_ps_probe(struct probe *probe)
+static void *destroy_kernel_ps_sensor(struct sensor *sensor)
 {
-	struct kernel_ps_probe *ps_p = (struct kernel_ps_probe *)probe;
-	assert(ps_p && __FLAG_IS_SET(ps_p->flags, PROBE_KPS));
+	struct kernel_ps_sensor *ps_p = (struct kernel_ps_sensor *)sensor;
+	assert(ps_p && __FLAG_IS_SET(ps_p->flags, SENSOR_KPS));
 
-	if (__FLAG_IS_SET(probe->flags, PROBE_INITIALIZED)) {
-		destroy_probe(probe);
+	if (__FLAG_IS_SET(sensor->flags, SENSOR_INITIALIZED)) {
+		destroy_sensor(sensor);
 	}
 
 	if (ps_p->kps_data_flex_array) {
 		flex_array_free(ps_p->kps_data_flex_array);
 	}
 
-	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
+	memset(ps_p, 0, sizeof(struct kernel_ps_sensor));
 	return ps_p;
 }
-STACK_FRAME_NON_STANDARD(destroy_kernel_ps_probe);
+STACK_FRAME_NON_STANDARD(destroy_kernel_ps_sensor);
 
-struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
+struct kernel_ps_sensor *init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
 											 uint8_t *id, int id_len,
-											 int (*print)(struct kernel_ps_probe *,
+											 int (*print)(struct kernel_ps_sensor *,
 														  uint8_t *, uint64_t, int))
 {
 	int ccode = 0;
-	struct probe *tmp;
+	struct sensor *tmp;
 
 	if (!ps_p) {
 		return ERR_PTR(-ENOMEM);
 	}
-	memset(ps_p, 0, sizeof(struct kernel_ps_probe));
+	memset(ps_p, 0, sizeof(struct kernel_ps_sensor));
 	/* init the anonymous struct probe */
 
-	tmp = init_probe((struct probe *)ps_p, id, id_len);
+	tmp = init_sensor((struct sensor *)ps_p, id, id_len);
 	/* tmp will be a good pointer if init returned successfully,
 	   an error pointer otherwise */
-	if (ps_p != (struct kernel_ps_probe *)tmp) {
+	if (ps_p != (struct kernel_ps_sensor *)tmp) {
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
@@ -338,13 +335,13 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 	 * they are passed on the command line, or (eventually) read
 	 * from sysfs
 	 **/
-	__SET_FLAG(ps_p->flags, PROBE_KPS);
+	__SET_FLAG(ps_p->flags, SENSOR_KPS);
 
 	ps_p->timeout = ps_timeout;
 	ps_p->repeat = ps_repeat;
 
-	ps_p->_init = init_kernel_ps_probe;
-	ps_p->_destroy = destroy_kernel_ps_probe;
+	ps_p->_init = init_kernel_ps_sensor;
+	ps_p->_destroy = destroy_kernel_ps_sensor;
 	ps_p->message = ps_message;
 
 	if (print) {
@@ -375,7 +372,7 @@ struct kernel_ps_probe *init_kernel_ps_probe(struct kernel_ps_probe *ps_p,
 
 /* now queue the kernel thread work structures */
 	CONT_INIT_WORK(&ps_p->work, run_kps_probe);
-	__SET_FLAG(ps_p->flags, PROBE_HAS_WORK);
+	__SET_FLAG(ps_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&ps_p->worker);
 	CONT_QUEUE_WORK(&ps_p->worker,
 					&ps_p->work);
@@ -389,4 +386,4 @@ err_exit:
 	/* if the probe has been initialized, need to destroy it */
 	return ERR_PTR(ccode);
 }
-STACK_FRAME_NON_STANDARD(init_kernel_ps_probe);
+STACK_FRAME_NON_STANDARD(init_kernel_ps_sensor);

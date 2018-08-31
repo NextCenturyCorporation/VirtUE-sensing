@@ -14,7 +14,11 @@ import platform
 # Should this be put into the targets.json file?
 APIHOST = 'sensing-api.savior.internal'
 BASE_PORT_NO = 11020
-DEFAULT_DEBUG_LEVEL = 'INFO'
+DEFAULT_DEBUG_LEVEL = 'DEBUG'
+KAFKA_PORT_NO = 9555
+SENSING_API_HTTP_PORT = 17141
+SENSING_API_HTTPS_PORT = 17504
+SENSOR_HTTPS_ACTUATION = 11000
 
 # output a configuration file that rougly co-relate with 
 # the original sensor wrapper command line parameters
@@ -670,6 +674,8 @@ def install_sensor_service(target):
     :return:
     """
     global APIHOST, BASE_PORT_NO, DEFAULT_DEBUG_LEVEL, UPDATE_SENSOR_ZIP
+    global KAFKA_PORT_NO, SENSING_API_HTTP_PORT, SENSING_API_HTTPS_PORT, SENSOR_HTTPS_ACTUATION
+    port_list = [KAFKA_PORT_NO, SENSING_API_HTTP_PORT, SENSING_API_HTTPS_PORT, SENSOR_HTTPS_ACTUATION]
     # define our directories
     sys_drive = os.environ["SystemDrive"] + os.sep
     root = target["root"]
@@ -692,6 +698,20 @@ def install_sensor_service(target):
         logs_dir = os.path.join(svc_dir, "logs")
         if not os.path.exists(logs_dir):
             os.makedirs(logs_dir)
+
+        for portno in port_list:
+            name = "name=Open Port %d" % (portno,)
+            localport = "localport=%d" % (portno,)
+            cmd_args = ["netsh", "advfirewall", "firewall", "add", "rule", 
+                    name, "dir=in", "action=allow", "protocol=TCP", localport]
+            proc = Popen(cmd_args, stdout=PIPE, stderr=PIPE)
+            _sout, _serr = proc.communicate()
+            if proc.returncode == 0:
+                print("   + Opened port %d for sensor infrastructure" 
+                        % (portno,))
+            else:
+                print("   - Failed to open port %d for sensor infrastructure!!" 
+                        % (portno,))
 
         for sensor in sensors:
             certs_dir = os.path.join(svc_dir, "certs", sensor)

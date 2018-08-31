@@ -3,8 +3,8 @@ MY_CCFLAGS += -std=gnu99 -fms-extensions
 ccflags-y += ${MY_CCFLAGS}
 OBJECT_FILES_NON_STANDARD := y
 obj-m += controller.o
-controller-y := controller-common.o controller-interface.o lsof-probe.o \
-	ps-probe.o jsmn/jsmn.o sysfs-probe.o jsonl-parse.o
+controller-y := controller-common.o controller-interface.o lsof-sensor.o \
+	ps-sensor.o jsmn/jsmn.o sysfs-sensor.o jsonl-parse.o
 OBJECT_FILES_NON_STANDARD_controller-common.o := n
 
 .PHONY: uname
