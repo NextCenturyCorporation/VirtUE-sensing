@@ -5,12 +5,11 @@ wvucmd.py
 import cmd
 import sys
 import logging
-import readline
 import colorama
 import ntfltmgr
 
-from ntfltmgr import FilterConnectCommunicationPort, EnumerateProbes
-from ntfltmgr import CloseHandle, packet_decode
+from ntfltmgr import FilterConnectCommunicationPort, EnumerateSensors
+from ntfltmgr import CloseHandle, packet_decode, EventPort, CommandPort
 
 colorama.init()
 
@@ -27,12 +26,11 @@ class WinVirtueCmd(cmd.Cmd):
     DisableProbe = 0x2        
     EnableUnload = 0x3
     DisableUnload = 0x4
-    EnumerateProbes = 0x5
+    EnumerateSensors = 0x5
     ConfigureProbe = 0x6
     OneShotKill = 0x7        
     '''
-    CommandPort = "\\WVUCommand"
-    EventPort = "\\WVUPort"
+
     
     def do_kill(self, _pid):
         '''
@@ -168,7 +166,7 @@ class WinVirtueCmd(cmd.Cmd):
         if self._connected is False:
             logger.warning("Not Connected!")
             return
-        (_res, self._probes,) = EnumerateProbes(self._hFltComms)
+        (_res, self._probes,) = EnumerateSensors(self._hFltComms)
         for probe in self._probes:
             self._probedict[probe.SensorName] = probe
         field_list = ['SensorId', 'LastRunTime', 'RunInterval',  'OperationCount', 'Attributes', 'Enabled', 'SensorName']
@@ -181,8 +179,8 @@ class WinVirtueCmd(cmd.Cmd):
         '''
         @brief Connect to the Windows Virtue Command Port
         '''
-        (_res, self._hFltComms,) = FilterConnectCommunicationPort(WinVirtueCmd.CommandPort)
-        (_res, self._probes,) = EnumerateProbes(self._hFltComms)
+        (_res, self._hFltComms,) = FilterConnectCommunicationPort(CommandPort)
+        (_res, self._probes,) = EnumerateSensors(self._hFltComms)
         for probe in self._probes:
             self._probedict[probe.SensorName] = probe
         self._connected = True
@@ -197,7 +195,7 @@ class WinVirtueCmd(cmd.Cmd):
         if not outfile:
             outfile='outfile.txt'
 
-        (_res, hFltComms,) = FilterConnectCommunicationPort(WinVirtueCmd.EventPort)
+        (_res, hFltComms,) = FilterConnectCommunicationPort(EventPort)
         try:
             with open(outfile,"w") as of:
                 for pkt in packet_decode():
@@ -233,6 +231,3 @@ class WinVirtueCmd(cmd.Cmd):
         sys.exit(0)
     do_exit = do_quit
     
-
-if __name__ == '__main__':
-    WinVirtueCmd().cmdloop('Windows Virtue Driver Interface')
