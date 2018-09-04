@@ -10,12 +10,8 @@ Version 0.1.0.1
 
 
 # How To Build and Run
-<<<<<<< HEAD
-0. Open the WinVirtUE.sln solution file, select either Debug or Release profiles and rebuild.
-=======
 0. Open the WinVirtUE.sln soluation file, select either Debug or Release profiles and rebuild.  Debug is recommended for the purposes herein.  
 0.5 Optional:  Look at the savior/control/win-kernel/WinVirtUE/config.h file and locate the LOG_MODULE definition.  Configure that so that only those subsystems you wish to view activity on will output debug/status information to the debugger console - recompile.
->>>>>>> master
 1. Copy/Paste the x64\$(Configuration)\WinVirtUE directory to the VM's desktop
 2. Right click and select install the WinVirtUE.inf file
 3. Open a administrators command prompt and execute the following command:
