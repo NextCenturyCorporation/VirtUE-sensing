@@ -74,6 +74,13 @@ Although more up-front work is required, this approach I believe will (and does)
 0. Follow the instructions in the 'How to Verify Comms' section above.
 1. When the ntfltmgr.py file is execute, you should view image load, process creation and destruction events.
 
-## Known Issues
-* Stopping and restarting the user level program might not result in a valid connection.  This bug will be written up and assigned in a future milestone.
+## How to create a new sensor
+1.  Create a directory under .\savior\sensors\ named sensor_{SensorName} where 
+SensorName is the name of your new sensor. Ex: sensor_targetdelta.
+2.  Copy from .\savior\sensors\sensor_threadcreate or similar current sensor the entire subdirectory into the new sensor directory. 
+3.  Rename and edit each file including those in the .\config subdirectory such that the verbiage is inline with your new sensors name and functionality.  Ex:  all threadcreate_config_*.json files must now be targetdelta_config_*.json and etc.
+4.  Edit the savior\targets\win-target\target.json file and add the new sensor name in the sensors key.  
+5.  Create a new directory tree under .\savior\target\win-target\sensors such that you have your new sensor name with a certs subdirectory and an empty .empty file.  The .empty file is required as git will not add empty directories.  Ex:
+.\targedelta\certs\.empty should exist under the .\savior\targets\win-target\sensors directory
+6. Be sure to commit these changes so that when a new target is built, the installation and the sensor load operations will properly create all of the required configuration data, ports, and savior api config data.
 
