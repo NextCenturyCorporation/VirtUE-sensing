@@ -41,7 +41,7 @@ Output of driverquery should show at the last position that the driver is loaded
 Basically the probe starts collecting data by activating specific system callbacks; during the callback context the probe en-queues the collected data onto an interlocked queue and returns.  The consumer side is woken up  (if it's connected) and then transmits it to the listening user space program.  If there is no connection, then the queue is treated like a circular queue only keeping the last 'n'  (currently 8192) elements.  The user  space program (python in this example) unpacks the data, converts it and then simply prints it to standard out.  When the user space program sends it's response, the entry de-queued by the kernel consumer thread is freed.  If no response occurs within the time-out period, the entry is pushed back on to the head of the queue and a wait ensues.  The cycle is repeated until tear-down.
 
 ## How to run it
-1. Build, install and run the driver as mentioned above.  For clarity and ease, bulid the driver and load it with windbg attached so that various operations can be used.  This can be done in a variety of different ways, I recommand using VMware and VirtualKD 3.0 and later.
+1. Build, install and run the driver as mentioned above.  For clarity and ease, build the driver and load it with windbg attached so that various operations can be used.  This can be done in a variety of ways, I recommand using VMware and VirtualKD 3.0 and later.
 2. Ensure that the target instance has python 3.6.4 installed. Earlier versions will probably not work, later versions might work.  I've only tested with 3.6.4. 
 3. Execute the ntfltmgr.py file by
 ```Cmd
