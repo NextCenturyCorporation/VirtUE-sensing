@@ -972,21 +972,17 @@ class SensorStatus(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_chars)
         lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
-
         sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))        
-
-
         attrib_flags = str(SensorAttributeFlags(info.contents.Attributes))
         ndx = attrib_flags.find(cls.saf_name)
         if ndx == 0:
-            attrib_flags = attrib_flags[len(cls.paf_name):]
+            attrib_flags = attrib_flags[len(cls.saf_name):]
 
         sensor_status = GetSensorStatus(            
             sensor_id,
             info.contents.LastRunTime,
             info.contents.RunInterval,
             info.contents.OperationCount,
-            SensorAttributeFlags(info.contents.Attributes), 
             attrib_flags,
             str(bool(info.contents.Enabled)),
             SensorName)
@@ -1677,9 +1673,9 @@ def test_command_response():
     '''
     hFltComms = FilterConnectCommunicationPort(CommandPort)
     try:        
-        (res, sensors,) = EnumerateSensors(hFltComms)
-        print("res = {0}\n".format(res,))        
-        for sensor in sensors:
+        #sensors = EnumerateSensors(hFltComms)
+        #print("res = {0}\n".format(res,))        
+        for sensor in EnumerateSensors(hFltComms):
             print("{0}".format(sensor,))
             ConfigureSensor(hFltComms,'{"repeat-interval": 60}', sensor.sensor_id)
     finally:
