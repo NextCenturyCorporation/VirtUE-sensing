@@ -16,14 +16,15 @@ class WVUProbeManager *pWVUMgr;
 /**
 * @brief Main initialization thread.
 * @note this thread remains active through out the lifetime of the driver and is also used
-* during unload to ensure all allocate C++ objects and OS resources are released as required.
-* @param StartContext this threads context as passed during creation
+*        during unload to ensure all allocate C++ objects and OS resources are released as required.
+* @param StartContext this threads context as passed during creation; 
+         pointer to global Globals.WVUThreadStartEvent
 */
 _Use_decl_annotations_
 VOID
 WVUMainInitThread(PVOID StartContext)
 {
-	PKEVENT WVUMainThreadStartEvt = (PKEVENT)StartContext;
+	PKEVENT WVUMainThreadStartEvt = (PKEVENT)StartContext; // Globals.WVUThreadStartEvent
 	OBJECT_ATTRIBUTES SensorThdObjAttr = { 0,0,0,0,0,0 };
 	OBJECT_ATTRIBUTES PollThdObjAttr = { 0,0,0,0,0,0 };	
 	HANDLE SensorThreadHandle = (HANDLE)-1;
@@ -64,7 +65,8 @@ WVUMainInitThread(PVOID StartContext)
 		goto ErrorExit;
 	}
 
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, 
+		"PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
 		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
 
 	InitializeObjectAttributes(&PollThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
@@ -87,42 +89,42 @@ WVUMainInitThread(PVOID StartContext)
 		PollThreadHandle, PollClientId.UniqueProcess, PollClientId.UniqueThread);
 
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
-#pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh
-	Signaled = KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE);
+//#pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh
+	Signaled = KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, FALSE); // Release waiter in DriverEntry()
 	do
 	{
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeWaitForSingleObject(WVUMainInitThread, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
 		Status = KeWaitForSingleObject(WVUMainThreadStartEvt, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0);
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, 
+			"KeWaitForSingleObject(WVUMainInitThread, ...) ==> %08x\n", Status);
+
 		if (FALSE == NT_SUCCESS(Status))
 		{
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Failed! Status=%08x\n", Status);
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainThreadStartEvt,...) Failed! Status=%08x\n", Status);
 #pragma warning(suppress: 26438)
 			goto ErrorExit;
 		}
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Returned from KeWaitForSingleObject(WVUMainInitThread, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
 		switch (Status)
 		{
-		case STATUS_SUCCESS:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Returned SUCCESS - Exiting!\n");
-			break;
 		case STATUS_ALERTED:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Was Just Alerted - Waiting Again!\n");
-			break;
 		case STATUS_USER_APC:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Had An APC Delievered - Waiting Again!\n");
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, 
+				"KeWaitForSingleObject(WVUMainThreadStartEvt,...) ==> ALERTED/APC, waiting again\n");
 			break;
 		case STATUS_TIMEOUT:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Timed Out - Exiting!\n");
-			break;
+		case STATUS_SUCCESS:
 		default:
-			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Received Status=0x%08x - Exiting!\n", Status);
+			WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, 
+				"KeWaitForSingleObject(WVUMainThreadStartEvt,...) ==> 0x%08x - done waiting\n", Status);
 			break;
 		}
 	} while (Status == STATUS_ALERTED || Status == STATUS_USER_APC);  // don't bail if we get alerted or APC'd
 
 	WVUQueueManager::GetInstance().TerminateLoop();
 	PVOID thd_ary[] = { pSensorThread, pPollThread };
-	KeSetEvent(&Globals.poll_wait_evt, IO_NO_INCREMENT, FALSE);
+
+    WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "KeSetEvent(poll_wait_evt,...)\n");
+	KeSetEvent(&Globals.poll_wait_evt, IO_NO_INCREMENT, TRUE);
 	Status = KeWaitForMultipleObjects(NUMBER_OF(thd_ary), thd_ary, WaitAll, Executive, KernelMode, FALSE, (PLARGE_INTEGER)0, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
@@ -130,9 +132,11 @@ WVUMainInitThread(PVOID StartContext)
 	}	
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Sensor Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pSensorThread));
 	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Poll Thread Exited w/Status=0x%08x!\n", PsGetThreadExitStatus(pPollThread));
-	(VOID)ObDereferenceObject(pSensorThread);
-	(VOID)ObDereferenceObject(pPollThread);
+
+        (VOID)ObDereferenceObject(pSensorThread);
 	ZwClose(SensorThreadHandle);
+
+        (VOID)ObDereferenceObject(pPollThread);
 	ZwClose(PollThreadHandle);
 	
 ErrorExit:
@@ -301,7 +305,8 @@ WVUTemporalProbeThread(PVOID StartContext)
 					continue;
 				}
 
-				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, "Polling Probe %w for work to be done!\n", &avp->GetProbeName());
+				WVU_DEBUG_PRINT(LOG_POLLTHREAD, TRACE_LEVEL_ID, 
+					"Polling Probe %w for work to be done!\n", &avp->GetProbeName());
 				// poll the probe for any required actions on our part
 				if (FALSE == avp->OnPoll())
 				{
@@ -310,7 +315,8 @@ WVUTemporalProbeThread(PVOID StartContext)
 				Status = avp->OnRun();
 				if (FALSE == NT_SUCCESS(Status))
 				{
-					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, "Probe %wZ Failed running avp->OnRun() - Status=0x%08x - Continuing!\n", &avp->GetProbeName(), Status);
+					WVU_DEBUG_PRINT(LOG_POLLTHREAD, WARNING_LEVEL_ID, 
+						"Probe %wZ Failed running avp->OnRun() - Status=0x%08x - Continuing!\n", &avp->GetProbeName(), Status);
 				}
 
 				LARGE_INTEGER& probe_last_runtime = (LARGE_INTEGER&)avp->GetLastProbeRunTime();
