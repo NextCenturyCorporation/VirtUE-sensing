@@ -152,36 +152,38 @@ DriverEntry(
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
 		goto ErrorExit;
 	}
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Main thread %p process %p thread id %p\n",
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, 
+		"PsCreateSystemThread():  Successfully created Main thread %p process %p thread id %p\n",
 		Globals.MainThreadHandle, MainClientId.UniqueProcess, MainClientId.UniqueThread);
 
 	Status = KeWaitForSingleObject(&Globals.WVUThreadStartEvent, KWAIT_REASON::Executive, KernelMode, FALSE, &timeout);
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, 
+					"KeWaitForSingleObject(WVUThreadStartEvent,...): %08x\n", Status);
+
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Failed! Status=%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, ERROR_LEVEL_ID, "KeWaitForSingleObject(WVUThreadStartEvent,...) Failed! Status=%08x\n", Status);
 		goto ErrorExit;
 	}
 	switch (Status)
 	{
 	case STATUS_SUCCESS:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Returned SUCCESS\n");
 		break;
 	case STATUS_TIMEOUT:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Timed Out\n");
-		Status = STATUS_TIMEOUT;
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, 
+			"KeWaitForSingleObject(WVUThreadStartEvent,...) Thread Has Just Timed Out\n");
 		goto ErrorExit;
 		break;
 	default:
-		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "KeWaitForSingleObject(WVUMainInitThread,...) Thread Has Just Received Status=0x%08x\n", Status);
+		WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, 
+			"KeWaitForSingleObject(WVUThreadStartEvent,...) Status=0x%08x treated as error\n", Status);
 		goto ErrorExit;
 		break;
 	}
 	
 	goto Exit;  // normal non-error return
 
-
 ErrorExit:
-
 	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);  // exits the intialization thread
 	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called KeSetEvent(&Globals.WVUThreadStartEvent...)!\n");
 
@@ -194,7 +196,6 @@ ErrorExit:
 	WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "Exiting on Error Status - Called CallGlobalDestructors()!\n");
 
 Exit:
-
-	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting on Error Status 0x%08x!\n", Status);
+	WVU_DEBUG_PRINT(LOG_MAIN, NT_SUCCESS(Status) ? TRACE_LEVEL_ID : ERROR_LEVEL_ID, "Exiting with Status 0x%08x!\n", Status);
 	return Status;
 }
