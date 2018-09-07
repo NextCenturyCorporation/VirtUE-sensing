@@ -29,8 +29,6 @@ WVUMainInitThread(PVOID StartContext)
 	OBJECT_ATTRIBUTES PollThdObjAttr = { 0,0,0,0,0,0 };	
 	HANDLE SensorThreadHandle = (HANDLE)-1;
 	HANDLE PollThreadHandle = (HANDLE)-1;
-	CLIENT_ID SensorClientId = { (HANDLE)-1,(HANDLE)-1 };
-	CLIENT_ID PollClientId = { (HANDLE)-1,(HANDLE)-1 };
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	LONG Signaled = 0;
 	PKTHREAD pSensorThread = NULL;
@@ -51,7 +49,7 @@ WVUMainInitThread(PVOID StartContext)
 
 	InitializeObjectAttributes(&SensorThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create sensor thread
-	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, &SensorClientId, WVUProbeCommsThread, NULL);
+	Status = PsCreateSystemThread(&SensorThreadHandle, GENERIC_ALL, &SensorThdObjAttr, NULL, NULL, WVUProbeCommsThread, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
@@ -66,12 +64,12 @@ WVUMainInitThread(PVOID StartContext)
 	}
 
 	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, 
-		"PsCreateSystemThread():  Successfully created Sensor thread %p process %p thread id %p\n",
-		SensorThreadHandle, SensorClientId.UniqueProcess, SensorClientId.UniqueThread);
+		"PsCreateSystemThread():  Successfully created Sensor thread handle %p obj %p\n",
+		SensorThreadHandle, pSensorThread);
 
 	InitializeObjectAttributes(&PollThdObjAttr, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
 	// create poll thread
-	Status = PsCreateSystemThread(&PollThreadHandle, GENERIC_ALL, &PollThdObjAttr, NULL, &PollClientId, WVUTemporalProbeThread, NULL);
+	Status = PsCreateSystemThread(&PollThreadHandle, GENERIC_ALL, &PollThdObjAttr, NULL, NULL, WVUTemporalProbeThread, NULL);
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_MAIN, ERROR_LEVEL_ID, "PsCreateSystemThread() Failed! - FAIL=%08x\n", Status);
@@ -85,15 +83,17 @@ WVUMainInitThread(PVOID StartContext)
 		goto ErrorExit;
 	}
 
-	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID, "PsCreateSystemThread():  Successfully created Poll thread %p process %p thread id %p\n",
-		PollThreadHandle, PollClientId.UniqueProcess, PollClientId.UniqueThread);
+	WVU_DEBUG_PRINT(LOG_MAIN, TRACE_LEVEL_ID,
+		"PsCreateSystemThread():  Successfully created Poll thread handle %p obj %p\n",
+		PollThreadHandle, pPollThread);
 
-	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, TRUE) . . .\n");
-//#pragma warning(suppress: 28160) // stupid warning about the wait arg TRUE . . . sheesh
-	Signaled = KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, FALSE); // Release waiter in DriverEntry()
+	WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeSetEvent(WVUMainThreadStartEvt)...\n");
+
+	Signaled = KeSetEvent(WVUMainThreadStartEvt, IO_NO_INCREMENT, FALSE); // release waiter in DriverEntry()
+	// Now wait for WVUMainThreadStartEvt to be signalled by WVUUnload() in FltMgrReg.cpp
 	do
 	{
-		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeWaitForSingleObject(WVUMainInitThread, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0) . . .\n");
+		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, "Calling KeWaitForSingleObject(WVUMainInitThread) . . .\n");
 		Status = KeWaitForSingleObject(WVUMainThreadStartEvt, KWAIT_REASON::Executive, KernelMode, TRUE, (PLARGE_INTEGER)0);
 		WVU_DEBUG_PRINT(LOG_MAINTHREAD, TRACE_LEVEL_ID, 
 			"KeWaitForSingleObject(WVUMainInitThread, ...) ==> %08x\n", Status);
@@ -187,7 +187,8 @@ WVUProbeCommsThread(PVOID StartContext)
 		WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, TRACE_LEVEL_ID, "Probe Data Queue Semaphore Read State = %ld\n", WVUQueueManager::GetInstance().Count());
 		if (FALSE == NT_SUCCESS(Status) || TRUE == Globals.ShuttingDown)
 		{
-			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, "KeWaitForMultipleObjects(Globals.ProbeDataEvents,...) Failed! Status=%08x\n", Status);
+			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, ERROR_LEVEL_ID, 
+				"KeWaitForMultipleObjects(Globals.ProbeDataEvents,...) failed or shutdown detected. Status=%08x\n", Status);
 			goto ErrorExit;
 		}
 
@@ -195,7 +196,7 @@ WVUProbeCommsThread(PVOID StartContext)
 		PLIST_ENTRY pListEntry = WVUQueueManager::GetInstance().Dequeue();
 		if (NULL == pListEntry)
 		{
-			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, WARNING_LEVEL_ID, "Dequeued an emtpy list entry - continuing!\n");
+			WVU_DEBUG_PRINT(LOG_SENSOR_THREAD, WARNING_LEVEL_ID, "Dequeued an empty list entry - continuing!\n");
 			continue;
 		}
 
@@ -232,7 +233,6 @@ WVUProbeCommsThread(PVOID StartContext)
 	} while (FALSE == Globals.ShuttingDown);
 
 ErrorExit:
-
 	if (NULL != ReplyBuffer)
 	{
 		FREE_POOL(ReplyBuffer);
