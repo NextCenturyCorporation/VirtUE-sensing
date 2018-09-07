@@ -141,6 +141,7 @@ WVUQueueManager::~WVUQueueManager()
 VOID
 WVUQueueManager::TerminateLoop()
 {
+    WVU_DEBUG_PRINT(LOG_QUEUE_MGR, INFO_LEVEL_ID, "Shutting down.\n");
 	Globals.ShuttingDown = TRUE;  // make sure we exit the loop/thread in the queue processor
 	// the next two instructions will cause the consumer loop to terminate
 	this->SemaphoreRelease();  // artificially release the semaphore to move things along

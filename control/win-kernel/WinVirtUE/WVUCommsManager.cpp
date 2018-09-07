@@ -35,7 +35,7 @@ WVUCommsManager::WVUCommsManager()
 	//
 	//  Create communications ports.
 	//
-	RtlInitUnicodeString(&usPortName, WVUCommsManager::PortName);
+	RtlInitUnicodeString(&usPortName,    WVUCommsManager::PortName);
 	RtlInitUnicodeString(&usCommandName, WVUCommsManager::CommandName);
 
 	//
@@ -54,7 +54,7 @@ WVUCommsManager::WVUCommsManager()
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltBuildDefaultSecurityDescriptor(pWVUCommandSecDsc) FAIL=%08x\n", InitStatus);
 		goto ErrorExit;
 	}
-	
+
 	InitializeObjectAttributes(&WVUPortObjAttr,
 		&usPortName,
 		OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE,
@@ -78,7 +78,6 @@ ErrorExit:
 WVUCommsManager::~WVUCommsManager()
 {
 	FltUnregisterFilter(Globals.FilterHandle);
-
 	Globals.IsProtectionEnabled = FALSE;
 }
 
@@ -102,13 +101,14 @@ WVUCommsManager::Start()
 	// create the filter data communcations port
 	//
 	Status = FltCreateCommunicationPort(Globals.FilterHandle,
-		&Globals.WVUProbeDataStreamPort,
+		&Globals.WVUProbeDataStreamServerPort,
 		&WVUPortObjAttr,
 		Globals.DriverObject,
 		(PFLT_CONNECT_NOTIFY)&WVUCommsManager::WVUDataStreamPortConnect,
 		(PFLT_DISCONNECT_NOTIFY)&WVUCommsManager::WVUDataStreamPortDisconnect,
 		NULL,
 		NUMBER_OF_PERMITTED_CONNECTIONS);
+
 	if (FALSE == NT_SUCCESS(Status))
 	{
 		WVU_DEBUG_PRINT(LOG_COMMS_MGR, ERROR_LEVEL_ID, "FltCreateCommunicationPort() Failed! - FAIL=%08x\n", Status);
@@ -119,7 +119,7 @@ WVUCommsManager::Start()
 	// create the filter command communcations port
 	//
 	Status = FltCreateCommunicationPort(Globals.FilterHandle,
-		&Globals.WVUCommandPort,
+		&Globals.WVUCommandServerPort,
 		&WVUComandObjAttr,
 		Globals.DriverObject,
 		(PFLT_CONNECT_NOTIFY)&WVUCommsManager::WVUCommandConnect,
@@ -161,9 +161,10 @@ VOID
 WVUCommsManager::Stop()
 {
 	// close the server port
-	FltCloseCommunicationPort(Globals.WVUProbeDataStreamPort);
-	FltCloseCommunicationPort(Globals.WVUCommandPort);
+	FltCloseCommunicationPort(Globals.WVUProbeDataStreamServerPort);
 	Globals.WVUProbeDataStreamPort = NULL;
+
+	FltCloseCommunicationPort(Globals.WVUCommandServerPort);
 	Globals.WVUCommandPort = NULL;
 }
 
@@ -217,15 +218,17 @@ WVUCommsManager::WVUDataStreamPortDisconnect(
 {
 	UNREFERENCED_PARAMETER(ConnectionPortCookie);
 
-	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Port Disconnected - Port 0x%p!\n", Globals.WVUProbeDataStreamPort);
-	// close our handle to the connection 
+	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, 
+		"Remote disconnect of stream port 0x%p!\n", Globals.WVUProbeDataStreamPort);
+
+	// close our handle to the connection; sets port handle to NULL for us
 	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUProbeDataStreamPort);
 
 	// Reset the user process field
 	Globals.DataStreamUserProcess = NULL;
 
 	// Ensure that the WVUProbeDataStreamPort is NULL as well
-	Globals.WVUProbeDataStreamPort = NULL;
+	//Globals.WVUProbeDataStreamPort = NULL;
 
 	WVUQueueManager::GetInstance().OnDisconnect();
 }	
@@ -261,7 +264,7 @@ WVUCommsManager::WVUCommandConnect(
 	UNREFERENCED_PARAMETER(SizeOfContext);
 
 	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Connected by Process 0x%p Port 0x%p!\n",
-		Globals.CommandUserProcess, Globals.WVUProbeDataStreamPort);
+		Globals.CommandUserProcess, Globals.WVUCommandPort);
 
 	Globals.IsCommandConnected = TRUE;
 
@@ -281,7 +284,9 @@ WVUCommsManager::WVUCommandDisconnect(
 {
 	UNREFERENCED_PARAMETER(ConnectionCookie);
 
-	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, "Command Port Disconnected - Port 0x%p!\n", Globals.WVUProbeDataStreamPort);
+	WVU_DEBUG_PRINT(LOG_COMMS_MGR, TRACE_LEVEL_ID, 
+		"Remote disconnect of command port 0x%p!\n", Globals.WVUCommandPort);
+
 	// close our handle to the connection 
 	FltCloseClientPort(Globals.FilterHandle, &Globals.WVUCommandPort);
 
@@ -289,7 +294,7 @@ WVUCommsManager::WVUCommandDisconnect(
 	Globals.CommandUserProcess = NULL;
 
 	// Ensure that the WVUCommandPort is NULL as well
-	Globals.WVUCommandPort = NULL;
+	//Globals.WVUCommandPort = NULL;
 
 	Globals.IsCommandConnected = FALSE;
 }

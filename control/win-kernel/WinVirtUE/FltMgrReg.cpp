@@ -292,7 +292,8 @@ WVUUnload(
 
 	WVUDebugBreakPoint();
 
-	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, "Windows VirtUE Filter Unload Proceeding . . .\n");
+	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, 
+		"Windows VirtUE Filter Unload Proceeding . . .\n");
 
 	// cause the WVU Thread to proceed with object destruction
 	KeSetEvent(&Globals.WVUThreadStartEvent, IO_NO_INCREMENT, FALSE);
@@ -320,7 +321,8 @@ WVUUnload(
 	Status = STATUS_SUCCESS;
 
 Error:
-
+	WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID, 
+		"Windows VirtUE Filter Unload complete: %08x\n", Status);
     return Status;
 }
 

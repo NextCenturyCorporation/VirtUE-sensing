@@ -151,8 +151,9 @@ typedef struct _WVUGlobals
     PFLT_FILTER FilterHandle;
 
 	//
-	// Command/Response Port
+	// Command/Response Ports: server and a single client
 	//
+	PFLT_PORT WVUCommandServerPort;
 	PFLT_PORT WVUCommandPort;
 
     //
@@ -161,9 +162,10 @@ typedef struct _WVUGlobals
     PEPROCESS CommandUserProcess;
 
 	//
-	//  Data streaming port
+	//  Data streaming ports: server and a single client
 	//
-    PFLT_PORT WVUProbeDataStreamPort;
+	PFLT_PORT WVUProbeDataStreamServerPort;
+	PFLT_PORT WVUProbeDataStreamPort;
 
 	//
 	//  User process that connected to the port
