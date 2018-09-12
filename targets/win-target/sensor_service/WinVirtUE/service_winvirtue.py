@@ -26,7 +26,7 @@ class WinVirtUE(win32serviceutil.ServiceFramework):
     then converts it to json and sends it on its way to the api
     '''
     # you can NET START/STOP the service by the following name  
-    _svc_name_ = "WindowsVirtUE"
+    _svc_name_ = "WinVirtUE"
     # this text shows up as the service name in the Service  
     _svc_display_name_ = "Windows Virtue Service"
     # this text shows up as the description in the SCM  
