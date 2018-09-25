@@ -88,7 +88,7 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 		 **/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s %s, %s, %s]}\n",
+							"%s \'%s\', \'%s\', \'%s\']}\n",
 							r_header,
 							rr->json_msg->s->nonce,
 							parent->name,
@@ -102,7 +102,8 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 	 **/
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s %s, %s, %s, %s, %d %s %d %d %llx ]}\n",
+						"%s \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', \'%s\'. \'%d\',"
+                        "\'%d\', \'%llx\']}\n",
 						r_header, rr->json_msg->s->nonce, parent->name,
 						tag, parent->uuid_string, rr->index, kpsd_p->comm,
 						kpsd_p->pid_nr, kpsd_p->user_id.val, rr->nonce);
@@ -271,8 +272,6 @@ void  run_kps_probe(struct kthread_work *work)
 	return;
 }
 
-
-
 /**
  * probe is LOCKED upon entry
  **/
@@ -280,13 +279,20 @@ static int
 ps_message(struct sensor *sensor, struct sensor_msg *msg)
 {
 	switch(msg->id) {
-	case RECORDS: {
+	case RECORDS:
+	{
 		return kernel_ps_get_record((struct kernel_ps_sensor *)sensor,
 									msg,
 									"kernel-ps");
 	}
 	default:
-		return -EINVAL;
+	{
+		/**
+		 * process_state_message will cause invalid msg->id codes
+		 * to fail with -EINVAL
+		 **/
+		return sensor->state_change(sensor, msg);
+	}
 	}
 }
 

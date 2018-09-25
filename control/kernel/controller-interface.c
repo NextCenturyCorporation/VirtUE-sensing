@@ -65,11 +65,6 @@ k_socket_write(struct socket *sock,
 	struct msghdr msg = {.msg_flags = flags};
 	struct kvec iov = {.iov_base = out, .iov_len = size};
 
-/**
- *	printk(KERN_DEBUG "k_socket_write sock %p, num bytes to write %ld," \
- *		   "outbuf %p, flags %x\n",
- *		   sock, size, out, flags);
- **/
 again:
 	res = kernel_sendmsg(sock, &msg, &iov, 1, size);
 	if (res <= 0) {
@@ -245,12 +240,7 @@ k_echo_server(struct kthread_work *work)
 		}
 
 		m->socket = sock;
-/**
- * TODO: use an appropriately named variable to store
- *       return of parse_json_message
- **/
 		m->count = parse_json_message(m);
-		printk(KERN_DEBUG "message token count: %d", m->count);
 /**
  * TODO: if parse_json_message returns COMPLETE, close connection
  *       else if it returns 0, keep connection open
@@ -405,6 +395,15 @@ STACK_FRAME_NON_STANDARD(k_read_write);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
+
+/**
+ * NOTE: k_poll is unused. It is intended to be a replacement for
+ * k_accept, which works perfectly fine. k_poll would be slightly more
+ * efficient and responsive, but more complex. It isn't tested.
+ *
+ * -mdd
+ **/
+
 
 static void k_poll(struct kthread_work *work)
 {
