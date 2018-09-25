@@ -162,10 +162,10 @@ WVUCommsManager::Stop()
 {
 	// close the server port
 	FltCloseCommunicationPort(Globals.WVUProbeDataStreamServerPort);
-	Globals.WVUProbeDataStreamPort = NULL;
+	Globals.WVUProbeDataStreamServerPort = NULL;
 
 	FltCloseCommunicationPort(Globals.WVUCommandServerPort);
-	Globals.WVUCommandPort = NULL;
+	Globals.WVUCommandServerPort = NULL;
 }
 
 #pragma region Data Port Connection
@@ -226,9 +226,6 @@ WVUCommsManager::WVUDataStreamPortDisconnect(
 
 	// Reset the user process field
 	Globals.DataStreamUserProcess = NULL;
-
-	// Ensure that the WVUProbeDataStreamPort is NULL as well
-	//Globals.WVUProbeDataStreamPort = NULL;
 
 	WVUQueueManager::GetInstance().OnDisconnect();
 }	
@@ -292,10 +289,6 @@ WVUCommsManager::WVUCommandDisconnect(
 
 	// Reset the user process field
 	Globals.CommandUserProcess = NULL;
-
-	// Ensure that the WVUCommandPort is NULL as well
-	//Globals.WVUCommandPort = NULL;
-
 	Globals.IsCommandConnected = FALSE;
 }
 

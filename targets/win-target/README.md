@@ -5,7 +5,7 @@ mark.sanderson@twosixlabs.com
 # Differences And Caveats
 
 ## Docker Issues
-For now, Docker *will not* be used to containerize the Windows Sensors.  The Windows 10 Docker product is still fairly immature, and it is not clear if we'll be able to take advantage of it's functionality in the future.  There were a number of issues including random virtual network malfunctions and etc that prevented Docker from being useful.
+For now, Docker *will not* be used to containerize the Windows Sensors.  The Windows 10 Docker product is still fairly immature, and it is not clear if we'll be able to take advantage of its functionality in the future.  There were a number of issues including random virtual network malfunctions and etc that prevented Docker from being useful.
 
 ## curio
 curio 0.9 appears to be comptable (at least partially) with windows.  This will be proven out as time goes on.
@@ -33,7 +33,7 @@ bin\windows-build.bat
 7. Python requirements will be installed after the the python installer exits.  There are at least one required python packages that require the VS build enviornment, notably the http package.
 8. After the prerequisites are installed, then the build script will create target environment almost completely modeled on the Linux model.  Since there is no docker container running, sensor installation is handled statically.
 
-# Updating Sensors (If Required)
+# Updating Sensors (if required)
 1. Stop all sensors by killing all their running windows
 2. From the .\savior directory, pull all changes
 ```Cmd
@@ -68,7 +68,7 @@ bin\run-all.bat
 
 1. Analyze driver object utilzation in an effort to determine if any are used in the driver object clone style attack.   This attack has been used for creating keyloggers that have not beeen easily detected by the PatchGuard and AV's.
 
-2. Analyze thread creation parameters.  If a thread entry start address falls outside of known module addresses, then notify possible thread injection attack.  This should be doable for both kernel and user modules(dll's).
+2. Analyze thread creation parameters.  If a thread entry start address falls outside of known module addresses, then notify possible thread injection attack.  This should be doable for both kernel and user modules (DLLs).
 
 3. Analyze module loading to notify if unusual pathing or unsigned dll's/modules are loaded in a process.  
 
@@ -78,7 +78,7 @@ bin\run-all.bat
 
 6. Notify when unsigned WSH files are loaded (powershell, active state, et)
 
-7. Monitor registry keys associated with loading dll's. 
+7. Monitor registry keys associated with loading DLLs. 
 
 8. Analyze VAD tree, XOrderModuleList, and E/IAT to look for hidden modules and other inconsistencies.
 

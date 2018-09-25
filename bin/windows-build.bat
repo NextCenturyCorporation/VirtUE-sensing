@@ -46,7 +46,7 @@ RMDIR /Q /S %TEMP%
 copy /y c:\Python3.6.4\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python3.6.4\lib\site-packages\win32
 SET PYTHONPATH=%SystemDrive%\
 python -m WinVirtUE install
-sc config WindowsVirtue start= auto
+sc config WinVirtue start= auto
 python -m WinVirtUE start
 
 @ECHO POP back to .\savior

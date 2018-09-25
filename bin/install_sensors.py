@@ -265,7 +265,7 @@ def validate_sensor(sensor):
     errors = []
 
     # files exist
-    if platform.system() != "Windows":
+    if platform.system() != "Windows" and sensor["sensor"]["startup_script"]:
         if not os.path.isfile(os.path.join(sensor["root"], sensor["sensor"]["startup_script"])):
             errors.append("sensor.json::startup_script does not point to an existing file")
 
@@ -362,7 +362,9 @@ def install_sensors_in_target(target, kmods, sensors, wrapper_dir, ntfltmgr_dir)
     # support libraries
     install_sensor_wrapper(target, wrapper_dir)
 
-    if ("os" in target["target"] and target["target"]["os"] ==  "Windows"):
+    if (sys.platform == "win32" and
+        "os" in target["target"] and
+        target["target"]["os"] ==  "Windows"):
         install_ntfltmgr(target, ntfltmgr_dir)
         install_sensor_service(target)
 
@@ -651,7 +653,7 @@ def install_sensor(target, sensor):
         with open(os.path.join(os.path.join(sensor_dest_dir, run_sub_dir), ".empty"), "w") as dotfile:
             dotfile.write("\n")
 
-    if platform.system() != "Windows":
+    if platform.system() != "Windows" and sensor["sensor"]["startup_script"]:
         print "    + startup script"
         shutil.copy(
             os.path.abspath(os.path.join(sensor_src_dir, sensor["sensor"]["startup_script"])),
@@ -677,7 +679,8 @@ def install_sensor_service(target):
     global KAFKA_PORT_NO, SENSING_API_HTTP_PORT, SENSING_API_HTTPS_PORT, SENSOR_HTTPS_ACTUATION
     port_list = [KAFKA_PORT_NO, SENSING_API_HTTP_PORT, SENSING_API_HTTPS_PORT, SENSOR_HTTPS_ACTUATION]
     # define our directories
-    sys_drive = os.environ["SystemDrive"] + os.sep
+    #sys_drive = os.environ["SystemDrive"] + os.sep
+    sys_drive = os.environ.get("SystemDrive","C") + os.sep
     root = target["root"]
     sensors = target["target"]["sensors"]
     svc_root = os.path.abspath(os.path.join(root, "sensor_service"))
