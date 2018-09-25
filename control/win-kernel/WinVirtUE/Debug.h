@@ -153,4 +153,9 @@ void WVUDebugBreakOnMatch(_In_ _Notnull_ PVOID String, _Notnull_ _In_ const WCHA
 #define WVU_DEBUG_PRINT_BUFFER(Module, Buffer, Size) for(;;)break
 #define WVU_DEBUG_BREAK_ON_FILENAME(String, Target, Type) for(;;)break
 
+#define  WVUDebugPrintFileName(String, Type, Level) { do { ; } while(0); }
+#define  WVUDebugBreakPoint() { do { ; } while(0); }
+#define  WVUDebugPrintBuffer(Buffer, Size) { do { ; } while(0); }
+#define  WVUDebugBreakOnMatch(String, Target, Type) { do { ; } while(0); }
+
 #endif /* WVU_DEBUG */

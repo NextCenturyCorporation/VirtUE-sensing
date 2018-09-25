@@ -419,10 +419,9 @@ WVUInstanceSetup(
     // See if we can get volume information. We don't care if this fails. It's 
     // just for diagnostic purposes.
     Status = QueryVolumeName(FltObjects->Instance, InstanceContext);
-
-    PUNICODE_STRING VolumeName = NT_SUCCESS(Status) ? &InstanceContext->VolumeName : &defaultVolumeName;
     Status = STATUS_SUCCESS;
-
+#ifdef WVU_DEBUG
+	PUNICODE_STRING VolumeName = NT_SUCCESS(Status) ? &InstanceContext->VolumeName : &defaultVolumeName;
     WVU_DEBUG_PRINT(LOG_FLT_MGR, TRACE_LEVEL_ID,
         "Attaching to device %wZ (DevType %u, FsType %d, RO %u, Removable %u)\n",
         VolumeName,
@@ -430,6 +429,7 @@ WVUInstanceSetup(
         VolumeFilesystemType,
         BooleanFlagOn(InstanceContext->Flags, InstanceFlags::InstanceFlagReadOnly),
         BooleanFlagOn(InstanceContext->Flags, InstanceFlags::InstanceFlagRemovableMedia));
+#endif // WVU_DEBUG
 
 Done:
 

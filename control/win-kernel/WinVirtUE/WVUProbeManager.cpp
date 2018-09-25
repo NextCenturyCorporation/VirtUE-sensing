@@ -26,10 +26,16 @@ class ThreadCreateProbe *pTCP = nullptr;
 WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 { 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
-
 	WVUCommsManager& commsmgr = WVUCommsManager::GetInstance();
+
 	// Start the filter comms manager
-	NT_ASSERTMSG("Failed to enable the Filter Communications Manager!", TRUE == commsmgr.Start());
+	bool started = commsmgr.Start();
+	if (!started)
+	{
+		Status = STATUS_FAIL_CHECK;
+		NT_ASSERT(!"Failed to enable the Filter Communications Manager!");
+		goto ErrorExit;
+	}
 
 	// Make ready the image load probe
 	pILP = new ImageLoadProbe();
@@ -41,10 +47,16 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 		goto ErrorExit;
 	}
 
+	// Start the image load probe
 	if (TRUE == pILP->IsEnabledAtStart())
 	{
-		// Start the image load probe
-		NT_ASSERTMSG("Failed to start the image load probe!", TRUE == pILP->Start());
+		started = pILP->Start();
+		if (!started)
+		{
+			Status = STATUS_FAIL_CHECK;
+			NT_ASSERT(!"Failed to start the image load probe!");
+			goto ErrorExit;
+		}
 	}
 
 	// Make ready the process create probe
@@ -56,11 +68,16 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"ProcessCreateProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
+	// Start the process create probe
 	if (TRUE == pPCP->IsEnabledAtStart())
 	{
-		// Start the process create probe
-		NT_ASSERTMSG("Failed to start the process create probe!", TRUE == pPCP->Start());
+		started = pPCP->Start();
+		if (!started)
+		{
+			Status = STATUS_FAIL_CHECK;
+			NT_ASSERT(!"Failed to start the process create probe!");
+			goto ErrorExit;
+		}
 	}
 
 	// Make ready the process list validation probe
@@ -72,11 +89,16 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"ProcessListValidationProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
+	// Start the process list validation probe
 	if (TRUE == pPLVP->IsEnabledAtStart())
 	{
-		// Start the process create probe
-		NT_ASSERTMSG("Failed to start the process list validation probe!", TRUE == pPLVP->Start());
+		started = pPLVP->Start();
+		if (!started)
+		{
+			Status = STATUS_FAIL_CHECK;
+			NT_ASSERT(!"Failed to start the process list validation probe!");
+			goto ErrorExit;
+		}
 	}
 
 	// Make ready the registry modification probe
@@ -88,11 +110,16 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"RegistryModificationProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
-
+	// Start the registry modification probe
 	if (TRUE == pRMP->IsEnabledAtStart())
 	{
-		// Start the process create probe
-		NT_ASSERTMSG("Failed to start the Registry Modification Probe!", TRUE == pRMP->Start());
+		started = pRMP->Start();
+		if (!started)
+		{
+			Status = STATUS_FAIL_CHECK;
+			NT_ASSERT(!"Failed to start the Registry Modification Probe!");
+			goto ErrorExit;
+		}
 	}
 
 	// Make ready the thread creation probe
@@ -104,10 +131,16 @@ WVUProbeManager::WVUProbeManager() : Status(STATUS_SUCCESS)
 			"ThreadCreateProbe not constructed - Status=%08x\n", Status);
 		goto ErrorExit;
 	}
+	// Start the thread create probe
 	if (TRUE == pTCP->IsEnabledAtStart())
 	{
-		// Start the process create probe
-		NT_ASSERTMSG("Failed to start the Thread Create Probe!", TRUE == pTCP->Start());
+		started = pTCP->Start();
+		if (!started)
+		{
+			Status = STATUS_FAIL_CHECK;
+			NT_ASSERT(!"Failed to start the Thread Create Probe!");
+			goto ErrorExit;
+		}
 	}
 	
 ErrorExit:
@@ -120,33 +153,40 @@ ErrorExit:
 */
 WVUProbeManager::~WVUProbeManager()
 {
+	bool stopped = false;
+
 	if (NULL != pPLVP)
 	{
-		NT_ASSERTMSG("Failed to stop the process list validation probe!", TRUE == pPLVP->Stop());
+		stopped = pPLVP->Stop();
+		NT_ASSERTMSG("Failed to stop the process list validation probe!", stopped);
 		delete pPLVP;
 	}
 
 	if (NULL != pPCP)
 	{
-		NT_ASSERTMSG("Failed to stop the process create probe!", TRUE == pPCP->Stop());
+		stopped = pPCP->Stop();
+		NT_ASSERTMSG("Failed to stop the process create probe!", stopped);
 		delete pPCP;
 	}
 
 	if (NULL != pILP)
 	{
-		NT_ASSERTMSG("Failed to stop the image load probe!", TRUE == pILP->Stop());
+		stopped = pILP->Stop();
+		NT_ASSERTMSG("Failed to stop the image load probe!", stopped);
 		delete pILP;
 	}
 
 	if (NULL != pTCP)
 	{
-		NT_ASSERTMSG("Failed to stop the Thread Create probe!", TRUE == pTCP->Stop());
+		stopped = pTCP->Stop();
+		NT_ASSERTMSG("Failed to stop the Thread Create probe!", stopped);
 		delete pTCP;
 	}
 
 	if (NULL != pRMP)
 	{
-		NT_ASSERTMSG("Failed to stop the registry modification probe!", TRUE == pRMP->Stop());
+		stopped = pRMP->Stop();
+		NT_ASSERTMSG("Failed to stop the registry modification probe!", stopped);
 		delete pRMP;
 	}
 
@@ -188,5 +228,3 @@ WVUProbeManager::operator delete(PVOID ptr)
 	}
 	ExFreePoolWithTag(ptr, COMMON_POOL_TAG);
 }
-
-

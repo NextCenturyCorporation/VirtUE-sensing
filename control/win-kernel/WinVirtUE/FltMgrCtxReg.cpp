@@ -22,7 +22,6 @@ volatile LONG g_InstanceAllocationBallance = 0;
 */
 static SIZE_T g_SizeOfFltrMgrInstCtx = 0;
 
-#if defined(WVU_DEBUG)
 
 #pragma region StreamContext Lookaside De/Alllocation Routines
 _IRQL_requires_same_
@@ -56,7 +55,7 @@ VOID StreamContextLookasideFree(
     ExFreePoolWithTag(pStreamContextListEntry, STREAMCONTEXT_POOL_TAG);
 }
 #pragma endregion
-#endif
+
 
 //
 // The data below is all discardable and pageable.

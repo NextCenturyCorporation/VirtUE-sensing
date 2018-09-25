@@ -162,7 +162,7 @@ WVUQueueManager::SemaphoreRelease()
 	}
 	__except (dtor_exc_filter(GetExceptionCode(), GetExceptionInformation()))
 	{
-		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Error augmenting semaphore value - ignored!\n")
+		WVU_DEBUG_PRINT(LOG_QUEUE_MGR, WARNING_LEVEL_ID, "Error augmenting semaphore value - ignored!\n");
 	}
 }
 

@@ -178,10 +178,9 @@ typedef struct _WVUGlobals
     PVOID ConnectionCookie;
 
     EX_RUNDOWN_REF RunDownRef;
-#if defined(WVU_DEBUG)
-	_Interlocked_
-	volatile LONG StreamContextLookasideAllocateCnt;
-#endif
+
+	_Interlocked_ volatile LONG StreamContextLookasideAllocateCnt;
+
     RTL_OSVERSIONINFOEXW lpVersionInformation;
     KEVENT WVUThreadStartEvent;
 	KEVENT poll_wait_evt;	    // polling thread waiter

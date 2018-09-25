@@ -159,10 +159,8 @@ RegistryModificationProbe::RegNtPreCreateKeyExCallback(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	PREG_CREATE_KEY_INFORMATION_V1 prcki = (PREG_CREATE_KEY_INFORMATION_V1)Argument2;
-#pragma warning(push)
-#pragma warning(disable:4302) // ignore type cast truncation error 
-	USHORT Class = (USHORT)Argument1;
-#pragma warning(pop)
+	USHORT Class = (USHORT)(ULONGLONG)Argument1;
+
 	FLT_ASSERTMSG("Incorrect Operation!", RegNtPreCreateKeyEx == Class || RegNtPreOpenKeyEx == Class);
 	if (NULL == probe || NULL == prcki)
 	{
@@ -272,10 +270,8 @@ RegistryModificationProbe::RegNtPreQueryValueKeyCallback(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	PREG_QUERY_VALUE_KEY_INFORMATION prgvki = (PREG_QUERY_VALUE_KEY_INFORMATION)Argument2;
-#pragma warning(push)
-#pragma warning(disable:4302) // ignore type cast truncation error 
-	USHORT Class = (USHORT)Argument1;
-#pragma warning(pop)
+	USHORT Class = (USHORT)(LONGLONG)Argument1;
+
 	FLT_ASSERTMSG("Incorrect Operation!", RegNtPreQueryValueKey == Class);
 	if (NULL == probe || NULL == prgvki)
 	{
@@ -348,11 +344,13 @@ RegistryModificationProbe::RegNtPreRenameKeyCallback(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	PREG_RENAME_KEY_INFORMATION prrki = (PREG_RENAME_KEY_INFORMATION)Argument2;
-#pragma warning(push)
-#pragma warning(disable:4302) // ignore type cast truncation error 
-	USHORT Class = (USHORT)Argument1;
-#pragma warning(pop)
+#if DBG
+	USHORT Class = (USHORT)(ULONGLONG)Argument1;
 	FLT_ASSERTMSG("Incorrect Operation!", RegNtPreRenameKey == Class);
+#else
+	UNREFERENCED_PARAMETER(Argument1);
+#endif // DBG
+
 	if (NULL == probe || NULL == prrki)
 	{
 		Status = STATUS_SUCCESS;
@@ -422,11 +420,13 @@ RegistryModificationProbe::RegNtPreDeleteValueKeyCallback(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	PREG_DELETE_VALUE_KEY_INFORMATION prdvki = (PREG_DELETE_VALUE_KEY_INFORMATION)Argument2;
-#pragma warning(push)
-#pragma warning(disable:4302) // ignore type cast truncation error 
-	USHORT Class = (USHORT)Argument1;
-#pragma warning(pop)
+#if DBG
+	USHORT Class = (USHORT)(ULONGLONG)Argument1;
 	FLT_ASSERTMSG("Incorrect Operation!", RegNtDeleteValueKey == Class);
+#else
+	UNREFERENCED_PARAMETER(Argument1);
+#endif // DBG
+
 	if (NULL == probe || NULL == prdvki)
 	{
 		Status = STATUS_SUCCESS;
@@ -496,11 +496,13 @@ RegistryModificationProbe::RegNtPreSetValueKeyCallback(
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	PREG_SET_VALUE_KEY_INFORMATION psvki = (PREG_SET_VALUE_KEY_INFORMATION)Argument2;
-#pragma warning(push)
-#pragma warning(disable:4302) // ignore type cast truncation error 
-	USHORT Class = (USHORT)Argument1;
-#pragma warning(pop)
+#ifdef DBG
+	USHORT Class = (USHORT)(ULONGLONG)Argument1;
 	FLT_ASSERTMSG("Incorrect Operation!", RegNtPreSetValueKey == Class);
+#else
+	UNREFERENCED_PARAMETER(Argument1);
+#endif // DBG
+
 	if (NULL == probe || NULL == psvki)
 	{
 		Status = STATUS_SUCCESS;
@@ -695,18 +697,18 @@ RegistryModificationProbe::RegistryModificationCB(
 	PVOID Argument1,
 	PVOID Argument2)
 {	
-	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
-#pragma warning(push)
-#pragma warning(disable:4302) // ignore type cast truncation error 
-	USHORT Class = (USHORT)Argument1;
-#pragma warning(pop)
+	USHORT Class = (USHORT)(ULONGLONG)Argument1;
 	NTSTATUS Status = STATUS_SUCCESS;
+
+#ifdef WVU_DEBUG
+	RegistryModificationProbe *probe = (RegistryModificationProbe*)CallbackContext;
 	FLT_ASSERTMSG("Invalid Context Passed to Callback Function!", NULL != probe);
 	const ANSI_STRING& notification = probe->GetNotifyClassString(Class);
 
 	WVU_DEBUG_PRINT(LOG_NOTIFY_REGISTRY, INFO_LEVEL_ID,
 		"Callback Driver Object Context %p, Registry Notification Class=%w, Arg2=%08x\n", 
 		probe, notification, Argument2);
+#endif // WVU_DEBUG
 
 	// Take a rundown reference 
 	(VOID)ExAcquireRundownProtection(&Globals.RunDownRef);
@@ -776,11 +778,11 @@ BOOLEAN RegistryModificationProbe::Stop()
 	Status = CmUnRegisterCallback(this->Cookie);
 	if (FALSE == NT_SUCCESS(Status))
 	{
-		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "CmRegisterCallbackEx(...) failed to unregister cookie 0x%llx with Status=%08x\n", Cookie.QuadPart, Status);
+		WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, ERROR_LEVEL_ID, "CmUnRegisterCallback(...) failed to unregister cookie 0x%llx with Status=%08x\n", Cookie.QuadPart, Status);
 		goto ErrorExit;
 	}
 
-	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "CmRegisterCallbackEx(): Successfully unregistered cookie 0x%llx for the Register Modification Probe\n", Cookie.QuadPart);
+	WVU_DEBUG_PRINT(LOG_NOTIFY_MODULE, TRACE_LEVEL_ID, "CmUnRegisterCallback(): Successfully unregistered cookie 0x%llx for the Register Modification Probe\n", Cookie.QuadPart);
 	this->Enabled = FALSE;
 ErrorExit:
 

@@ -390,6 +390,12 @@ WinVirtUEOperationStatusCallback(
 {
 	UNREFERENCED_PARAMETER(FltObjects);
 
+#ifndef WVU_DEBUG
+	UNREFERENCED_PARAMETER(ParameterSnapshot);
+	UNREFERENCED_PARAMETER(OperationStatus);
+	UNREFERENCED_PARAMETER(RequesterContext);
+#endif // WVU_DEBUG
+
 	WVU_DEBUG_PRINT(LOG_OP_CALLBACKS, TRACE_LEVEL_ID,
 		"WinVirtUE!WinVirtUEOperationStatusCallback: Entered\n");
 
