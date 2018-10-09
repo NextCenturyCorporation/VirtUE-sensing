@@ -40,6 +40,7 @@ services:
           - sensing-kafka.savior.internal
     depends_on:
       - zookeeper
+      - cfssl
   cfssl:
     image: 127.0.0.1:5000/savior-cfssl
     build: "./control/savior-ca"
