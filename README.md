@@ -23,7 +23,7 @@ In the deployed Virtue environment these Virtues are stand-alone virtual machine
 
 Refer to either of the following guides for running the API:
 
- - [Development Mode](development.md) - run the API locally for development of API and sensor capabilities
+ - [Development Mode](dev.md) - run the API locally for development of API and sensor capabilities
  - [Production Mode](swarm.md) - run the Sensing API on a multi-node Docker Swarm environment on AWS
 
 ## Installing Sensor Configurations
