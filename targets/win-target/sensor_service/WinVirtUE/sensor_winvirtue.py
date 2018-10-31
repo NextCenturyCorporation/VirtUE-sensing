@@ -64,9 +64,7 @@ class sensor_winvirtue(object):
             self._wrapperdict[sensor_id].stop_retrying = True                                                 
         self._running = False  # set the tasks to exit
         self._event.set()  # cause the wait_for_service_stop to return
-        self._barrier.wait() # one of n + 1 barrier waits
         logger.info("Service sensor_winvirtue sensor has Stopped . . . ")
-        logger.shutdown()  # shutdown the logger service
     
     async def _event_stream_pump(self):
         '''
