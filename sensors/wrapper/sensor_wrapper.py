@@ -24,8 +24,10 @@ from uuid import uuid4
 from routes import Mapper
 import requests
 import curequests
-pltfrm = platform.system().lower()
-if pltfrm not in ["windows", "nt"]:
+#pltfrm = platform.system().lower()
+is_windows = platform.system().lower() in ['windows', 'nt']
+
+if not is_windows:
     import pwd
     from curio import SignalEvent
     
@@ -115,9 +117,9 @@ class SensorWrapper(object):
         # log message queueing
         self.log_messages = Queue()
         self.sensor_name = name
-        if pltfrm not in ["windows", "nt"]:
+        if not is_windows:
             self.setup_options()
-        self.opts = None if pltfrm not in ["windows", "nt"] else argparse.Namespace()
+        self.opts = None if not is_windows else argparse.Namespace()
         self.opt_types = {"api_https_port": int, "api_http_port": int, 
                           "sensor_port": int, "delay_start": int, 
                           "api_retry_max": float, "api_retry_wait": float,
@@ -781,7 +783,7 @@ class SensorWrapper(object):
 
         :return: -
         """
-        if pltfrm not in ["windows", "nt"]:
+        if not is_windows:
             Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
         self.wrapper_task_group = TaskGroup()
@@ -860,12 +862,12 @@ class SensorWrapper(object):
             # sure we set the correct permissions (0x600)
             with open(self.opts.public_key_path, "w") as public_key_file:
                 public_key_file.write(pub_key)
-            if pltfrm not in ["windows", "nt"]:
+            if not is_windows:
                 os.chmod(self.opts.public_key_path, 0x600)
 
             with open(self.opts.private_key_path, "w") as private_key_file:
                 private_key_file.write(priv_key)
-            if pltfrm not in ["windows", "nt"]:
+            if not is_windows:
                 os.chmod(self.opts.private_key_path, 0x600)
 
             # we can now spin up our HTTPS actuation listener using our new keys
@@ -899,7 +901,7 @@ class SensorWrapper(object):
             await g.spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(reg_data["default_configuration"]))
             await g.spawn(self.sync_sensor, pub_key)
 
-            if pltfrm not in ["windows", "nt"]:
+            if not is_windows:
                 await Goodbye.wait()
                 logger.info("Got SIG: deregistering sensor and shutting down")
             elif (self._stop_notification is not None 
@@ -1125,7 +1127,7 @@ class SensorWrapper(object):
         if self.opts.username is None:
 
             # try and resolve the user from the PWD
-            if pltfrm not in ["windows", "nt"]:
+            if not is_windows:
                 pstruct = pwd.getpwuid(os.getuid())
                 if pstruct is not None:
                     self.opts.username = pstruct[0]
@@ -1147,20 +1149,19 @@ class SensorWrapper(object):
             if self.opts.username is None:
                 raise ValueError("Can't identify the current username, bailing out")
 
-        if self.opts.sensor_hostname is None:
-
-            self.opts.sensor_hostname = socket.getfqdn()
+        if self.opts.sensor_hostname is None or is_windows:
 
             # we'll do something funky on Windows, assuming we're on EC2
-            p = platform.system().lower()
-            if p in ["windows", "nt"]:
-                if self.opts.sensor_hostname.endswith("ec2.internal"):
+            if is_windows:
+                # ok - we're going to manually build our hostname from our
+                # IP address
+                ip = socket.gethostbyname(socket.gethostname())
+                self.opts.sensor_hostname = "ip-%s.ec2.internal" % ("-".join(ip.split(".")),)
+            else:
+                self.opts.sensor_hostname = socket.getfqdn()
 
-                    # ok - we're going to manually build our hostname from our
-                    # IP address
-                    ip = socket.gethostbyname(socket.gethostname())
-                    self.opts.sensor_hostname = "ip-%s.ec2.internal" % ("-".join(ip.split(".")),)
-
+            logger.warning("Overriding sensor hostname with value: %s",
+                           self.opts.sensor_hostname)
             # bork bork bork
             if self.opts.sensor_hostname is None:
                 raise ValueError("Can't identify the current hostname, bailing out")
@@ -1229,7 +1230,7 @@ class SensorWrapper(object):
         # good morning.
         logger.info("Starting %s(version=%s)", self.sensor_name, __VERSION__)
 
-        if pltfrm in ["windows", "nt"]:
+        if is_windows:
             logger.info("Windows Service Setting Arguments for %s", self)
             typ = None
             for key in kwargs:  # iterate through the argv and set it into the ns
@@ -1261,8 +1262,8 @@ class SensorWrapper(object):
             self.opts.check_for_long_blocking = True
 
         if self.opts.delay_start > 0:
-            logger.info("Delaying startup of lsof_sensor %d seconds", 
-                self.opts.delay_start)
+            logger.info("Delaying startup of %s for %d seconds",
+                        self.sensor_name, self.opts.delay_start)
             time.sleep(self.opts.delay_start)
 
         # set the stop_retrying to True to

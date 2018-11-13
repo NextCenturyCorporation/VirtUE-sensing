@@ -22,7 +22,8 @@ cfgparser = ConfigParser()
 
 def build_default_section_string(pkgbasedir):
     '''
-    build a default section
+    Build a default section. Exclude sensor_hostname, as we want
+    sensor_wrapper's default behavior for that variable.
     '''
     virtue_id = str(uuid4())
     delay_start = 5
@@ -43,7 +44,7 @@ username = {6}
 api_retry_max = {7}
 api_retry_wait = {8}
 api_version = {9}
-sensor_hostname= {10}
+#sensor_hostname= {10} # excluded
 api_https_port = 17504
 api_http_port = 17141
 sensor_advertised_hostname = None
@@ -62,6 +63,7 @@ if __name__ == '__main__':
     logfilename = os.path.join(basedir, "logs", __package__ + '.log')
     cfgfilename = os.path.join(basedir, "default.cfg")
     cfgparser.read_file(open(cfgfilename, 'r'))
+
     if ("base_dir" not in cfgparser["DEFAULT"]
         or "config_dir" not in cfgparser["DEFAULT"]
         or "log_dir" not in cfgparser["DEFAULT"]
@@ -71,8 +73,7 @@ if __name__ == '__main__':
         or "username" not in cfgparser["DEFAULT"]
         or "api_retry_max" not in cfgparser["DEFAULT"]
         or "api_retry_wait" not in cfgparser["DEFAULT"]
-        or "api_version" not in cfgparser["DEFAULT"]
-        or "sensor_hostname" not in cfgparser["DEFAULT"]):
+        or "api_version" not in cfgparser["DEFAULT"]):
         defsect = build_default_section_string(basedir)
         cfgparser.read_string(defsect)
     cfgparser.write(open(cfgfilename, 'w'))
