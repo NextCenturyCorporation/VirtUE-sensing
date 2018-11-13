@@ -4,3 +4,6 @@
 [submodule "control/kernel/bcc"]
 	path = control/kernel/bcc
 	url = git@github.com:twosixlabs/bcc.git
+[submodule "targets/nfs-sensor-target/sensor/scapy"]
+	path = targets/nfs-sensor-target/sensor/scapy
+	url = git@github.com:secdev/scapy.git
