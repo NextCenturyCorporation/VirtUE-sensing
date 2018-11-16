@@ -24,7 +24,7 @@ from uuid import uuid4
 from routes import Mapper
 import requests
 import curequests
-#pltfrm = platform.system().lower()
+
 is_windows = platform.system().lower() in ['windows', 'nt']
 
 if not is_windows:
@@ -905,7 +905,7 @@ class SensorWrapper(object):
                 await Goodbye.wait()
                 logger.info("Got SIG: deregistering sensor and shutting down")
             elif (self._stop_notification is not None 
-                     and inspect.iscoroutinefunction(self._stop_notification) is True):
+                  and inspect.iscoroutinefunction(self._stop_notification) is True):
                 t = await g.spawn(self._stop_notification, ignore_result=True)
                 await t.join()
                 logger.info("Received a stop and/or a shutdown notification!")
@@ -1160,7 +1160,7 @@ class SensorWrapper(object):
             else:
                 self.opts.sensor_hostname = socket.getfqdn()
 
-            logger.warning("Overriding sensor hostname with value: %s",
+            logger.warning("Forcing sensor hostname value: %s",
                            self.opts.sensor_hostname)
             # bork bork bork
             if self.opts.sensor_hostname is None:
@@ -1197,7 +1197,6 @@ class SensorWrapper(object):
                 self.opts.sensor_advertised_hostname = self.opts.sensor_hostname
             if self.opts.sensor_advertised_port is None:
                 self.opts.sensor_advertised_port = self.opts.sensor_port
-
 
         # report
         logger.info("Sensor Identification")
