@@ -8,6 +8,7 @@ ENV LC_ALL en_US.UTF-8
 
 # wget for convenience, use curl if you want to
 RUN apt-get update
+RUN apt-get update # second call sometimes needed in AWS
 RUN apt-get -y -q install wget python3-pip telnet curl
 
 # get node js working. why, oh why, does Phoenix need to use Node for building assets?
