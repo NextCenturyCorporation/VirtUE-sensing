@@ -212,7 +212,8 @@ defmodule ApiServer.RegistrationController do
             "public_key" => public_key_b64,
             "hostname" => hostname,
             "port" => port,
-            "name" => sensor_name_version
+            "name" => sensor_name_version,
+            "os" => os
           } = body_params
         } = conn, _) do
 

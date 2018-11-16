@@ -66,7 +66,7 @@ defmodule ApiServer.StreamController do
               )
              )
 
-      # we've got one or more sensor, let's start all of the sterams
+      # we've got one or more sensors, let's start all of the streams
       {:ok, sensor_structs} ->
 
         stream_topics = Enum.map(sensor_structs, fn (s) -> s.kafka_topic end)

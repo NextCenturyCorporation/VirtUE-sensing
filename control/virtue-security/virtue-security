@@ -4146,6 +4146,8 @@ async def api_version(opts):
     # setup the full uri
     uri = "%s:%d/version" % (host, opts.api_port_http)
 
+    print("% virtue-security api_version(uri={})\n".format(uri))
+
     try:
         res = requests.get(uri)
         api_json = res.json()
@@ -4233,6 +4235,8 @@ async def api_inspect(opts):
     elif opts.var_sensor is not None:
         full_uri = construct_api_uri(opts, "/sensor/%s/inspect" % (opts.var_sensor,))
 
+    print("% virtue-security api_inspect(uri={})\n".format(full_uri))
+
     # connect with our Savior CA certificate and our instance specific client certificate
     client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
     res = requests.get(full_uri, verify=opts.ca_key_path, cert=client_cert_paths)
@@ -4261,6 +4265,8 @@ async def api_observe(opts):
     elif opts.var_address is not None:
         full_uri = construct_api_uri(opts, "/vm/address/%s/observe/%s" % (opts.var_address, opts.observation_level))
 
+    print("% virtue-security api_observe(uri={})\n".format(full_uri))
+
     # send a PUT observe request to the API
     client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
     res = requests.put(full_uri, verify=opts.ca_key_path, cert=client_cert_paths)
@@ -4282,6 +4288,8 @@ async def api_monitor(opts):
     """
 
     full_uri = construct_api_uri(opts, "/control/c2/channel")
+
+    print("% virtue-security api_monitor(uri={})\n".format(full_uri))
 
     # setup our certificate paths
     client_cert_paths = (os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
@@ -4377,11 +4385,15 @@ async def api_stream(opts):
     elif opts.var_sensor is not None:
         full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
 
+    print("% virtue-security api_stream(uri={})\n".format(full_uri))
+
     get_params = {
         "follow": str(follow),
         "since": since.isoformat(),
         "filter_level": log_level
     }
+
+    print("% virtue-security api_stream(uri={})\n".format(full_uri))
 
     # spin up our request and start streaming
     ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
