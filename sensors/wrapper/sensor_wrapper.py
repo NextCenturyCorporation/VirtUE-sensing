@@ -1084,7 +1084,8 @@ class SensorWrapper(object):
         # for testing and time management/dependency management
         self.argparser.add_argument("--delay-start", dest="delay_start", type=int, default=0, help="Number of seconds to delay before startup")
         self.argparser.add_argument("--api-connect-retry-max", dest="api_retry_max", type=float, default=30.0, help="How many seconds should we wait for the Sensing API to be ready before we shutdown")
-        self.argparser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensign API connection retries")
+        self.argparser.add_argument("--api-connect-retry-wait", dest="api_retry_wait", type=float, default=0.5, help="Delay, in seconds, between Sensing API connection retries")
+        self.argparser.add_argument("--backoff-delay", dest="backoff_delay", type=int, default=30, help="Delay, in seconds, between registration attempts")
         # debuging checks
         self.argparser.add_argument("--check-for-long-blocking", dest="check_for_long_blocking", default=False, action="store_true", help="Monitor for long blocking of the event loop")
 
