@@ -69,8 +69,10 @@ async def handle_messages(message_stub=None, config=None, outqueue=None):
 
 async def read_json_doc(stream):
     """
-    Read from the stream and return a decoded JSON document as soon 
-    as we can detect it. If we read too much non-JSON data we'll throw it out.
+    Read from the stream and return a decoded JSON document as soon as
+    we can detect it. If we read too much non-JSON data we'll throw it
+    out. Note that each inbound JSON message must end with a '\n'
+    character.
     
     :param stream: network socket
     :return: decoded JSON data
@@ -79,7 +81,8 @@ async def read_json_doc(stream):
     body = ""
     decoded = None
     while True:
-        line = await stream.read(4096)
+        line = await stream.readline()
+        # line = await stream.read(1) # slow alternate
         if not line:
             decoded = None
             break
@@ -91,7 +94,7 @@ async def read_json_doc(stream):
             break
         except json.decoder.JSONDecodeError as _jde:
             if len(body) > 8192:
-                logging.warning("Dropping long, invalid message")
+                logging.warning("Dropping long, invalid message: %s", _jde)
                 body = ""
     return decoded
 

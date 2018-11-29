@@ -4,6 +4,15 @@ The Desktop Bridge sensor forwards sensor data to the sensing API
 infrastructure. It accepts in inbound TCP/IP connection on a given
 port, reads JSON sensing data from it, and forwards it to the API.
 
+# Requirements
+
+This sensor is built as a docker container and thus requires docker.
+
+The JSON data sent to the sensor must be seperated by newlines, that
+is, each JSON document must end in a newline character, although it
+can also contain several newlines as well. This agreement speeds up
+the parsing of the inbound JSON data.
+
 # Build
 
 To build the sensor's container, navigate to the `desktop-bridge-target' directory in a shell and run:
