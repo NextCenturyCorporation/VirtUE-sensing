@@ -125,8 +125,9 @@ class sensor_winvirtue(object):
             sensor_name = sensorname.lower()
             sensor_id = str(self._sensordict[sensorname].sensor_id)
             self._wrapperdict[sensor_id] = SensorWrapper(sensor_name,
-                                                       [self.evtdata_consumer],
-                                                       stop_notification=self.wait_for_service_stop)
+                                                         [self.evtdata_consumer],
+                                                         stop_notification=self.wait_for_service_stop,
+                                                         parse_args=False)
             self._sensorqueues[sensor_id] = Queue()
             logger.info("SensorWrapper for %s id %s constructed . . . ", sensorname, sensor_id)
         logger.info("All SensorWrapper Instances Built . . . ")

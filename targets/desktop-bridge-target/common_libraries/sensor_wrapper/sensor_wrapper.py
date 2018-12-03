@@ -105,7 +105,7 @@ class SensorWrapper(object):
     The SensorWrapper class that wraps comms and security functionality for sensors
     '''
     exc_info = False
-    def __init__(self, name, sensing_methods=None, stop_notification=None):
+    def __init__(self, name, sensing_methods=None, stop_notification=None, parse_opts=True):
         '''
         :name: the sensors name
         :sensing_methods: list of sensing methods for this instance
@@ -115,9 +115,13 @@ class SensorWrapper(object):
         # log message queueing
         self.log_messages = Queue()
         self.sensor_name = name
-        if pltfrm not in ["windows", "nt"]:
+        self.parse_opts = parse_opts
+        if self.parse_opts:
             self.setup_options()
-        self.opts = None if pltfrm not in ["windows", "nt"] else argparse.Namespace()
+            self.opts = None
+        else:
+            self.opts = argparse.Namespace()
+            
         self.opt_types = {"api_https_port": int, "api_http_port": int, 
                           "sensor_port": int, "delay_start": int, 
                           "api_retry_max": float, "api_retry_wait": float,
@@ -1230,7 +1234,10 @@ class SensorWrapper(object):
         # good morning.
         logger.info("Starting %s(version=%s)", self.sensor_name, __VERSION__)
 
-        if pltfrm in ["windows", "nt"]:
+        if self.parse_opts:
+            logger.info("Linux/Darwin Service Setting Arguments for %s", self)
+            self.parse_options(argv)
+        else:
             logger.info("Windows Service Setting Arguments for %s", self)
             typ = None
             for key in kwargs:  # iterate through the argv and set it into the ns
@@ -1250,9 +1257,6 @@ class SensorWrapper(object):
                 logger.info("Setting opts with key: %s, value: %s, type %s",
                             key, kwargs[key], typ.__name__)
                 
-        else:
-            logger.info("Linux/Darwin Service Setting Arguments for %s", self)
-            self.parse_options(argv)
         
         logger.info("Ensuring we are properly identified . . . ")
         self.check_identification()

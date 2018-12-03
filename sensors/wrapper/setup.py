@@ -99,7 +99,6 @@ setup(
         'six==1.11.0',
         'urllib3==1.22',
         'yarl==0.16.0',
-        'pywin32==223'
     ],  # Optional
 
 )
