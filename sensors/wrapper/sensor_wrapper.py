@@ -787,7 +787,10 @@ class SensorWrapper(object):
 
         :return: -
         """
-        if not is_windows:
+        stopper_given = (self._stop_notification is not None and
+                         inspect.iscoroutinefunction(self._stop_notification)):
+
+        if not stopper_given:
             Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
         self.wrapper_task_group = TaskGroup()
@@ -905,16 +908,14 @@ class SensorWrapper(object):
             await g.spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(reg_data["default_configuration"]))
             await g.spawn(self.sync_sensor, pub_key)
 
-            if not is_windows:
+            if not stopper_given:
                 await Goodbye.wait()
                 logger.info("Got SIG: deregistering sensor and shutting down")
-            elif (self._stop_notification is not None 
-                  and inspect.iscoroutinefunction(self._stop_notification) is True):
+            else:
                 t = await g.spawn(self._stop_notification, ignore_result=True)
                 await t.join()
                 logger.info("Received a stop and/or a shutdown notification!")
-            else:
-                logger.error("There is no supported means to wait, shutting down immediately!")
+
             await g.cancel_remaining()
 
             # don't run this async - we're happy to block on deregistration
