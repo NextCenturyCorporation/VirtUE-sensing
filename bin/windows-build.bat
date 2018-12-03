@@ -43,7 +43,8 @@ RMDIR /q /s  .\app
 POPD
 
 RMDIR /Q /S %TEMP%
-copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python3.6.4\lib\site-packages\win32
+copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python%PYTHONVER%\lib\site-packages\win32
+
 SET PYTHONPATH=%SystemDrive%\
 python -m WinVirtUE install
 sc config WinVirtue start= auto
@@ -51,3 +52,9 @@ python -m WinVirtUE start
 
 @ECHO POP back to .\savior
 POPD
+
+@ECHO Disabling driver signing enforcement (WinVirtUE driver is UNSIGNED)
+bcdedit -set testsigning       on
+bcdedit -set nointegritychecks on
+
+@ECHO System must be restarted
