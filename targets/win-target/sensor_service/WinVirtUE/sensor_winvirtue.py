@@ -8,11 +8,13 @@ import logging
 import datetime
 import configparser
 from threading import Barrier, Thread
-from curio import UniversalEvent, Queue, abide, run
+from curio import UniversalEvent, Queue, abide, run, sleep
 from sensor_wrapper import SensorWrapper
 
 from ntfltmgr import FilterConnectCommunicationPort, EnumerateSensors
-from ntfltmgr import  CommandPort, CloseHandle, packet_decode
+from ntfltmgr import  CommandPort, CloseHandle, packet_decode, apacket_decode
+
+import asyncio
 
 import __main__ 
 
@@ -71,14 +73,20 @@ class sensor_winvirtue(object):
         The actual async method that is reading from the event stream enqueue the data
         '''
         logger.info("Entering Event Stream Pump!")
-        for evt in packet_decode():
-            if not self.running:
+        dropped_sensor_ids = set()
+        async for evt in apacket_decode():
+            if not self._running:
                 logging.info("Terminating packet decode - returning on False running!")
                 break
             if not "sensor_id" in evt:
                 logger.warning("Streamed Event %s from the driver didn't contain a sensor_id!", evt)
                 continue  # if there is no sensor id in this message, log and continue
             sensor_id = evt["sensor_id"]
+            if sensor_id not in self._sensorqueues:
+                if sensor_id not in dropped_sensor_ids:
+                    dropped_sensor_ids.add(sensor_id)
+                    logger.warn("Skipping invalid/stale sensor ID %s", sensor_id)
+                continue # HACK: ID from prior run could be encountered. drop it.
             await self._sensorqueues[sensor_id].put(evt)
         logging.info("Exiting Event Stream Pump!")
     
@@ -88,7 +96,7 @@ class sensor_winvirtue(object):
         @note this thread reads from the event port, converts
         the data stream into a python dictionary and places it on the correct queue
         '''
-        run(self._event_stream_pump)    
+        run(self._event_stream_pump, with_monitor=True)    
     
     def _update_sensor_info(self):
         '''
@@ -125,7 +133,8 @@ class sensor_winvirtue(object):
             self._wrapperdict[sensor_id] = SensorWrapper(sensor_name,
                                                          [self.evtdata_consumer],
                                                          #stop_notification=self.wait_for_service_stop,
-                                                         parse_args=False)
+                                                         stop_notification=self.dummy_wait,
+                                                         parse_opts=False)
             self._sensorqueues[sensor_id] = Queue()
             logger.info("SensorWrapper for %s id %s constructed . . . ", sensorname, sensor_id)
         logger.info("All SensorWrapper Instances Built . . . ")
@@ -165,6 +174,8 @@ class sensor_winvirtue(object):
             paramdict = self._load_config_data(sensor_name)  # load the configuration data
             logger.info("loaded config data for sensor %s", sensor_id)
             paramdict["sensor_id"] = sensor_id  # artificially inject the sensor id
+            paramdict["sensor_hostname"] = None  # artificially inject the sensor hostname
+            paramdict['check_for_long_blocking'] = True
             logger.info("About to start the %s sensor . . .", sensor_name)
             self._sensorthddict[sensor_id] = Thread(None, self._wrapperdict[sensor_id].start, 
                                      "Sensor %s Start Thread" % (sensor_name,),
@@ -196,6 +207,10 @@ class sensor_winvirtue(object):
         async with abide(self._barrier):
             await abide(self._barrier.wait)
         logger.info("Service Stop Received - Exiting!")
+
+    async def dummy_wait(self):
+        while True:
+            await sleep(10)
         
     async def evtdata_consumer(self, message_stub, config, message_queue):
         '''        
@@ -204,7 +219,7 @@ class sensor_winvirtue(object):
         :param config: Configuration from our sensor, from the Sensing API
         :param message_queue: Shared Queue for messages
         :return: None
-        '''        
+        '''
         logger.debug("evtdata_consumer(): self=[%r], message_stub=[%r], config=[%r], message_queue=[%r]", 
                     self, message_stub, config, message_queue)
         sensor_id = message_stub["sensor_id"]
@@ -218,7 +233,7 @@ class sensor_winvirtue(object):
         logger.info("Utilizing queue [%r] for sensor id %s", queue, sensor_id)
         dumped = None 
         async for msg in queue:
-            if not self.running:
+            if not self._running:
                 logger.info("Exiting event data consumer as running is false!")
                 break
             event_logmsg = {

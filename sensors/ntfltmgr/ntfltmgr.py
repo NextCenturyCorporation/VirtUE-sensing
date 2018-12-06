@@ -5,8 +5,11 @@ import sys
 import json
 import uuid
 import logging
+import curio
+
 from enum import IntEnum, Flag
 from collections import namedtuple
+import ctypes
 from ctypes import c_longlong, c_ulonglong, c_void_p, HRESULT, POINTER, Structure, Union
 from ctypes import cast, create_string_buffer, byref, sizeof, WINFUNCTYPE, windll, memmove
 
@@ -30,13 +33,14 @@ logger.addHandler(logging.NullHandler())
 ERROR_INSUFFICIENT_BUFFER = 0x7a
 ERROR_INVALID_PARAMETER = 0x57
 ERROR_NO_MORE_ITEMS = 0x103
+ERROR_IO_PENDING = 0x3e5
 
 MAXRSPSZ = 0x1000
 MAXCMDSZ = 0x1000
 
 class SaviorStruct(Structure):
     '''
-    Implement a base class that takes care of JSON serialization/deserialization, 
+    Implement a base class that takes care of JSON serialization/deserialization,
     internal object instance state and other housekeeping chores
     '''
 
@@ -46,34 +50,34 @@ class SaviorStruct(Structure):
         '''
         szfields = len(type(self)._fields_)
         state = "{0}@{1}: ".format(type(self),hex(id(self)),)
-        for ndx in range(0, szfields):            
+        for ndx in range(0, szfields):
             this_name = type(self)._fields_[ndx][0]
-            this_value = getattr(self, this_name)                           
+            this_value = getattr(self, this_name)
             state += "{0}={1},".format( this_name, this_value,)
         state = state[:len(state)-1]
         return state
 
     __repr__ = __str__
-    
+
     @classmethod
     def GetSensorDataHeader(cls, msg_pkt):
         '''
         accepts raw packet data from the driver and returns
         the SensorDataHeader in the form of a named tuple
-        '''     
+        '''
         info = cast(msg_pkt, POINTER(SensorDataHeader))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))
         pdh = GetSensorDataHeader(str(sensor_id),
-                                 SensorType(info.contents.sensor_type), 
-                                 info.contents.DataSz, 
+                                 SensorType(info.contents.sensor_type),
+                                 info.contents.DataSz,
                                  info.contents.CurrentGMT,
-                                 msg_pkt)        
+                                 msg_pkt)
         return pdh
-    
+
     @staticmethod
     def LongLongToHex(num):
         '''
-        convert a long long to a hex number        
+        convert a long long to a hex number
         '''
         return hex(0x10000000000000000 - abs(num))
 
@@ -171,13 +175,13 @@ class INSTANCE_FULL_INFORMATION(SaviorStruct):
         ("FilterNameBufferOffset",USHORT)
     ]
 
-FilterInstanceInformation = namedtuple('FilterInstanceInformation', 
+FilterInstanceInformation = namedtuple('FilterInstanceInformation',
                                        ['Instancename', 'Altitude', 'VolumeName', 'FilterName'])
 
 class OVERLAPPED(SaviorStruct):
     '''
     Contains information used in asynchronous (or overlapped) input and output (I/O).
-    '''    
+    '''
     _fields_ = [
         ("Internal", ULONGLONG),
         ("InternalHigh", ULONGLONG),
@@ -191,14 +195,14 @@ class SECURITY_ATTRIBUTES(SaviorStruct):
     '''
     _fields_ = [
         ("nLength", DWORD),
-        ("lpSecurityDescriptor", LPVOID),    
+        ("lpSecurityDescriptor", LPVOID),
         ("bInheritHandle", BOOL)
     ]
 
 class FILTER_REPLY_HEADER(SaviorStruct):
     '''
-    contains message reply header information.  It is a container for a reply 
-    that the application sends in response to a message received from a 
+    contains message reply header information.  It is a container for a reply
+    that the application sends in response to a message received from a
     kernel-mode minifilter or minifilter instance
     '''
     _fields_ = [
@@ -206,22 +210,22 @@ class FILTER_REPLY_HEADER(SaviorStruct):
        ('MessageId', ULONGLONG)
     ]
 
-FilterReplyHeader = namedtuple('FilterReplyHeader', ['Status', 'MessageId', 'Remainder'])    
-    
+FilterReplyHeader = namedtuple('FilterReplyHeader', ['Status', 'MessageId', 'Remainder'])
+
 class FILTER_MESSAGE_HEADER(SaviorStruct):
     '''
-    Contains message header information. To receive messages from a kernel-mode 
-    minifilter, a user-mode application typically defines a custom message 
-    structure. This structure typically consists of this header structure, 
+    Contains message header information. To receive messages from a kernel-mode
+    minifilter, a user-mode application typically defines a custom message
+    structure. This structure typically consists of this header structure,
     followed by an application-defined structure to hold the actual message data.
     '''
     _fields_ = [
        ('ReplyLength', ULONG),
-       ('MessageId', ULONGLONG)       
+       ('MessageId', ULONGLONG)
     ]
-    
+
 FilterMessageHeader = namedtuple('FilterMessageHeader', ['ReplyLength', 'MessageId', 'Remainder'])
-        
+
 class KeyValueInformationClass(CtypesEnum):
     '''
     Key Value Informatoin Class
@@ -232,17 +236,17 @@ class KeyValueInformationClass(CtypesEnum):
     KeyValueFullInformationAlign64 = 3
     KeyValuePartialInformationAlign64 = 4
     KeyValueLayerInformation = 5
-    MaxKeyValueInfoClass = 6  # MaxKeyValueInfoClass should always be the last enum    
-    
+    MaxKeyValueInfoClass = 6  # MaxKeyValueInfoClass should always be the last enum
+
 class RegNotifyClass(CtypesEnum):
     '''
     Hook selector for registry kernel mode callbacks
-    '''    
+    '''
     RegNtDeleteKey = 0
     RegNtPreDeleteKey = RegNtDeleteKey
     RegNtSetValueKey = 1
     RegNtPreSetValueKey = RegNtSetValueKey
-    RegNtDeleteValueKey = 2 
+    RegNtDeleteValueKey = 2
     RegNtPreDeleteValueKey = RegNtDeleteValueKey
     RegNtSetInformationKey = 3
     RegNtPreSetInformationKey = RegNtSetInformationKey
@@ -263,8 +267,8 @@ class RegNotifyClass(CtypesEnum):
     RegNtPreOpenKey = 12
     RegNtPostOpenKey = 13
     RegNtKeyHandleClose = 14
-    RegNtPreKeyHandleClose = RegNtKeyHandleClose    
-    # .Net only    
+    RegNtPreKeyHandleClose = RegNtKeyHandleClose
+    # .Net only
     RegNtPostDeleteKey = 15
     RegNtPostSetValueKey = 16
     RegNtPostDeleteValueKey = 17
@@ -276,10 +280,10 @@ class RegNotifyClass(CtypesEnum):
     RegNtPostQueryValueKey = 23
     RegNtPostQueryMultipleValueKey = 24
     RegNtPostKeyHandleClose = 25
-    RegNtPreCreateKeyEx = 26 
+    RegNtPreCreateKeyEx = 26
     RegNtPostCreateKeyEx = 27
     RegNtPreOpenKeyEx = 28
-    RegNtPostOpenKeyEx = 29    
+    RegNtPostOpenKeyEx = 29
     # new to Windows Vista
     RegNtPreFlushKey = 30
     RegNtPostFlushKey = 31
@@ -290,10 +294,10 @@ class RegNotifyClass(CtypesEnum):
     RegNtPreQueryKeySecurity = 36
     RegNtPostQueryKeySecurity = 37
     RegNtPreSetKeySecurity = 38
-    RegNtPostSetKeySecurity = 39    
-    # per-object context cleanup    
+    RegNtPostSetKeySecurity = 39
+    # per-object context cleanup
     RegNtCallbackObjectContextCleanup = 40
-    # new in Vista SP2 
+    # new in Vista SP2
     RegNtPreRestoreKey = 41
     RegNtPostRestoreKey = 42
     RegNtPreSaveKey = 43
@@ -303,22 +307,22 @@ class RegNotifyClass(CtypesEnum):
     # new to Windows 10
     RegNtPreQueryKeyName = 47
     RegNtPostQueryKeyName = 48
-    MaxRegNtNotifyClass = 49 # should always be the last enum    
- 
+    MaxRegNtNotifyClass = 49 # should always be the last enum
+
 class KPROCESSOR_MODE(IntEnum):
     '''
     Processor Mode
-    '''    
+    '''
     KernelMode = 0x0
     UserMode = 0x1
-    
+
     @classmethod
     def from_param(cls, obj):
         '''
         convert to integer value
         '''
-        return CHAR(obj)    
-    
+        return CHAR(obj)
+
 class SensorType(CtypesEnum):
     '''
     Sensor Type of filter driver data to unpack
@@ -328,16 +332,16 @@ class SensorType(CtypesEnum):
     ProcessCreate  = 0x0002
     ProcessDestroy = 0x0003
     ThreadCreate   = 0x0004
-    ThreadDestroy  = 0x0005        
+    ThreadDestroy  = 0x0005
     ProcessListValidationFailed = 0x0006
     RegQueryValueKeyInfo = 0x0007
     RegCreateKeyInfo = 0x0008
     RegSetValueKeyInfo = 0x0009
     RegOpenKeyInfo = 0x000A
     RegDeleteValueKeyInfo = 0x000B
-    RegRenameKeyInfo = 0x000C        
+    RegRenameKeyInfo = 0x000C
     RegPostOperationInfo = 0x1001     # post operation handlers start at 0x1001
-    
+
 class SensorAttributeFlags(Flag):
     '''
     Sensor Attribute Flag Enumerations
@@ -348,11 +352,11 @@ class SensorAttributeFlags(Flag):
     RealTime = (1 << 1)
     # Emits events at regular time intervals
     Temporal = (1 << 2)
-    # Indicates the sensor will start at driver load  
+    # Indicates the sensor will start at driver load
     EnabledAtStart = (1 << 3)
     # Set if Sensor Type is Dynamic (Loaded by external operation)
-    DynamicSensor = (1 << 4)  
-    
+    DynamicSensor = (1 << 4)
+
 class RegObjectType(IntEnum):
     '''
     Registry Object Type
@@ -402,22 +406,22 @@ LIST_ENTRY._fields_ = [
     ("space", BYTE * 16)
 ]
 
-GetSensorDataHeader = namedtuple('GetSensorDataHeader',  
-        ['sensor_id', 'sensor_type', 'DataSz', 'CurrentGMT', 'Packet'])  
+GetSensorDataHeader = namedtuple('GetSensorDataHeader',
+        ['sensor_id', 'sensor_type', 'DataSz', 'CurrentGMT', 'Packet'])
 class SensorDataHeader(SaviorStruct):
     '''
     Sensor Data Header
     '''
     _fields_ = [
         ('sensor_id', _UUID),
-	('sensor_type', USHORT),
+        ('sensor_type', USHORT),
         ('DataSz', USHORT),
         ('CurrentGMT', LONGLONG),
         ('ListEntry', LIST_ENTRY)
     ]
 
-    
-GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',  
+
+GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',
     ['sensor_id', 'sensor_type', 'CurrentGMT',
     'ProcessId', 'EProcess',
     'RootObject', 'Options', 'SecurityDescriptor', 'SecurityQualityOfService',
@@ -426,7 +430,7 @@ GetRegCreateKeyInfo = namedtuple('GetRegCreateKeyInfo',
 class RegCreateKeyInfo(SaviorStruct):
     '''
     Sensor Data Header
-    '''    
+    '''
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
@@ -440,7 +444,7 @@ class RegCreateKeyInfo(SaviorStruct):
         ("Version", LONGLONG),
         ("Wow64Flags", ULONG),
         ("Attributes", ULONG),
-        ("CheckAccessMode", CHAR),                            
+        ("CheckAccessMode", CHAR),
         ("CompleteNameSz", USHORT),
         ("CompleteName", BYTE * 1)
     ]
@@ -450,7 +454,7 @@ class RegCreateKeyInfo(SaviorStruct):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
+        '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         length = info.contents.CompleteNameSz
         offset = type(info.contents).CompleteName.offset
@@ -458,7 +462,7 @@ class RegCreateKeyInfo(SaviorStruct):
         array_of_info = memoryview(sb)[offset:length+offset]
         slc = (BYTE * length).from_buffer(array_of_info)
         CompleteName = cls.DecodeString(slc)
-        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))            
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         key_nfo = GetRegCreateKeyInfo(
             str(sensor_id),
             SensorType(info.contents.Header.sensor_type).name,
@@ -474,17 +478,17 @@ class RegCreateKeyInfo(SaviorStruct):
             cls.LongLongToHex(info.contents.Version),
             info.contents.Wow64Flags,
             info.contents.Attributes,
-            KPROCESSOR_MODE(int(info.contents.CheckAccessMode[0])).name, 
-            CompleteName) 
+            KPROCESSOR_MODE(int(info.contents.CheckAccessMode[0])).name,
+            CompleteName)
         return key_nfo
-        
-GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',  
-        ['sensor_id', 'sensor_type', 'CurrentGMT', 
+
+GetRegQueryValueKeyInfo = namedtuple('GetRegQueryValueKeyInfo',
+        ['sensor_id', 'sensor_type', 'CurrentGMT',
         'ProcessId', 'EProcess', 'Class', 'Object', 'KeyValueInformationClass', 'ValueName'])
 class RegQueryValueKeyInfo(SaviorStruct):
     '''
     Sensor Data Header
-    '''    
+    '''
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
@@ -496,13 +500,13 @@ class RegQueryValueKeyInfo(SaviorStruct):
         ("ValueNameLength", USHORT),
         ("ValueName", BYTE * 1)
     ]
-    
+
     @classmethod
     def build(cls, msg_pkt):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
+        '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         length = info.contents.ValueNameLength
         offset = type(info.contents).ValueName.offset
@@ -517,24 +521,24 @@ class RegQueryValueKeyInfo(SaviorStruct):
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
-            RegNotifyClass(info.contents.Class).name, 
+            RegNotifyClass(info.contents.Class).name,
             cls.LongLongToHex(info.contents.Object),
             KeyValueInformationClass(info.contents.KeyValueInformationClass).name,
             ValueName)
         return key_info
 
-    
-GetRegRenameKeyInfo = namedtuple('GetRegRenameKeyInfo',  
-                                ['sensor_id', 'sensor_type', 'CurrentGMT', 
+
+GetRegRenameKeyInfo = namedtuple('GetRegRenameKeyInfo',
+                                ['sensor_id', 'sensor_type', 'CurrentGMT',
                                  'ProcessId', 'EProcess', 'Object', 'NewName'])
 class RegRenameKeyInfo(SaviorStruct):
     '''
     Registry Rename Value Key
-    '''    
+    '''
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
-        ("EProcess", LONGLONG),            
+        ("EProcess", LONGLONG),
         ("Object", LONGLONG),
         ("NewNameLength", USHORT),
         ("NewName", BYTE * 1)
@@ -545,7 +549,7 @@ class RegRenameKeyInfo(SaviorStruct):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
+        '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         length = info.contents.NewNameLength
         offset = type(info.contents).NewName.offset
@@ -567,18 +571,18 @@ class RegRenameKeyInfo(SaviorStruct):
 
 
 
-GetRegPostOperationInfo = namedtuple('GetRegPostOperationInfo',  
-            ['sensor_id', 'sensor_type', 'CurrentGMT', 
+GetRegPostOperationInfo = namedtuple('GetRegPostOperationInfo',
+            ['sensor_id', 'sensor_type', 'CurrentGMT',
              'ProcessId', 'EProcess', 'Object',
              'Status', 'PreInformation', 'ReturnStatus'])
 class RegPostOperationInfo(SaviorStruct):
     '''
     Registry Post Operations
-    '''    
+    '''
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
-        ("EProcess", LONGLONG),            
+        ("EProcess", LONGLONG),
         ("Object", LONGLONG),
         ("Status", NTSTATUS),
         ("PreInformation", LONGLONG),
@@ -590,8 +594,8 @@ class RegPostOperationInfo(SaviorStruct):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
-        info = cast(msg_pkt.Packet, POINTER(cls))        
+        '''
+        info = cast(msg_pkt.Packet, POINTER(cls))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
 
         key_info = GetRegPostOperationInfo(
@@ -605,18 +609,18 @@ class RegPostOperationInfo(SaviorStruct):
             cls.LongLongToHex(info.contents.PreInformation),
             hex(info.contents.ReturnStatus))
         return key_info
-    
-GetRegDeleteValueKeyInfo = namedtuple('GetRegDeleteValueKeyInfo',  
-                                      ['sensor_id', 'sensor_type', 'CurrentGMT', 
+
+GetRegDeleteValueKeyInfo = namedtuple('GetRegDeleteValueKeyInfo',
+                                      ['sensor_id', 'sensor_type', 'CurrentGMT',
                                     'ProcessId', 'EProcess', 'Object', 'ValueName'])
 class RegDeleteValueKeyInfo(SaviorStruct):
     '''
     Registry Delete Value Key
-    '''    
+    '''
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
-        ("EProcess", LONGLONG),            
+        ("EProcess", LONGLONG),
         ("Object", LONGLONG),
         ("ValueNameLength", USHORT),
         ("ValueName", BYTE * 1)
@@ -627,7 +631,7 @@ class RegDeleteValueKeyInfo(SaviorStruct):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
+        '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         length = info.contents.ValueNameLength
         offset = type(info.contents).ValueName.offset
@@ -646,19 +650,19 @@ class RegDeleteValueKeyInfo(SaviorStruct):
             cls.LongLongToHex(info.contents.Object),
             ValueName)
         return key_info
-        
-GetRegSetValueKeyInfo = namedtuple('GetRegSetValueKeyInfo',  
-             ['sensor_id', 'sensor_type', 'CurrentGMT', 
+
+GetRegSetValueKeyInfo = namedtuple('GetRegSetValueKeyInfo',
+             ['sensor_id', 'sensor_type', 'CurrentGMT',
               'ProcessId', 'EProcess', 'Object', 'Type', 'ValueName'])
-    
+
 class RegSetValueKeyInfo(SaviorStruct):
     '''
     Registry Set Value Key
-    '''    
+    '''
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
-        ("EProcess", LONGLONG),            
+        ("EProcess", LONGLONG),
         ("Object", LONGLONG),
         ("Type", UINT),
         ("ValueNameLength", USHORT),
@@ -670,7 +674,7 @@ class RegSetValueKeyInfo(SaviorStruct):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
+        '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         length = info.contents.ValueNameLength
         offset = type(info.contents).ValueName.offset
@@ -697,7 +701,7 @@ class RegSetValueKeyInfo(SaviorStruct):
         return key_info
 
 GetProcessListValidationFailed = namedtuple('ProcessListValidationFailed',
-        ['sensor_id', 'sensor_type', 'CurrentGMT', 'Status', 
+        ['sensor_id', 'sensor_type', 'CurrentGMT', 'Status',
             'ProcessId', 'EProcess'])
 
 class ProcessListValidationFailed(SaviorStruct):
@@ -710,7 +714,7 @@ class ProcessListValidationFailed(SaviorStruct):
         ("ProcessId", LONGLONG),
         ("EProcess", LONGLONG)
     ]
-    
+
     @classmethod
     def build(cls, msg_pkt):
         '''
@@ -721,21 +725,21 @@ class ProcessListValidationFailed(SaviorStruct):
         sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
         process_list_validation_failed = GetProcessListValidationFailed(
             str(sensor_id),
-            SensorType(info.contents.Header.sensor_type).name,            
+            SensorType(info.contents.Header.sensor_type).name,
             info.contents.Header.CurrentGMT,
             info.contents.Status,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess))
         return process_list_validation_failed
 
-    
-GetImageLoadInfo = namedtuple('GetImageLoadInfo',  
-        ['sensor_id', 'sensor_type', 'CurrentGMT', 
+
+GetImageLoadInfo = namedtuple('GetImageLoadInfo',
+        ['sensor_id', 'sensor_type', 'CurrentGMT',
         'ProcessId', 'EProcess', 'ImageBase', 'ImageSize', 'FullImageName'])
 class ImageLoadInfo(SaviorStruct):
     '''
     Sensor Data Header
-    '''    
+    '''
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
@@ -745,13 +749,13 @@ class ImageLoadInfo(SaviorStruct):
         ("FullImageNameSz", USHORT),
         ("FullImageName", BYTE * 1)
     ]
-    
+
     @classmethod
     def build(cls, msg_pkt):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
+        '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         length = info.contents.FullImageNameSz
         offset = type(info.contents).FullImageName.offset
@@ -766,13 +770,13 @@ class ImageLoadInfo(SaviorStruct):
             info.contents.Header.CurrentGMT,
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess),
-            cls.LongLongToHex(info.contents.ImageBase), 
+            cls.LongLongToHex(info.contents.ImageBase),
             info.contents.ImageSize,
             ModuleName)
         return img_nfo
-    
-GetThreadCreateInfo = namedtuple('GetThreadCreateInfo',  
-                                  ['sensor_id', 'sensor_type', 'CurrentGMT', 
+
+GetThreadCreateInfo = namedtuple('GetThreadCreateInfo',
+                                  ['sensor_id', 'sensor_type', 'CurrentGMT',
          'ProcessId', 'ThreadId', 'Win32StartAddress', 'StartAddress','IsStartAddressValid'])
 class ThreadCreateInfo(SaviorStruct ):
     '''
@@ -784,7 +788,7 @@ class ThreadCreateInfo(SaviorStruct ):
         ("ThreadId", LONGLONG),
         ("Win32StartAddress", LONGLONG),
         ("StartAddress", LONGLONG),
-        ("IsStartAddressValid", BOOLEAN) 
+        ("IsStartAddressValid", BOOLEAN)
     ]
 
     @classmethod
@@ -805,9 +809,9 @@ class ThreadCreateInfo(SaviorStruct ):
             cls.LongLongToHex(info.contents.StartAddress),
             info.contents.IsStartAddressValid)
         return create_info
-    
-GetThreadDestroyInfo = namedtuple('GetThreadDestroyInfo',  
-                                     ['sensor_id', 'sensor_type', 'CurrentGMT', 
+
+GetThreadDestroyInfo = namedtuple('GetThreadDestroyInfo',
+                                     ['sensor_id', 'sensor_type', 'CurrentGMT',
                                    'ProcessId', 'ThreadId'])
 class ThreadDestroyInfo(SaviorStruct ):
     '''
@@ -816,7 +820,7 @@ class ThreadDestroyInfo(SaviorStruct ):
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
-        ("ThreadId", LONGLONG),             
+        ("ThreadId", LONGLONG),
     ]
 
     @classmethod
@@ -835,10 +839,10 @@ class ThreadDestroyInfo(SaviorStruct ):
             info.contents.ThreadId,)
         return create_info
 
-GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',  
-        ['sensor_id', 'sensor_type', 'CurrentGMT', 
-        'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess', 
-        'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz', 
+GetProcessCreateInfo = namedtuple('GetProcessCreateInfo',
+        ['sensor_id', 'sensor_type', 'CurrentGMT',
+        'ParentProcessId', 'ProcessId', 'EProcess', 'UniqueProcess',
+        'UniqueThread', 'FileObject', 'CreationStatus', 'CommandLineSz',
         'CommandLine'])
 
 class WVU_COMMAND(CtypesEnum):
@@ -847,12 +851,12 @@ class WVU_COMMAND(CtypesEnum):
     '''
     Echo = 0x0
     EnableProbe  = 0x1
-    DisableProbe = 0x2        
+    DisableProbe = 0x2
     EnableUnload = 0x3
     DisableUnload = 0x4
     EnumerateSensors = 0x5
     ConfigureSensor = 0x6
-    OneShotKill = 0x7   
+    OneShotKill = 0x7
 
 class WVU_RESPONSE(CtypesEnum):
     '''
@@ -868,11 +872,11 @@ class COMMAND_MESSAGE(SaviorStruct):
     '''
     Command Message as sent to the driver
     '''
-    _fields_ = [        
+    _fields_ = [
         ("Command", ULONG),
         ("sensor_id", _UUID),
         ("DataSz", SIZE_T),
-        ("Data", BYTE * 1) 
+        ("Data", BYTE * 1)
     ]
 
     @classmethod
@@ -884,9 +888,9 @@ class COMMAND_MESSAGE(SaviorStruct):
         sb = create_string_buffer(sizeof(cls) + len(data) - 1)
         info = cast(sb, POINTER(cls))
         info.contents.Command = cmd
-        memmove(info.contents.sensor_id, sensor_id.bytes, 
+        memmove(info.contents.sensor_id, sensor_id.bytes,
                 len(info.contents.sensor_id.Data))
-        info.contents.DataSz = len(data)        
+        info.contents.DataSz = len(data)
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
             offset = type(info.contents).Data.offset
@@ -897,7 +901,7 @@ class COMMAND_MESSAGE(SaviorStruct):
             info.contents.sensor_id,
             info.contents.DataSz,
             sb)
-        return command_packet  
+        return command_packet
 
 GetResponseMessage = namedtuple('GetResponseMessage',  ['Response', 'Status', 'DataSz', 'Data'])
 
@@ -905,11 +909,11 @@ class RESPONSE_MESSAGE(SaviorStruct):
     '''
     Response Message as receieved from driver
     '''
-    _fields_ = [        
+    _fields_ = [
         ("Response", ULONG),
         ("Status", NTSTATUS),
         ("DataSz", SIZE_T),
-        ("Data", BYTE * 1) 
+        ("Data", BYTE * 1)
     ]
 
     @classmethod
@@ -923,7 +927,7 @@ class RESPONSE_MESSAGE(SaviorStruct):
         if info.contents.DataSz > 0:
             length = info.contents.DataSz
             offset = type(info.contents).Data.offset
-            sb = create_string_buffer(msg_pkt.Packet[offset:length])        
+            sb = create_string_buffer(msg_pkt.Packet[offset:length])
         command_packet = GetCommandMessage(
             info.contents.Size,
             info.contents.Command,
@@ -934,19 +938,19 @@ class SensorStatusHeader(SaviorStruct):
     '''
     The sensor status message header
     '''
-    _fields_ = [        
+    _fields_ = [
         ("NumberOfEntries", DWORD)
     ]
 
 
-GetSensorStatus = namedtuple('GetSensorStatus',  
-                             ['sensor_id', 'LastRunTime', 'RunInterval', 
+GetSensorStatus = namedtuple('GetSensorStatus',
+                             ['sensor_id', 'LastRunTime', 'RunInterval',
          'OperationCount', 'Attributes', 'Enabled', 'SensorName'])
 class SensorStatus(SaviorStruct):
     '''
     The SensorStatus message
     '''
-    _fields_ = [        
+    _fields_ = [
         ("sensor_id", _UUID),
         ("LastRunTime", LONGLONG),
         ("RunInterval", LONGLONG),
@@ -963,8 +967,8 @@ class SensorStatus(SaviorStruct):
         '''
         build named tuple instance representing this
         classes instance data
-        '''        
-        info = cast(msg_pkt, POINTER(cls))    
+        '''
+        info = cast(msg_pkt, POINTER(cls))
         length = MAXSENSORNAMESZ
         offset = type(info.contents).SensorName.offset
         sb = create_string_buffer(msg_pkt)
@@ -972,13 +976,13 @@ class SensorStatus(SaviorStruct):
         slc = (BYTE * length).from_buffer(array_of_chars)
         lst = [ch for ch in slc if ch]
         SensorName = "".join(map(chr, lst))
-        sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))        
+        sensor_id = uuid.UUID(bytes=bytes(info.contents.sensor_id.Data))
         attrib_flags = str(SensorAttributeFlags(info.contents.Attributes))
         ndx = attrib_flags.find(cls.saf_name)
         if ndx == 0:
             attrib_flags = attrib_flags[len(cls.saf_name):]
 
-        sensor_status = GetSensorStatus(            
+        sensor_status = GetSensorStatus(
             sensor_id,
             info.contents.LastRunTime,
             info.contents.RunInterval,
@@ -987,7 +991,7 @@ class SensorStatus(SaviorStruct):
             str(bool(info.contents.Enabled)),
             SensorName)
         return sensor_status
-    
+
 class ProcessCreateInfo(SaviorStruct ):
     '''
     ProcessCreateInfo Definition
@@ -1001,9 +1005,9 @@ class ProcessCreateInfo(SaviorStruct ):
         ("FileObject", LONGLONG),
         ("CreationStatus", NTSTATUS),
         ("CommandLineSz", USHORT),
-        ("CommandLine", BYTE * 1)        
+        ("CommandLine", BYTE * 1)
     ]
-    
+
     @classmethod
     def build(cls, msg_pkt):
         '''
@@ -1033,10 +1037,10 @@ class ProcessCreateInfo(SaviorStruct ):
             CommandLine)
         return create_info
 
-GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',  
-        ['sensor_id', 'sensor_type', 'CurrentGMT', 
+GetProcessDestroyInfo = namedtuple('GetProcessDestroyInfo',
+        ['sensor_id', 'sensor_type', 'CurrentGMT',
          'ProcessId', 'EProcess'])
-    
+
 class ProcessDestroyInfo(SaviorStruct):
     '''
     ProcessDestroyInfo Definition
@@ -1044,9 +1048,9 @@ class ProcessDestroyInfo(SaviorStruct):
     _fields_ = [
         ("Header", SensorDataHeader),
         ("ProcessId", LONGLONG),
-        ("EProcess", LONGLONG) 
+        ("EProcess", LONGLONG)
     ]
-    
+
     @classmethod
     def build(cls, msg_pkt):
         '''
@@ -1055,7 +1059,7 @@ class ProcessDestroyInfo(SaviorStruct):
         '''
         info = cast(msg_pkt.Packet, POINTER(cls))
         sensor_id = uuid.UUID(bytes=bytes(info.contents.Header.sensor_id.Data))
-        info.contents.EProcess = (0 if not info.contents.EProcess 
+        info.contents.EProcess = (0 if not info.contents.EProcess
                 else info.contents.EProcess)
         print(info.contents.EProcess)
         create_info = GetProcessDestroyInfo(
@@ -1065,38 +1069,37 @@ class ProcessDestroyInfo(SaviorStruct):
             info.contents.ProcessId,
             cls.LongLongToHex(info.contents.EProcess))
         return create_info
-    
-    
+
+
 
 _FilterReplyMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_REPLY_HEADER), DWORD)
 _FilterReplyMessageParamFlags = (0, "hPort"), (0,  "lpReplyBuffer"), (0, "dwReplyBufferSize")
 _FilterReplyMessage = _FilterReplyMessageProto(("FilterReplyMessage", windll.fltlib), _FilterReplyMessageParamFlags)
 def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
-    '''    
-    replies to a message from a kernel-mode minifilter 
-    @note close the handle returned using CloseHandle
-    @param hPort port handle returned by a previous call to 
-    FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
-    @param reply_buffer caller-allocated buffer containing the reply to be sent 
-    to the minifilter. The reply must contain a FILTER_REPLY_HEADER structure, 
-    but otherwise, its format is caller-defined. This parameter is required and 
-    cannot be NULL
+    '''
+    replies to a message from a kernel-mode minifilter
+    @param hPort port handle returned by a previous call to
+           FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
+    @param reply_buffer caller-allocated buffer containing the reply to be sent
+           to the minifilter. The reply must contain a FILTER_REPLY_HEADER structure,
+           but otherwise, its format is caller-defined. This parameter is required and
+           cannot be NULL
     @returns S_OK if successful. Otherwise, it returns an error value
-    '''    
+    '''
     res = HRESULT()
-        
+
     if (msg is None or not hasattr(msg, "__len__") or len(msg) <= 0
         or msg_len < len(msg) or msg_len <= sizeof(FILTER_REPLY_HEADER)):
         raise ValueError("Parameter msg or msg_len is invalid!")
-    
+
     if isinstance(msg, str):
         txt = msg
         msg = bytearray()
-        msg.extend(map(ord, txt))                     
+        msg.extend(map(ord, txt))
     reply_buffer = create_string_buffer(bytes(msg), msg_len)
-    info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))    
+    info = cast(reply_buffer, POINTER(FILTER_REPLY_HEADER))
     info.contents.Status = status
-    info.contents.MessageId = msg_id           
+    info.contents.MessageId = msg_id
 
     try:
         res = _FilterReplyMessage(hPort, byref(info.contents), msg_len)
@@ -1105,32 +1108,58 @@ def FilterReplyMessage(hPort, status, msg_id, msg, msg_len):
         logger.exception("FilterReplyMessage Failed on Message Reply - Error %d", lasterror, exc_info=True)
         res = lasterror
 
+    if res:
+        logging.error("_FilterReplyMessage: %d", res)
     return res
+
+
+# HACK: This variable is used in the following function. It's global to
+# convince Python to check its value on every access
+# (think "volatile, Python-style").
+info = None
 
 _FilterGetMessageProto = WINFUNCTYPE(HRESULT, HANDLE, POINTER(FILTER_MESSAGE_HEADER), DWORD, POINTER(OVERLAPPED))
 _FilterGetMessageParamFlags = (0, "hPort"), (0,  "lpMessageBuffer"), (0, "dwMessageBufferSize"), (0,  "lpOverlapped", 0)
 _FilterGetMessage = _FilterGetMessageProto(("FilterGetMessage", windll.fltlib), _FilterGetMessageParamFlags)
-def FilterGetMessage(hPort, msg_len):
-    '''    
-    Get a message from filter driver     
+async def FilterGetMessage(hPort, msg_len):
+    '''
+    Get a message from filter driver.
     @param hPort the port handle from the driver we are communicating with
     @param msg_len the message length that we expect to receive
     @returns hPort Port Handle
-    '''    
+
+    This is a coroutine and implements a crude form of polling. The call to
+    _FilterGetMessage() won't block, but if there's no data available it
+    will sleep and check the output buffer (see the global "info" above).
+    '''
     res = HRESULT()
-    
+    # passed to _FilterGetMessage(), which can update it asynchronously
+    global info
+
     if msg_len is None or not isinstance(msg_len, int) or msg_len <= 0:
         raise ValueError("Parameter MsgBuf is invalid!")
-    
-    sb = create_string_buffer(msg_len)        
+
+    # poverlap = cast(None, POINTER(OVERLAPPED)) # do this if we want to block
+
+    # zeroed overlapped struct causes _FilterGetMessage() to return immediately
+    poverlap = ctypes.pointer(OVERLAPPED())
+
+    sb = create_string_buffer(msg_len)
     info = cast(sb, POINTER(FILTER_MESSAGE_HEADER))
     try:
-        res = _FilterGetMessage(hPort, byref(info.contents), msg_len, 
-                cast(None, POINTER(OVERLAPPED)))
+        logger.debug("Awaiting message in FilterGetMessage()")
+        res = _FilterGetMessage(hPort, byref(info.contents), msg_len, poverlap)
+        if res:
+            logging.error("_FilterGetMessage(): %d\n", res)
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
-        logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror, exc_info=True)
-        raise
+        if lasterror == ERROR_IO_PENDING:
+            # No data is available. Wait for it to show up.
+            while not info.contents.ReplyLength:
+                await curio.sleep(0.1)
+        else:
+            logger.exception("OSError: FilterGetMessage failed to Get Message - Error %d", lasterror, exc_info=True)
+            raise
     except Exception as exc:
         logger.exception("Exception: FilterGetMessage failed to Get Message - Error %r", repr(exc), exc_info=True)
         raise
@@ -1143,12 +1172,12 @@ def FilterGetMessage(hPort, msg_len):
 
 _FilterConnectCommunicationPortProto = WINFUNCTYPE(HRESULT, LPCWSTR, DWORD, LPCVOID, WORD, LPDWORD, POINTER(HANDLE))
 _FilterConnectCommunicationPortParamFlags = (0, "lpPortName"), (0,  "dwOptions", 0), (0, "lpContext", 0), (0,  "dwSizeOfContext", 0), (0, "lpSecurityAttributes", 0), (1, "hPort")
-_FilterConnectCommunicationPort = _FilterConnectCommunicationPortProto(("FilterConnectCommunicationPort", windll.fltlib), 
+_FilterConnectCommunicationPort = _FilterConnectCommunicationPortProto(("FilterConnectCommunicationPort", windll.fltlib),
                                                          _FilterConnectCommunicationPortParamFlags)
 def FilterConnectCommunicationPort(PortName):
-    '''    
-    returns information about a mini filter driver instance and is used as a 
-    starting point for scanning the instances 
+    '''
+    returns information about a mini filter driver instance and is used as a
+    starting point for scanning the instances
     @note close the handle returned using CloseHandle
     @param PortName fully qualified name of the communication server port
     @returns hPort Port Handle
@@ -1157,7 +1186,7 @@ def FilterConnectCommunicationPort(PortName):
     _res = HRESULT()
 
     try:
-        _res = _FilterConnectCommunicationPort(PortName, 0, None, 0, None, byref(hPort))        
+        _res = _FilterConnectCommunicationPort(PortName, 0, None, 0, None, byref(hPort))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         logger.exception("Failed to connect to port %s error %d", PortName, lasterror, exc_info=True)
@@ -1201,12 +1230,12 @@ def _build_filter_instance_info(buf):
 
 _FilterInstanceFindFirstProto = WINFUNCTYPE(HRESULT, LPCWSTR, INSTANCE_INFORMATION_CLASS, c_void_p, DWORD, LPDWORD, LPHANDLE)
 _FilterInstanceFindFirstParamFlags = (0, "lpFilterName"), (0,  "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned"), (1, "lpFilterInstanceFind")
-_FilterInstanceFindFirst = _FilterInstanceFindFirstProto(("FilterInstanceFindFirst", windll.fltlib), 
+_FilterInstanceFindFirst = _FilterInstanceFindFirstProto(("FilterInstanceFindFirst", windll.fltlib),
         _FilterInstanceFindFirstParamFlags)
 def FilterInstanceFindFirst(filter_name):
     '''
-    returns information about a mini filter driver instance and is used as a 
-    starting point for scanning the instances 
+    returns information about a mini filter driver instance and is used as a
+    starting point for scanning the instances
     @param filter_name name of thje minifilter driver that owns the instance
     @returns Handle to be utilized by FilterFindNext and FilterFindClose
     @returns filter data
@@ -1219,17 +1248,17 @@ def FilterInstanceFindFirst(filter_name):
     res = HRESULT()
 
     try:
-        res = _FilterInstanceFindFirst(filter_name, infocls, byref(ifi), sizeof(ifi), 
+        res = _FilterInstanceFindFirst(filter_name, infocls, byref(ifi), sizeof(ifi),
                 byref(BytesReturned), byref(hFilterInstanceFind))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         if lasterror == ERROR_NO_MORE_ITEMS:
             return None, None
-        if lasterror != ERROR_INSUFFICIENT_BUFFER:       
+        if lasterror != ERROR_INSUFFICIENT_BUFFER:
             raise
 
     buf = create_string_buffer(BytesReturned.value)
-    res = _FilterInstanceFindFirst(filter_name, infocls, buf, sizeof(buf), byref(BytesReturned), 
+    res = _FilterInstanceFindFirst(filter_name, infocls, buf, sizeof(buf), byref(BytesReturned),
             byref(hFilterInstanceFind))
 
     if res != S_OK:
@@ -1246,9 +1275,9 @@ _FilterInstanceFindNext = _FilterInstanceFindNextProto(("FilterInstanceFindNext"
 def FilterInstanceFindNext(hFilterInstanceFind):
     '''
     continues a filter search started by a call to FilterInstanceFindFirst
-    @param hFilterInstanceFind the filter search handle as returend by a previous 
+    @param hFilterInstanceFind the filter search handle as returend by a previous
     call to FilterInstanceFindFirst
-    @param infocls The type of filter driver information requested.    
+    @param infocls The type of filter driver information requested.
     @returns filter_name this filters name
     '''
     infocls=INSTANCE_INFORMATION_CLASS.InstancePartialInformation
@@ -1262,7 +1291,7 @@ def FilterInstanceFindNext(hFilterInstanceFind):
         lasterror = osr.winerror & 0x0000FFFF
         if lasterror == ERROR_NO_MORE_ITEMS:
             return lasterror, None
-        if lasterror != ERROR_INSUFFICIENT_BUFFER:       
+        if lasterror != ERROR_INSUFFICIENT_BUFFER:
             raise
 
     buf = create_string_buffer(BytesReturned.value)
@@ -1282,7 +1311,7 @@ _FilterInstanceFindClose.rettype = HRESULT
 def FilterInstanceFindClose(hFilterInstanceFind):
     '''
     @brief closes the specified minifilter instance search handle
-    @param hFilterInstanceFind the filter search handle as returend by a 
+    @param hFilterInstanceFind the filter search handle as returend by a
     previous call to FilterInstanceFindFirst
     @returns HRESULT
     '''
@@ -1291,18 +1320,18 @@ def FilterInstanceFindClose(hFilterInstanceFind):
     return res
 
 
-_FilterFindFirstProto = WINFUNCTYPE(HRESULT, FILTER_INFORMATION_CLASS, 
+_FilterFindFirstProto = WINFUNCTYPE(HRESULT, FILTER_INFORMATION_CLASS,
         c_void_p, DWORD, LPDWORD, LPHANDLE)
 _FilterFindFirstParamFlags = (0,  "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned"), (1, "lpFilterFind")
-_FilterFindFirst = _FilterFindFirstProto(("FilterFindFirst", windll.fltlib), 
+_FilterFindFirst = _FilterFindFirstProto(("FilterFindFirst", windll.fltlib),
                                           _FilterFindFirstParamFlags)
 
 def FilterFindFirst(infocls=FILTER_INFORMATION_CLASS.FilterFullInformation):
     '''
-    returns information about a filter driver (minifilter driver instance or 
-    legacy filter driver) and is used to begin scanning the filters in the 
+    returns information about a filter driver (minifilter driver instance or
+    legacy filter driver) and is used to begin scanning the filters in the
     global list of registered filters
-    @param infocls The type of filter driver information requested.    
+    @param infocls The type of filter driver information requested.
     @returns Handle to be utilized by FilterFindNext and FilterFindClose
     @returns filter_name this filters name
     '''
@@ -1313,13 +1342,13 @@ def FilterFindFirst(infocls=FILTER_INFORMATION_CLASS.FilterFullInformation):
     res = HRESULT()
 
     try:
-        res = _FilterFindFirst(infocls, byref(ffi), sizeof(ffi), byref(BytesReturned), 
+        res = _FilterFindFirst(infocls, byref(ffi), sizeof(ffi), byref(BytesReturned),
                 byref(hFilterFind))
     except OSError as osr:
         lasterror = osr.winerror & 0x0000FFFF
         if lasterror == ERROR_NO_MORE_ITEMS:
             return None, None
-        if lasterror != ERROR_INSUFFICIENT_BUFFER:       
+        if lasterror != ERROR_INSUFFICIENT_BUFFER:
             raise
 
     buf = create_string_buffer(BytesReturned.value)
@@ -1329,16 +1358,17 @@ def FilterFindFirst(infocls=FILTER_INFORMATION_CLASS.FilterFullInformation):
         return None, None
 
     sb = create_string_buffer(buf.raw)
-    info = cast(sb, POINTER(FILTER_FULL_INFORMATION))        
+    info = cast(sb, POINTER(FILTER_FULL_INFORMATION))
     offset = type(info.contents).FilterNameBuffer.offset
     length = info.contents.FilterNameLength
-    array_of_info = bytearray(memoryview(sb)[offset:length+offset])    
+    array_of_info = bytearray(memoryview(sb)[offset:length+offset])
     slc = (BYTE * length).from_buffer(array_of_info)
     FilterName = "".join(map(chr, slc[::2]))
-    
+
     fltfullinfo = FilterFullInformation(info.contents.FrameID, info.contents.NumberOfInstances, FilterName)
-    
+
     return hFilterFind, fltfullinfo
+
 
 _FilterFindNextProto = WINFUNCTYPE(HRESULT, HANDLE, FILTER_INFORMATION_CLASS, c_void_p, DWORD, LPDWORD)
 _FilterFindNextParamFlags = (0,  "hFilterFind"), (0, "dwInformationClass"), (1, "lpBuffer"), (0,  "dwBufferSize"), (1, "lpBytesReturned")
@@ -1348,7 +1378,7 @@ def FilterFindNext(hFilterFind, infocls=FILTER_INFORMATION_CLASS.FilterFullInfor
     '''
     continues a filter search started by a call to FilterFindFirst
     @param hFilterFind the filter search handle as returend by a previous call to FilterFindFirst
-    @param infocls The type of filter driver information requested.    
+    @param infocls The type of filter driver information requested.
     @returns filter_name this filters name
     '''
     BytesReturned = DWORD()
@@ -1361,7 +1391,7 @@ def FilterFindNext(hFilterFind, infocls=FILTER_INFORMATION_CLASS.FilterFullInfor
         lasterror = osr.winerror & 0x0000FFFF
         if lasterror == ERROR_NO_MORE_ITEMS:
             return lasterror, None
-        if lasterror != ERROR_INSUFFICIENT_BUFFER:       
+        if lasterror != ERROR_INSUFFICIENT_BUFFER:
             raise
 
     buf = create_string_buffer(BytesReturned.value)
@@ -1372,15 +1402,15 @@ def FilterFindNext(hFilterFind, infocls=FILTER_INFORMATION_CLASS.FilterFullInfor
 
     sb = create_string_buffer(buf.raw)
     info = cast(sb, POINTER(FILTER_FULL_INFORMATION))
-    
+
     offset = type(info.contents).FilterNameBuffer.offset
     length = info.contents.FilterNameLength
     array_of_info = memoryview(sb)[offset:length+offset]
     slc = (BYTE * length).from_buffer(array_of_info)
     Filtername = "".join(map(chr, slc[::2]))
-    
-    fltfullinfo = FilterFullInformation(info.contents.FrameID, info.contents.NumberOfInstances, Filtername)  
-    
+
+    fltfullinfo = FilterFullInformation(info.contents.FrameID, info.contents.NumberOfInstances, Filtername)
+
     return res, fltfullinfo
 
 _FilterFindClose = windll.fltlib.FilterFindClose
@@ -1428,7 +1458,7 @@ _CloseHandle = windll.kernel32.CloseHandle
 _CloseHandle.argtypes = [HANDLE]
 _CloseHandle.rettype = BOOL
 def CloseHandle(handle):
-    '''    
+    '''
     closes an operating system handle
     @param handle handle as returned by a previoius call supported create functions
     @returns True if suceeded else false
@@ -1440,18 +1470,18 @@ _FilterSendMessageProto = WINFUNCTYPE(HRESULT, HANDLE, LPVOID, DWORD, LPVOID, DW
 _FilterSendMessageParamFlags = (0, "hPort"), (0,  "lpInBuffer"), (0, "dwInBufferSize"), (1, "lpOutBuffer"), (0, "dwOutBufferSize"), (1, "lpBytesReturned")
 _FilterSendMessage = _FilterSendMessageProto(("FilterSendMessage", windll.fltlib), _FilterSendMessageParamFlags)
 def FilterSendMessage(hPort, cmd_buf):
-    '''    
-    @brief The FilterSendMessage function sends a message to a kernel-mode minifilter. 
-    @param hPort port handle returned by a previous call to 
+    '''
+    @brief The FilterSendMessage function sends a message to a kernel-mode minifilter.
+    @param hPort port handle returned by a previous call to
     FilterConnectCommunicationPort. This parameter is required and cannot be NULL.
     @param cmd_buf command buffer
     @returns S_OK if successful. Otherwise, it returns an error value
     @returns response buffer - can be empty / zero length
-    '''    
+    '''
     res = HRESULT()
     bytes_returned = DWORD()
     rsp_buf = create_string_buffer(MAXRSPSZ)
-        
+
     if cmd_buf is None or not hasattr(cmd_buf, "__len__") or len(cmd_buf) <= 0:
         raise ValueError("Parameter cmd_buf is invalid!")
 
@@ -1461,56 +1491,84 @@ def FilterSendMessage(hPort, cmd_buf):
         lasterror = osr.winerror & 0x0000FFFF
         print(osr)
         logger.exception("FilterSendMessage Failed on Message Reply - Error %s", str(osr), exc_info=True)
-        res = lasterror    
-    
-    bufsz = (bytes_returned.value 
-            if bytes_returned.value < MAXRSPSZ 
+        res = lasterror
+
+    bufsz = (bytes_returned.value
+            if bytes_returned.value < MAXRSPSZ
             else MAXRSPSZ)
     response = create_string_buffer(rsp_buf.raw[0:bufsz], bufsz)
     return res, response
 
+
+def _packet_decode_header(msg_pkt):
+    pdh = SaviorStruct.GetSensorDataHeader(msg_pkt.Remainder)
+    if pdh.sensor_type == SensorType.ImageLoad:
+        msg_data = ImageLoadInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.ProcessCreate:
+        msg_data = ProcessCreateInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.ProcessDestroy:
+        msg_data = ProcessDestroyInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.ProcessListValidationFailed:
+        msg_data = ProcessListValidationFailed.build(pdh)
+    elif pdh.sensor_type == SensorType.RegQueryValueKeyInfo:
+        msg_data = RegQueryValueKeyInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.RegCreateKeyInfo:
+        msg_data = RegCreateKeyInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.RegSetValueKeyInfo:
+        msg_data = RegSetValueKeyInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.RegOpenKeyInfo:
+        msg_data = RegCreateKeyInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.RegDeleteValueKeyInfo:
+        msg_data = RegDeleteValueKeyInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.RegRenameKeyInfo:
+        msg_data = RegRenameKeyInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.RegPostOperationInfo:
+        msg_data = RegPostOperationInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.ThreadCreate:
+        msg_data = ThreadCreateInfo.build(pdh)
+    elif pdh.sensor_type == SensorType.ThreadDestroy:
+        msg_data = ThreadDestroyInfo.build(pdh)
+    else:
+        logger.warning("Unknown or unsupported sensor type %s encountered\n", pdh.sensor_type)
+        msg_data = None
+
+    return msg_data
+
 def packet_decode():
     '''
-    Test WinVirtUE packet decode
-    '''    
+    Synchronous WinVirtUE packet decode. Broken since FilterGetMessage is now async.
+    '''
     hFltComms = FilterConnectCommunicationPort(EventPort)
     while True:
         (_res, msg_pkt,) = FilterGetMessage(hFltComms, MAXPKTSZ)
         response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
         FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
-        pdh = SaviorStruct.GetSensorDataHeader(msg_pkt.Remainder)
-        if pdh.sensor_type == SensorType.ImageLoad:            
-            msg_data = ImageLoadInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.ProcessCreate:
-            msg_data = ProcessCreateInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.ProcessDestroy:
-            msg_data = ProcessDestroyInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.ProcessListValidationFailed:
-            msg_data = ProcessListValidationFailed.build(pdh)
-        elif pdh.sensor_type == SensorType.RegQueryValueKeyInfo:
-            msg_data = RegQueryValueKeyInfo.build(pdh)            
-        elif pdh.sensor_type == SensorType.RegCreateKeyInfo:
-            msg_data = RegCreateKeyInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.RegSetValueKeyInfo:
-            msg_data = RegSetValueKeyInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.RegOpenKeyInfo:
-            msg_data = RegCreateKeyInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.RegDeleteValueKeyInfo:
-            msg_data = RegDeleteValueKeyInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.RegRenameKeyInfo:
-            msg_data = RegRenameKeyInfo.build(pdh)            
-        elif pdh.sensor_type == SensorType.RegPostOperationInfo:
-            msg_data = RegPostOperationInfo.build(pdh)                        
-        elif pdh.sensor_type == SensorType.ThreadCreate:
-            msg_data = ThreadCreateInfo.build(pdh)
-        elif pdh.sensor_type == SensorType.ThreadDestroy:
-            msg_data = ThreadDestroyInfo.build(pdh)            
-        else:
-            logger.warning("Unknown or unsupported sensor type %s encountered\n", pdh.sensor_type)
+        if _res:
             continue
-        yield msg_data._asdict()        
+        msg_data = _packet_decode_header(msg_pkt)
+        if not msg_data:
+            continue
+        yield msg_data._asdict()
     CloseHandle(hFltComms)
-    
+
+async def apacket_decode():
+    """
+    Async packet generator. Unfortunately a Windows handle can't be
+    converted to a waitable object.
+    """
+    hFltComms = FilterConnectCommunicationPort(EventPort)
+
+    while True:
+        (_res, msg_pkt,) = await FilterGetMessage(hFltComms, MAXPKTSZ)
+        response = ("Response to Message Id {0}\n".format(msg_pkt.MessageId,))
+        FilterReplyMessage(hFltComms, 0, msg_pkt.MessageId, response, msg_pkt.ReplyLength)
+        msg_data = _packet_decode_header(msg_pkt)
+        if not msg_data:
+            continue
+        yield msg_data._asdict()
+    CloseHandle(hFltComms)
+
+
 def EnumerateSensors(hFltComms, Filter=None):
     '''
     Enumerate Sensors
@@ -1518,21 +1576,21 @@ def EnumerateSensors(hFltComms, Filter=None):
     '''
 
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
+
     cmd_msg.contents.Command = WVU_COMMAND.EnumerateSensors
     cmd_msg.contents.DataSz = 0
-    
+
     _res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
-    header = cast(rsp_buf, POINTER(SensorStatusHeader))    
+    header = cast(rsp_buf, POINTER(SensorStatusHeader))
     cnt = header.contents.NumberOfEntries
     sb = create_string_buffer(rsp_buf[sizeof(SensorStatusHeader):])
     length = sizeof(SensorStatus)
-    
+
     for ndx in range(0, cnt):
         offset = ndx * sizeof(SensorStatus)
         array_of_bytes = memoryview(sb)[offset:length+offset]
-        slc = (BYTE * length).from_buffer(array_of_bytes)        
+        slc = (BYTE * length).from_buffer(array_of_bytes)
         sensor = SensorStatus.build(bytes(slc))
         yield sensor
 
@@ -1541,11 +1599,11 @@ def Echo(hFltComms):
     Send and receive an echo sensor
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
+
     cmd_msg.contents.Command = WVU_COMMAND.Echo
     cmd_msg.contents.DataSz = 0
-    
+
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
@@ -1556,68 +1614,68 @@ def EnableProbe(hFltComms, sensor_id=0):
     Enable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
+
     cmd_msg.contents.Command = WVU_COMMAND.EnableProbe
     cmd_msg.contents.DataSz = 0
-    memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes, 
+    memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes,
             len(cmd_msg.contents.sensor_id.Data))
-    
+
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
-    
+
 def DisableProbe(hFltComms, sensor_id=0):
     '''
     Disable Given or All Probes
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
+
     cmd_msg.contents.Command = WVU_COMMAND.DisableProbe
     cmd_msg.contents.DataSz = 0
-    memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes, 
+    memmove(cmd_msg.contents.sensor_id.Data, sensor_id.bytes,
             len(cmd_msg.contents.sensor_id.Data))
-    
+
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
-    
+
 def EnableUnload(hFltComms):
     '''
     @note this functionality might not function on release targets
-    Enable Driver Unload 
+    Enable Driver Unload
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
+
     cmd_msg.contents.Command = WVU_COMMAND.EnableUnload
     cmd_msg.contents.DataSz = 0
-    
+
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
-    
+
 def DisableUnload(hFltComms):
     '''
     @note this functionality might not function on release targets
-    Disable Driver Unload 
+    Disable Driver Unload
     '''
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE))
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
+
     cmd_msg.contents.Command = WVU_COMMAND.DisableUnload
     cmd_msg.contents.DataSz = 0
-    
+
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
     return res, rsp_msg
 
-    
+
 def OneShotKill(hFltComms, pid):
     '''
     Kill a specific Process
@@ -1625,17 +1683,17 @@ def OneShotKill(hFltComms, pid):
     pid_str = ("{0}".format(str(pid),)).encode()
     length = len(pid_str)
     cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)
-    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))          
-    
+    cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
+
     cmd_msg.contents.Command = WVU_COMMAND.OneShotKill
     cmd_msg.contents.DataSz = length
 
-    offset = type(cmd_msg.contents).Data.offset 
+    offset = type(cmd_msg.contents).Data.offset
     ary = memoryview(cmd_buf)[offset:offset + len(pid_str)]
-    slc = (BYTE * len(pid_str)).from_buffer(ary)            
+    slc = (BYTE * len(pid_str)).from_buffer(ary)
     fit = min(len(pid_str), len(slc))
     memmove(slc, pid_str, fit)
-    
+
     res, rsp_buf = FilterSendMessage(hFltComms, cmd_buf)
     rsp_msg = cast(rsp_buf, POINTER(RESPONSE_MESSAGE))
 
@@ -1643,22 +1701,22 @@ def OneShotKill(hFltComms, pid):
 
 def ConfigureSensor(hFltComms, cfgdata, sensor_id=0):
     '''
-    Configure a specific sensor with the provided 
+    Configure a specific sensor with the provided
     configuration data
     '''
     if cfgdata is None or not hasattr(cfgdata, "__len__") or len(cfgdata) <= 0:
         raise ValueError("Parameter cfgdata is invalid!")
-        
+
     length = len(cfgdata)
-    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)    
+    cmd_buf = create_string_buffer(sizeof(COMMAND_MESSAGE) + length)
     cmd_msg = cast(cmd_buf, POINTER(COMMAND_MESSAGE))
     cmd_msg.contents.Command = WVU_COMMAND.ConfigureSensor
-    memmove(cmd_msg.contents.sensor_id.Data, 
+    memmove(cmd_msg.contents.sensor_id.Data,
             sensor_id.bytes, len(sensor_id.bytes))
     cmd_msg.contents.DataSz = length
-    offset = type(cmd_msg.contents).Data.offset 
+    offset = type(cmd_msg.contents).Data.offset
     ary = memoryview(cmd_buf)[offset:offset + length]
-    slc = (BYTE * length).from_buffer(ary)        
+    slc = (BYTE * length).from_buffer(ary)
     data = cfgdata.encode('utf-8')
     fit = min(length, len(slc))
     memmove(slc, data, fit)
@@ -1672,42 +1730,44 @@ def test_command_response():
     Test WinVirtUE command response
     '''
     hFltComms = FilterConnectCommunicationPort(CommandPort)
-    try:        
+    try:
         #sensors = EnumerateSensors(hFltComms)
-        #print("res = {0}\n".format(res,))        
+        #print("res = {0}\n".format(res,))
         for sensor in EnumerateSensors(hFltComms):
             print("{0}".format(sensor,))
             ConfigureSensor(hFltComms,'{"repeat-interval": 60}', sensor.sensor_id)
     finally:
         CloseHandle(hFltComms)
-        
-def test_packet_decode():
+
+async def test_packet_decode():
     '''
     test the packet decode
     '''
-    for packet in packet_decode():
-        print(json.dumps(packet, indent=3))        
-      
+    async for packet in apacket_decode():
+        print(json.dumps(packet, indent=3))
+
 def main(argv):
     '''
     let's test some stuff
     '''
     if len(argv) == 2:
         hFltComms = FilterConnectCommunicationPort(CommandPort)
-        try:        
+        try:
             (res, resp_msg,) = OneShotKill(hFltComms, int(argv[1]))
             print("_res={0},resp_msg={1}\n".format(res,resp_msg,))
         finally:
-            CloseHandle(hFltComms)                
-    
-    test_command_response()
-    
-    test_packet_decode()  
-    
-    sys.exit(0)
-    
-    
+            CloseHandle(hFltComms)
 
-if __name__ == '__main__':        
+    test_command_response()
+
+    while True:
+        curio.run(test_packet_decode, debug=[curio.debug.schedtrace,], with_monitor=True)
+
+    sys.exit(0)
+
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     main(sys.argv)
 

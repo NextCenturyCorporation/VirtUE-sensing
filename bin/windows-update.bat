@@ -5,10 +5,11 @@ SET TEMP=%SystemDrive%\SaviorTemp
 SET PYTHONUNBUFFERED=0
 SET PYTHONVER=3.6.5
 SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass 
+SET WINVIRTUE=%SystemDrive%\WinVirtUE
 
 MKDIR %WORKDIR%
 MKDIR %TEMP%
-MKDIR %SystemDrive%\WinVirtUE
+MKDIR %WINVIRTUE%
 
 SET PATH=%SystemDrive%\Python%PYTHONVER%\Scripts;%SystemDrive%\Python%PYTHONVER%;%PATH%
 
@@ -38,9 +39,12 @@ RMDIR /Q /S %TEMP%
 
 SET PYTHONPATH=%SystemDrive%\
 copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python%PYTHONVER%\lib\site-packages\win32
+
+PUSHD %WINVIRTUE%
 python -m WinVirtUE install
 sc config WinVirtue start= auto
 python -m WinVirtUE start
+POPD
 
 @ECHO POP back to .\savior
 POPD
