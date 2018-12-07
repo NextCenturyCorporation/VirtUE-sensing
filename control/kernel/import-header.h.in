@@ -6,8 +6,8 @@ IMPORT_SYMBOL_PROLOGUE
 IMPORT_SYMBOL(get_files_struct);
 IMPORT_SYMBOL(put_files_struct);
 
-IMPORT_SYMBOL(sys_open);
-IMPORT_SYMBOL(sys_close);
+// IMPORT_SYMBOL(sys_open);
+// IMPORT_SYMBOL(sys_close);
 IMPORT_SYMBOL(vfs_read);
 IMPORT_SYMBOL(vfs_write);
 
