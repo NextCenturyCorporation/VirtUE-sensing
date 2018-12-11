@@ -98,8 +98,7 @@ setup(
         'shellescape==3.4.1',
         'six==1.11.0',
         'urllib3==1.22',
-        'yarl==0.16.0',
-        'pywin32==223'
+        'yarl==0.16.0'
     ],  # Optional
 
 )
