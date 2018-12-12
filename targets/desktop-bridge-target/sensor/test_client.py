@@ -16,7 +16,7 @@ if __name__ == '__main__':
     while True:
         msg = "{\"test message\" : " + str(ct) + "}"
         print(msg)
-        s.send(str.endcode(msg + "\n"))
+        s.send(str.encode(msg + "\n"))
         ct += 1
         time.sleep(5.0)
         
