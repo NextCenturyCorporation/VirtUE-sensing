@@ -3,12 +3,13 @@
 SET WORKDIR=%SystemDrive%\app
 SET TEMP=%SystemDrive%\SaviorTemp
 SET PYTHONUNBUFFERED=0
-SET PYTHONVER=3.6.4
+SET PYTHONVER=3.6.5
 SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass 
+SET WINVIRTUE=%SystemDrive%\WinVirtUE
 
 MKDIR %WORKDIR%
 MKDIR %TEMP%
-MKDIR %SystemDrive%\WinVirtUE
+MKDIR %WINVIRTUE%
 
 @ECHO Download and Install Visual Studio 2017 Build Kit w/2015 Components . . .
 %POWERSHELL% Invoke-WebRequest -Uri "https://aka.ms/vs/15/release/vs_BuildTools.exe" -OutFile %TEMP%\vs_BuildTools.exe 
@@ -21,6 +22,9 @@ DEL /F /Q %TEMP%\vs_BuildTools.exe
 DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
 SET PATH=%SystemDrive%\Python%PYTHONVER%\Scripts;%SystemDrive%\Python%PYTHONVER%;%PATH%
 python -m pip install --upgrade pip
+
+@ECHO Installing ntfltmgr
+python -m pip install sensors\ntfltmgr
 
 @ECHO Go to the windows target directory from .\savior
 PUSHD targets\win-target
@@ -43,11 +47,20 @@ RMDIR /q /s  .\app
 POPD
 
 RMDIR /Q /S %TEMP%
-copy /y c:\Python3.6.4\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python3.6.4\lib\site-packages\win32
+copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python%PYTHONVER%\lib\site-packages\win32
+
 SET PYTHONPATH=%SystemDrive%\
+PUSHD %WINVIRTUE%
 python -m WinVirtUE install
 sc config WinVirtue start= auto
 python -m WinVirtUE start
+POPD
 
 @ECHO POP back to .\savior
 POPD
+
+@ECHO Disabling driver signing enforcement (WinVirtUE driver is UNSIGNED)
+bcdedit -set testsigning       on
+bcdedit -set nointegritychecks on
+
+@ECHO System must be restarted

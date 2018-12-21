@@ -41,6 +41,6 @@ RUN  mkdir  /opt/sensor/certs
 #COPY certs/ /opt/sensor/nfs_sensor/certs/
 
 # Service components
-COPY run.sh /usr/src/app
+COPY docker-run-internal.sh /usr/src/app
 
-CMD ["/bin/bash", "/usr/src/app/run.sh"]
+CMD ["/bin/bash", "/usr/src/app/docker-run-internal.sh"]

@@ -2,7 +2,7 @@
 __VERSION__ = "1"
 
 from aiohttp import web, ClientSession
-from aiohttp.client_exceptions import ClientConnectionError
+from aiohttp.client_exceptions import ClientConnectionError, ClientPayloadError
 import argparse
 import asyncio
 import base64
@@ -4384,8 +4384,6 @@ async def api_stream(opts):
 
     elif opts.var_sensor is not None:
         full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
-
-    print("% virtue-security api_stream(uri={})\n".format(full_uri))
 
     get_params = {
         "follow": str(follow),

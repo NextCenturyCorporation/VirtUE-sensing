@@ -1,7 +1,7 @@
 {
-  "name": "desktop",
+  "name": "desktopwindows",
   "context": "virtue",
-  "os": "linux",
+  "os": "windows",
   "description": "Sensor that forwards desktop sensing data to API server",
   "configurations": [
     {

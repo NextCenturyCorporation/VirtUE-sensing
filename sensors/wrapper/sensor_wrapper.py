@@ -24,18 +24,20 @@ from uuid import uuid4
 from routes import Mapper
 import requests
 import curequests
-pltfrm = platform.system().lower()
-if pltfrm not in ["windows", "nt"]:
+
+is_windows = platform.system().lower() in ['windows', 'nt']
+
+if not is_windows:
     import pwd
-    from curio import SignalEvent
-    
+
+from curio import SignalEvent
 from curio import Queue, TaskGroup, run, tcp_server
 from curio import CancelledError, TaskError, TaskCancelled, TaskExit
 from curio import sleep, check_cancellation, ssl, spawn
 from curio.debug import longblock
 from Crypto.PublicKey import RSA
 from kafka import KafkaProducer
-    
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -76,7 +78,7 @@ orig_HTTPResponse__init__ = HTTPResponse.__init__
 def new_HTTPResponse__init__(self, *args, **kwargs):
     '''
     Monkey Patched override
-    '''    
+    '''
     orig_HTTPResponse__init__(self, *args, **kwargs)
     try:
         self.peercert = self._connection.sock.getpeercert()
@@ -91,7 +93,7 @@ orig_HTTPAdapter_build_response = HTTPAdapter.build_response
 def new_HTTPAdapter_build_response(self, request, resp):
     '''
     Monkey Patched override
-    '''    
+    '''
     response = orig_HTTPAdapter_build_response(self, request, resp)
     try:
         response.peercert = resp.peercert
@@ -100,12 +102,12 @@ def new_HTTPAdapter_build_response(self, request, resp):
     return response
 HTTPAdapter.build_response = new_HTTPAdapter_build_response
 
-class SensorWrapper(object):    
+class SensorWrapper(object):
     '''
     The SensorWrapper class that wraps comms and security functionality for sensors
     '''
     exc_info = False
-    def __init__(self, name, sensing_methods=None, stop_notification=None):
+    def __init__(self, name, sensing_methods=None, stop_notification=None, parse_opts=True):
         '''
         :name: the sensors name
         :sensing_methods: list of sensing methods for this instance
@@ -115,13 +117,18 @@ class SensorWrapper(object):
         # log message queueing
         self.log_messages = Queue()
         self.sensor_name = name
-        if pltfrm not in ["windows", "nt"]:
+        self.parse_opts = parse_opts
+        if self.parse_opts:
             self.setup_options()
-        self.opts = None if pltfrm not in ["windows", "nt"] else argparse.Namespace()
-        self.opt_types = {"api_https_port": int, "api_http_port": int, 
-                          "sensor_port": int, "delay_start": int, 
+            self.opts = None
+        else:
+            self.opts = argparse.Namespace()
+
+        self.opt_types = {"api_https_port": int, "api_http_port": int,
+                          "sensor_port": int, "delay_start": int,
                           "api_retry_max": float, "api_retry_wait": float,
-                          "sensor_advertised_hostname": type(None), 
+                          "sensor_hostname" : str,
+                          "sensor_advertised_hostname": type(None),
                           "sensor_advertised_port": type(None),
                           "backoff_delay": int,
                           "check_for_long_blocking": bool}
@@ -150,7 +157,7 @@ class SensorWrapper(object):
 
         # Keep track of the public certificate of the API server
         self.api_public_certificate = None
-        
+
         # notify when wrapper should stop retrying
         self._stop_retrying = False
 
@@ -163,14 +170,14 @@ class SensorWrapper(object):
         returns the current retrying state
         '''
         return self._stop_retrying
-    
+
     @stop_retrying.setter
     def stop_retrying(self, value):
         '''
         sets stop_retrying state
         '''
         self._stop_retrying = value
-        
+
     def __str__(self):
         '''
         Uniquely identify this SensorWrapper Instance
@@ -252,7 +259,7 @@ class SensorWrapper(object):
                         logger.info("    + Sensing API is ready")
                         return
             except Exception as e:
-                logger.exception("  ! Exception while waiting for the Sensing API (%r)", 
+                logger.exception("  ! Exception while waiting for the Sensing API (%r)",
                                  e, exc_info=SensorWrapper.exc_info)
 
             # have we exceeded our retry time limit?
@@ -325,8 +332,8 @@ class SensorWrapper(object):
             "port": self.opts.sensor_advertised_port
         }
         ca_path = os.path.join(self.opts.ca_key_path, "ca.pem")
-        
-        logger.info("  @ payload is [%r], ca_path is [%s] for request", 
+
+        logger.info("  @ payload is [%r], ca_path is [%s] for request",
                     payload, ca_path)
 
         pki_priv_res = await curequests.put(uri, json=payload, verify=ca_path)
@@ -489,7 +496,7 @@ class SensorWrapper(object):
             try:
                 await self.sensing_method_task_group.cancel_remaining()
             except CancelledError as ce:
-                logger.exception("  ^ ate CancelledError %r when cancelling stale sensing_method task group", 
+                logger.exception("  ^ ate CancelledError %r when cancelling stale sensing_method task group",
                                  ce, exc_info=SensorWrapper.exc_info)
                 self.sensing_method_task_group = None
 
@@ -514,7 +521,7 @@ class SensorWrapper(object):
         :return:
         """
         logger.info(" ::starting log_drain")
-        logger.info("  ? configuring KafkaProducer(bootstrap=%s, topic=%s)", 
+        logger.info("  ? configuring KafkaProducer(bootstrap=%s, topic=%s)",
                     ",".join(kafka_bootstrap_hosts), kafka_channel)
 
         producer = KafkaProducer(
@@ -614,7 +621,7 @@ class SensorWrapper(object):
                 (r_method, r_path, r_version) = path.strip().split(" ")
 
                 # handle the request, figuring out where it goes with the mapper
-                logger.info("[info] got [%s] request path [%s] version [%s]", 
+                logger.info("[info] got [%s] request path [%s] version [%s]",
                             r_method, r_path, r_version)
                 handler = mapper.match(r_path)
 
@@ -781,7 +788,10 @@ class SensorWrapper(object):
 
         :return: -
         """
-        if pltfrm not in ["windows", "nt"]:
+        stopper_given = (self._stop_notification is not None and
+                         inspect.iscoroutinefunction(self._stop_notification))
+
+        if not stopper_given:
             Goodbye = SignalEvent(signal.SIGINT, signal.SIGTERM)
 
         self.wrapper_task_group = TaskGroup()
@@ -831,8 +841,8 @@ class SensorWrapper(object):
             # layout the routes we'll serve during the certificate challenge
             http_routes = [
                 {
-                    "path": urlparse(challenge_data["url"]).path, 
-                    "name": "http_01_savior_challenge", 
+                    "path": urlparse(challenge_data["url"]).path,
+                    "name": "http_01_savior_challenge",
                     "handler": self.create_challenge_handler(self.opts, challenge_data)
                 }
             ]
@@ -862,12 +872,12 @@ class SensorWrapper(object):
             # sure we set the correct permissions (0x600)
             with open(self.opts.public_key_path, "w") as public_key_file:
                 public_key_file.write(pub_key)
-            if pltfrm not in ["windows", "nt"]:
+            if not is_windows:
                 os.chmod(self.opts.public_key_path, 0x600)
 
             with open(self.opts.private_key_path, "w") as private_key_file:
                 private_key_file.write(priv_key)
-            if pltfrm not in ["windows", "nt"]:
+            if not is_windows:
                 os.chmod(self.opts.private_key_path, 0x600)
 
             # we can now spin up our HTTPS actuation listener using our new keys
@@ -901,16 +911,14 @@ class SensorWrapper(object):
             await g.spawn(self.call_sensing_method, self.opts.sensor_id, json.loads(reg_data["default_configuration"]))
             await g.spawn(self.sync_sensor, pub_key)
 
-            if pltfrm not in ["windows", "nt"]:
+            if not stopper_given:
                 await Goodbye.wait()
                 logger.info("Got SIG: deregistering sensor and shutting down")
-            elif (self._stop_notification is not None 
-                     and inspect.iscoroutinefunction(self._stop_notification) is True):
+            else:
                 t = await g.spawn(self._stop_notification, ignore_result=True)
                 await t.join()
                 logger.info("Received a stop and/or a shutdown notification!")
-            else:
-                logger.error("There is no supported means to wait, shutting down immediately!")
+
             await g.cancel_remaining()
 
             # don't run this async - we're happy to block on deregistration
@@ -1054,7 +1062,6 @@ class SensorWrapper(object):
         """
         self.argparser = argparse.ArgumentParser(description=self.sensor_name)
 
-
         # top level control
 
         # key management
@@ -1096,9 +1103,9 @@ class SensorWrapper(object):
         parse non-windows options
         '''
         if not args:
-            self.opts = self.argparser.parse_args()        
+            self.opts = self.argparser.parse_args()
         else:
-            self.opts = self.argparser.parse_args(args)        
+            self.opts = self.argparser.parse_args(args)
 
     def check_identification(self):
         """
@@ -1128,7 +1135,7 @@ class SensorWrapper(object):
         if self.opts.username is None:
 
             # try and resolve the user from the PWD
-            if pltfrm not in ["windows", "nt"]:
+            if not is_windows:
                 pstruct = pwd.getpwuid(os.getuid())
                 if pstruct is not None:
                     self.opts.username = pstruct[0]
@@ -1150,20 +1157,19 @@ class SensorWrapper(object):
             if self.opts.username is None:
                 raise ValueError("Can't identify the current username, bailing out")
 
-        if self.opts.sensor_hostname is None:
-
-            self.opts.sensor_hostname = socket.getfqdn()
+        if self.opts.sensor_hostname is None or is_windows:
 
             # we'll do something funky on Windows, assuming we're on EC2
-            p = platform.system().lower()
-            if p in ["windows", "nt"]:
-                if self.opts.sensor_hostname.endswith("ec2.internal"):
+            if is_windows:
+                # ok - we're going to manually build our hostname from our
+                # IP address
+                ip = socket.gethostbyname(socket.gethostname())
+                self.opts.sensor_hostname = "ip-%s.ec2.internal" % ("-".join(ip.split(".")),)
+            else:
+                self.opts.sensor_hostname = socket.getfqdn()
 
-                    # ok - we're going to manually build our hostname from our
-                    # IP address
-                    ip = socket.gethostbyname(socket.gethostname())
-                    self.opts.sensor_hostname = "ip-%s.ec2.internal" % ("-".join(ip.split(".")),)
-
+            logger.warning("Forcing sensor hostname value: %s",
+                           self.opts.sensor_hostname)
             # bork bork bork
             if self.opts.sensor_hostname is None:
                 raise ValueError("Can't identify the current hostname, bailing out")
@@ -1200,7 +1206,6 @@ class SensorWrapper(object):
             if self.opts.sensor_advertised_port is None:
                 self.opts.sensor_advertised_port = self.opts.sensor_port
 
-
         # report
         logger.info("Sensor Identification")
         logger.info("\tsensor_id  == %s", self.opts.sensor_id)
@@ -1232,11 +1237,14 @@ class SensorWrapper(object):
         # good morning.
         logger.info("Starting %s(version=%s)", self.sensor_name, __VERSION__)
 
-        if pltfrm in ["windows", "nt"]:
-            logger.info("Windows Service Setting Arguments for %s", self)
+        if self.parse_opts:
+            logger.info("Parsing command line arguments for %s", self)
+            self.parse_options(argv)
+        else:
+            logger.info("Command line args passed via dict for library usage for %s", self)
             typ = None
             for key in kwargs:  # iterate through the argv and set it into the ns
-                logger.info("key = %s, kwargs[%s]=%r", key, key, kwargs[key])                
+                logger.info("key = %s, kwargs[%s]=%r", key, key, kwargs[key])
                 if key in self.opt_types:
                     typ = self.opt_types[key]
                     if typ is type(None):
@@ -1251,11 +1259,8 @@ class SensorWrapper(object):
                     setattr(self.opts, key, kwargs[key])
                 logger.info("Setting opts with key: %s, value: %s, type %s",
                             key, kwargs[key], typ.__name__)
-                
-        else:
-            logger.info("Linux/Darwin Service Setting Arguments for %s", self)
-            self.parse_options(argv)
-        
+
+
         logger.info("Ensuring we are properly identified . . . ")
         self.check_identification()
 
@@ -1264,8 +1269,8 @@ class SensorWrapper(object):
             self.opts.check_for_long_blocking = True
 
         if self.opts.delay_start > 0:
-            logger.info("Delaying startup of lsof_sensor %d seconds", 
-                self.opts.delay_start)
+            logger.info("Delaying startup of %s for %d seconds",
+                        self.sensor_name, self.opts.delay_start)
             time.sleep(self.opts.delay_start)
 
         # set the stop_retrying to True to
@@ -1278,13 +1283,13 @@ class SensorWrapper(object):
                     run(self.main, debug=longblock(max_time=0.5))
                 else:
                     logger.info("  %% starting with no long-blocking detection")
-                    run(self.main)                    
+                    run(self.main)
             except TaskError as err:
-                logger.exception("Failed to start because [%r] - backing off for %d seconds", 
+                logger.exception("Failed to start because [%r] - backing off for %d seconds",
                                  err, self.opts.backoff_delay, exc_info=SensorWrapper.exc_info)
                 time.sleep(self.opts.backoff_delay)
             except (TaskCancelled, TaskExit) as exc:
-                logger.exception("Failed to start because [%r]", exc, 
+                logger.exception("Failed to start because [%r]", exc,
                                  exc_info=SensorWrapper.exc_info)
                 raise  # propogate these errors/exit requests
 
@@ -1386,8 +1391,6 @@ async def report_on_file(filename):
         )
 
     return data
-
-
 
 
 async def send_json(stream, json_data, status_code=200):
