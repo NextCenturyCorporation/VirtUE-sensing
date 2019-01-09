@@ -38,17 +38,20 @@
  **/
 int
 sysfs_get_record(struct kernel_sysfs_sensor *p,
-				 struct sensor_msg *msg,
-				 uint8_t *tag)
+		 struct sensor_msg *msg,
+		 uint8_t *tag)
 {
 	struct kernel_sysfs_data *kfsd_p = NULL;
+	#define ORIG 1
+#if ORIG
 	uint8_t *cursor = NULL;
+#endif
 	int ccode = 0;
 	ssize_t cur_len = 0, raw_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;
 	struct records_reply *rp = (struct records_reply *)msg->output;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", \'reply\': [";
-	uint8_t * raw_header = "{\'type\': \'raw\', \'length\': ";
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", \"reply\": [";
+	uint8_t * raw_header = "{\"type\": \"raw\", \"length\": ";
 
 	assert(p);
 	assert(msg);
@@ -59,10 +62,9 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	assert(msg->output_len == (sizeof(struct records_reply)));
 	assert(rr->index >= 0 && rr->index < SYSFS_ARRAY_SIZE);
 
-	if (!rp->records || rp->records_len <=0) {
+	if (!rp->records || rp->records_len <= 0) {
 		return -ENOMEM;
 	}
-
 
 	if (rr->run_probe) {
 		/**
@@ -83,38 +85,39 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	* empty record response. per the protocol control/kernel/messages.md
 	**/
 		cur_len = scnprintf(rp->records,
-							rp->records_len - 1,
-							"%s \'%s\', \'%s\', \'%s\']}\n",
-							r_header,
-							rr->json_msg->s->nonce,
-							p->name,
-							p->uuid_string);
+				    rp->records_len - 1,
+				    "%s \"%s\", \"%s\", \"%s\"]}\n",
+				    r_header,
+				    rr->json_msg->s->nonce,
+				    p->name,
+				    p->uuid_string);
 
 		rp->index = -ENOENT;
 		goto record_created;
 	}
 
 	/**
-	 * build the record json object(s), with a raw extension
+	 * build the record json object(s), with a raw extension*************
 	 **/
 
 	raw_len = sizeof(struct kstat) + kfsd_p->data_len;
 
 	cur_len = scnprintf(rp->records,
-						rp->records_len - 1,
-						"%s \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', "
-						"\'%x\', \'%s\', %s \'%lx\'}]}\n",
-						r_header,
-						rr->json_msg->s->nonce,
-						p->name,
-						tag,
-						p->uuid_string,
-						rr->index,
-						kfsd_p->pid,
-						kfsd_p->dpath,
-						raw_header,
-						raw_len);
+			    rp->records_len - 1,
+			    "%s \"%s\", \"%s\", \"%s\", \"%s\", \"%d\", "
+			    "\"%ld\", \"%s\", %s \"%ld\"}]}\n",
+			    r_header,
+			    rr->json_msg->s->nonce,
+			    p->name,
+			    tag,
+			    p->uuid_string,
+			    rr->index,
+			    (long) kfsd_p->pid,
+			    kfsd_p->dpath,
+			    raw_header,
+			    raw_len);
 
+#if ORIG /////////////////////////////////
 	rp->records = krealloc(rp->records, cur_len + raw_len + 1, GFP_KERNEL);
 	if (! rp->records) {
 		return -ENOMEM;
@@ -125,13 +128,22 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	cursor += sizeof(struct kstat);
 	memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
 	cur_len += (raw_len + 1);
+#endif ////////////////////////////////
+
 record_created:
 	if (kfsd_p && rr->clear) {
-		kfree(kfsd_p->data);
+		if (kfsd_p->data) {
+			//vfree(kfsd_p->data);
+			pr_debug("Freeing %p", kfsd_p->data);
+			kfree(kfsd_p->data);
+			kfsd_p->data = NULL;
+		}
 		flex_array_clear(p->ksysfs_flex_array, rr->index);
 	}
 	rp->records_len = cur_len;
-	rp->records[cur_len] = 0x00;
+#if ORIG
+	rp->records[cur_len] = '\0';
+#endif
 	rp->range = rr->range;
 	return 0;
 }
@@ -147,14 +159,14 @@ record_created:
  *       file contents.
  **/
 ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
-						struct task_struct *t,
-						int *start,
-						char *path,
-						uint64_t nonce)
+			struct task_struct *t,
+			int *start,
+			char *path,
+			uint64_t nonce)
 {
 
 	ssize_t ccode = 0;
-	struct kernel_sysfs_data ksysfsd = {}, *clear_p = NULL;
+	struct kernel_sysfs_data ksysfsd = {0}, *clear_p = NULL;
 	loff_t pos = 0;
 	struct file *f = NULL;
 	if (t->pid == current->pid) {
@@ -194,6 +206,9 @@ ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 			ksysfsd.data_len = (size_t) pos;
 		}
 		fput_atomic(f);
+
+		pr_debug("Read file data [%s] into buffer allocated at %p",
+			 path, ksysfsd.data);
 		if (ccode < 0) {
 			goto err_exit;
 		}
@@ -210,14 +225,16 @@ ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 			 **/
 			 clear_p = flex_array_get(p->ksysfs_flex_array, *start);
 			 if (clear_p && clear_p->clear != FLEX_ARRAY_FREE &&
-				 clear_p->data) {
-				kfree(clear_p->data);
+			     clear_p->data) {
+				 pr_debug("Freeing %p", clear_p->data);
+				 kfree(clear_p->data);
+				 clear_p->data = NULL;
 			}
 
 			flex_array_put(p->ksysfs_flex_array,
-						   *start,
-						   &ksysfsd,
-						   GFP_ATOMIC);
+				       *start,
+				       &ksysfsd,
+				       GFP_ATOMIC);
 			(*start)++;
 		} else {
 			printk(KERN_INFO "sysfs flex array over-run\n");
@@ -237,7 +254,10 @@ err_exit:
 		filp_close(f, 0);
 	}
 	if (ksysfsd.data != NULL) {
+		//vfree(ksysfsd.data);
+		pr_debug("Freeing %p", ksysfsd.data);
 		kfree(ksysfsd.data);
+		ksysfsd.data = NULL;
 	}
 	return ccode;
 }
@@ -272,17 +292,18 @@ sysfs_for_each_unlocked(struct kernel_sysfs_sensor *p, uint64_t nonce)
 			file_index = index;
 			task = get_task_by_pid_number(pid_el_p->pid);
 			if (! task || ! pid_alive(task)) {
-					printk(KERN_DEBUG "trying to read a dead task struct %d\n",
-						   pid_el_p->pid);
-					continue;
+				printk(KERN_DEBUG "trying to read a dead task struct %d\n",
+				       pid_el_p->pid);
+				continue;
 			}
 
 			ccode = sysfs_read_data(p,
-									task,
-									&file_index,
-									sysfs_path,
-									nonce);
+						task,
+						&file_index,
+						sysfs_path,
+						nonce);
 			put_task_struct(task);
+
 		} else {
 			printk(KERN_INFO "array indexing error in sysfs_for_each_pid\n");
 			return -ENOMEM;
@@ -345,8 +366,8 @@ kernel_sysfs(struct kernel_sysfs_sensor *p,
 
 int
 filter_sysfs_data(struct kernel_sysfs_sensor *p,
-				  struct kernel_sysfs_data *sysfs_data,
-				  void *data)
+		  struct kernel_sysfs_data *sysfs_data,
+		  void *data)
 {
 	return 1;
 }
@@ -406,8 +427,8 @@ sysfs_message(struct sensor *sensor, struct sensor_msg *msg)
 	switch(msg->id) {
 	case RECORDS: {
 		return sysfs_get_record((struct kernel_sysfs_sensor *)sensor,
-								msg,
-								"kernel-sysfs");
+					msg,
+					"kernel-sysfs");
 	}
 	default:
 	{
@@ -448,12 +469,12 @@ STACK_FRAME_NON_STANDARD(destroy_sysfs_sensor);
 
 struct kernel_sysfs_sensor *
 init_sysfs_sensor(struct kernel_sysfs_sensor *sysfs_p,
-				 uint8_t *id, int id_len,
-				 int (*print)(struct kernel_sysfs_sensor *,
-							  uint8_t *, uint64_t, int),
-				 int (*filter)(struct kernel_sysfs_sensor *,
-							   struct kernel_sysfs_data *,
-							   void *))
+		  uint8_t *id, int id_len,
+		  int (*print)(struct kernel_sysfs_sensor *,
+			       uint8_t *, uint64_t, int),
+		  int (*filter)(struct kernel_sysfs_sensor *,
+				struct kernel_sysfs_data *,
+				void *))
 {
 	int ccode;
 	struct sensor *tmp;
@@ -500,7 +521,7 @@ init_sysfs_sensor(struct kernel_sysfs_sensor *sysfs_p,
 		goto err_exit;
 	}
 	ccode = flex_array_prealloc(sysfs_p->ksysfs_flex_array, 0, SYSFS_ARRAY_SIZE,
-								GFP_KERNEL | __GFP_ZERO);
+				    GFP_KERNEL | __GFP_ZERO);
 	if(ccode) {
 		/* ccode will be zero for success, -ENOMEM otherwise */
 		goto err_free_flex_array;
@@ -514,8 +535,8 @@ init_sysfs_sensor(struct kernel_sysfs_sensor *sysfs_p,
 	}
 
 	ccode = flex_array_prealloc(sysfs_p->ksysfs_pid_flex_array, 0,
-								PID_EL_ARRAY_SIZE,
-								GFP_KERNEL | __GFP_ZERO);
+				    PID_EL_ARRAY_SIZE,
+				    GFP_KERNEL | __GFP_ZERO);
 	if(ccode) {
 		/* ccode will be zero for success, -ENOMEM otherwise */
 		goto err_free_pid_flex_array;
@@ -526,9 +547,9 @@ init_sysfs_sensor(struct kernel_sysfs_sensor *sysfs_p,
 	__SET_FLAG(sysfs_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&sysfs_p->worker);
 	CONT_QUEUE_WORK(&sysfs_p->worker,
-					&sysfs_p->work);
+			&sysfs_p->work);
 	kthread_run(kthread_worker_fn, &sysfs_p->worker,
-				"kernel-sysfs");
+		    "kernel-sysfs");
 	return sysfs_p;
 
 err_free_pid_flex_array:

@@ -115,7 +115,7 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 	ssize_t cur_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;
 	struct records_reply *rp = (struct records_reply *)msg->output;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", \"reply\": [";
 
 	assert(parent);
 	assert(msg);
@@ -145,7 +145,7 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 		 **/
 		cur_len = scnprintf(rp->records,
 							rp->records_len - 1,
-							"%s \'%s\', \'%s\', \'%s\']}\n",
+							"%s \"%s\", \"%s\", \"%s\"]}\n",
 							r_header,
 							rr->json_msg->s->nonce,
 							parent->name,
@@ -163,9 +163,9 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 
 	cur_len = scnprintf(rp->records,
 						rp->records_len - 1,
-						"%s \'%s\', \'%s\', \'%s\', \'%s\',"
-						"\'uid: %d pid: %d flags: %x "
-						"mode: %x count: %ld %s\']}\n",
+						"%s \"%s\", \"%s\", \"%s\", \"%s\","
+						"\"uid: %d pid: %d flags: %x "
+						"mode: %x count: %ld %s\"]}\n",
 						r_header,
 						rr->json_msg->s->nonce,
 						parent->name,
@@ -196,7 +196,6 @@ print_kernel_lsof(struct kernel_lsof_sensor *parent,
 				  uint8_t *tag,
 				  uint64_t nonce)
 {
-
 	int index;
 	struct kernel_lsof_data *klsof_p;
 
