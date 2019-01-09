@@ -19,7 +19,7 @@ the parsing of the inbound JSON data.
 
 This capability can be build into a Python vitual environment or a Docker container.
 
-To build the sensor's container, navigate to the `desktop-bridge-target' directory in a shell and run:
+To build the sensor's container, navigate to the `desktop-bridge-target` directory in a shell and run:
 
 ```bash
 > ./docker-build.sh
