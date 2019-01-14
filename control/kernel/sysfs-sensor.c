@@ -42,10 +42,7 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 		 uint8_t *tag)
 {
 	struct kernel_sysfs_data *kfsd_p = NULL;
-	#define ORIG 1
-#if ORIG
 	uint8_t *cursor = NULL;
-#endif
 	int ccode = 0;
 	ssize_t cur_len = 0, raw_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;
@@ -116,8 +113,7 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 			    kfsd_p->dpath,
 			    raw_header,
 			    raw_len);
-
-#if ORIG /////////////////////////////////
+/* TODO: Why was this info included? It is not valid JSON.
 	rp->records = krealloc(rp->records, cur_len + raw_len + 1, GFP_KERNEL);
 	if (! rp->records) {
 		return -ENOMEM;
@@ -128,12 +124,11 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 	cursor += sizeof(struct kstat);
 	memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
 	cur_len += (raw_len + 1);
-#endif ////////////////////////////////
+*/
 
 record_created:
 	if (kfsd_p && rr->clear) {
 		if (kfsd_p->data) {
-			//vfree(kfsd_p->data);
 			pr_debug("Freeing %p", kfsd_p->data);
 			kfree(kfsd_p->data);
 			kfsd_p->data = NULL;
@@ -141,9 +136,7 @@ record_created:
 		flex_array_clear(p->ksysfs_flex_array, rr->index);
 	}
 	rp->records_len = cur_len;
-#if ORIG
 	rp->records[cur_len] = '\0';
-#endif
 	rp->range = rr->range;
 	return 0;
 }
