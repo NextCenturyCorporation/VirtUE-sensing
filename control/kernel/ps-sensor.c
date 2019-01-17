@@ -51,7 +51,7 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 	ssize_t cur_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;
 	struct records_reply *rp = (struct records_reply *)msg->output;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", reply: [";
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", \"reply\": [";
 
 	assert(parent);
 	assert(msg);

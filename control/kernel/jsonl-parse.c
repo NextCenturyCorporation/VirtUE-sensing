@@ -378,9 +378,9 @@ write_session_replies(struct jsmn_session *session)
 
 	list_for_each_entry_rcu(msg, &session->h_replies, e_messages) {
 		ccode = k_socket_write(msg->socket,
-							   strlen(msg->line) + 1,
-							   msg->line,
-						 	   0L);
+				       strlen(msg->line) + 1,
+				       msg->line,
+				       0L);
 		if (ccode < 0) {
 			goto err_socket_write;
 		}
@@ -566,7 +566,7 @@ process_records_request(struct jsmn_message *msg, int index)
 	}
 
 	/**
-     * even if one of the records exhuasted memory or
+	 * even if one of the records exhuasted memory or
 	 * caused an error, we may have been able to link more than one
 	 * good record to the session as a reply message.  Try to write
 	 * as many records to the socket as we can.
@@ -576,7 +576,7 @@ process_records_request(struct jsmn_message *msg, int index)
 	 **/
 	write_ccode = write_session_replies(msg->s);
 
-    /**
+	/**
 	 * ERROR CODE returns:
 	 * There are two possible error codes, in priority:
 	 *
@@ -609,7 +609,7 @@ process_discovery_request(struct jsmn_message *m, int index)
  **/
 	struct jsmn_message *reply_msg = NULL;
 	uint8_t *probe_ids = NULL;
-	uint8_t *r_header = "{" PROTOCOL_VERSION ", \'reply\': [";
+	uint8_t *r_header = "{" PROTOCOL_VERSION ", \"reply\": [";
 	size_t probe_ids_len = 0;
 	int ccode = 0;
 
@@ -657,7 +657,7 @@ process_discovery_request(struct jsmn_message *m, int index)
 
 		orig_len = scnprintf(reply_msg->line,
 							orig_len,
-							"%s\'%s\', \'discovery\', %s]}",
+							"%s\"%s\", \"discovery\", %s]}\n",
 							r_header,
 							reply_msg->s->nonce,
 							probe_ids);
@@ -676,7 +676,7 @@ process_discovery_request(struct jsmn_message *m, int index)
 		 * write the reply message to the socket, then free the session
 		 **/
 		ccode = k_socket_write(reply_msg->socket,
-							   strlen(reply_msg->line) + 1,
+							   strlen(reply_msg->line),
 							   reply_msg->line,
 							   0L);
 		goto out_session;

@@ -65,8 +65,8 @@ module_param(lsof_level, int, 0644);
 
 MODULE_PARM_DESC(lsof_repeat, "How many times to run the kernel lsof function");
 MODULE_PARM_DESC(lsof_timeout,
-				 "How many seconds to sleep in between calls to the kernel " \
-				 "lsof function");
+		 "How many seconds to sleep in between calls to the kernel " \
+		 "lsof function");
 MODULE_PARM_DESC(lsof_level, "How invasively to probe open files");
 
 module_param(ps_repeat, int, 0644);
@@ -75,8 +75,8 @@ module_param(ps_level, int, 0644);
 
 MODULE_PARM_DESC(ps_repeat, "How many times to run the kernel ps function");
 MODULE_PARM_DESC(ps_timeout,
-				 "How many seconds to sleep in between calls to the kernel " \
-				 "ps function");
+		 "How many seconds to sleep in between calls to the kernel " \
+		 "ps function");
 MODULE_PARM_DESC(ps_level, "How invasively to probe processes");
 
 
@@ -107,17 +107,17 @@ MODULE_PARM_DESC(max_size, "largest file buffer to allocate");
  * strings correspond to enum message_command in controller.h
  **/
 uint8_t *cmd_strings[] = {"Connect",
-						  "Discovery",
-						  "Off",
-						  "On",
-						  "Increase",
-						  "Decrease",
-						  "Low",
-						  "Default",
-						  "High",
-						  "Adversarial",
-						  "Reset",
-						  "Records"};
+			  "Discovery",
+			  "Off",
+			  "On",
+			  "Increase",
+			  "Decrease",
+			  "Low",
+			  "Default",
+			  "High",
+			  "Adversarial",
+			  "Reset",
+			  "Records"};
 
 int
 file_getattr(struct file *f, struct kstat *k)
@@ -231,10 +231,10 @@ kernel_read_file_with_name(char *name, void **buf, size_t max_count, loff_t *pos
 {
 #ifdef MODERN_FILE_API
 	return kernel_read_file_from_path(name,
-									  buf,
-									  pos,
-									  max_count,
-									  READING_UNKNOWN);
+					  buf,
+					  pos,
+					  max_count,
+					  READING_UNKNOWN);
 #else
 	return -ENOSYS;
 #endif
@@ -319,8 +319,8 @@ get_task_by_pid_number(pid_t pid)
  **/
 int
 build_pid_index_unlocked(struct sensor *p,
-						 struct flex_array *a,
-						 uint64_t nonce)
+			 struct flex_array *a,
+			 uint64_t nonce)
 {
 	int index = 0;
 	struct task_struct *task;
@@ -334,9 +334,9 @@ build_pid_index_unlocked(struct sensor *p,
 
 		if (index <  PID_EL_ARRAY_SIZE) {
 			flex_array_put(a,
-						   index,
-						   &pel,
-						   GFP_ATOMIC);
+				       index,
+				       &pel,
+				       GFP_ATOMIC);
 			index++;
 		} else {
 			printk(KERN_DEBUG "kernel pid index array over-run\n");
@@ -745,16 +745,16 @@ build_discovery_buffer(uint8_t **buf, size_t *len)
 				*cursor++ = SPACE;
 			}
 			*cursor++ = L_BRACKET;
-			*cursor++ = S_QUOTE;
+			*cursor++ = D_QUOTE;
 			strncpy(cursor, s_cursor->name, remaining - 3);
 			cursor += strlen(s_cursor->name);
-			*cursor++ = S_QUOTE;
+			*cursor++ = D_QUOTE;
 			*cursor++ = COMMA;
 			*cursor++ = SPACE;
-			*cursor++ = S_QUOTE;
+			*cursor++ = D_QUOTE;
 			snprintf(cursor, UUID_STRING_LEN + 1, "%pUb", &s_cursor->uuid);
 			cursor += UUID_STRING_LEN;
-			*cursor++ = S_QUOTE;
+			*cursor++ = D_QUOTE;
 			*cursor++ = R_BRACKET;
 			count++;
 			remaining -= (cursor - last_entry);
@@ -787,8 +787,8 @@ err_exit:
 
 bool
 init_and_queue_work(struct kthread_work *work,
-					struct kthread_worker *worker,
-					void (*function)(struct kthread_work *))
+		    struct kthread_worker *worker,
+		    void (*function)(struct kthread_work *))
 {
 
 
@@ -851,8 +851,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 
 	rcu_read_lock();
 	sensor_p = list_first_or_null_rcu(&sensor->sensors,
-									  struct sensor,
-									  l_node);
+					  struct sensor,
+					  l_node);
 	rcu_read_unlock();
 	while (sensor_p != NULL) {
 		spin_lock(&sensor->lock);
@@ -874,15 +874,15 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		 **/
 		rcu_read_lock();
 		sensor_p = list_first_or_null_rcu(&sensor->sensors,
-										  struct sensor,
-										  l_node);
+						  struct sensor,
+						  l_node);
 		rcu_read_unlock();
 	}
 	synchronize_rcu();
 	rcu_read_lock();
 	conn_c = list_first_or_null_rcu(&sensor->listeners,
-									struct connection,
-									l_node);
+					struct connection,
+					l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
 		spin_lock(&sensor->lock);
@@ -900,15 +900,15 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		synchronize_rcu();
 		rcu_read_lock();
 		conn_c = list_first_or_null_rcu(&sensor->listeners,
-										struct connection,
-										l_node);
+						struct connection,
+						l_node);
 		rcu_read_unlock();
 	}
 	conn_c = NULL;
 	rcu_read_lock();
 	conn_c = list_first_or_null_rcu(&sensor->connections,
-									struct connection,
-									l_node);
+					struct connection,
+					l_node);
 	rcu_read_unlock();
 	while (conn_c != NULL) {
 		spin_lock(&sensor->lock);
@@ -927,8 +927,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 		}
 		rcu_read_lock();
 		conn_c = list_first_or_null_rcu(&sensor->connections,
-										struct connection,
-										l_node);
+						struct connection,
+						l_node);
 		rcu_read_unlock();
 	}
 /* now destroy the sensor's anonymous probe struct */
@@ -986,7 +986,7 @@ struct kernel_sensor * init_kernel_sensor(struct kernel_sensor *sensor)
  * the anonymous struct is the first member of this structure.
  */
 	init_sensor((struct sensor *)sensor,
-				"Kernel Sensor", strlen("Kernel Sensor") + 1);
+		    "Kernel Sensor", strlen("Kernel Sensor") + 1);
 	sensor->_init = init_kernel_sensor;
 	INIT_LIST_HEAD_RCU(&sensor->sensors);
 	INIT_LIST_HEAD_RCU(&sensor->listeners);
@@ -1033,7 +1033,7 @@ default_sensor_message(struct sensor *sensor, struct sensor_msg *msg)
 
 
 struct sensor *init_sensor(struct sensor *sensor,
-						   uint8_t *name, int name_size)
+			   uint8_t *name, int name_size)
 {
 	if (!sensor) {
 		return ERR_PTR(-ENOMEM);
@@ -1085,6 +1085,24 @@ static int __init kcontrol_init(void)
 	struct kernel_lsof_sensor *lsof_sensor = NULL;
 	struct kernel_sysfs_sensor *sysfs_sensor = NULL;
 
+	struct module * mod = (struct module *) THIS_MODULE;
+#define DRIVER_NAME "controller"
+	pr_info( "\n################################\n"
+		 "gdb> add-symbol-file %s.ko 0x%p\n"
+		 "################################\n",
+		 DRIVER_NAME, mod->core_layout.base );
+	//DRIVER_NAME, mod->module_core );
+	
+#ifdef MYTRAP
+    // gdb> add-symbol-file mwcomms.ko $eax/$rax
+
+    asm( "int $3" // module base in *ax
+         //:: "a" ((THIS_MODULE)->module_core));
+         :: "a" ((THIS_MODULE)->core_layout.base)
+          , "b" ((THIS_MODULE)->init_layout.base)
+          , "c" (mod) );
+#endif
+
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
 		return -ENOMEM;
 	}
@@ -1093,9 +1111,9 @@ static int __init kcontrol_init(void)
 	 * initialize the ps probe
 	 **/
 	ps_sensor = init_kernel_ps_sensor(&kps_probe,
-									  "Kernel PS Sensor",
-									  strlen("Kernel PS Sensor") + 1,
-									  print_kernel_ps);
+					  "Kernel PS Sensor",
+					  strlen("Kernel PS Sensor") + 1,
+					  print_kernel_ps);
 
 	if (ps_sensor == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
@@ -1107,15 +1125,15 @@ static int __init kcontrol_init(void)
 	list_add_rcu(&ps_sensor->l_node, &k_sensor.sensors);
 	spin_unlock(&k_sensor.lock);
 
-    /**
-     * initialize the lsof probe
+	/**
+	 * initialize the lsof probe
 	 **/
 
 	lsof_sensor = init_kernel_lsof_sensor(&klsof_sensor,
-										  "Kernel LSOF Sensor",
-										  strlen("Kernel LSOF Sensor") + 1,
-										  print_kernel_lsof,
-										  lsof_pid_filter);
+					      "Kernel LSOF Sensor",
+					      strlen("Kernel LSOF Sensor") + 1,
+					      print_kernel_lsof,
+					      lsof_pid_filter);
 	if (lsof_sensor == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
 		goto err_exit;
@@ -1133,10 +1151,10 @@ static int __init kcontrol_init(void)
  **/
 
 	sysfs_sensor = init_sysfs_sensor(&ksysfs_sensor,
-									 "Kernel Sysfs Sensor",
-									 strlen("Kernel Sysfs Sensor") + 1,
-									 print_sysfs_data,
-									 filter_sysfs_data);
+					 "Kernel Sysfs Sensor",
+					 strlen("Kernel Sysfs Sensor") + 1,
+					 print_sysfs_data,
+					 filter_sysfs_data);
 
 	if (sysfs_sensor == ERR_PTR(-ENOMEM)) {
 		ccode = -ENOMEM;
@@ -1153,7 +1171,7 @@ static int __init kcontrol_init(void)
  * TODO: socket_interface_init always returns zero, it should
  * return an error code
  **/
-    socket_interface_init();
+	socket_interface_init();
 	return ccode;
 
 err_exit:
