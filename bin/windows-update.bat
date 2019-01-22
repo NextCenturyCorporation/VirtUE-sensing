@@ -41,9 +41,10 @@ SET PYTHONPATH=%SystemDrive%\
 copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python%PYTHONVER%\lib\site-packages\win32
 
 PUSHD %WINVIRTUE%
-python -m WinVirtUE install
 sc config WinVirtue start=auto
-python -m WinVirtUE start
+python WinVirtUE\service_winvirtue.py --startup=auto install
+sc config "WinVirtUE Service" depend=WinVirtUE
+python WinVirtUE\service_winvirtue.py start
 POPD
 
 @ECHO POP back to .\savior

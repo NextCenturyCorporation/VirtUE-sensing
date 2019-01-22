@@ -16,7 +16,6 @@ from ntfltmgr import  CommandPort, CloseHandle, packet_decode, apacket_decode
 
 import asyncio
 
-import __main__
 
 __VERSION__ = "1.20180801"
 __MODULE__ = "sensor_winvirtue.py"
@@ -60,7 +59,7 @@ class sensor_winvirtue(object):
     general winvirtue sensor code
     '''
     BARTIMEOUT = 15
-    def __init__(self):
+    def __init__(self, cfgparser):
         '''
         construct an object instance
         '''
@@ -69,7 +68,7 @@ class sensor_winvirtue(object):
         self._wrapperdict = {}
         self._sensorqueues = {}
         self._sensorthddict = {}
-        self._defdict = dict(__main__.cfgparser.items('DEFAULT'))
+        self._defdict = dict(cfgparser.items('DEFAULT'))
         self._update_sensor_info()
         self._event = UniversalEvent()
         self._barrier = Barrier(len(self._sensordict) + 1,
