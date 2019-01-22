@@ -1,5 +1,5 @@
 '''
-@brief windows service top level __main__ file.  
+@brief windows service top level __main__ file.
 '''
 import os
 import sys
@@ -104,9 +104,16 @@ if __name__ == '__main__':
         logger.info("Initializing ServiceManager . . .")
         servicemanager.Initialize()
         logger.info("Calling PrepareToHostSingle(WinVirtUE) . . .")
-        servicemanager.PrepareToHostSingle(WinVirtUE)                
+        servicemanager.PrepareToHostSingle(WinVirtUE)
         logger.info("Calling StartServiceCtrlDispatcher() . . . ")
         servicemanager.StartServiceCtrlDispatcher()
     else:
-        sys.frozen = 'windows_exe'  # uncomment to allow debugging
-        win32serviceutil.HandleCommandLine(WinVirtUE)     
+        # This causes:
+        #  - debugging to be easier
+        #  - the service to be installed so that Python.exe, rather than
+        #    PythonServices.exe, is invoked upon service start (in other
+        #    words the service won't work)
+
+        #sys.frozen = 'windows_exe'  # uncomment to allow debugging
+
+        win32serviceutil.HandleCommandLine(WinVirtUE)

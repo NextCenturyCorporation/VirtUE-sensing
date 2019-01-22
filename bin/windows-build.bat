@@ -52,7 +52,7 @@ copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll
 SET PYTHONPATH=%SystemDrive%\
 PUSHD %WINVIRTUE%
 python -m WinVirtUE install
-sc config WinVirtue start= auto
+sc config WinVirtue start=auto
 python -m WinVirtUE start
 POPD
 
