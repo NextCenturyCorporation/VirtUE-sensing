@@ -124,7 +124,7 @@ async def msg_consumer(message_stub, config=None, outqueue=None):
             logger.info("Handling event #%d", msg_ct)
 
         # Skip if external verbosity is lower than this event's?
-        if config['prio'] < inmsg['prio']:
+        if config is not None and config['prio'] < inmsg['prio']:
             continue
     
         logger.debug("[%s] dequeued '%r' from msg_queue and relaying",
@@ -263,23 +263,21 @@ def monitor_tools():
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-
-    # create console handler and set level to debug
-    ch = logging.StreamHandler(sys.stdout)
-    fmt = logging.Formatter('%(asctime)s: %(message)s')
-    ch.setFormatter(fmt)
-
     if os.getenv('VERBOSE'):
-        #logging.basicConfig( level=logging.DEBUG )
-        ch.setLevel(logging.DEBUG)
-        logger.setLevel(logging.DEBUG)
+        level = logging.DEBUG
     else:
-        ch.setLevel(logging.INFO)
-        logger.setLevel(logging.INFO)
+        level = logging.INFO
 
-    logger.addHandler(ch)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+
+    if standalone:
+        # create console handler and set level to debug
+        ch = logging.StreamHandler(sys.stdout)
+        fmt = logging.Formatter('%(asctime)s: %(message)s')
+        ch.setFormatter(fmt)
+        ch.setLevel(level)
+
+        logger.addHandler(ch)
 
     monitor_tools()
-
-
