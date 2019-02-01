@@ -4390,6 +4390,20 @@ async def api_stream(opts):
         "since": since.isoformat(),
         "filter_level": log_level
     }
+    
+    logger = None
+
+    # set up a logger to rsyslog, if desired
+    if opts.syslog_ip is not None:
+        import logging
+        import logging.handlers
+        print("% virtue-security api_stream(syslog={})".format(opts.syslog_ip))
+        syslog_handler = logging.handlers.SysLogHandler(address=(opts.syslog_ip,opts.syslog_port))
+        logger = logging.getLogger('savior')
+        logger.setLevel(logging.INFO)
+        formatter = logging.Formatter('SAVIOR: %(message)s')
+        syslog_handler.setFormatter(formatter)
+        logger.addHandler(syslog_handler)
 
     print("% virtue-security api_stream(uri={})\n".format(full_uri))
 
@@ -4408,7 +4422,7 @@ async def api_stream(opts):
                     chunk = await response.content.read(1024)
                     if not chunk:
                         if len(chunked_binary) > 0:
-                            manage_stream_output(opts, chunked_binary.decode("utf-8"))
+                            manage_stream_output(opts, chunked_binary.decode("utf-8"), logger)
                         break
 
                     chunked_binary += chunk
@@ -4418,7 +4432,7 @@ async def api_stream(opts):
 
                     # if we have a message, let's do something with it
                     if msg is not None:
-                        manage_stream_output(opts, msg)
+                        manage_stream_output(opts, msg, logger)
 
             except ClientConnectionError as cce:
                 # print("caught aiohttp ClientConnectionError")
@@ -4430,12 +4444,13 @@ async def api_stream(opts):
                 print(cce)
 
 
-def manage_stream_output(opts, stream_line):
+def manage_stream_output(opts, stream_line, logger):
     """
     Manage the various options we need to apply for output of streaming data.
 
     :param opts:
     :param stream_line:
+    :param logger:
     :return:
     """
 
@@ -4444,8 +4459,11 @@ def manage_stream_output(opts, stream_line):
         if opts.grep not in stream_line:
             return
 
+    # are we syslogging?
+    if logger is not None:
+        logger.info(stream_line.strip())
     # are we pretty printing?
-    if opts.output_pretty_print:
+    elif opts.output_pretty_print:
         print(json.dumps(json.loads(stream_line), indent=4))
     else:
         print(stream_line.strip())
@@ -4542,6 +4560,10 @@ def options():
     # stream formatting and control
     parser.add_argument("--grep", dest="grep", default=None, help="String to grep for in stream data")
     parser.add_argument("--pretty-print", dest="output_pretty_print", default=False, action="store_true", help="Pretty print JSON based outputs")
+    
+    parser.add_argument("--syslog-ip", dest="syslog_ip", default=None, help="Syslog server IP address to use")
+    parser.add_argument("--syslog-port", dest="syslog_port", default=514, type=int, help="Syslog server UDP port to use")
+
 
     return parser.parse_args()
 

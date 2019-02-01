@@ -860,6 +860,8 @@ class SensorWrapper(object):
             pki_public_future = await g.spawn(self.get_signed_public_key, csr)
             pub_key_success, pub_key = await pki_public_future.join()
             if not pub_key_success:
+                # spin down the http server
+                await challenge_server.cancel()
                 logger.critical("  ! Encountered an error when retrieving a public key for the sensor, aborting")
                 raise TaskError("  ! Encountered an error when retrieving a public key for the sensor, aborting")
 

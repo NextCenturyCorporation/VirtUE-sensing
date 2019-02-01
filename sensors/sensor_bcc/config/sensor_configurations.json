@@ -1,0 +1,43 @@
+{
+  "name": "bcc",
+  "context": "virtue",
+  "os": "linux",
+  "description": "Senses Linux runtime events via BCC tool suite",
+  "configurations": [
+    {
+      "version": "latest",
+      "level": "default",
+      "format": "json",
+      "source": "bcc_config_default_latest.json",
+      "description": "Default configuration emits default amount of output"
+    },
+    {
+      "version": "latest",
+      "level": "off",
+      "format": "json",
+      "source": "bcc_config_off_latest.json",
+      "description": "off configuration emits no event output"
+    },
+    {
+      "version": "latest",
+      "level": "low",
+      "format": "json",
+      "source": "bcc_config_low_latest.json",
+      "description": "Low configuration emits only more salient event classes"
+    },
+    {
+      "version": "latest",
+      "level": "high",
+      "format": "json",
+      "source": "bcc_config_high_latest.json",
+      "description": "High configuration emits all events"
+    },
+    {
+      "version": "latest",
+      "level": "adversarial",
+      "format": "json",
+      "source": "bcc_config_adversarial_latest.json",
+      "description": "Adversarial configuration emits all events"
+    }
+  ]
+}

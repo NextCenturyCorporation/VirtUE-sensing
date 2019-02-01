@@ -1,0 +1,16 @@
+{
+  "name": "bcc-sensor",
+  "version": "1.0",
+  "target_folder": "bcc",
+  "files": [
+    {
+      "source": "sensor_bcc.py",
+      "dest": "sensor_bcc.py"
+    }
+  ],
+  "startup_script": "run_bcc_sensor.sh",
+  "requirements_files": ["bcc_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": ["bcc"]
+
+}

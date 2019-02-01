@@ -1549,6 +1549,7 @@ def packet_decode():
         if not msg_data:
             continue
         yield msg_data._asdict()
+
     CloseHandle(hFltComms)
 
 async def apacket_decode():
@@ -1566,6 +1567,7 @@ async def apacket_decode():
         if not msg_data:
             continue
         yield msg_data._asdict()
+
     CloseHandle(hFltComms)
 
 
