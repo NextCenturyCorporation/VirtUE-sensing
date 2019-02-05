@@ -38,8 +38,8 @@ lsof_message(struct sensor *sensor, struct sensor_msg *msg)
 	switch(msg->id) {
 	case RECORDS: {
 		return kernel_lsof_get_record((struct kernel_lsof_sensor *)sensor,
-									  msg,
-									  "kernel-lsof");
+					      msg,
+					      "kernel-lsof");
 	}
 
 	default:
@@ -60,8 +60,8 @@ lsof_message(struct sensor *sensor, struct sensor_msg *msg)
  **/
 int
 lsof_pid_filter(struct kernel_lsof_sensor *p,
-				struct kernel_lsof_data* d,
-				void *cmp)
+		struct kernel_lsof_data* d,
+		void *cmp)
 
 {
 	return (d->pid_nr == *(pid_t *)cmp) ? 1 : 0;
@@ -74,8 +74,8 @@ lsof_pid_filter(struct kernel_lsof_sensor *p,
  **/
 int
 lsof_uid_filter(struct kernel_lsof_sensor *p,
-				struct kernel_lsof_data *d,
-				void *cmp)
+		struct kernel_lsof_data *d,
+		void *cmp)
 {
 	kuid_t *user_id  = (kuid_t *)cmp;
 
@@ -84,8 +84,8 @@ lsof_uid_filter(struct kernel_lsof_sensor *p,
 
 int
 lsof_all_files(struct kernel_lsof_sensor *p,
-			   struct kernel_lsof_data *d,
-			   void *cmp)
+	       struct kernel_lsof_data *d,
+	       void *cmp)
 {
 	return 1;
 }
@@ -107,8 +107,8 @@ lsof_all_files(struct kernel_lsof_sensor *p,
  **/
 int
 kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
-					   struct sensor_msg *msg,
-					   uint8_t *tag)
+		       struct sensor_msg *msg,
+		       uint8_t *tag)
 {
 	struct kernel_lsof_data *klsof_p;
 	int ccode = 0;
@@ -138,18 +138,18 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 
 	klsof_p = flex_array_get(parent->klsof_data_flex_array, rr->index);
 	if (!klsof_p || klsof_p->clear == FLEX_ARRAY_FREE ||
-		(rr->nonce && klsof_p->nonce != rr->nonce)) {
+	    (rr->nonce && klsof_p->nonce != rr->nonce)) {
 		/**
 		 * when there is no entry, or the entry is clear, return an
 		 * empty record response. per the protocol control/kernel/messages.md
 		 **/
 		cur_len = scnprintf(rp->records,
-							rp->records_len - 1,
-							"%s \"%s\", \"%s\", \"%s\"]}\n",
-							r_header,
-							rr->json_msg->s->nonce,
-							parent->name,
-							parent->uuid_string);
+				    rp->records_len,
+				    "%s \"%s\", \"%s\", \"%s\"]}\n",
+				    r_header,
+				    rr->json_msg->s->nonce,
+				    parent->name,
+				    parent->uuid_string);
 		rp->index = -ENOENT;
 		goto record_created;
 	}
@@ -162,21 +162,21 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 	 **/
 
 	cur_len = scnprintf(rp->records,
-						rp->records_len - 1,
-						"%s \"%s\", \"%s\", \"%s\", \"%s\","
-						"\"uid: %d pid: %d flags: %x "
-						"mode: %x count: %ld %s\"]}\n",
-						r_header,
-						rr->json_msg->s->nonce,
-						parent->name,
-						tag,
-						parent->uuid_string,
-						klsof_p->user_id.val,
-						klsof_p->pid_nr,
-						klsof_p->flags,
-						klsof_p->mode,
-						atomic64_read(&klsof_p->count),
-						klsof_p->dpath + klsof_p->dp_offset);
+			    rp->records_len,
+			    "%s \"%s\", \"%s\", \"%s\", \"%s\","
+			    "\"uid: %d pid: %d flags: %x "
+			    "mode: %x count: %ld %s\"]}\n",
+			    r_header,
+			    rr->json_msg->s->nonce,
+			    parent->name,
+			    tag,
+			    parent->uuid_string,
+			    klsof_p->user_id.val,
+			    klsof_p->pid_nr,
+			    klsof_p->flags,
+			    klsof_p->mode,
+			    atomic64_read(&klsof_p->count),
+			    klsof_p->dpath + klsof_p->dp_offset);
 	rp->index = rr->index;
 
 record_created:
@@ -185,16 +185,16 @@ record_created:
 	}
 
 	rp->records_len = cur_len;
-	rp->records[cur_len] = 0x00;
-	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
+//	rp->records[cur_len] = 0x00;
+//	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
 	rp->range = rr->range;
 	return 0;
 }
 
 int
 print_kernel_lsof(struct kernel_lsof_sensor *parent,
-				  uint8_t *tag,
-				  uint64_t nonce)
+		  uint8_t *tag,
+		  uint64_t nonce)
 {
 	int index;
 	struct kernel_lsof_data *klsof_p;
@@ -214,14 +214,14 @@ print_kernel_lsof(struct kernel_lsof_sensor *parent,
 			}
 
 			printk(KERN_INFO "%s uid: %d pid: %d flags: %x "
-				   "mode: %x count: %lx %s \n",
-				   tag,
-				   klsof_p->user_id.val,
-				   klsof_p->pid_nr,
-				   klsof_p->flags,
-				   klsof_p->mode,
-				   atomic64_read(&klsof_p->count),
-				   klsof_p->dpath + klsof_p->dp_offset);
+			       "mode: %x count: %lx %s \n",
+			       tag,
+			       klsof_p->user_id.val,
+			       klsof_p->pid_nr,
+			       klsof_p->flags,
+			       klsof_p->mode,
+			       atomic64_read(&klsof_p->count),
+			       klsof_p->dpath + klsof_p->dp_offset);
 		} else {
 			printk(KERN_INFO "array indexing error in print lsof\n");
 			spin_unlock(&parent->lock);
@@ -243,9 +243,9 @@ STACK_FRAME_NON_STANDARD(print_kernel_lsof);
  **/
 int
 lsof_get_files_struct(struct kernel_lsof_sensor *p,
-						  struct task_struct *t,
-						  int *start,
-						  uint64_t nonce)
+		      struct task_struct *t,
+		      int *start,
+		      uint64_t nonce)
 {
 	static struct kernel_lsof_data klsofd;
 	int fd_index = 0;
@@ -270,7 +270,7 @@ lsof_get_files_struct(struct kernel_lsof_sensor *p,
 	while(files_table && files_table->fd[fd_index]) {
 		file = get_file(files_table->fd[fd_index]);
 		klsofd.dp = d_path(&file->f_path,
-						   klsofd.dpath, MAX_DENTRY_LEN - 1);
+				   klsofd.dpath, MAX_DENTRY_LEN - 1);
 		klsofd.flags = file->f_flags;
 		klsofd.mode = file->f_mode;
 		/* don't include the probe in the count */
@@ -285,9 +285,9 @@ lsof_get_files_struct(struct kernel_lsof_sensor *p,
 		klsofd.pid_nr = t->pid;
 		if (*start <  LSOF_ARRAY_SIZE) {
 			flex_array_put(p->klsof_data_flex_array,
-						   *start,
-						   &klsofd,
-						   GFP_ATOMIC);
+				       *start,
+				       &klsofd,
+				       GFP_ATOMIC);
 			(*start)++;
 		} else {
 			printk(KERN_INFO "lsof flex array over-run\n");
@@ -306,7 +306,7 @@ STACK_FRAME_NON_STANDARD(lsof_get_files_struct);
 
 int
 lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
-						   uint64_t nonce)
+			   uint64_t nonce)
 {
 	int index, ccode = 0, file_index = 0;
 	struct task_struct *task;
@@ -321,9 +321,9 @@ lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
 			task = get_task_by_pid_number(pid_el_p->pid);
 			if (task && pid_alive(task)) {
 				ccode = lsof_get_files_struct(p,
-											  task,
-											  &file_index,
-											  nonce);
+							      task,
+							      &file_index,
+							      nonce);
 				put_task_struct(task);
 			}
 		} else {
@@ -336,12 +336,12 @@ lsof_for_each_pid_unlocked(struct kernel_lsof_sensor *p,
 
 int
 kernel_lsof_unlocked(struct kernel_lsof_sensor *p,
-					 uint64_t nonce)
+		     uint64_t nonce)
 {
 	int count;
 	count = build_pid_index_unlocked((struct sensor *)p,
-									 p->klsof_pid_flex_array,
-									 nonce);
+					 p->klsof_pid_flex_array,
+					 nonce);
 	count = lsof_for_each_pid_unlocked(p, nonce);
 	return count;
 }
@@ -356,8 +356,8 @@ kernel_lsof(struct kernel_lsof_sensor *p, uint64_t nonce)
 		return -EAGAIN;
 	}
 	count = build_pid_index_unlocked((struct sensor *)p,
-									 p->klsof_pid_flex_array,
-									 nonce);
+					 p->klsof_pid_flex_array,
+					 nonce);
 	count = lsof_for_each_pid_unlocked(p, nonce);
 	spin_unlock(&p->lock);
 	return count;
@@ -382,8 +382,8 @@ run_klsof_probe(struct kthread_work *work)
 	if (probe_struct->repeat > 0 &&  (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		int i;
 		for(i = 0;
-			i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
-			i++) {
+		    i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
+		    i++) {
 			sleep(1);
 		}
 		if (! atomic64_read(&SHOULD_SHUTDOWN))
@@ -418,12 +418,12 @@ STACK_FRAME_NON_STANDARD(destroy_kernel_lsof_sensor);
 
 struct kernel_lsof_sensor *
 init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
-					   uint8_t *id, int id_len,
-					   int (*print)(struct kernel_lsof_sensor *,
-									uint8_t *, uint64_t),
-					   int (*filter)(struct kernel_lsof_sensor *,
-									 struct kernel_lsof_data *,
-									 void *))
+			uint8_t *id, int id_len,
+			int (*print)(struct kernel_lsof_sensor *,
+				     uint8_t *, uint64_t),
+			int (*filter)(struct kernel_lsof_sensor *,
+				      struct kernel_lsof_data *,
+				      void *))
 {
 	int ccode = 0;
 	struct sensor *tmp;
@@ -476,7 +476,7 @@ init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
 		goto err_exit;
 	}
 	ccode = flex_array_prealloc(lsof_p->klsof_data_flex_array, 0, LSOF_ARRAY_SIZE,
-								GFP_KERNEL | __GFP_ZERO);
+				    GFP_KERNEL | __GFP_ZERO);
 	if(ccode) {
 		/* ccode will be zero for success, -ENOMEM otherwise */
 		goto err_free_flex_array;
@@ -490,15 +490,15 @@ init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
 	}
 
 	ccode = flex_array_prealloc(lsof_p->klsof_pid_flex_array, 0,
-								PID_EL_ARRAY_SIZE,
-								GFP_KERNEL | __GFP_ZERO);
+				    PID_EL_ARRAY_SIZE,
+				    GFP_KERNEL | __GFP_ZERO);
 	if(ccode) {
 		/* ccode will be zero for success, -ENOMEM otherwise */
 		goto err_free_pid_flex_array;
 	}
 
 	printk(KERN_INFO "kernel-lsof LSOF_DATA_SIZE %ld LSOF_ARRAY_SIZE %ld\n",
-		   LSOF_DATA_SIZE, LSOF_ARRAY_SIZE);
+	       LSOF_DATA_SIZE, LSOF_ARRAY_SIZE);
 
 
 /* now queue the kernel thread work structures */
@@ -506,9 +506,9 @@ init_kernel_lsof_sensor(struct kernel_lsof_sensor *lsof_p,
 	__SET_FLAG(lsof_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&lsof_p->worker);
 	CONT_QUEUE_WORK(&lsof_p->worker,
-					&lsof_p->work);
+			&lsof_p->work);
 	kthread_run(kthread_worker_fn, &lsof_p->worker,
-				"kernel-lsof");
+		    "kernel-lsof");
 	return lsof_p;
 err_free_pid_flex_array:
 	flex_array_free(lsof_p->klsof_pid_flex_array);

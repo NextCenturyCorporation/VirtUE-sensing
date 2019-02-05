@@ -21,6 +21,9 @@
  *
  *******************************************************************/
 
+// disable sysfs sensor because of stability/kernel mismatch issue
+#define ENABLE_SYSFS 0
+
 #include "controller-linux.h"
 #include "controller.h"
 #include "jsmn/jsmn.h"
@@ -86,8 +89,8 @@ module_param(sysfs_level, int, 0644);
 
 MODULE_PARM_DESC(sysfs_repeat, "How many times to run the kernel sysfs function");
 MODULE_PARM_DESC(sysfs_timeout,
-				 "How many seconds to sleep in between calls to the kernel " \
-				 "sysfs function");
+		 "How many seconds to sleep in between calls to the kernel " \
+		 "sysfs function");
 MODULE_PARM_DESC(sysfs_level, "How invasively to probe open files");
 
 module_param(socket_name, charp, 0644);
@@ -328,7 +331,7 @@ build_pid_index_unlocked(struct sensor *p,
 
 	rcu_read_lock();
 	for_each_process(task) {
-        pel.pid = task->pid;
+		pel.pid = task->pid;
 		pel.uid = task_uid(task);
 		pel.nonce = nonce;
 
@@ -461,7 +464,7 @@ get_sensor_name(uint8_t *sensor_name, struct sensor **sensor)
 	rcu_read_lock();
 	list_for_each_entry_rcu(sensor_p, &k_sensor.sensors, l_node) {
 		if (strlen(sensor_p->name) == name_len &&
-			!strncmp(sensor_p->name, sensor_name, name_len)) {
+		    !strncmp(sensor_p->name, sensor_name, name_len)) {
 /**
  * do not allow partial name matches. e.g., disallow
  * "Kernel" from matching "Kernel PS Sensor." Both
@@ -831,7 +834,7 @@ void *destroy_sensor(struct sensor *sensor)
 		__CLEAR_FLAG(sensor->flags, SENSOR_HAS_WORK);
 	}
 	if (sensor->name &&
-		__FLAG_IS_SET(sensor->flags, SENSOR_HAS_NAME_FIELD)) {
+	    __FLAG_IS_SET(sensor->flags, SENSOR_HAS_NAME_FIELD)) {
 		__CLEAR_FLAG(sensor->flags, SENSOR_HAS_NAME_FIELD);
 		kfree(sensor->name);
 		sensor->name = NULL;
@@ -912,8 +915,8 @@ void *destroy_kernel_sensor(struct kernel_sensor *sensor)
 	rcu_read_unlock();
 	while (conn_c != NULL) {
 		spin_lock(&sensor->lock);
-        list_del_rcu(&conn_c->l_node);
-	    spin_unlock(&sensor->lock);
+		list_del_rcu(&conn_c->l_node);
+		spin_unlock(&sensor->lock);
 		if (__FLAG_IS_SET(conn_c->flags, SENSOR_CONNECT)) {
 			/**
 			 * a connection is dynamically allocated, so
@@ -1094,13 +1097,13 @@ static int __init kcontrol_init(void)
 	//DRIVER_NAME, mod->module_core );
 	
 #ifdef MYTRAP
-    // gdb> add-symbol-file mwcomms.ko $eax/$rax
+	// gdb> add-symbol-file mwcomms.ko $eax/$rax
 
-    asm( "int $3" // module base in *ax
-         //:: "a" ((THIS_MODULE)->module_core));
-         :: "a" ((THIS_MODULE)->core_layout.base)
-          , "b" ((THIS_MODULE)->init_layout.base)
-          , "c" (mod) );
+	asm( "int $3" // module base in *ax
+	     //:: "a" ((THIS_MODULE)->module_core));
+	     :: "a" ((THIS_MODULE)->core_layout.base)
+	      , "b" ((THIS_MODULE)->init_layout.base)
+	      , "c" (mod) );
 #endif
 
 	if (&k_sensor != init_kernel_sensor(&k_sensor)) {
@@ -1145,7 +1148,7 @@ static int __init kcontrol_init(void)
 	list_add_rcu(&lsof_sensor->l_node, &k_sensor.sensors);
 	spin_unlock(&k_sensor.lock);
 
-
+#if ENABLE_SYSFS
 /**
  * initialize the sysfs probe
  **/
@@ -1164,7 +1167,7 @@ static int __init kcontrol_init(void)
 	spin_lock(&k_sensor.lock);
 	list_add_rcu(&sysfs_sensor->l_node, &k_sensor.sensors);
 	spin_unlock(&k_sensor.lock);
-
+#endif // ENABLE_SYSFS
 
 /**
  * initialize the socket interface
@@ -1191,7 +1194,7 @@ err_exit:
 		lsof_sensor = NULL;
 	}
 
-
+#if ENABLE_SYSFS
 	if (sysfs_sensor != ERR_PTR(-ENOMEM)) {
 		if (__FLAG_IS_SET(sysfs_sensor->flags, SENSOR_INITIALIZED)) {
 			sysfs_sensor->_destroy((struct sensor *)sysfs_sensor);
@@ -1199,6 +1202,7 @@ err_exit:
 		kfree(sysfs_sensor);
 		sysfs_sensor = NULL;
 	}
+#endif // ENABLE_SYSFS
 
 	return ccode;
 }

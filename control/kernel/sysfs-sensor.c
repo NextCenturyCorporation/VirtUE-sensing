@@ -76,11 +76,11 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 
 	kfsd_p = flex_array_get(p->ksysfs_flex_array, rr->index);
 	if (!kfsd_p || kfsd_p->clear == FLEX_ARRAY_FREE ||
-		(rr->nonce && kfsd_p->nonce != rr->nonce)) {
-	/**
-	* when there is no entry, or the entry is clear, return an
-	* empty record response. per the protocol control/kernel/messages.md
-	**/
+	    (rr->nonce && kfsd_p->nonce != rr->nonce)) {
+		/**
+		 * when there is no entry, or the entry is clear, return an
+		 * empty record response. per the protocol control/kernel/messages.md
+		 **/
 		cur_len = scnprintf(rp->records,
 				    rp->records_len - 1,
 				    "%s \"%s\", \"%s\", \"%s\"]}\n",
@@ -114,16 +114,16 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 			    raw_header,
 			    raw_len);
 /* TODO: Why was this info included? It is not valid JSON.
-	rp->records = krealloc(rp->records, cur_len + raw_len + 1, GFP_KERNEL);
-	if (! rp->records) {
-		return -ENOMEM;
-	}
+   rp->records = krealloc(rp->records, cur_len + raw_len + 1, GFP_KERNEL);
+   if (! rp->records) {
+   return -ENOMEM;
+   }
 
-	cursor = rp->records + cur_len;
-	memcpy(cursor, &kfsd_p->stat, sizeof(struct kstat));
-	cursor += sizeof(struct kstat);
-	memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
-	cur_len += (raw_len + 1);
+   cursor = rp->records + cur_len;
+   memcpy(cursor, &kfsd_p->stat, sizeof(struct kstat));
+   cursor += sizeof(struct kstat);
+   memcpy(cursor, kfsd_p->data, kfsd_p->data_len);
+   cur_len += (raw_len + 1);
 */
 
 record_created:
@@ -216,12 +216,12 @@ ssize_t sysfs_read_data(struct kernel_sysfs_sensor *p,
 			 * check for an allocated file data buffer stored in this
 			 * array element - if its there, free it
 			 **/
-			 clear_p = flex_array_get(p->ksysfs_flex_array, *start);
-			 if (clear_p && clear_p->clear != FLEX_ARRAY_FREE &&
-			     clear_p->data) {
-				 pr_debug("Freeing %p", clear_p->data);
-				 kfree(clear_p->data);
-				 clear_p->data = NULL;
+			clear_p = flex_array_get(p->ksysfs_flex_array, *start);
+			if (clear_p && clear_p->clear != FLEX_ARRAY_FREE &&
+			    clear_p->data) {
+				pr_debug("Freeing %p", clear_p->data);
+				kfree(clear_p->data);
+				clear_p->data = NULL;
 			}
 
 			flex_array_put(p->ksysfs_flex_array,
@@ -325,13 +325,13 @@ STACK_FRAME_NON_STANDARD(sysfs_for_each_pid);
 
 int
 kernel_sysfs_unlocked(struct kernel_sysfs_sensor *p,
-					  uint64_t nonce)
+		      uint64_t nonce)
 {
 	int count;
 
 	count = build_pid_index_unlocked((struct sensor *)p,
-									 p->ksysfs_pid_flex_array,
-									 nonce);
+					 p->ksysfs_pid_flex_array,
+					 nonce);
 	count = sysfs_for_each_unlocked(p, nonce);
 
 	return count;
@@ -339,8 +339,8 @@ kernel_sysfs_unlocked(struct kernel_sysfs_sensor *p,
 
 int
 kernel_sysfs(struct kernel_sysfs_sensor *p,
-			 int c,
-			 uint64_t nonce)
+	     int c,
+	     uint64_t nonce)
 {
 	int count;
 
@@ -348,8 +348,8 @@ kernel_sysfs(struct kernel_sysfs_sensor *p,
 		return -EAGAIN;
 	}
 	count = build_pid_index_unlocked((struct sensor *)p,
-									 p->ksysfs_pid_flex_array,
-									 nonce);
+					 p->ksysfs_pid_flex_array,
+					 nonce);
 	count = sysfs_for_each_unlocked(p, nonce);
 	spin_unlock(&p->lock);
 	return count;
@@ -368,7 +368,7 @@ filter_sysfs_data(struct kernel_sysfs_sensor *p,
 
 int
 print_sysfs_data(struct kernel_sysfs_sensor *p,
-				 uint8_t *tag, uint64_t nonce, int count)
+		 uint8_t *tag, uint64_t nonce, int count)
 {
 	if(print_to_log) {
 		printk(KERN_INFO "%s %llx %d\n", tag, nonce, count);
@@ -399,8 +399,8 @@ run_sysfs_probe(struct kthread_work *work)
 	if (probe_struct->repeat > 0 &&  (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		int i;
 		for(i = 0;
-			i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
-			i++) {
+		    i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
+		    i++) {
 			sleep(1);
 		}
 		if (! atomic64_read(&SHOULD_SHUTDOWN))

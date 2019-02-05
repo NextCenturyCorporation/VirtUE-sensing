@@ -24,9 +24,9 @@ init_connection(struct connection *, uint64_t, void *);
  **/
 ssize_t
 k_socket_read(struct socket *sock,
-			  size_t size,
-			  void *in,
-			  unsigned int flags)
+	      size_t size,
+	      void *in,
+	      unsigned int flags)
 {
 
 	ssize_t res = 0;
@@ -34,8 +34,8 @@ k_socket_read(struct socket *sock,
 	struct kvec iov = {.iov_base = in, .iov_len = size};
 
 	printk(KERN_DEBUG "k_socket_read sock %p, num bytes to read %ld," \
-		   "inbuf %p, flags %x\n",
-		   sock, size, in, flags);
+	       "inbuf %p, flags %x\n",
+	       sock, size, in, flags);
 again:
 	res = kernel_recvmsg(sock, &msg, &iov, 1, size, flags);
 	if (res == -EAGAIN)
@@ -51,15 +51,15 @@ k_socket_peak(struct socket *sock)
 	static uint8_t in[CONNECTION_MAX_MESSAGE];
 
 	return k_socket_read(sock, CONNECTION_MAX_MESSAGE,
-						 in, MSG_PEEK);
+			     in, MSG_PEEK);
 }
 
 
 ssize_t
 k_socket_write(struct socket *sock,
-			   size_t size,
-			   void *out,
-			   unsigned int flags)
+	       size_t size,
+	       void *out,
+	       unsigned int flags)
 {
 	ssize_t res = 0;
 	struct msghdr msg = {.msg_flags = flags};
@@ -119,14 +119,14 @@ again:
 		m->len = bytes_read;
 		jsmn_init(&m->parser);
 		m->count = jsmn_parse(&m->parser,
-							  m->line,
-							  m->len,
-							  m->tokens,
-							  MAX_TOKENS);
+				      m->line,
+				      m->len,
+				      m->tokens,
+				      MAX_TOKENS);
 		if (m->count == JSMN_ERROR_PART && len_save < CONNECTION_MAX_MESSAGE) {
-            /* it may be valid to realloc and try again */
+			/* it may be valid to realloc and try again */
 			printk(KERN_INFO "kernel sensor read part of a JSON object, " \
-				   "attempting to realloc and read the remainder\n");
+			       "attempting to realloc and read the remainder\n");
 			m->line = krealloc(m->line, CONNECTION_MAX_MESSAGE, GFP_KERNEL);
 			if (m->line) {
 				len_save = CONNECTION_MAX_MESSAGE;
@@ -172,8 +172,8 @@ k_echo_server(struct kthread_work *work)
 		container_of(work, struct connection, work);
 
 	assert(connection &&
-		   connection->flags &&
-		   connection->connected);
+	       connection->flags &&
+	       connection->connected);
 	assert(__FLAG_IS_SET(connection->flags, SENSOR_CONNECT));
 	assert(__FLAG_IS_SET(connection->flags, SENSOR_HAS_WORK));
 	ccode = down_interruptible(&connection->s_lock);
@@ -187,7 +187,7 @@ k_echo_server(struct kthread_work *work)
 		if (!read_buf) {
 
 			printk(KERN_DEBUG "k_socket read unable to allocate read buffer: " \
-				   "%d bytes\n", ccode);
+			       "%d bytes\n", ccode);
 			__CLEAR_FLAG(connection->flags, SENSOR_CONNECT);
 			goto close_out;
 
@@ -227,7 +227,7 @@ k_echo_server(struct kthread_work *work)
 		ccode = k_socket_write(sock, strlen(response) + 1, response, 0L);
 		printk(KERN_DEBUG "k_socket_write session return code: %d\n", ccode);
 
-    } else {
+	} else {
 /**
  * call the json parser
  * ccode contains the bytes read - a good value for message->len
@@ -249,7 +249,7 @@ k_echo_server(struct kthread_work *work)
 
 			/* for some reason, didn't read a valid json object */
 			printk(KERN_DEBUG "kernel sensor error reading a valid JSON object, " \
-				   "connection is being closed\n");
+			       "connection is being closed\n");
 			up(&connection->s_lock);
 			goto close_out;
 		}
@@ -312,7 +312,7 @@ k_read_write(struct kthread_work *work)
 		container_of(work, struct connection, work);
 
 	assert(connection &&
-		   connection->flags);
+	       connection->flags);
 	assert(__FLAG_IS_SET(connection->flags, SENSOR_CONNECT));
 	assert(__FLAG_IS_SET(connection->flags, SENSOR_HAS_WORK));
 
@@ -355,7 +355,7 @@ again:
 	if (m->count < 0) {
 		/* for some reason, didn't read a valid json object */
 		printk(KERN_INFO "kernel sensor error reading a valid JSON object, " \
-			   "connection is being closed\n");
+		       "connection is being closed\n");
 		goto err_out0;
 	}
 
@@ -370,7 +370,7 @@ again:
 	ccode = parse_json_message(m);
 	if (ccode < 0) {
 		printk(KERN_INFO "kernel sensor error parsing a protocol message, " \
-			   "connection is being closed\n");
+		       "connection is being closed\n");
 		goto err_out0;
 	}
 
@@ -535,11 +535,11 @@ static void k_accept(struct kthread_work *work)
 
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
 		if ((ccode = kernel_accept(connection->connected,
-								   &newsock,
-								   0L)) < 0)
+					   &newsock,
+					   0L)) < 0)
 		{
 			printk(KERN_DEBUG "k_accept returned error %d, exiting\n",
-				   ccode);
+			       ccode);
 			goto close_out_quit;
 		}
 	}
@@ -589,7 +589,7 @@ static int start_listener(struct connection *c)
 
 	/* sizeof(address) - 1 is necessary to ensure correct null-termination */
 	if (kernel_bind(sock,(struct sockaddr *)&addr,
-					sizeof(addr) -1)) {
+			sizeof(addr) -1)) {
 		goto err_release;
 
 	}
@@ -614,9 +614,9 @@ STACK_FRAME_NON_STANDARD(start_listener);
 
 static inline void
 link_new_connection_work(struct connection *c,
-						 struct list_head *l,
-						 void (*f)(struct kthread_work *),
-						 uint8_t *d)
+			 struct list_head *l,
+			 void (*f)(struct kthread_work *),
+			 uint8_t *d)
 {
 
 	if (! atomic64_read(&SHOULD_SHUTDOWN)) {
@@ -672,13 +672,13 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 	assert(c != NULL);
 	assert(p != NULL);
 	assert(__FLAG_IS_SET(flags, SENSOR_LISTEN) ||
-		   __FLAG_IS_SET(flags, SENSOR_CONNECT));
+	       __FLAG_IS_SET(flags, SENSOR_CONNECT));
 	assert(! (__FLAG_IS_SET(flags, SENSOR_LISTEN) &&
-			  __FLAG_IS_SET(flags, SENSOR_CONNECT)));
+		  __FLAG_IS_SET(flags, SENSOR_CONNECT)));
 
 	memset(c, 0x00, sizeof(struct connection));
 	c = (struct connection *)init_sensor((struct sensor *)c,
-										"connection", strlen("connection") + 1);
+					     "connection", strlen("connection") + 1);
 	sema_init(&c->s_lock, 1);
 
 /**
@@ -703,7 +703,7 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 			goto err_exit;
 		}
 
-        /**
+		/**
 		 * the socket is now bound and listening, we don't want to block
 		 * here so schedule the accept to happen on a separate kernel thread.
 		 * first, link it to the kernel sensor list of connections, then schedule
@@ -711,16 +711,16 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		 **/
 
 		link_new_connection_work(c,
-								 &k_sensor.listeners,
-								 k_accept,
-								 "kcontrol accept");
+					 &k_sensor.listeners,
+					 k_accept,
+					 "kcontrol accept");
 
 
 	} else { /**
-			  * new sock is accepted and a new
-			  * connection is created, allocated and its probe
-			  * elements are initialfized
-			  **/
+		  * new sock is accepted and a new
+		  * connection is created, allocated and its probe
+		  * elements are initialfized
+		  **/
 		/**
 		 * p is a pointer to a connected socket
 		 **/
@@ -729,9 +729,9 @@ init_connection(struct connection *c, uint64_t flags, void *p)
 		/** now we need to read and write messages **/
 		c->connected = sock;
 		link_new_connection_work(c,
-								 &k_sensor.connections,
-								 k_echo_server,
-								 "kcontrol read & write");
+					 &k_sensor.connections,
+					 k_echo_server,
+					 "kcontrol read & write");
 	}
 
 
@@ -765,8 +765,8 @@ awaken_accept_thread(void)
 	addr_len = sizeof(addr.sun_path) - 1;
 
 	memcpy(addr.sun_path,
-		   socket_name,
-		   (path_len < addr_len) ? path_len : addr_len);
+	       socket_name,
+	       (path_len < addr_len) ? path_len : addr_len);
 	ccode = kernel_connect(sock, (struct sockaddr *)&addr, sizeof(addr.sun_path), 0L);
 	if (! ccode) {
 
@@ -793,14 +793,14 @@ unlink_sock_name(char *sock_name, char *lock_name)
 	int need_lock = 0;
 	int ccode = kern_path(sock_name, LOOKUP_FOLLOW, &name_path);
 	if (ccode) {
-       /**
-        * its not an error if we can't get the path, it probably means
-        * the socket name does not need to be unlinked, perhaps it has not
-        * been created yet.
-		*
-		* but, continue onward and try to get the lock file, so another instance
-		* (in the future) will not unlink the sock name while we are using it.
-        **/
+		/**
+		 * its not an error if we can't get the path, it probably means
+		 * the socket name does not need to be unlinked, perhaps it has not
+		 * been created yet.
+		 *
+		 * but, continue onward and try to get the lock file, so another instance
+		 * (in the future) will not unlink the sock name while we are using it.
+		 **/
 		;
 	}
 
@@ -824,8 +824,8 @@ unlink_sock_name(char *sock_name, char *lock_name)
 
 	if (!need_lock && !ccode) {
 		ccode = vfs_unlink(name_path.dentry->d_parent->d_inode,
-						   name_path.dentry,
-						   NULL);
+				   name_path.dentry,
+				   NULL);
 	}
 exit:
 	return ccode;

@@ -17,7 +17,7 @@
 typedef char uint8_t;
 typedef int spinlock_t;
 #define GFP_KERNEL 1
-#define krealloc(p, t, f)						\
+#define krealloc(p, t, f)			\
 	realloc((p), (t))
 #define kzalloc(s, f) calloc((s), sizeof(uint8_t))
 #define kfree(p) free(p)
@@ -43,7 +43,7 @@ typedef int spinlock_t;
  * so emacs c-mode indentation doesn't get confused.
  **/
 SLIST_HEAD(session_head, jsmn_session) \
-	h_sessions;
+h_sessions;
 
 #else
 spinlock_t sessions_lock;
@@ -216,8 +216,8 @@ free_session(struct jsmn_session *s)
 		spin_unlock(&sessions_lock);
 
 		while (NULL != (m = list_first_or_null_rcu(&s->h_replies,
-												   struct jsmn_message,
-												   e_messages))) {
+							   struct jsmn_message,
+							   e_messages))) {
 			list_del(&m->e_messages);
 			free_message(m);
 		}
@@ -248,11 +248,11 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 
 	if (m->type == REPLY) {
 		printk(KERN_DEBUG "pre-process request cmd received a reply message"
-			   " %s:%d\n", __FILE__, __LINE__);
+		       " %s:%d\n", __FILE__, __LINE__);
 		return JSMN_ERROR_INVAL;
 	}
 	/* m->type is either REQUEST or REPLY */
-    /* set up to copy or compare the session command */
+	/* set up to copy or compare the session command */
 	c = m->line + m->tokens[CMD].start;
 	c_bytes = m->tokens[CMD].end - m->tokens[CMD].start;
 	if (c_bytes <=0 || c_bytes >= MAX_CMD_SIZE)
@@ -262,21 +262,21 @@ pre_process_jsmn_request_cmd(struct jsmn_message *m)
 		 * there is no sensor element, not valid
 		 **/
 		printk(KERN_DEBUG "received a jsonl request message with no sensor name."
-			   " %s:%d\n", __FILE__, __LINE__);
+		       " %s:%d\n", __FILE__, __LINE__);
 		goto err_out;
 	} else {
 		name = m->line + m->tokens[SENSOR].start;
 		name_bytes = m->tokens[SENSOR].end - m->tokens[SENSOR].start;
 		if (name_bytes ==0 || name_bytes > MAX_NAME_SIZE) {
 			printk(KERN_DEBUG "json name token is either"
-				   "too small or too large for a sensor name or uuid: %ld bytes\n",
-				   name_bytes);
+			       "too small or too large for a sensor name or uuid: %ld bytes\n",
+			       name_bytes);
 			return JSMN_ERROR_INVAL;
 		}
 	}
 
 	if (m->type == REQUEST) {
-        /* copy the command into the session command array */
+		/* copy the command into the session command array */
 		memcpy(m->s->cmd, c, c_bytes);
 		m->s->cmd[c_bytes] = 0x00;
 		if (m->parser.toknext > SENSOR) {
@@ -427,13 +427,13 @@ process_state_request(struct jsmn_message *m, int index)
 		 * that tells the client the target probe was not found.
 		 **/
 		printk(KERN_DEBUG "could not find a matching sensor, exiting %d\n",
-			   ccode);
+		       ccode);
 		return ccode;
 	}
 	if (!ccode && sensor_p != NULL) {
-	    /**
-	     * sensor is LOCKED
-	     **/
+		/**
+		 * sensor is LOCKED
+		 **/
 		ccode = sensor_p->message(sensor_p, &sm);
 		/* UNLOCK sensor! */
 		spin_unlock(&sensor_p->lock);
@@ -445,16 +445,16 @@ process_state_request(struct jsmn_message *m, int index)
 				goto err_exit;
 			}
 			bytes = scnprintf(s_reply->line,
-							  s_reply->len - 1,
-							  "{%s, reply: [%s, %s]}\n",
-							  PROTOCOL_VERSION,
-							  s_reply->s->nonce,
-							  cmd_strings[srep.state]);
+					  s_reply->len - 1,
+					  "{%s, reply: [%s, %s]}\n",
+					  PROTOCOL_VERSION,
+					  s_reply->s->nonce,
+					  cmd_strings[srep.state]);
 			s_reply->line = krealloc(s_reply->line, bytes + 1, GFP_KERNEL);
 			s_reply->len = bytes + 1;
 			spin_lock(&s_reply->s->sl);
 			list_add_tail_rcu(&s_reply->e_messages,
-							  &s_reply->s->h_replies);
+					  &s_reply->s->h_replies);
 			spin_unlock(&s_reply->s->sl);
 			write_ccode = write_session_replies(s_reply->s);
 		} else {
@@ -517,12 +517,12 @@ process_records_request(struct jsmn_message *msg, int index)
 		 * that tells the client the target probe was not found.
 		 **/
 		printk(KERN_DEBUG "could not find a matching sensor, exiting %d\n",
-			   ccode);
+		       ccode);
 		return ccode;
 	}
 
 	if (!ccode && sensor_p != NULL) {
-        /* send this probe a records request */
+		/* send this probe a records request */
 		/* will return 0 or error if no record. */
 		/* each record is encapsulated in a json object and copied into */
 		/* a reply message, and linked to the session */
@@ -551,7 +551,7 @@ process_records_request(struct jsmn_message *msg, int index)
 					r_reply->len  = rp.records_len;
 					spin_lock(&r_reply->s->sl);
 					list_add_tail_rcu(&r_reply->e_messages,
-									  &r_reply->s->h_replies);
+							  &r_reply->s->h_replies);
 					spin_unlock(&r_reply->s->sl);
 				}
 			}
@@ -651,16 +651,16 @@ process_discovery_request(struct jsmn_message *m, int index)
 		goto out_reply_msg;
 	} else {
 		/**
-	     * build the JSONL buffer
-	     **/
+		 * build the JSONL buffer
+		 **/
 		ssize_t orig_len = CONNECTION_MAX_HEADER - 1;
 
 		orig_len = scnprintf(reply_msg->line,
-							orig_len,
-							"%s\"%s\", \"discovery\", %s]}\n",
-							r_header,
-							reply_msg->s->nonce,
-							probe_ids);
+				     orig_len,
+				     "%s\"%s\", \"discovery\", %s]}\n",
+				     r_header,
+				     reply_msg->s->nonce,
+				     probe_ids);
 
 
 		reply_msg->line = krealloc(reply_msg->line, orig_len + 1, GFP_KERNEL);
@@ -676,9 +676,9 @@ process_discovery_request(struct jsmn_message *m, int index)
 		 * write the reply message to the socket, then free the session
 		 **/
 		ccode = k_socket_write(reply_msg->socket,
-							   strlen(reply_msg->line),
-							   reply_msg->line,
-							   0L);
+				       strlen(reply_msg->line),
+				       reply_msg->line,
+				       0L);
 		goto out_session;
 	}
 
@@ -831,7 +831,7 @@ check_protocol_message(struct jsmn_message *m)
 	msg = m->line + m->tokens[MSG].start;
 	bytes = m->tokens[MSG].end - m->tokens[MSG].start;
 	assert(bytes == strlen(messages[0]) ||
-		   bytes == strlen(messages[1]));
+	       bytes == strlen(messages[1]));
 	m->type = JSMN_ERROR_INVAL;
 	if (bytes == strlen(messages[0]) && ! memcmp(msg, messages[0], bytes)) {
 		m->type = REQUEST;
@@ -897,23 +897,23 @@ validate_message_tokens(struct jsmn_message *m)
 
 	assert(m);
 	if (!m->line ||
-		m->len >= MAX_LINE_LEN ||
-		m->line[m->len] != 0x00) {
+	    m->len >= MAX_LINE_LEN ||
+	    m->line[m->len] != 0x00) {
 
 
 		return -EINVAL;
 	}
 
 	if (m->count < 1 ||
-		m->count > MAX_TOKENS ||
-		m->tokens[0].type != JSMN_OBJECT) {
+	    m->count > MAX_TOKENS ||
+	    m->tokens[0].type != JSMN_OBJECT) {
 
 		return -JSMN_ERROR_INVAL;
 	}
 	for (i = 0, len = m->len; i < m->count; i++) {
 		if (m->tokens[i].start > len ||
-			m->tokens[i].end > len ||
-			m->tokens[i].end - m->tokens[i].start < 0) {
+		    m->tokens[i].end > len ||
+		    m->tokens[i].end - m->tokens[i].start < 0) {
 
 			return -JSMN_ERROR_INVAL;
 		}
@@ -933,10 +933,10 @@ parse_json_message(struct jsmn_message *m)
 	if (!m->count) {
 		jsmn_init(&m->parser);
 		m->count = jsmn_parse(&m->parser,
-							  m->line,
-							  m->len,
-							  m->tokens,
-							  MAX_TOKENS);
+				      m->line,
+				      m->len,
+				      m->tokens,
+				      MAX_TOKENS);
 	}
 
 	if (m->count < 0 ) {
@@ -947,7 +947,7 @@ parse_json_message(struct jsmn_message *m)
 
 	if (validate_message_tokens(m)) {
 		printk(KERN_INFO "each message must be a well-formed JSON object" \
-			   " %d\n", (int)m->count);
+		       " %d\n", (int)m->count);
 		return m->count;
 	}
 
@@ -1041,7 +1041,7 @@ void dump_session(struct jsmn_session *s)
 #ifdef USERSPACE
 	STAILQ_FOREACH(reply, &s->h_replies, e_messages)
 #else
-	rcu_read_lock();
+		rcu_read_lock();
 	list_for_each_entry_rcu(reply, &s->h_replies, e_messages)
 #endif
 	{

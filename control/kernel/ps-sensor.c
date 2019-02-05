@@ -43,8 +43,8 @@
  **/
 int
 kernel_ps_get_record(struct kernel_ps_sensor *parent,
-					 struct sensor_msg *msg,
-					 uint8_t *tag)
+		     struct sensor_msg *msg,
+		     uint8_t *tag)
 {
 	struct kernel_ps_data *kpsd_p;
 	int ccode = 0;
@@ -81,18 +81,18 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 
 	kpsd_p = flex_array_get(parent->kps_data_flex_array, rr->index);
 	if (!kpsd_p || kpsd_p->clear == FLEX_ARRAY_FREE ||
-		(rr->nonce && kpsd_p->nonce != rr->nonce)) {
+	    (rr->nonce && kpsd_p->nonce != rr->nonce)) {
 		/**
 		 * when there is no entry, or the entry is clear, return an
 		 * empty record response. per the protocol control/kernel/messages.md
 		 **/
 		cur_len = scnprintf(rp->records,
-							rp->records_len - 1,
-							"%s \'%s\', \'%s\', \'%s\']}\n",
-							r_header,
-							rr->json_msg->s->nonce,
-							parent->name,
-							parent->uuid_string);
+				    rp->records_len - 1,
+				    "%s \"%s\", \"%s\", \"%s\"]}\n",
+				    r_header,
+				    rr->json_msg->s->nonce,
+				    parent->name,
+				    parent->uuid_string);
 		rp->index = -ENOENT;
 		goto record_created;
 	}
@@ -101,20 +101,20 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 	 * build the record json object(s)
 	 **/
 	cur_len = scnprintf(rp->records,
-						rp->records_len - 1,
-						"%s \'%s\', \'%s\', \'%s\', \'%s\', \'%d\', \'%s\'. \'%d\',"
-                        "\'%d\', \'%llx\']}\n",
-						r_header, rr->json_msg->s->nonce, parent->name,
-						tag, parent->uuid_string, rr->index, kpsd_p->comm,
-						kpsd_p->pid_nr, kpsd_p->user_id.val, rr->nonce);
+			    rp->records_len - 1,
+			    "%s \"%s\", \"%s\", \"%s\", \"%s\", \"%d\", \"%s\", \"%d\","
+			    "\"%d\", \"%llx\"]}\n",
+			    r_header, rr->json_msg->s->nonce, parent->name,
+			    tag, parent->uuid_string, rr->index, kpsd_p->comm,
+			    kpsd_p->pid_nr, kpsd_p->user_id.val, rr->nonce);
 	rp->index = rr->index;
 record_created:
 	if (kpsd_p && rr->clear) {
 		flex_array_clear(parent->kps_data_flex_array, rr->index);
 	}
 	rp->records_len = cur_len;
-	rp->records[cur_len] = 0x00;
-	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
+//	rp->records[cur_len] = 0x00;
+//	rp->records = krealloc(rp->records, cur_len + 1, GFP_KERNEL);
 	rp->range = rr->range;
 	return 0;
 }
@@ -137,9 +137,9 @@ record_created:
 
 int
 print_kernel_ps(struct kernel_ps_sensor *parent,
-				uint8_t *tag,
-				uint64_t nonce,
-				int count)
+		uint8_t *tag,
+		uint64_t nonce,
+		int count)
 {
 	int index;
 	struct kernel_ps_data *kpsd_p;
@@ -163,8 +163,8 @@ print_kernel_ps(struct kernel_ps_sensor *parent,
 			break;
 		}
 		printk(KERN_INFO "%s %d:%d %s [%d] [%d] [%llx]\n",
-			   tag, count, index, kpsd_p->comm, kpsd_p->pid_nr,
-			   kpsd_p->user_id.val, nonce);
+		       tag, count, index, kpsd_p->comm, kpsd_p->pid_nr,
+		       kpsd_p->user_id.val, nonce);
 	}
 	spin_unlock(&parent->lock);
 	if (index == PS_ARRAY_SIZE) {
@@ -261,8 +261,8 @@ void  run_kps_probe(struct kthread_work *work)
 	if (probe_struct->repeat > 0 && (! atomic64_read(&SHOULD_SHUTDOWN))) {
 		int i;
 		for (i = 0;
-			 i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
-			 i++) {
+		     i < probe_struct->timeout && (! atomic64_read(&SHOULD_SHUTDOWN));
+		     i++) {
 			sleep(1);
 		}
 		if (! atomic64_read(&SHOULD_SHUTDOWN)) {
@@ -282,8 +282,8 @@ ps_message(struct sensor *sensor, struct sensor_msg *msg)
 	case RECORDS:
 	{
 		return kernel_ps_get_record((struct kernel_ps_sensor *)sensor,
-									msg,
-									"kernel-ps");
+					    msg,
+					    "kernel-ps");
 	}
 	default:
 	{
@@ -315,9 +315,9 @@ static void *destroy_kernel_ps_sensor(struct sensor *sensor)
 STACK_FRAME_NON_STANDARD(destroy_kernel_ps_sensor);
 
 struct kernel_ps_sensor *init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
-											 uint8_t *id, int id_len,
-											 int (*print)(struct kernel_ps_sensor *,
-														  uint8_t *, uint64_t, int))
+					       uint8_t *id, int id_len,
+					       int (*print)(struct kernel_ps_sensor *,
+							    uint8_t *, uint64_t, int))
 {
 	int ccode = 0;
 	struct sensor *tmp;
@@ -366,14 +366,14 @@ struct kernel_ps_sensor *init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
 		goto err_exit;
 	}
 	ccode = flex_array_prealloc(ps_p->kps_data_flex_array, 0, PS_ARRAY_SIZE,
-								GFP_KERNEL | __GFP_ZERO);
+				    GFP_KERNEL | __GFP_ZERO);
 	if(ccode) {
 		/* ccode will be zero for success, -ENOMEM otherwise */
 		goto err_free_flex_array;
 	}
 
 	printk(KERN_INFO "kernel-ps PS_DATA_SIZE %ld PS_ARRAY_SIZE %ld\n",
-		   PS_DATA_SIZE, PS_ARRAY_SIZE);
+	       PS_DATA_SIZE, PS_ARRAY_SIZE);
 
 
 /* now queue the kernel thread work structures */
@@ -381,9 +381,9 @@ struct kernel_ps_sensor *init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
 	__SET_FLAG(ps_p->flags, SENSOR_HAS_WORK);
 	CONT_INIT_WORKER(&ps_p->worker);
 	CONT_QUEUE_WORK(&ps_p->worker,
-					&ps_p->work);
+			&ps_p->work);
 	kthread_run(kthread_worker_fn, &ps_p->worker,
-				"kernel-ps");
+		    "kernel-ps");
 	return ps_p;
 
 err_free_flex_array:

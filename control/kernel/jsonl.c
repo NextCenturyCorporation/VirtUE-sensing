@@ -20,7 +20,7 @@ void usage(void)
 	printf("%s --verbose <test>,", program_name);
 	printf (" where <test> is one of:\n");
 	printf ("\t --add-nl <string> --trim-to-nl <string> " \
-			"--unescape-nl <string> --escape-nl <string>\n");
+		"--unescape-nl <string> --escape-nl <string>\n");
 	printf ("\t --file <filename>\n");
 	exit(0);
 }
@@ -47,7 +47,7 @@ get_options (int argc, char **argv)
 		};
 
 		c = getopt_long_only (argc, argv, "va:t:u:e:h",
-							  long_options, (int *)&option_index);
+				      long_options, (int *)&option_index);
 		if (c == -1)
 			break;
 
@@ -65,14 +65,14 @@ get_options (int argc, char **argv)
 			input_string = strdup(optarg);
 			input_len = strlen(input_string);
 			output_string = function_table[option_index](input_string,
-														 input_len);
+								     input_len);
 
 			output_len = strlen(output_string);
 			if (verbose_flag) {
 				printf("option: %d\ninput %d: %s\noutput %d:%s\n",
-					   option_index,
-					   input_len, optarg,
-					   output_len, output_string);
+				       option_index,
+				       input_len, optarg,
+				       output_len, output_string);
 			}
 			break;
 		}
