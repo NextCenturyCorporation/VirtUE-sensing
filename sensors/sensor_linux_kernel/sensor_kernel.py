@@ -128,7 +128,7 @@ async def fetch_sensor_records(sensor):
     except curio.TaskTimeout as e:
         pass
 
-    logger.info("Kernel sensor %s returned %d records", sensor['name'], len(msgs))
+    logger.debug("Kernel sensor %s returned %d records", sensor['name'], len(msgs))
     return msgs
 
 
@@ -163,7 +163,7 @@ async def discover_sensors():
     await send_json_obj(obj)
 
     response = await recv_json_obj()
-    logger.info(response)
+    logger.debug(response)
 
     msg = json.dumps(response, sort_keys=True)
 
