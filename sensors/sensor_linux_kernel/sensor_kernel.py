@@ -25,7 +25,6 @@ import argparse
 import uuid
 import json
 
-import threading
 import asyncio
 import curio
 import selectors
@@ -36,9 +35,6 @@ __MODULE__ = __file__
 VIRTUE_PROTO_VERSION = 0.1
 SOCKET_TIMEOUT = 1
 UNIX_SOCK_PATH = '/var/run/kernel_sensor'
-
-# Only one sensor can access the kernel interface (socket) at a time
-sock_lock = threading.Lock()
 
 # Connection to UNIX domain socket
 conn = None
