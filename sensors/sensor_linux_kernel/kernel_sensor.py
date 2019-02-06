@@ -196,5 +196,5 @@ if __name__ == '__main__':
     if standalone:
         curio.run(poll_sensors)
     else:
-        wrapper = sensor_wrapper.SensorWrapper( "LinuxKernel", [poll_sensors,] )
+        wrapper = sensor_wrapper.SensorWrapper( "linux-kernel", [poll_sensors,] )
         wrapper.start()
