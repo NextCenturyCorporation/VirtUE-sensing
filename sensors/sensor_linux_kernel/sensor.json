@@ -1,0 +1,16 @@
+{
+  "name": "linux-kernel",
+  "version": "1.0",
+  "target_folder": "linux-kernel",
+  "files": [
+    {
+      "source": "kernel_sensor.py",
+      "dest": "kernel_sensor.py"
+    }
+  ],
+  "startup_script": "run_linux_kernel_sensor.sh",
+  "requirements_files": ["linux_kernel_sensor_requirements.txt"],
+  "required_sub_directories": ["certs"],
+  "apt-get": [""]
+
+}
