@@ -164,8 +164,8 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 	cur_len = scnprintf(rp->records,
 			    rp->records_len,
 			    "%s \"%s\", \"%s\", \"%s\", \"%s\","
-			    "\"uid: %d pid: %d flags: %x "
-			    "mode: %x count: %ld %s\"]}\n",
+			    "{\"uid\": %d, \"pid\": %d, \"flags\": %ld, "
+			    "\"mode\": %ld, \"count\": %ld, \"path\": \"%s\"} ]}\n",
 			    r_header,
 			    rr->json_msg->s->nonce,
 			    parent->name,
@@ -173,8 +173,8 @@ kernel_lsof_get_record(struct kernel_lsof_sensor *parent,
 			    parent->uuid_string,
 			    klsof_p->user_id.val,
 			    klsof_p->pid_nr,
-			    klsof_p->flags,
-			    klsof_p->mode,
+			    (unsigned long) klsof_p->flags,
+			    (unsigned long) klsof_p->mode,
 			    atomic64_read(&klsof_p->count),
 			    klsof_p->dpath + klsof_p->dp_offset);
 	rp->index = rr->index;

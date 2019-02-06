@@ -42,7 +42,7 @@ sysfs_get_record(struct kernel_sysfs_sensor *p,
 		 uint8_t *tag)
 {
 	struct kernel_sysfs_data *kfsd_p = NULL;
-	uint8_t *cursor = NULL;
+	//uint8_t *cursor = NULL;
 	int ccode = 0;
 	ssize_t cur_len = 0, raw_len = 0;
 	struct records_request *rr = (struct records_request *)msg->input;

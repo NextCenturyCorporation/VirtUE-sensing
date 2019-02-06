@@ -102,11 +102,19 @@ kernel_ps_get_record(struct kernel_ps_sensor *parent,
 	 **/
 	cur_len = scnprintf(rp->records,
 			    rp->records_len - 1,
-			    "%s \"%s\", \"%s\", \"%s\", \"%s\", \"%d\", \"%s\", \"%d\","
-			    "\"%d\", \"%llx\"]}\n",
-			    r_header, rr->json_msg->s->nonce, parent->name,
-			    tag, parent->uuid_string, rr->index, kpsd_p->comm,
-			    kpsd_p->pid_nr, kpsd_p->user_id.val, rr->nonce);
+			    "%s \"%s\", \"%s\", \"%s\", \"%s\", \"%d\","
+			    "{ \"comm\": \"%s\", \"pid\": %d, \"uid\": %d },"
+			    "\"%llx\"]}\n",
+			    r_header,
+			    rr->json_msg->s->nonce,
+			    parent->name,
+			    tag,
+			    parent->uuid_string,
+			    rr->index,
+			    kpsd_p->comm,
+			    kpsd_p->pid_nr,
+			    kpsd_p->user_id.val,
+			    rr->nonce);
 	rp->index = rr->index;
 record_created:
 	if (kpsd_p && rr->clear) {
@@ -335,7 +343,6 @@ struct kernel_ps_sensor *init_kernel_ps_sensor(struct kernel_ps_sensor *ps_p,
 		ccode = -ENOMEM;
 		goto err_exit;
 	}
-
 
 	/** init timeout and repeat
 	 * they are passed on the command line, or (eventually) read

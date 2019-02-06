@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-#MY_CCFLAGS += -std=gnu99 -fms-extensions -DMYTRAP -DDEBUG
+#MY_CCFLAGS += -std=gnu99 -fms-extensions -DMYTRAP -DDEBUG -ggdb
 MY_CCFLAGS += -std=gnu99 -fms-extensions  -DDEBUG
 ccflags-y += ${MY_CCFLAGS}
 OBJECT_FILES_NON_STANDARD := y
