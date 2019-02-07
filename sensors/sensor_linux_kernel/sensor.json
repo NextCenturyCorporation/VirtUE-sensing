@@ -4,8 +4,8 @@
   "target_folder": "linux-kernel",
   "files": [
     {
-      "source": "kernel_sensor.py",
-      "dest": "kernel_sensor.py"
+      "source": "sensor_kernel.py",
+      "dest": "sensor_kernel.py"
     }
   ],
   "startup_script": "run_linux_kernel_sensor.sh",

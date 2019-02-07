@@ -1,6 +1,0 @@
--r sensor_wrapper_requirements.txt
--r threadcreate_requirements.txt
--r processlistvalidation_requirements.txt
--r processcreate_requirements.txt
--r registrymodification_requirements.txt
--r imageload_requirements.txt
