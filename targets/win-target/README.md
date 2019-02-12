@@ -2,10 +2,10 @@
 
 ## Differences And Caveats
 
-## Docker
+### Docker
 Docker is not used for containerizing the Windows Sensors due to the immaturity of the Windows 10 Docker platform.
 
-## Installation
+### Installation
 This is *not* an unattended installation, several User Access Control and installation prompts must be handled manually, as well as installing the Sensor Driver.
 
 # Bootstrap a Windows 2016 Server AWS Instance
