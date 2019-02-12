@@ -1,21 +1,19 @@
 Windows Sensors - Windows User Space Sensor Installation and Run Instructions
-Mark Sanderson
-mark.sanderson@twosixlabs.com
 
 # Differences And Caveats
 
-## Docker Issues
-For now, Docker *will not* be used to containerize the Windows Sensors.  The Windows 10 Docker product is still fairly immature, and it is not clear if we'll be able to take advantage of its functionality in the future.  There were a number of issues including random virtual network malfunctions and etc that prevented Docker from being useful.
+## Docker
+Docker is not used for containerizing the Windows Sensors due to the immaturity of the Windows 10 Docker platform.
 
-## curio
-curio 0.9 appears to be comptable (at least partially) with windows.  This will be proven out as time goes on.
+## Installation
+This is *not* an unattended installation, several User Access Control and installation prompts must be handled manually, as well as installing the Sensor Driver.
 
 # Bootstrap a Windows 2016 Server AWS Instance
-1) With an AWS instance in an RDP window ready to boot strap open the .\savior\bin\bootstrap.ps1 and follow the instructions at the top of the file.
+1) With an AWS instance in an RDP window ready, open a command prompt and execute `windows-
 2) Executing this powershell file will install git and python 2.7.x which is required for installing the rest of the system.
 
 # Building Windows Sensors From Scratch
-1. Ensure that you have a virtual machine running Windows 10 x64 w/git for windows and python 2.7 installed.
+1. Ensure that you have a virtual machine running Windows 10 x64 with git for windows and python 3.6.x installed.
 2. Log on to the windows 10 target, and clone this respository.
 ```Cmd
 git checkout master
