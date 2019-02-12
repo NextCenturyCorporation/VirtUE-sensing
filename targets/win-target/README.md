@@ -1,6 +1,6 @@
-Windows Sensors - Windows User Space Sensor Installation and Run Instructions
+# Windows Sensors - Windows User Space Sensor Installation and Run Instructions
 
-# Differences And Caveats
+## Differences And Caveats
 
 ## Docker
 Docker is not used for containerizing the Windows Sensors due to the immaturity of the Windows 10 Docker platform.
@@ -9,8 +9,8 @@ Docker is not used for containerizing the Windows Sensors due to the immaturity 
 This is *not* an unattended installation, several User Access Control and installation prompts must be handled manually, as well as installing the Sensor Driver.
 
 # Bootstrap a Windows 2016 Server AWS Instance
-1) With an AWS instance in an RDP window ready, open a command prompt and execute `windows-
-2) Executing this powershell file will install git and python 2.7.x which is required for installing the rest of the system.
+1) With an AWS instance in an RDP window ready, open `savior/bin/windows-prep.bat` and follow the instructions to execute it.
+2) Executing this batch file will install git and python 3.6.x, and clone this repo, required steps for installing the rest of the system.
 
 # Building Windows Sensors From Scratch
 1. Ensure that you have a virtual machine running Windows 10 x64 with git for windows and python 3.6.x installed.
