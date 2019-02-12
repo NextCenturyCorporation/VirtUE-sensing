@@ -55,6 +55,7 @@ sc config WinVirtue start=auto
 python WinVirtUE\service_winvirtue.py --startup=auto install
 sc config "WinVirtUE Service" depend=WinVirtUE
 python WinVirtUE\service_winvirtue.py start
+sc failure "WinVirtUE Service" reset=1 actions=restart/60000
 POPD
 
 @ECHO POP back to .\savior
