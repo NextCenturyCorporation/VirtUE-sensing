@@ -8,6 +8,16 @@ Docker is not used for containerizing the Windows Sensors due to the immaturity 
 ### Installation
 This is *not* an unattended installation, several User Access Control and installation prompts must be handled manually, as well as installing the Sensor Driver.
 
+## Commandline Installation
+1. Spin up an AWS instance using the `ami-05d864f01373c854a` AMI, this is a clean Windows 10 machine with SSH Host installed for the `vrtu` key. This can be done via our Terraform script `location` or manually through the AWS GUI.
+2. Connect to the new instance via
+`ssh -i <path/to/key> virtue-admin@<ipaddress>`
+3.
+```Cmd
+copy con .\windows-prep.bat
+```
+4. Paste the text from `savior/bin/windows-prep.bat` and press `Ctrl-Z` or `Command-Z` and then press `Enter`
+
 # Bootstrap a Windows 2016 Server AWS Instance
 1) With an AWS instance in an RDP window ready, open `savior/bin/windows-prep.bat` and follow the instructions to execute it.
 2) Executing this batch file will install git and python 3.6.x, and clone this repo, required steps for installing the rest of the system.
