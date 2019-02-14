@@ -24,13 +24,13 @@ exit
 ```
 5. Next, our Windows Sensor Driver must be installed. As it is unsigned, disabling checks and rebooting the Windows system is necessary.
 ```cmd
-bcdedit /set loadoptions DDISABLE_INTEGRITY_CHECKS
 bcdedit /set testsigning on
 shutdown /r /t 0
 ```
 6. After the system has restarted, reconnect `ssh -i <path/to/key> virtue-admin@<ipaddress>`
 ```cmd
 pnputil /add-driver Savior-Win-Driver-20181205-02/WinVirtUE.inf /install
+```
 
 # Bootstrap a Windows 2016 Server AWS Instance
 1) With an AWS instance in an RDP window ready, open `savior/bin/windows-prep.bat` and follow the instructions to execute it.
