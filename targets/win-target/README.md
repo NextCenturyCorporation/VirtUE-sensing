@@ -12,11 +12,16 @@ This is *not* an unattended installation, several User Access Control and instal
 1. Spin up an AWS instance using the `ami-05d864f01373c854a` AMI, this is a clean Windows 10 machine with SSH Host installed for the `vrtu` key. This can be done via our Terraform script `location` or manually through the AWS GUI.
 2. Connect to the new instance via
 `ssh -i <path/to/key> virtue-admin@<ipaddress>`
-3.
-```Cmd
-copy con .\windows-prep.bat
+3. `powershell`
+4.
+```powershell
+iex (new-object net.webclient).downloadstring('https://get.scoop.sh')
+scoop install git
+scoop bucket add versions
+scoop install python36
+python bin\install_sensors.py
+RUNDLL32.EXE SETUPAPI.DLL,InstallHinfSection DefaultInstall 132 Savior-Win-Driver-20181205-02\WinVirtUE.inf
 ```
-4. Paste the text from `savior/bin/windows-prep.bat` and press `Ctrl-Z` or `Command-Z` and then press `Enter`
 
 # Bootstrap a Windows 2016 Server AWS Instance
 1) With an AWS instance in an RDP window ready, open `savior/bin/windows-prep.bat` and follow the instructions to execute it.
