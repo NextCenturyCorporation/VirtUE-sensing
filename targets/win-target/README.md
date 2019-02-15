@@ -15,18 +15,20 @@ This is *not* an unattended installation, some installation prompts must be hand
 3. Once connected, run powershell and the following commands to install git, python, and run the sensor installation preparation script.
 ```powershell
 powershell
+Set-ExecutionPolicy RemoteSigned -scope CurrentUser
 iex (new-object net.webclient).downloadstring('https://get.scoop.sh')
 scoop install git
 scoop bucket add versions
 scoop install python36
+python -m pip install --upgrade pip
 pip install pypiwin32
-python bin\install_sensors.py
 exit
 ```
 5. Next, our Windows Sensor Driver must be installed. Copy `Savior-Win-Driver-20181205-02.zip` (or the latest version) to the machine via `scp`, then RDP to the machine, unzip the file, enter the folder and right click on the WinVirtUE.inf and select `Install`. Windows will warn it is an unsigned driver, accept and allow it to install, then reboot the machine.
 
 6. After the system has restarted, reconnect `ssh -i <path/to/key> virtue-admin@<ipaddress>` and download this repo.
 ```cmd
+6c87282451a82996c229c068ca34cea8b5b9088b
 git clone
 ```
 
