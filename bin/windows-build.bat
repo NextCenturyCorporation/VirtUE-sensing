@@ -50,7 +50,7 @@ RMDIR /Q /S %TEMP%
 copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python%PYTHONVER%\lib\site-packages\win32
 
 SET PYTHONPATH=%SystemDrive%\
-PUSHD %WINVIRTUE%
+PUSHD %SystemDrive%\
 sc config WinVirtue start=auto
 python WinVirtUE\service_winvirtue.py --startup=auto install
 sc config "WinVirtUE Service" depend=WinVirtUE
