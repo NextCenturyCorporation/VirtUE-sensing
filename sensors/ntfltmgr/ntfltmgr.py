@@ -1763,7 +1763,7 @@ def main(argv):
     test_command_response()
 
     while True:
-        curio.run(test_packet_decode, debug=[curio.debug.schedtrace,], with_monitor=True)
+        curio.run(test_packet_decode, with_monitor=True)
 
     sys.exit(0)
 
