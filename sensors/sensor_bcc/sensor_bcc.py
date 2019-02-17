@@ -40,7 +40,6 @@ sudo apt-get update
 sudo apt-get install bcc-tools libbcc-examples linux-headers-$(uname -r)
 """
 
-
 import os
 import sys
 import subprocess
@@ -64,8 +63,7 @@ import threading
 standalone = os.getenv('STANDALONE')
 if not standalone:
     import sensor_wrapper
-#    logger = sensor_wrapper.logger
-#else:
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,26 +76,26 @@ TOOLDIR = '/usr/share/bcc/tools'
 # only events from tools with an equal/higher level than the API has
 # given the overall bcc sensor.
 
-PRIORITY_LEVEL_OFF         = 0 # message never emitted
-PRIORITY_LEVEL_LOW         = 1 # message emitted only at low level (i.e. low verbosity)
-PRIORITY_LEVEL_DEFAULT     = 2
-PRIORITY_LEVEL_HIGH        = 3
-PRIORITY_LEVEL_ADVERSARIAL = 4 # message emitted at all non-zero levels (i.e. high verbosity)
+VERBOSITY_LEVEL_OFF         = 0 # fewest messages: never emitted
+VERBOSITY_LEVEL_LOW         = 1 # more messages: emitted at low level verbosity, and higher
+VERBOSITY_LEVEL_DEFAULT     = 2
+VERBOSITY_LEVEL_HIGH        = 3
+VERBOSITY_LEVEL_ADVERSARIAL = 4 # most messages: emitted only at highest level (most messages)
 
 #          sensor-name         bcc-tool      verbosity
-TOOLS = [ ("bashreadline",     "bashreadline", PRIORITY_LEVEL_HIGH),
-          ("block-io",         "biosnoop",     PRIORITY_LEVEL_DEFAULT),
-          ("capability-check", "capable",      PRIORITY_LEVEL_DEFAULT),
-          ("dir-cache",        "dcsnoop",      PRIORITY_LEVEL_LOW),
-          ("exec",             "execsnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("kill",             "killsnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("open",             "opensnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("shared-mem",       "shmsnoop" ,    PRIORITY_LEVEL_HIGH),
-          ("tcp-listen",       "solisten",     PRIORITY_LEVEL_HIGH),
-          ("stat",             "statsnoop",    PRIORITY_LEVEL_LOW),
-          ("sync",             "syncsnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("tcp-inbound",      "tcpaccept",    PRIORITY_LEVEL_HIGH),
-          ("tcp-outbound",     "tcpconnect",   PRIORITY_LEVEL_HIGH), ]
+TOOLS = [ ("bashreadline",     "bashreadline", VERBOSITY_LEVEL_HIGH),
+          ("block-io",         "biosnoop",     VERBOSITY_LEVEL_DEFAULT),
+          ("capability-check", "capable",      VERBOSITY_LEVEL_DEFAULT),
+          ("dir-cache",        "dcsnoop",      VERBOSITY_LEVEL_LOW),
+          ("exec",             "execsnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("kill",             "killsnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("open",             "opensnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("shared-mem",       "shmsnoop" ,    VERBOSITY_LEVEL_HIGH),
+          ("tcp-listen",       "solisten",     VERBOSITY_LEVEL_HIGH),
+          ("stat",             "statsnoop",    VERBOSITY_LEVEL_LOW),
+          ("sync",             "syncsnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("tcp-inbound",      "tcpaccept",    VERBOSITY_LEVEL_HIGH),
+          ("tcp-outbound",     "tcpconnect",   VERBOSITY_LEVEL_HIGH), ]
 
 
 # JSON-compliant dicts are produced by the bcc tools and consumed by
