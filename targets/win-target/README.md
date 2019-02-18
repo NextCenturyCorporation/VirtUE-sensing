@@ -19,7 +19,7 @@ bin\windows-build.bat
 python bin\install_sensors.py
 ```
 
-5. Reboot the machine to allow the driver to load, then from the \savior folder run to start the Sensor Service (will appear in `services.msc` as Windows Winvirtue Service. Note that starting the Sensor Service **requires** the Sensor Driver to be both installed and started. You can check the status of the driver by running `sc query winvirtue` at a command prompt.
+5. Reboot the machine to allow the driver to load, then from the \savior folder run `windows-update.bat` to start the Sensor Service (will appear in `services.msc` as Windows Winvirtue Service). Note that starting the Sensor Service **requires** the Sensor Driver to be both installed and started. You can check the status of the driver by running `sc query winvirtue` at a command prompt.
 ```Cmd
 bin\windows-update.bat
 ```
