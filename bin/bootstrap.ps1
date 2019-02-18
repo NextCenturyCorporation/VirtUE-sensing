@@ -5,20 +5,11 @@
 # To run this script, copy and paste the text between <# and #> Below
 <# powershell -NoProfile -ExecutionPolicy ByPass -File .\bootstrap.ps1 #>
 
-Write-Output "Downloading python 3.6.4 and git"
+Write-Output "Downloading git"
 
 mkdir c:\temp
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-Write-Output "Download and Install python . . . "
-Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.6.4/python-3.6.4.exe" -OutFile c:\TEMP\python-3.6.4.exe
-Write-Output "Installing Python .  . ."
-Start-Process -FilePath C:\Windows\System32\msiexec.exe -Wait -ArgumentList "/i", "c:\TEMP\python-3.6.4.exe", "/quiet",  "TARGETDIR=c:\Python-3.6.4", "InstallAllUsers=1", "PrependPath=1"
-Write-Output "Removing Python installer .  . ."
-Remove-Item c:\TEMP\python-3.6.4.exe -Force
-$Env:PATH="c:\Python-3.6.4\Scripts;c:\Python-3.6.4;" + $Env:PATH
-python -m pip install --upgrade pip
 
 Write-Output "Downloading git . . . "
 Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v2.16.2.windows.1/Git-2.16.2-64-bit.exe" -OutFile c:\TEMP\Git-2.16.2-64-bit.exe
@@ -28,9 +19,8 @@ Write-Output "Removing git installer .  . ."
 Remove-Item c:\TEMP\Git-2.16.2-64-bit.exe -Force
 $Env:PATH="C:\Program Files\Git\cmd;" + $Env:PATH
 
-Write-Output "Clone, fetch and checkout savior . . . "
+Write-Output "Clone savior repo . . . "
 git clone -v https://github.com/twosixlabs/savior.git
 cd ./savior
-git fetch -v origin
 
 
