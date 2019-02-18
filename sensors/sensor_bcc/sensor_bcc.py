@@ -77,25 +77,25 @@ TOOLDIR = '/usr/share/bcc/tools'
 # given the overall bcc sensor.
 
 VERBOSITY_LEVEL_OFF         = 0 # fewest messages: never emitted
-VERBOSITY_LEVEL_LOW         = 1 # more messages: emitted at low level verbosity, and higher
+VERBOSITY_LEVEL_LOW         = 1 # few messages: emitted at low level verbosity, and higher
 VERBOSITY_LEVEL_DEFAULT     = 2
 VERBOSITY_LEVEL_HIGH        = 3
 VERBOSITY_LEVEL_ADVERSARIAL = 4 # most messages: emitted only at highest level (most messages)
 
 #          sensor-name         bcc-tool      verbosity
-TOOLS = [ ("bashreadline",     "bashreadline", VERBOSITY_LEVEL_HIGH),
+TOOLS = [ ("bashreadline",     "bashreadline", VERBOSITY_LEVEL_DEFAULT),
           ("block-io",         "biosnoop",     VERBOSITY_LEVEL_DEFAULT),
           ("capability-check", "capable",      VERBOSITY_LEVEL_DEFAULT),
-          ("dir-cache",        "dcsnoop",      VERBOSITY_LEVEL_LOW),
+          ("dir-cache",        "dcsnoop",      VERBOSITY_LEVEL_HIGH),
           ("exec",             "execsnoop",    VERBOSITY_LEVEL_DEFAULT),
           ("kill",             "killsnoop",    VERBOSITY_LEVEL_DEFAULT),
           ("open",             "opensnoop",    VERBOSITY_LEVEL_DEFAULT),
-          ("shared-mem",       "shmsnoop" ,    VERBOSITY_LEVEL_HIGH),
-          ("tcp-listen",       "solisten",     VERBOSITY_LEVEL_HIGH),
-          ("stat",             "statsnoop",    VERBOSITY_LEVEL_LOW),
+          ("shared-mem",       "shmsnoop" ,    VERBOSITY_LEVEL_DEFAULT),
+          ("tcp-listen",       "solisten",     VERBOSITY_LEVEL_LOW),
+          ("stat",             "statsnoop",    VERBOSITY_LEVEL_HIGH),
           ("sync",             "syncsnoop",    VERBOSITY_LEVEL_DEFAULT),
-          ("tcp-inbound",      "tcpaccept",    VERBOSITY_LEVEL_HIGH),
-          ("tcp-outbound",     "tcpconnect",   VERBOSITY_LEVEL_HIGH), ]
+          ("tcp-inbound",      "tcpaccept",    VERBOSITY_LEVEL_LOW),
+          ("tcp-outbound",     "tcpconnect",   VERBOSITY_LEVEL_LOW), ]
 
 
 # JSON-compliant dicts are produced by the bcc tools and consumed by
