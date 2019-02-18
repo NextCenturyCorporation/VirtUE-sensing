@@ -21,7 +21,7 @@ PUSHD targets\win-target
 @ECHO Installing REQUIREMENTS.TXT Install and run . . . 
 MKDIR %SystemDrive%\app\requirements
 XCOPY /Y /E /F requirements\*.* %SystemDrive%\app\requirements\
-%SystemDrive%\Python%PYTHONVER%\scripts\pip.exe install -r %SystemDrive%\app\requirements\requirements_master.txt
+pip install -r %SystemDrive%\app\requirements\requirements_master.txt
 
 @ECHO Installing Sensor Libraries ... Part 1
 MKDIR %SystemDrive%\app\sensor_libraries
@@ -42,9 +42,9 @@ copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll
 
 PUSHD %SystemDrive%\
 sc config WinVirtue start=auto
-python WinVirtUE\service_winvirtue.py --startup=auto install
+python .\WinVirtUE\service_winvirtue.py --startup=auto install
 sc config "WinVirtUE Service" depend=WinVirtUE
-python WinVirtUE\service_winvirtue.py start
+python .\WinVirtUE\service_winvirtue.py start
 sc failure "WinVirtUE Service" reset=1 actions=restart/100
 POPD
 

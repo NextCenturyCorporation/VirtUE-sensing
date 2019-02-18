@@ -18,7 +18,7 @@ DEL /F /Q %TEMP%\vs_BuildTools.exe
 
 @ECHO Download and Install python . . . 
 %POWERSHELL% [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;Invoke-WebRequest -Uri "https://www.python.org/ftp/python/%PYTHONVER%/python-%PYTHONVER%.exe" -OutFile %TEMP%\python-%PYTHONVER%.exe 
-%TEMP%\python-%PYTHONVER%.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1' -Wait 
+%TEMP%\python-%PYTHONVER%.exe /quiet InstallAllUsers=1 PrependPath=1 TargetDir=%SystemDrive%\Python%PYTHONVER% CompileAll=1 -Wait 
 DEL /F /Q %TEMP%\python-%PYTHONVER%.exe
 SET PATH=%SystemDrive%\Python%PYTHONVER%\Scripts;%SystemDrive%\Python%PYTHONVER%;%PATH%
 python -m pip install --upgrade pip
@@ -32,7 +32,7 @@ PUSHD targets\win-target
 @ECHO Installing REQUIREMENTS.TXT Install and run . . . 
 MKDIR %SystemDrive%\app\requirements
 XCOPY /Y /S /F /V requirements\*.* %SystemDrive%\app\requirements\
-%SystemDrive%\Python%PYTHONVER%\scripts\pip.exe install -r %SystemDrive%\app\requirements\requirements_master.txt
+pip install -r %SystemDrive%\app\requirements\requirements_master.txt
 
 @ECHO Installing Sensor Libraries ... Part 1
 MKDIR %SystemDrive%\app\sensor_libraries
@@ -52,9 +52,9 @@ copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll
 SET PYTHONPATH=%SystemDrive%\
 PUSHD %SystemDrive%\
 sc config WinVirtue start=auto
-python WinVirtUE\service_winvirtue.py --startup=auto install
+python .\WinVirtUE\service_winvirtue.py --startup=auto install
 sc config "WinVirtUE Service" depend=WinVirtUE
-python WinVirtUE\service_winvirtue.py start
+python .\WinVirtUE\service_winvirtue.py start
 sc failure "WinVirtUE Service" reset=1 actions=restart/100
 POPD
 
