@@ -1,8 +1,8 @@
 # Windows User Space Sensor Installation and Run Instructions
 
 ## Bootstrap a Windows 2016 Server AWS Instance
-1) With an AWS instance in an RDP window ready to boot strap open the [savior\bin\bootstrap.ps1](../../bin/bootstrap.ps1) in this repo and **follow the instructions at the top of the `bootstrap.ps1` file** from an **elevated command prompt**. To launch a command prompt with admin rights, type `cmd` in the Windows Start menu, then either right click and select `Run as Administrator` or you can press `ctrl/command+shift+enter`.
-2) Executing this powershell file will install git, required for installing the rest of the system.
+1) With an AWS instance in an RDP window ready to boot strap open the [savior\bin\bootstrap.ps1](../../bin/bootstrap.ps1) in this repo and **follow the instructions at the top of the `bootstrap.ps1` file** from a command prompt.
+2) Executing this powershell file will install git, required for installing the rest of the system. You will need to accept windows install prompts and log into git to clone the savior repo.
 
 ## Building Windows Sensors From Scratch
 1. Ensure that you have a virtual machine running Windows 10 x64 w/git for windows installed.
