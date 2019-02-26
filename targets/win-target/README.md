@@ -1,46 +1,47 @@
 # Windows Sensors - Windows User Space Sensor Installation and Run Instructions
 
-## Differences And Caveats
-
-### Docker
-Docker is not used for containerizing the Windows Sensors due to the immaturity of the Windows 10 Docker platform.
-
-### Installation
-This is *not* an unattended installation, some installation prompts must be handled manually via, as when installing the Sensor Driver.
-
 ## Commandline Installation
-1. Spin up an AWS instance using the `ami-05d864f01373c854a` AMI, this is a clean Windows 10 machine with SSH Host installed for the `vrtu` key.
+1. Spin up an AWS instance using the `ami-05d864f01373c854a` AMI, this is a clean Windows 10 machine with SSH Host installed using the `vrtu` key for access.
 2. Connect to the new instance via
-`ssh -i <path/to/key> virtue-admin@<ipaddress>`
+`ssh -i <path/to/vrtu> virtue-admin@<ipaddress>`
 3. Once connected, run powershell and the following commands to install git, python, and run the sensor installation preparation script.
-```powershell
-powershell
-Set-ExecutionPolicy RemoteSigned -scope CurrentUser
-iex (new-object net.webclient).downloadstring('https://get.scoop.sh')
-scoop install git
-scoop bucket add versions
-scoop install python36
-python -m pip install --upgrade pip
-pip install pypiwin32
-exit
+```cmd
+@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
+refreshenv
+choco install git -y
+choco install python3 --version 3.6.5 --install-arguments="TargetDir=C:\Python3.6.5 InstallAllUsers=1 PrependPath=1 CompileAll=1" --force -y
 ```
-5. Next, our Windows Sensor Driver must be installed. Copy `Savior-Win-Driver-20181205-02.zip` (or the latest version) to the machine via `scp`, then RDP to the machine, unzip the file, enter the folder and right click on the WinVirtUE.inf and select `Install`. Windows will warn it is an unsigned driver, accept and allow it to install, then reboot the machine.
 
-6. After the system has restarted, reconnect `ssh -i <path/to/key> virtue-admin@<ipaddress>` and download this repo.
+4. Download this repo
 ```cmd
 6c87282451a82996c229c068ca34cea8b5b9088b
 git clone
+cd %userprofile%
+git clone https://twosix-savior:6c87282451a82996c229c068ca34cea8b5b9088b@github.com/twosixlabs/savior.git
 ```
 
-7. Enter the /savior subdirectory and run
+5. Enter the /savior subdirectory and run
 ```Cmd
+cd ./savior
 python bin\install_sensors.py
 ```
 
-8. Execute the windows build batch
+6. Execute the windows build batch
 ```Cmd
 bin\windows-build.bat
 ```
+
+7. Next, our Windows Sensor Driver must be installed. Copy `Savior-Win-Driver-20181205-02.zip` (or the latest version) to the machine via `scp`, then RDP to the machine, unzip the file, enter the folder and right click on the WinVirtUE.inf and select `Install`. Windows will warn it is an unsigned driver, accept and allow it to install, then reboot the machine.
+
+9. Execute the windows update batch
+```Cmd
+bin\windows-update.bat
+```
+
+10. Verify the driver and sensor are active
+```Cmd
+scquery winvirtue
+scquery "WinVirtUe Service"
 
 # Bootstrap a Windows 2016 Server AWS Instance
 1) With an AWS instance in an RDP window ready, open `savior/bin/windows-prep.bat` and follow the instructions to execute it.
