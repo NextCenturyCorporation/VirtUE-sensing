@@ -17,6 +17,8 @@ choco install git -y
 ```
 ```
 choco install python3 --version 3.6.5 --install-arguments="TargetDir=C:\Python3.6.5 InstallAllUsers=1 PrependPath=1 CompileAll=1" --force -y
+```
+```
 refreshenv
 ```
 
