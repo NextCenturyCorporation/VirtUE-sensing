@@ -4,6 +4,7 @@ SET WORKDIR=%SystemDrive%\app
 SET TEMP=%SystemDrive%\SaviorTemp
 SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass 
 SET WINVIRTUE=%SystemDrive%\WinVirtUE
+SET PYTHONVER=3.6.5
 
 MKDIR %WORKDIR%
 MKDIR %TEMP%
