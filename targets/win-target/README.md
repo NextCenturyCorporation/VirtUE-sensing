@@ -39,7 +39,7 @@ python bin\install_sensors.py
 bin\windows-build.bat
 ```
 
-7. Install the Windows Sensor Driver. The latest file is located on the [Releases Page](https://github.com/twosixlabs/savior/releases), scroll down to find the Windows Driver download. You can download v1.0-rc1-win via the following curl command
+7. Install the Windows Sensor Driver. The latest file is located on the [Releases Page](https://github.com/twosixlabs/savior/releases), scroll down to find the Windows Driver download. You can download v1.0-rc1-win via the following curl command. Note that because the driver is unsigned, it cannot be installed via commandline and must be done via RDP (step 8).
 ```Cmd
 curl -O -J -L -H "Accept: application/octet-stream"  https://6c87282451a82996c229c068ca34cea8b5b9088b@api.github.com/repos/twosixlabs/savior/releases/assets/11033641
 ```
