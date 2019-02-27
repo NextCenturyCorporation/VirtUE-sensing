@@ -30,7 +30,7 @@ git clone https://twosix-savior:6c87282451a82996c229c068ca34cea8b5b9088b@github.
 
 5. Enter the /savior subdirectory and run the python sensor install script
 ```Cmd
-cd ./savior
+cd savior
 python bin\install_sensors.py
 ```
 
