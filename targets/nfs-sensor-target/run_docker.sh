@@ -8,4 +8,4 @@
 _nfs_iface=vif-nfs
 _container=virtue-savior/nfs-sensor-target:latest
 
-sudo docker run --network=host -e NFS_SENSOR_SNIFF_INTERFACE=$_nfs_iface $_container
+sudo docker run --network=host -e NFS_SENSOR_SNIFF_INTERFACE=$_nfs_iface -e VIRTUE_ID $_container
