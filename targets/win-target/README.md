@@ -1,10 +1,10 @@
 # Windows Sensors - Windows User Space Sensor Installation and Run Instructions
 
 ## Commandline Installation
-1. Spin up an AWS instance using the `ami-05d864f01373c854a` AMI, this is a clean Windows 10 machine with SSH Host installed using the `vrtu` key for access.
+1. Spin up an AWS m4.large instance using the `ami-05d864f01373c854a` AMI, this is a clean Windows 10 machine with SSH Host installed using the `vrtu` key for access.
 
 2. Connect to the new instance via
-`ssh -i <path/to/vrtu> virtue-admin@<ipaddress>`
+`ssh -i <PATH/TO/vrtu> virtue-admin@<ipaddress>`
 
 3. Once connected, run the following commands to install git and python. Note that the later batch files **depend** on Python 3.6.5 being located in `c:\Python3.6.5`.
 
