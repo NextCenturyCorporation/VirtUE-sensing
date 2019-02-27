@@ -39,9 +39,14 @@ python bin\install_sensors.py
 bin\windows-build.bat
 ```
 
-7. Next, our Windows Sensor Driver must be installed. Copy `Savior-Win-Driver-20181205-02.zip` (or the latest version) to the machine via `scp`, then RDP to the machine, unzip the file, enter the folder and right click on the WinVirtUE.inf and select `Install`. Windows will warn it is an unsigned driver, accept and allow it to install, then reboot the machine.
+7. Install the Windows Sensor Driver. The latest file is located on the [Releases Page](https://github.com/twosixlabs/savior/releases), scroll down to find the Windows Driver download. You can download v1.0-rc1-win via the following curl command
+```Cmd
+curl -O -J -L -H "Accept: application/octet-stream"  https://6c87282451a82996c229c068ca34cea8b5b9088b@api.github.com/repos/twosixlabs/savior/releases/assets/11033641
+```
 
-10. Verify the driver and sensor are active, either with the following command line queries, or by checking `services.msc` and looking for `Windows Virtue Service` in the list. The service should be `Started` and the driver should be loaded, the service cannot start without the driver present.
+8. RDP into the Windows system, extract the zip file, enter the folder, right click on WinVirtUE.inf and select `Install`, then Yes to the prompt to allow the driver to install. **Reboot** the Windows system.
+
+9. Verify the driver and sensor are active, either with the following command line queries, or by checking `services.msc` via RDP and looking for `Windows Virtue Service` in the list. The service should be `Started` and the driver should be loaded, the service cannot start without the driver present.
 ```Cmd
 sc query winvirtue
 sc query "winvirtue service"
