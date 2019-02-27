@@ -71,8 +71,6 @@ SERVICE_NAME: winvirtue service
         WAIT_HINT          : 0x0
 ```
 
-![Winvirtue Service Running](/images/winvirtueservice-running.png)
-
 # Updating Sensors (if required)
 1. Stop all sensors by killing the pythonservices.exe running winvirtue service (Task Manager, Advanced, Processes, pythonservices.exe, End Task)
 2. From the .\savior directory, pull all changes
