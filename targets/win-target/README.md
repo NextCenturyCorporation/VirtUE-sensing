@@ -6,7 +6,7 @@
 2. Connect to the new instance via
 `ssh -i <path/to/vrtu> virtue-admin@<ipaddress>`
 
-3. Once connected, runthe following commands to install git and python. Note that the later batch files **depend** on Python 3.6.5 being located in `c:\Python 3.6.5`.
+3. Once connected, runthe following commands to install git and python. Note that the later batch files **depend** on Python 3.6.5 being located in `c:\Python3.6.5`.
 
 ```cmd
 @"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
