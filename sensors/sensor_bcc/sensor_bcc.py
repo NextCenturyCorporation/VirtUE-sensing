@@ -172,7 +172,7 @@ async def msg_consumer(message_stub, config={}, outqueue=None):
         if not standalone:
             await outqueue.put( out_str + "\n" )
 
-        msg_queue.task_done()
+        await msg_queue.task_done()
 
 
 def standalone_run_msg_consumer(sensor_name, sensor_id):
