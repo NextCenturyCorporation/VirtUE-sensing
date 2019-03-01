@@ -4373,21 +4373,25 @@ def api_stream_sync(opts):
     keep up with the data.
     """
 
+    secure = False
+    print("% virtue-security api_stream(): preferred method of streaming logs is")
+    print("%   curl http://sensing-api.savior.internal:17141/api/v1/sensors/all/stream")
+
     # build up our parameters
     since = since_datetime(opts.time_since)
     follow = opts.log_follow
     log_level = opts.log_level
 
-    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,), secure)
 
     if opts.all_sensors:
-        full_uri = construct_api_uri(opts, "/sensors/all/stream")
+        full_uri = construct_api_uri(opts, "/sensors/all/stream", secure)
 
     elif opts.var_username is not None:
-        full_uri = construct_api_uri(opts, "/user/%s/stream" % (opts.var_username,))
+        full_uri = construct_api_uri(opts, "/user/%s/stream" % (opts.var_username,), secure)
 
     elif opts.var_sensor is not None:
-        full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+        full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,), secure)
 
     get_params = {
         "follow": str(follow),
@@ -4412,9 +4416,13 @@ def api_stream_sync(opts):
     print("% virtue-security api_stream(uri={})\n".format(full_uri))
 
     # spin up our request and start streaming
-    ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    ssl_context.load_verify_locations(cafile=opts.ca_key_path)
-    ssl_context.load_cert_chain(os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    if secure:
+        ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        ssl_context.load_verify_locations(cafile=opts.ca_key_path)
+        ssl_context.load_cert_chain(os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    else:
+        print("% virtue-security api_stream(): using insecure connection to API server")
+        ssl_context = None
 
     request = urllib.request.Request(full_uri, headers=get_params, method='GET')
 
