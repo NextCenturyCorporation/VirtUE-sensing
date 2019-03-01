@@ -73,9 +73,13 @@ async def lsof(message_stub, config, message_queue):
     }
 
     # just read from the subprocess and append to the log_message queue
-    p = subprocess.Popen(["lsof", "-r", "%d" % (repeat_delay,)], stdout=subprocess.PIPE)
-    async for line in p.stdout:
 
+    async with subprocess.Popen(["lsof", "-r", "%d" % (repeat_delay,)], stdout=subprocess.PIPE) as p:
+        lines = list()
+        async for line in p.stdout:
+            lines.append(line)
+
+    for line in lines:
         # slice out the TYPE of the lsof message
         line_bits = re.sub(r'\s+', ' ', line.decode("utf-8")).split(" ")
 
