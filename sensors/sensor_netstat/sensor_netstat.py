@@ -68,17 +68,20 @@ async def netstat(message_stub, config, message_queue):
     while True:
 
         # run the command and get our output
-        p = subprocess.Popen(full_ps_command, stdout=subprocess.PIPE)
-        header_count = 0
+        async with subprocess.Popen(full_ps_command, stdout=subprocess.PIPE) as p:
+            lines = list()
+            header_count = 0
 
-        async for line in p.stdout:
+            async for line in p.stdout:
 
-            # skip the first two lines
-            if header_count < 2:
-                # don't need this line
-                header_count += 1
-                continue
+                # skip the first two lines
+                if header_count < 2:
+                    # don't need this line
+                    header_count += 1
+                    continue
+                lines.append(line)
 
+        for line in lines:
             # pull apart our line into something interesting. The basic
             # netstat -natp line looks like:
             #
