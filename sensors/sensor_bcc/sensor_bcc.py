@@ -116,10 +116,13 @@ async def dummy_wait():
     while True:
         await curio.sleep(5)
 
-async def msg_consumer(message_stub, config=None, outqueue=None):
+async def msg_consumer(message_stub, config={}, outqueue=None):
     """ Message consume that runs on behalf of every sensor """
 
     global msg_ct
+
+    print(" :: Starting BCC sensor")
+    print("     API set level at {}".format(config.get('prio', 'unset')))
 
     sensor_id   = message_stub['sensor_id']
     sensor_name = message_stub['sensor_name']
@@ -127,13 +130,30 @@ async def msg_consumer(message_stub, config=None, outqueue=None):
     sensor_wrapper.logger.info("Running msg_consumer() for sensor '%s', id '%s'",
                 message_stub['sensor_name'], sensor_id)
 
-    async for inmsg in msg_queue:
+
+    #async for inmsg in msg_queue:
+    while True:
+        # @TODO: this isn't the best way to read from the queue, but
+        # it works and seems more stable. We were getting exceptions
+        # about an unfound key from the sensor_wrapper/curio/async
+        # upon restarting this function for an observation level
+        # change. In some cases we saw the sensor halt.
+
+        if msg_queue.empty():
+            await curio.sleep(0.1)
+            continue
+
+        # @TODO: locking shouldn't be necessary from this function,
+        # since it is the only consumer of msg_queue.
+        with msg_queue_lock:
+            inmsg = await msg_queue.get()
+
         msg_ct += 1
         if msg_ct % 1000 == 0:
             sensor_wrapper.logger.info("Handling event #%d", msg_ct)
 
         # Skip if external verbosity is lower than this event's?
-        if config is not None and config['prio'] < inmsg['prio']:
+        if config and config['prio'] < inmsg['prio']:
             continue
 
         sensor_wrapper.logger.debug("[%s] dequeued '%r' from msg_queue and relaying",
@@ -151,6 +171,9 @@ async def msg_consumer(message_stub, config=None, outqueue=None):
 
         if not standalone:
             await outqueue.put( out_str + "\n" )
+
+        msg_queue.task_done()
+
 
 def standalone_run_msg_consumer(sensor_name, sensor_id):
     stub = { 'sensor_id' : sensor_id,
@@ -236,9 +259,9 @@ class BccTool(object):
                 with msg_queue_lock:
                     await msg_queue.put(d)
 
-                err = await p.stderr.readall()
-                if err:
-                    sensor_wrapper.logger.error("Error output: %s", err.decode())
+            err = await p.stderr.readall()
+            if err:
+                sensor_wrapper.logger.error("Error output: %s", err.decode())
 
 
 def monitor_tools():
