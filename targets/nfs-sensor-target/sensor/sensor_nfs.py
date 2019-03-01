@@ -64,9 +64,12 @@ async def nfs3_sniff_iface(message_stub, config, message_queue):
 
     global sniff_sockets
 
+    enabled = config.get('enabled', True)
+
     iface = find_nfs_iface()
     print(" ::starting NFS sniffer")
     print("     using network interface {}".format( iface ) )
+    print("     enabled? {}".format( enabled ) )
 
     sock = conf.L2listen(type=ETH_P_ALL, iface=iface)
 
@@ -91,7 +94,7 @@ async def nfs3_sniff_iface(message_stub, config, message_queue):
 
             for sk, events in ready:
                 pkt = sk.fileobj.recv()
-                if not pkt:
+                if not pkt or not enabled:
                     continue
 
                 # There's a packet to process: receive it
