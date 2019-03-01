@@ -69,17 +69,20 @@ async def ps(message_stub, config, message_queue):
     while True:
 
         # run the command and get our output
-        p = subprocess.Popen(full_ps_command, stdout=subprocess.PIPE)
-        got_header = False
+        async with subprocess.Popen(full_ps_command, stdout=subprocess.PIPE) as p:
+            lines = list()
+            got_header = False
 
-        async for line in p.stdout:
+            async for line in p.stdout:
 
-            # skip the first line
-            if got_header is False:
-                # don't need this line
-                got_header = True
-                continue
+                # skip the first line
+                if got_header is False:
+                    # don't need this line
+                    got_header = True
+                    continue
+                lines.append(line)
 
+        for line in lines:
             # pull apart our line into something interesting. We want the
             # user, PID, and command for now. Our basic PS line looks like:
             #

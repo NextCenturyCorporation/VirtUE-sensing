@@ -184,13 +184,8 @@ class BccTool(object):
 
         self.cmd     = [ os.path.join(TOOLDIR, cmd), ]
         self.name    = name
-        self.prio   = prio
+        self.prio    = prio
         self.header  = None
-        self.proc    = None
-
-    def __del__(self):
-        if self.proc:
-            self.proc.terminate()
 
     def parseline(self, line):
         """
@@ -225,27 +220,25 @@ class BccTool(object):
         #print(" :: Running {}".format(cmd))
         logger.info("Running %s", cmd)
 
-        self.proc = curio.subprocess.Popen(cmd,
-                                           stdout=curio.subprocess.PIPE,
-                                           stderr=curio.subprocess.PIPE)
+        async with curio.subprocess.Popen(cmd,
+                                          stdout=curio.subprocess.PIPE,
+                                          stderr=curio.subprocess.PIPE) as p:
+            # TODO: kick off stderr reader
+            async for line in p.stdout:
+                d = self.parseline(line)
+                if not d:
+                    # don't report the header
+                    continue
 
-        self.stdout, self.stderr = self.proc.stdout, self.proc.stderr
+                logger.debug("[%s] enqueued '%r'", self.name, d)
 
-        # TODO: kick off stderr reader
-        async for line in self.stdout:
-            d = self.parseline(line)
-            if not d:
-                continue
+                # Hold thread-aware lock to protect thread-unaware Queue
+                with msg_queue_lock:
+                    await msg_queue.put(d)
 
-            logger.debug("[%s] enqueued '%r'", self.name, d)
-
-            # Hold thread-aware lock to protect thread-unaware Queue
-            with msg_queue_lock:
-                await msg_queue.put(d)
-
-        err = await self.stderr.readall()
-        if err:
-            sensor_wrapper.logger.error("Error output: %s", err.decode())
+                err = await p.stderr.readall()
+                if err:
+                    sensor_wrapper.logger.error("Error output: %s", err.decode())
 
 
 def monitor_tools():
