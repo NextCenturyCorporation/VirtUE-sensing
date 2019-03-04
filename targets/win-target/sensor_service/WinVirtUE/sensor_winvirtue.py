@@ -216,7 +216,13 @@ class sensor_winvirtue(object):
                     sensor_id, sensor_name)
             paramdict = self._load_config_data(sensor_name)  # load the configuration data
             logger.info("loaded config data for sensor %s", sensor_id)
-            paramdict["sensor_id"] = sensor_id  # artificially inject the sensor id
+            # artificially inject the sensor id
+            paramdict["sensor_id"] = sensor_id
+            # artificially inject the virtue id; the
+            # actual value will be pulled from the registry:
+            # \HKLM\SYTEM\CSS\WinVirUE Service\Environment should contain
+            # VIRTUE_ID=the_virtue_id
+            paramdict["virtue_id"] = None
             paramdict["sensor_hostname"] = None  # artificially inject the sensor hostname
             paramdict['check_for_long_blocking'] = True
 

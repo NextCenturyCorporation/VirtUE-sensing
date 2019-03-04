@@ -33,17 +33,20 @@ class WinVirtUE_service(win32serviceutil.ServiceFramework):
     Python service that retrieves message from the kernel driver and
     then converts it to json and sends it on its way to the api
     '''
-
+    # you can NET START/STOP the service by the following name
     _svc_name_ = "WinVirtUE Service"
+    # this text shows up as the service name in the Service
     _svc_display_name_ = "Windows Virtue Service"
+    # this text shows up as the description in the SCM
     _svc_description_ = "Windows Virtue Management Service"
+
     # This depends on the WinVirtUE driver service. Unfortunately a
     # bug (in win32serviceutil?) causes this string to be put in the
     # registry incorrectly, so we don't use it.
     #
     # Use instead: sc config "WinVirtUE Service" depend=WinVirtUE
     #_svc_deps_ = "WinVirtUE"
-    
+
     def __init__(self, args):
         '''
         construct an instance of the WinVirtUE service
@@ -104,7 +107,6 @@ def build_default_section_string(pkgbasedir):
     Build a default section. Exclude sensor_hostname, as we want
     sensor_wrapper's default behavior for that variable.
     '''
-    virtue_id = str(uuid4())
     delay_start = 5
     if "USERNAME" in os.environ:
         username = os.environ["USERNAME"]
@@ -113,17 +115,16 @@ def build_default_section_string(pkgbasedir):
     api_version='v1'
     default_section = '''
 [DEFAULT]
-base_dir = {0}
-config_dir = {1}
-log_dir = {2}
-cert_dir = {3}
-virtue_id = {4}
-delay_start = {5}
-username = {6}
-api_retry_max = {7}
-api_retry_wait = {8}
-api_version = {9}
-#sensor_hostname= {10} # excluded
+base_dir = {}
+config_dir = {}
+log_dir = {}
+cert_dir = {}
+delay_start = {}
+username = {}
+api_retry_max = {}
+api_retry_wait = {}
+api_version = {}
+#sensor_hostname= {} # excluded
 api_https_port = 17504
 api_http_port = 17141
 sensor_advertised_hostname = None
@@ -132,7 +133,7 @@ check_for_long_blocking = False
 backoff_delay = 30
     '''.format(pkgbasedir, os.path.join(pkgbasedir,"config"),
             os.path.join(pkgbasedir,"logs"), os.path.join(pkgbasedir,"certs"),
-            virtue_id, delay_start, username, api_retry_max, api_retry_wait,
+            delay_start, username, api_retry_max, api_retry_wait,
             api_version, socket.gethostname())
     return default_section
 
@@ -153,7 +154,6 @@ if __name__ in ('__main__', 'service_winvirtue'):
         or "config_dir" not in cfgparser["DEFAULT"]
         or "log_dir" not in cfgparser["DEFAULT"]
         or "cert_dir" not in cfgparser["DEFAULT"]
-        or "virtue_id" not in cfgparser["DEFAULT"]
         or "delay_start" not in cfgparser["DEFAULT"]
         or "username" not in cfgparser["DEFAULT"]
         or "api_retry_max" not in cfgparser["DEFAULT"]
