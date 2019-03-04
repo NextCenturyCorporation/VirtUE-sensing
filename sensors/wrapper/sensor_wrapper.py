@@ -1126,6 +1126,8 @@ class SensorWrapper(object):
         if self.opts.sensor_id is None:
             self.opts.sensor_id = str(uuid4())
 
+        logger.info("virtue_id: opts %r, env %r",
+                    self.opts.virtue_id, os.environ.get("VIRTUE_ID", "env_unset"))
         if self.opts.virtue_id is None:
             if "VIRTUE_ID" in os.environ:
                 self.opts.virtue_id = os.environ["VIRTUE_ID"]
