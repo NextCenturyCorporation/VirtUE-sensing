@@ -40,7 +40,6 @@ sudo apt-get update
 sudo apt-get install bcc-tools libbcc-examples linux-headers-$(uname -r)
 """
 
-
 import os
 import sys
 import subprocess
@@ -64,8 +63,7 @@ import threading
 standalone = os.getenv('STANDALONE')
 if not standalone:
     import sensor_wrapper
-#    logger = sensor_wrapper.logger
-#else:
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,26 +76,26 @@ TOOLDIR = '/usr/share/bcc/tools'
 # only events from tools with an equal/higher level than the API has
 # given the overall bcc sensor.
 
-PRIORITY_LEVEL_OFF         = 0 # message never emitted
-PRIORITY_LEVEL_LOW         = 1 # message emitted only at low level (i.e. low verbosity)
-PRIORITY_LEVEL_DEFAULT     = 2
-PRIORITY_LEVEL_HIGH        = 3
-PRIORITY_LEVEL_ADVERSARIAL = 4 # message emitted at all non-zero levels (i.e. high verbosity)
+VERBOSITY_LEVEL_OFF         = 0 # fewest messages: never emitted
+VERBOSITY_LEVEL_LOW         = 1 # few messages: emitted at low level verbosity, and higher
+VERBOSITY_LEVEL_DEFAULT     = 2
+VERBOSITY_LEVEL_HIGH        = 3
+VERBOSITY_LEVEL_ADVERSARIAL = 4 # most messages: emitted only at highest level (most messages)
 
 #          sensor-name         bcc-tool      verbosity
-TOOLS = [ ("bashreadline",     "bashreadline", PRIORITY_LEVEL_HIGH),
-          ("block-io",         "biosnoop",     PRIORITY_LEVEL_DEFAULT),
-          ("capability-check", "capable",      PRIORITY_LEVEL_DEFAULT),
-          ("dir-cache",        "dcsnoop",      PRIORITY_LEVEL_LOW),
-          ("exec",             "execsnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("kill",             "killsnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("open",             "opensnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("shared-mem",       "shmsnoop" ,    PRIORITY_LEVEL_HIGH),
-          ("tcp-listen",       "solisten",     PRIORITY_LEVEL_HIGH),
-          ("stat",             "statsnoop",    PRIORITY_LEVEL_LOW),
-          ("sync",             "syncsnoop",    PRIORITY_LEVEL_DEFAULT),
-          ("tcp-inbound",      "tcpaccept",    PRIORITY_LEVEL_HIGH),
-          ("tcp-outbound",     "tcpconnect",   PRIORITY_LEVEL_HIGH), ]
+TOOLS = [ ("bashreadline",     "bashreadline", VERBOSITY_LEVEL_DEFAULT),
+          ("block-io",         "biosnoop",     VERBOSITY_LEVEL_DEFAULT),
+          ("capability-check", "capable",      VERBOSITY_LEVEL_DEFAULT),
+          ("dir-cache",        "dcsnoop",      VERBOSITY_LEVEL_HIGH),
+          ("exec",             "execsnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("kill",             "killsnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("open",             "opensnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("shared-mem",       "shmsnoop" ,    VERBOSITY_LEVEL_DEFAULT),
+          ("tcp-listen",       "solisten",     VERBOSITY_LEVEL_LOW),
+          ("stat",             "statsnoop",    VERBOSITY_LEVEL_HIGH),
+          ("sync",             "syncsnoop",    VERBOSITY_LEVEL_DEFAULT),
+          ("tcp-inbound",      "tcpaccept",    VERBOSITY_LEVEL_LOW),
+          ("tcp-outbound",     "tcpconnect",   VERBOSITY_LEVEL_LOW), ]
 
 
 # JSON-compliant dicts are produced by the bcc tools and consumed by
@@ -118,10 +116,13 @@ async def dummy_wait():
     while True:
         await curio.sleep(5)
 
-async def msg_consumer(message_stub, config=None, outqueue=None):
+async def msg_consumer(message_stub, config={}, outqueue=None):
     """ Message consume that runs on behalf of every sensor """
 
     global msg_ct
+
+    print(" :: Starting BCC sensor")
+    print("     API set level at {}".format(config.get('prio', 'unset')))
 
     sensor_id   = message_stub['sensor_id']
     sensor_name = message_stub['sensor_name']
@@ -129,13 +130,30 @@ async def msg_consumer(message_stub, config=None, outqueue=None):
     sensor_wrapper.logger.info("Running msg_consumer() for sensor '%s', id '%s'",
                 message_stub['sensor_name'], sensor_id)
 
-    async for inmsg in msg_queue:
+
+    #async for inmsg in msg_queue:
+    while True:
+        # @TODO: this isn't the best way to read from the queue, but
+        # it works and seems more stable. We were getting exceptions
+        # about an unfound key from the sensor_wrapper/curio/async
+        # upon restarting this function for an observation level
+        # change. In some cases we saw the sensor halt.
+
+        if msg_queue.empty():
+            await curio.sleep(0.1)
+            continue
+
+        # @TODO: locking shouldn't be necessary from this function,
+        # since it is the only consumer of msg_queue.
+        with msg_queue_lock:
+            inmsg = await msg_queue.get()
+
         msg_ct += 1
         if msg_ct % 1000 == 0:
             sensor_wrapper.logger.info("Handling event #%d", msg_ct)
 
         # Skip if external verbosity is lower than this event's?
-        if config is not None and config['prio'] < inmsg['prio']:
+        if config and config['prio'] < inmsg['prio']:
             continue
 
         sensor_wrapper.logger.debug("[%s] dequeued '%r' from msg_queue and relaying",
@@ -153,6 +171,9 @@ async def msg_consumer(message_stub, config=None, outqueue=None):
 
         if not standalone:
             await outqueue.put( out_str + "\n" )
+
+        await msg_queue.task_done()
+
 
 def standalone_run_msg_consumer(sensor_name, sensor_id):
     stub = { 'sensor_id' : sensor_id,
@@ -186,13 +207,8 @@ class BccTool(object):
 
         self.cmd     = [ os.path.join(TOOLDIR, cmd), ]
         self.name    = name
-        self.prio   = prio
+        self.prio    = prio
         self.header  = None
-        self.proc    = None
-
-    def __del__(self):
-        if self.proc:
-            self.proc.terminate()
 
     def parseline(self, line):
         """
@@ -227,27 +243,25 @@ class BccTool(object):
         #print(" :: Running {}".format(cmd))
         logger.info("Running %s", cmd)
 
-        self.proc = curio.subprocess.Popen(cmd,
-                                           stdout=curio.subprocess.PIPE,
-                                           stderr=curio.subprocess.PIPE)
+        async with curio.subprocess.Popen(cmd,
+                                          stdout=curio.subprocess.PIPE,
+                                          stderr=curio.subprocess.PIPE) as p:
+            # TODO: kick off stderr reader
+            async for line in p.stdout:
+                d = self.parseline(line)
+                if not d:
+                    # don't report the header
+                    continue
 
-        self.stdout, self.stderr = self.proc.stdout, self.proc.stderr
+                logger.debug("[%s] enqueued '%r'", self.name, d)
 
-        # TODO: kick off stderr reader
-        async for line in self.stdout:
-            d = self.parseline(line)
-            if not d:
-                continue
+                # Hold thread-aware lock to protect thread-unaware Queue
+                with msg_queue_lock:
+                    await msg_queue.put(d)
 
-            logger.debug("[%s] enqueued '%r'", self.name, d)
-
-            # Hold thread-aware lock to protect thread-unaware Queue
-            with msg_queue_lock:
-                await msg_queue.put(d)
-
-        err = await self.stderr.readall()
-        if err:
-            sensor_wrapper.logger.error("Error output: %s", err.decode())
+            err = await p.stderr.readall()
+            if err:
+                sensor_wrapper.logger.error("Error output: %s", err.decode())
 
 
 def monitor_tools():

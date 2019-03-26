@@ -129,7 +129,7 @@ async def fetch_sensor_records(sensor):
 
 
 async def poll_sensors(message_stub = {}, config = {}, message_queue=None):
-    """ Message consume that constantly polls the kernel sensors """
+    """ Message consumer that constantly polls the kernel sensors """
 
     repeat_delay = config.get("repeat-interval", 15)
     print(" ::starting poll_sensors() for Linux kernel sensor relay")
@@ -146,7 +146,7 @@ async def poll_sensors(message_stub = {}, config = {}, message_queue=None):
 
                 if message_stub:
                     psp_logmsg.update(message_stub)
-                    await message_queue.put(json-dumps(psp_logmsg))
+                    await message_queue.put(json.dumps(psp_logmsg))
                 else:
                     logger.debug("Message: %r", r)
         await curio.sleep(repeat_delay)
@@ -192,5 +192,5 @@ if __name__ == '__main__':
     if standalone:
         curio.run(poll_sensors)
     else:
-        wrapper = sensor_wrapper.SensorWrapper( "linux-kernel", [poll_sensors,] )
+        wrapper = sensor_wrapper.SensorWrapper( "linux_kernel", [poll_sensors,] )
         wrapper.start()

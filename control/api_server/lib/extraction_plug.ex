@@ -371,8 +371,9 @@ defmodule ApiServer.ExtractionPlug do
   end
 
   # Is the given string a valid Virtue ID?
+  # Per NC, a Virtue ID could be a FQDN, so this check is quite permissive
   def is_virtue_id(st) do
-    is_uuid?(st)
+    String.match?(st, ~r/^[a-zA-Z0-9\.\-_]+$/)
   end
 
   # Is the given string a valid Application ID?

@@ -3,6 +3,7 @@ __VERSION__ = "1"
 
 from aiohttp import web, ClientSession
 from aiohttp.client_exceptions import ClientConnectionError, ClientPayloadError
+import urllib
 import argparse
 import asyncio
 import base64
@@ -4361,29 +4362,36 @@ async def api_monitor(opts):
         print("   ! status_code(%d): %s" % (res.status_code, http_code_to_message(res.status_code)))
 
 
-async def api_stream(opts):
+def api_stream_sync(opts):
     """
     Retrieve the JSONL stream from the server and print it out.
 
     :param opts:
     :return:
+
+    This functions synchronously for speed. A Python coroutine cannot
+    keep up with the data.
     """
+
+    secure = False
+    print("% virtue-security api_stream(): preferred method of streaming logs is")
+    print("%   curl http://sensing-api.savior.internal:17141/api/v1/sensors/all/stream")
 
     # build up our parameters
     since = since_datetime(opts.time_since)
     follow = opts.log_follow
     log_level = opts.log_level
 
-    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+    full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,), secure)
 
     if opts.all_sensors:
-        full_uri = construct_api_uri(opts, "/sensors/all/stream")
+        full_uri = construct_api_uri(opts, "/sensors/all/stream", secure)
 
     elif opts.var_username is not None:
-        full_uri = construct_api_uri(opts, "/user/%s/stream" % (opts.var_username,))
+        full_uri = construct_api_uri(opts, "/user/%s/stream" % (opts.var_username,), secure)
 
     elif opts.var_sensor is not None:
-        full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,))
+        full_uri = construct_api_uri(opts, "/sensor/%s/stream" % (opts.var_sensor,), secure)
 
     get_params = {
         "follow": str(follow),
@@ -4408,40 +4416,47 @@ async def api_stream(opts):
     print("% virtue-security api_stream(uri={})\n".format(full_uri))
 
     # spin up our request and start streaming
-    ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    ssl_context.load_verify_locations(cafile=opts.ca_key_path)
-    ssl_context.load_cert_chain(os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    if secure:
+        ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        ssl_context.load_verify_locations(cafile=opts.ca_key_path)
+        ssl_context.load_cert_chain(os.path.abspath(opts.public_key_path), os.path.abspath(opts.private_key_path))
+    else:
+        print("% virtue-security api_stream(): using insecure connection to API server")
+        ssl_context = None
 
-    async with ClientSession(read_timeout=None) as session:
-        async with session.get(full_uri, params=get_params, ssl_context=ssl_context) as response:
+    request = urllib.request.Request(full_uri, headers=get_params, method='GET')
 
-            # this is an async stream reader, so we pull in byte arrays
-            chunked_binary = b''
-            try:
-                while True:
-                    chunk = await response.content.read(1024)
-                    if not chunk:
-                        if len(chunked_binary) > 0:
-                            manage_stream_output(opts, chunked_binary.decode("utf-8"), logger)
-                        break
+    with urllib.request.urlopen(request, context=ssl_context) as response:
+        chunked_binary = b''
+        try:
+            while True:
+                chunk = response.read(16*1024)
+                if not chunk:
+                    if len(chunked_binary) > 0:
+                        manage_stream_output(opts, chunked_binary.decode("utf-8"), logger)
+                    break
 
-                    chunked_binary += chunk
+                chunked_binary += chunk
 
-                    # try and parse out a full line up to a newline
-                    msg, chunked_binary = extract_jsonl_line(chunked_binary)
+                # try and parse out a full line up to a newline
+                msg, chunked_binary = extract_jsonl_line(chunked_binary)
 
-                    # if we have a message, let's do something with it
-                    if msg is not None:
-                        manage_stream_output(opts, msg, logger)
+                # if we have a message, let's do something with it
+                if msg is not None:
+                    manage_stream_output(opts, msg, logger)
 
-            except ClientConnectionError as cce:
-                # print("caught aiohttp ClientConnectionError")
-                #
-                # We're eating this error because in certain circumstances
-                # the aiohttp library decides to throw an exception when
-                # the remote stream (in streaming situations) closes, rather
-                # than just EOF the stream reader. Because WFT.
-                print(cce)
+        except ClientConnectionError as cce:
+            # print("caught aiohttp ClientConnectionError")
+            #
+            # We're eating this error because in certain circumstances
+            # the aiohttp library decides to throw an exception when
+            # the remote stream (in streaming situations) closes, rather
+            # than just EOF the stream reader. Because WFT.
+            print(cce)
+
+
+async def api_stream(opts):
+    api_stream_sync(opts)
 
 
 def manage_stream_output(opts, stream_line, logger):

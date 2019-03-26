@@ -61,22 +61,24 @@ async def tcpdump(message_stub, config, message_queue):
 
     # just read from the subprocess and append to the log_message queue
     full_args = ["tcpdump"] + command_args
-    p = subprocess.Popen(full_args, stdout=subprocess.PIPE)
-    async for line in p.stdout:
 
-        # TODO: multi-line output from tcpdump not supported
-        
-        # build our log message
-        logmsg = {
-            "message": line.decode("utf-8"),
-            "timestamp": datetime.datetime.now().isoformat(),
-            "level": "info"
-        }
+    # streams data forever
+    async with subprocess.Popen(full_args, stdout=subprocess.PIPE) as p:
+        async for line in p.stdout:
+            # TODO: multi-line output from tcpdump not supported
 
-        # interpolate everything from our message stub
-        logmsg.update(message_stub)
+            # build our log message
+            logmsg = {
+                "message": line.decode("utf-8"),
+                "timestamp": datetime.datetime.now().isoformat(),
+                "level": "info"
+            }
 
-        await message_queue.put(json.dumps(logmsg))
+            # interpolate everything from our message stub
+            logmsg.update(message_stub)
+
+            await message_queue.put(json.dumps(logmsg))
+
 
 if __name__ == "__main__":
 

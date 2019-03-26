@@ -42,8 +42,8 @@ defmodule ApiServer.TargetingUtils do
 
     targeting =
       raw_targeting
-      |> rename_key("virtue", "virtue_id")
-      |> rename_key("sensor", "sensor_id")
+      |> rename_key(:virtue, :virtue_id)
+      |> rename_key(:sensor, :sensor_id)
 
 
     case ApiServer.Sensor.get_many(targeting) do
@@ -61,7 +61,7 @@ defmodule ApiServer.TargetingUtils do
       true ->
         v = Map.get(map, old_key)
         map
-        |> Map.drop(old_key)
+        |> Map.delete(old_key)
         |> Map.put(new_key, v)
       false ->
         map
