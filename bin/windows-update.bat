@@ -2,16 +2,13 @@
 @ECHO Configuring execution environment . . .
 SET WORKDIR=%SystemDrive%\app
 SET TEMP=%SystemDrive%\SaviorTemp
-SET PYTHONUNBUFFERED=0
-SET PYTHONVER=3.6.5
 SET POWERSHELL=powershell -NoProfile -ExecutionPolicy Bypass 
 SET WINVIRTUE=%SystemDrive%\WinVirtUE
+SET PYTHONVER=3.6.5
 
 MKDIR %WORKDIR%
 MKDIR %TEMP%
 MKDIR %WINVIRTUE%
-
-SET PATH=%SystemDrive%\Python%PYTHONVER%\Scripts;%SystemDrive%\Python%PYTHONVER%;%PATH%
 
 python -m pip install --upgrade pip
 
@@ -37,14 +34,12 @@ POPD
 
 RMDIR /Q /S %TEMP%
 
-SET PYTHONPATH=%SystemDrive%\
 copy /y c:\Python%PYTHONVER%\Lib\site-packages\pywin32_system32\pywintypes36.dll c:\Python%PYTHONVER%\lib\site-packages\win32
-
-PUSHD %SystemDrive%\
+PUSHD %WINVIRTUE%
 sc config WinVirtue start=auto
-python .\WinVirtUE\service_winvirtue.py --startup=auto install
+python %SystemDrive%\WinVirtUE\service_winvirtue.py --startup=auto install
 sc config "WinVirtUE Service" depend=WinVirtUE
-python .\WinVirtUE\service_winvirtue.py start
+python %SystemDrive%\WinVirtUE\service_winvirtue.py start
 sc failure "WinVirtUE Service" reset=1 actions=restart/100
 POPD
 
