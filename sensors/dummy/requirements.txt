@@ -17,5 +17,5 @@ requests==2.18.4
 Routes==2.4.1
 shellescape==3.4.1
 six==1.11.0
-urllib3==1.22
+urllib3==1.26.5
 yarl==0.16.0
