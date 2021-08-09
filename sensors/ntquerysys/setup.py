@@ -78,6 +78,6 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'pywin32==223',
+        'pywin32==301',
     ],  # Optional
 )
